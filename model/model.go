@@ -1,14 +1,14 @@
 package model
 
-type Filesytem struct {
+type Filesystem struct {
 	Name      string
-	Children  []Filesytem
+	Children  []Filesystem
 	Snapshots []Snapshot
 }
 
 type FilesytemMapping struct {
-	From Filesytem
-	To   Filesytem
+	From Filesystem
+	To   Filesystem
 }
 
 type Snapshot struct {
@@ -16,7 +16,7 @@ type Snapshot struct {
 }
 
 type Pool struct {
-	Root      Filesytem
+	Root Filesystem
 }
 
 type SSHTransport struct {
