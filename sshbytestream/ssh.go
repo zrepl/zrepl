@@ -80,7 +80,7 @@ func Outgoing(name string, remote model.SSHTransport) (conn io.ReadWriteCloser, 
 			io.Copy(&b, stderr)
 			fmt.Println(b.String())
 			fmt.Printf("%v\n", cmd.ProcessState)
-			panic(err)
+			//panic(err)
 		}
 	}()
 
