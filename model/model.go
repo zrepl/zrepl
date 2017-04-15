@@ -3,7 +3,7 @@ package model
 type Filesytem struct {
 	Name      string
 	Children  []Filesytem
-	Snapshots []Snaphot
+	Snapshots []Snapshot
 }
 
 type FilesytemMapping struct {
@@ -12,22 +12,17 @@ type FilesytemMapping struct {
 }
 
 type Snapshot struct {
-	Name String
+	Name string
 }
 
 type Pool struct {
-	Transport Transport
 	Root      Filesytem
-}
-
-type Transport interface {
-	Connect() Connection
 }
 
 type SSHTransport struct {
 	Host string
 	User string
 	Port uint16
+	TransportOpenCommand []string
+	Options []string
 }
-
-type LocalTransport struct{}
