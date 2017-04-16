@@ -9,6 +9,7 @@ const (
 	RTProtocolVersionRequest RequestType = 1
 	RTFilesystemRequest                  = 16
 	RTInitialTransferRequest             = 17
+	RTIncrementalTransferRequest 		 = 18
 )
 
 type RequestHeader struct {
@@ -55,7 +56,9 @@ const (
 type ResponseType uint8
 
 const (
-	ROK ResponseType = 0
+	ROK ResponseType = 1
+	RFilesystems     = 2
+	RChunkedStream   = 3
 )
 
 type ResponseHeader struct {

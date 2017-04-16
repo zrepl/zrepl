@@ -15,8 +15,8 @@ type Unchunker struct {
 	remainingChunkBytes uint32
 }
 
-func NewUnchunker(conn io.Reader) Unchunker {
-	return Unchunker{
+func NewUnchunker(conn io.Reader) *Unchunker {
+	return &Unchunker{
 			in: conn,
 			remainingChunkBytes: 0,
 	}
