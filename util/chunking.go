@@ -1,24 +1,24 @@
 package chunking
 
 import (
-	"io"
-	"encoding/binary"
 	"bytes"
+	"encoding/binary"
+	"io"
 )
 
-var ChunkBufSize uint32 = 32*1024
+var ChunkBufSize uint32 = 32 * 1024
 var ChunkHeaderByteOrder = binary.LittleEndian
 
 type Unchunker struct {
-	ChunkCount int
-	in 			io.Reader
+	ChunkCount          int
+	in                  io.Reader
 	remainingChunkBytes uint32
 }
 
 func NewUnchunker(conn io.Reader) *Unchunker {
 	return &Unchunker{
-			in: conn,
-			remainingChunkBytes: 0,
+		in:                  conn,
+		remainingChunkBytes: 0,
 	}
 }
 
@@ -51,7 +51,7 @@ func (c *Unchunker) Read(b []byte) (n int, err error) {
 	}
 
 	n, err = c.in.Read(b[0:maxRead])
-	if err != nil  {
+	if err != nil {
 		return n, err
 	}
 	c.remainingChunkBytes -= uint32(n)
@@ -69,11 +69,11 @@ func min(a, b int) int {
 }
 
 type Chunker struct {
-	ChunkCount int
-	in io.Reader
+	ChunkCount          int
+	in                  io.Reader
 	remainingChunkBytes int
-	payloadBuf []byte
-	headerBuf *bytes.Buffer
+	payloadBuf          []byte
+	headerBuf           *bytes.Buffer
 }
 
 func NewChunker(conn io.Reader) Chunker {
@@ -85,11 +85,10 @@ func NewChunkerSized(conn io.Reader, chunkSize uint32) Chunker {
 	buf := make([]byte, int(chunkSize)-binary.Size(chunkSize))
 
 	return Chunker{
-		in: conn,
+		in:                  conn,
 		remainingChunkBytes: 0,
-		payloadBuf: buf,
-		headerBuf: &bytes.Buffer{},
-
+		payloadBuf:          buf,
+		headerBuf:           &bytes.Buffer{},
 	}
 
 }
@@ -113,7 +112,7 @@ func (c *Chunker) Read(b []byte) (n int, err error) {
 
 		// Write chunk header
 		c.headerBuf.Reset()
-		nextChunkLen := uint32(newPayloadLen);
+		nextChunkLen := uint32(newPayloadLen)
 		headerLen := binary.Size(nextChunkLen)
 		err = binary.Write(c.headerBuf, ChunkHeaderByteOrder, nextChunkLen)
 		if err != nil {
@@ -128,5 +127,5 @@ func (c *Chunker) Read(b []byte) (n int, err error) {
 	n2 := copy(remainingBuf, c.payloadBuf[:c.remainingChunkBytes])
 	//fmt.Printf("chunker: written: %d\n", n+int(n2))
 	c.remainingChunkBytes -= n2
-	return n+int(n2), err
+	return n + int(n2), err
 }

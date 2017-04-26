@@ -1,13 +1,13 @@
 package sshbytestream
 
 import (
+	"bytes"
+	"context"
+	"fmt"
+	"github.com/zrepl/zrepl/model"
 	"io"
 	"os"
 	"os/exec"
-	"github.com/zrepl/zrepl/model"
-	"context"
-	"fmt"
-	"bytes"
 	"sync"
 )
 
@@ -28,7 +28,7 @@ func (f IncomingReadWriteCloser) Write(p []byte) (n int, err error) {
 	return os.Stdout.Write(p)
 }
 
-func (f IncomingReadWriteCloser)  Close() (err error) {
+func (f IncomingReadWriteCloser) Close() (err error) {
 	os.Exit(0)
 	return nil
 }
@@ -37,12 +37,12 @@ func Outgoing(name string, remote model.SSHTransport) (conn io.ReadWriteCloser, 
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	sshArgs := make([]string, 0, 2 * len(remote.Options) + len(remote.TransportOpenCommand) + 4)
+	sshArgs := make([]string, 0, 2*len(remote.Options)+len(remote.TransportOpenCommand)+4)
 	sshArgs = append(sshArgs,
 		"-p", fmt.Sprintf("%d", remote.Port),
 		"-o", "BatchMode=yes",
 	)
-	for _,option := range remote.Options {
+	for _, option := range remote.Options {
 		sshArgs = append(sshArgs, "-o", option)
 	}
 	sshArgs = append(sshArgs, fmt.Sprintf("%s@%s", remote.User, remote.Host))
@@ -57,16 +57,15 @@ func Outgoing(name string, remote model.SSHTransport) (conn io.ReadWriteCloser, 
 		return
 	}
 
-	if out,err = cmd.StdoutPipe(); err != nil {
+	if out, err = cmd.StdoutPipe(); err != nil {
 		return
 	}
 
-
 	f := ForkedSSHReadWriteCloser{
-		RemoteStdin: in,
-		RemoteStdout: out,
-		Cancel: cancel,
-		Command: cmd,
+		RemoteStdin:   in,
+		RemoteStdout:  out,
+		Cancel:        cancel,
+		Command:       cmd,
 		exitWaitGroup: &sync.WaitGroup{},
 	}
 
@@ -87,11 +86,11 @@ func Outgoing(name string, remote model.SSHTransport) (conn io.ReadWriteCloser, 
 	return f, nil
 }
 
-type  ForkedSSHReadWriteCloser struct {
-	RemoteStdin io.Writer
-	RemoteStdout io.Reader
-	Command *exec.Cmd
-	Cancel 	context.CancelFunc
+type ForkedSSHReadWriteCloser struct {
+	RemoteStdin   io.Writer
+	RemoteStdout  io.Reader
+	Command       *exec.Cmd
+	Cancel        context.CancelFunc
 	exitWaitGroup *sync.WaitGroup
 }
 
@@ -103,7 +102,7 @@ func (f ForkedSSHReadWriteCloser) Write(p []byte) (n int, err error) {
 	return f.RemoteStdin.Write(p)
 }
 
-func (f ForkedSSHReadWriteCloser)  Close() (err error) {
+func (f ForkedSSHReadWriteCloser) Close() (err error) {
 	f.Cancel()
 	f.exitWaitGroup.Wait()
 	return nil

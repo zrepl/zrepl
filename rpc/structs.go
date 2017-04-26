@@ -6,10 +6,10 @@ type RequestId [16]byte
 type RequestType uint8
 
 const (
-	RTProtocolVersionRequest RequestType = 1
-	RTFilesystemRequest                  = 16
-	RTInitialTransferRequest             = 17
-	RTIncrementalTransferRequest 		 = 18
+	RTProtocolVersionRequest     RequestType = 1
+	RTFilesystemRequest                      = 16
+	RTInitialTransferRequest                 = 17
+	RTIncrementalTransferRequest             = 18
 )
 
 type RequestHeader struct {
@@ -56,9 +56,9 @@ const (
 type ResponseType uint8
 
 const (
-	ROK ResponseType = 1
-	RFilesystems     = 2
-	RChunkedStream   = 3
+	ROK            ResponseType = 1
+	RFilesystems                = 2
+	RChunkedStream              = 3
 )
 
 type ResponseHeader struct {

@@ -1,18 +1,18 @@
 package main
 
 import (
-	"github.com/urfave/cli"
 	"errors"
 	"fmt"
-	"io"
-	"github.com/zrepl/zrepl/sshbytestream"
+	"github.com/urfave/cli"
 	"github.com/zrepl/zrepl/rpc"
+	"github.com/zrepl/zrepl/sshbytestream"
+	"io"
 )
 
 type Role uint
 
 const (
-	ROLE_IPC Role = iota
+	ROLE_IPC    Role = iota
 	ROLE_ACTION Role = iota
 )
 
@@ -29,7 +29,7 @@ func main() {
 	app.Flags = []cli.Flag{
 		cli.StringFlag{Name: "config"},
 	}
-	app.Before = func (c *cli.Context) (err error) {
+	app.Before = func(c *cli.Context) (err error) {
 		if !c.GlobalIsSet("config") {
 			return errors.New("config flag not set")
 		}
@@ -40,22 +40,22 @@ func main() {
 		return
 	}
 	app.Commands = []cli.Command{
-	{
-		Name:    "sink",
-		Aliases: []string{"s"},
-		Usage:   "start in sink mode",
-		Flags: []cli.Flag{
-			cli.StringFlag{Name: "identity"},
+		{
+			Name:    "sink",
+			Aliases: []string{"s"},
+			Usage:   "start in sink mode",
+			Flags: []cli.Flag{
+				cli.StringFlag{Name: "identity"},
+			},
+			Action: doSink,
 		},
-		Action: doSink,
-	},
-	{
-		Name: "run",
-		Aliases: []string{"r"},
-		Usage: "do replication",
-		Action: doRun,
-	},
-}
+		{
+			Name:    "run",
+			Aliases: []string{"r"},
+			Usage:   "do replication",
+			Action:  doRun,
+		},
+	}
 
 	app.RunAndExitOnError()
 

@@ -1,11 +1,11 @@
 package zfs
 
 import (
-	"errors"
-	"os/exec"
-	"io"
 	"bufio"
+	"errors"
 	"fmt"
+	"io"
+	"os/exec"
 )
 
 type DatasetMapping interface {
@@ -26,9 +26,8 @@ func (m GlobMapping) Map(source DatasetPath) (target DatasetPath, err error) {
 		return
 	}
 
-	target = make([]string, 0, len(source) + len(m.TargetRoot))
+	target = make([]string, 0, len(source)+len(m.TargetRoot))
 	target = append(target, m.TargetRoot...)
-
 
 	for si, sc := range source {
 		target = append(target, sc)
@@ -87,7 +86,7 @@ type ExecMapping struct {
 	Args []string
 }
 
-func NewExecMapping(name string, args... string) (m *ExecMapping) {
+func NewExecMapping(name string, args ...string) (m *ExecMapping) {
 	m = &ExecMapping{
 		Name: name,
 		Args: args,
@@ -99,7 +98,6 @@ func (m ExecMapping) Map(source DatasetPath) (target DatasetPath, err error) {
 
 	var stdin io.Writer
 	var stdout io.Reader
-
 
 	cmd := exec.Command(m.Name, m.Args...)
 
@@ -124,7 +122,7 @@ func (m ExecMapping) Map(source DatasetPath) (target DatasetPath, err error) {
 		}
 	}()
 
-	if _, err = io.WriteString(stdin, source.ToString() + "\n"); err != nil {
+	if _, err = io.WriteString(stdin, source.ToString()+"\n"); err != nil {
 		return
 	}
 
@@ -136,8 +134,8 @@ func (m ExecMapping) Map(source DatasetPath) (target DatasetPath, err error) {
 	t := resp.Text()
 
 	switch {
-		case t == "NOMAP":
-			return nil, NoMatchError
+	case t == "NOMAP":
+		return nil, NoMatchError
 	}
 
 	target = toDatasetPath(t) // TODO discover garbage?

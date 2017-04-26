@@ -1,8 +1,8 @@
 package zfs
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestZFSListHandlesProducesZFSErrorOnNonZeroExit(t *testing.T) {

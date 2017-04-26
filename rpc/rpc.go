@@ -2,12 +2,11 @@ package rpc
 
 import (
 	"encoding/json"
-	"io"
-
-	. "github.com/zrepl/zrepl/model"
-	. "github.com/zrepl/zrepl/util"
 	"errors"
 	"fmt"
+	. "github.com/zrepl/zrepl/model"
+	. "github.com/zrepl/zrepl/util"
+	"io"
 	"reflect"
 )
 
@@ -157,14 +156,14 @@ func respondWithError(conn io.Writer, id ErrorId, err error) error {
 func inferRequestType(v interface{}) (RequestType, error) {
 	switch v.(type) {
 	case ByteStreamRPCProtocolVersionRequest:
-			return RTProtocolVersionRequest, nil
+		return RTProtocolVersionRequest, nil
 	case FilesystemRequest:
-			return RTFilesystemRequest, nil
+		return RTFilesystemRequest, nil
 	case InitialTransferRequest:
-			return RTInitialTransferRequest, nil
+		return RTInitialTransferRequest, nil
 	default:
 		return 0, errors.New(fmt.Sprintf("cannot infer request type for type '%v'",
-							 			 reflect.TypeOf(v)))
+			reflect.TypeOf(v)))
 	}
 }
 
@@ -182,7 +181,7 @@ func (c ByteStreamRPC) sendRequest(v interface{}) (err error) {
 
 	h := RequestHeader{
 		Type: rt,
-		Id: genUUID(),
+		Id:   genUUID(),
 	}
 
 	if err = c.encoder.Encode(h); err != nil {

@@ -2,7 +2,7 @@ package model
 
 type Filesystem struct {
 	Name      string
-	Parent	  *Filesystem
+	Parent    *Filesystem
 	Children  []Filesystem
 	Snapshots []Snapshot
 }
@@ -21,9 +21,9 @@ type Pool struct {
 }
 
 type SSHTransport struct {
-	Host string
-	User string
-	Port uint16
+	Host                 string
+	User                 string
+	Port                 uint16
 	TransportOpenCommand []string
-	Options []string
+	Options              []string
 }

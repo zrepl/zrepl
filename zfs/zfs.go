@@ -1,14 +1,14 @@
 package zfs
 
 import (
-	"github.com/zrepl/zrepl/model"
-	"os/exec"
 	"bufio"
-	"strings"
 	"errors"
-	"io"
 	"fmt"
+	"github.com/zrepl/zrepl/model"
+	"io"
 	"io/ioutil"
+	"os/exec"
+	"strings"
 )
 
 func InitialSend(snapshot string) (io.Reader, error) {
@@ -62,9 +62,9 @@ func zfsList(root string, filter DatasetFilter) (datasets []DatasetPath, err err
 	const ZFS_LIST_FIELD_COUNT = 1
 
 	cmd := exec.Command(ZFS_BINARY, "list", "-H", "-r",
-						"-t", "filesystem,volume",
-						"-o", "name",
-						root)
+		"-t", "filesystem,volume",
+		"-o", "name",
+		root)
 
 	var stdout io.Reader
 	var stderr io.Reader
@@ -103,9 +103,9 @@ func zfsList(root string, filter DatasetFilter) (datasets []DatasetPath, err err
 
 	stderrOutput, err := ioutil.ReadAll(stderr)
 
-	if waitErr:= cmd.Wait(); waitErr != nil {
+	if waitErr := cmd.Wait(); waitErr != nil {
 		err := ZFSError{
-			Stderr: stderrOutput,
+			Stderr:  stderrOutput,
 			WaitErr: waitErr,
 		}
 		return nil, err

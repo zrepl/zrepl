@@ -1,29 +1,29 @@
 package main
 
 import (
-	yaml "gopkg.in/yaml.v2"
-	"io/ioutil"
+	"errors"
 	"github.com/mitchellh/mapstructure"
 	"github.com/zrepl/zrepl/zfs"
-	"errors"
+	yaml "gopkg.in/yaml.v2"
+	"io/ioutil"
 	"strings"
 )
 
 type Pool struct {
-	Name 	string
-	Url 	string
+	Name string
+	Url  string
 }
 type Push struct {
-	To 		 string
+	To       string
 	Datasets []zfs.DatasetPath
 }
 type Pull struct {
-	From     string
-	Mapping  zfs.DatasetMapping
+	From    string
+	Mapping zfs.DatasetMapping
 }
 type Sink struct {
-	From 	 string
-	Mapping  zfs.DatasetMapping
+	From    string
+	Mapping zfs.DatasetMapping
 }
 
 type Config struct {
@@ -74,8 +74,8 @@ func parsePools(v interface{}) (p []Pool, err error) {
 
 func parsePushs(v interface{}) (p []Push, err error) {
 
-	asList := make([]struct{
-		To 		 string
+	asList := make([]struct {
+		To       string
 		Datasets []string
 	}, 0)
 
@@ -87,7 +87,7 @@ func parsePushs(v interface{}) (p []Push, err error) {
 
 	for _, e := range asList {
 		push := Push{
-			To: e.To,
+			To:       e.To,
 			Datasets: make([]zfs.DatasetPath, len(e.Datasets)),
 		}
 
@@ -105,11 +105,10 @@ func parsePushs(v interface{}) (p []Push, err error) {
 
 func parsePulls(v interface{}) (p []Pull, err error) {
 
-	asList := make([]struct{
-		From 	string
+	asList := make([]struct {
+		From    string
 		Mapping map[string]string
 	}, 0)
-
 
 	if err = mapstructure.Decode(v, &asList); err != nil {
 		return
@@ -134,7 +133,7 @@ func parseSinks(v interface{}) (s []Sink, err error) {
 
 	var asList []interface{}
 	var ok bool
-	if asList, ok  = v.([]interface{}); !ok {
+	if asList, ok = v.([]interface{}); !ok {
 		return nil, errors.New("expected list")
 	}
 
@@ -153,7 +152,7 @@ func parseSinks(v interface{}) (s []Sink, err error) {
 
 func parseSink(v interface{}) (s Sink, err error) {
 	t := struct {
-		From string
+		From    string
 		Mapping map[string]string
 	}{}
 	if err = mapstructure.Decode(v, &t); err != nil {
@@ -169,7 +168,7 @@ func parseComboMapping(m map[string]string) (c zfs.ComboMapping, err error) {
 
 	c.Mappings = make([]zfs.DatasetMapping, len(m))
 
-	for lhs,rhs := range m {
+	for lhs, rhs := range m {
 
 		if lhs[0] == '|' {
 
@@ -178,7 +177,7 @@ func parseComboMapping(m map[string]string) (c zfs.ComboMapping, err error) {
 			}
 
 			m := zfs.DirectMapping{
-				 Source: nil,
+				Source: nil,
 			}
 
 			if m.Target, err = zfs.NewDatasetPath(rhs); err != nil {

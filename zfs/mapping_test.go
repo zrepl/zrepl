@@ -1,8 +1,8 @@
 package zfs
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
-  	"github.com/stretchr/testify/assert"
 )
 
 func TestGlobMapping(t *testing.T) {
@@ -40,7 +40,7 @@ func TestComboMapping(t *testing.T) {
 	}
 
 	c := ComboMapping{
-		Mappings: []DatasetMapping{m1,m2},
+		Mappings: []DatasetMapping{m1, m2},
 	}
 
 	var r DatasetPath
@@ -48,7 +48,7 @@ func TestComboMapping(t *testing.T) {
 
 	p := toDatasetPath("a/b/q")
 
-	r,err = m2.Map(p)
+	r, err = m2.Map(p)
 	assert.Equal(t, NoMatchError, err)
 
 	r, err = c.Map(p)

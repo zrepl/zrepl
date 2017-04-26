@@ -1,12 +1,13 @@
 package main
 
 import (
-	"io"
-	"github.com/zrepl/zrepl/zfs"
 	"github.com/zrepl/zrepl/model"
 	"github.com/zrepl/zrepl/rpc"
+	"github.com/zrepl/zrepl/zfs"
+	"io"
 )
-type Handler struct {}
+
+type Handler struct{}
 
 func (h Handler) HandleFilesystemRequest(r rpc.FilesystemRequest) (roots []model.Filesystem, err error) {
 

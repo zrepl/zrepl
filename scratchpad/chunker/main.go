@@ -1,17 +1,17 @@
 package main
 
 import (
+	"flag"
 	"github.com/zrepl/zrepl/model"
 	"github.com/zrepl/zrepl/sshbytestream"
 	"github.com/zrepl/zrepl/util"
-	"flag"
 	// "bytes"
 	_ "bufio"
 	// "strings"
-	"io"
 	"fmt"
-	_ "time"
+	"io"
 	"os"
+	_ "time"
 )
 
 func main() {
@@ -45,14 +45,13 @@ func main() {
 
 		fmt.Fprintf(os.Stderr, "Chunk Count: %d\n", chunker.ChunkCount)
 
-
 	case *mode == "outgoing":
 
 		conn, err := sshbytestream.Outgoing("client", model.SSHTransport{
-			Host: *outgoingHost,
-			User: *outgoingUser,
-			Port: uint16(*outgoingPort),
-			Options: []string{"Compression=no"},
+			Host:                 *outgoingHost,
+			User:                 *outgoingUser,
+			Port:                 uint16(*outgoingPort),
+			Options:              []string{"Compression=no"},
 			TransportOpenCommand: []string{"/tmp/sshwrap", "-mode", "incoming", "-incoming.file", "/random.img"},
 		})
 
@@ -72,7 +71,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Chunk Count: %d\n", unchunker.ChunkCount)
 
 		os.Exit(0)
-
 
 	default:
 		panic("unsupported mode!")
