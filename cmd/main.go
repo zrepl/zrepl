@@ -1,5 +1,14 @@
 package main
 
+import (
+	"github.com/urfave/cli"
+	"errors"
+	"fmt"
+	"io"
+	"github.com/zrepl/zrepl/sshbytestream"
+	"github.com/zrepl/zrepl/rpc"
+)
+
 type Role uint
 
 const (
@@ -7,67 +16,64 @@ const (
 	ROLE_ACTION Role = iota
 )
 
+var conf Config
+var handler Handler
+
 func main() {
 
-	role = ROLE_IPC // TODO: if argv[1] == ipc then...
-	switch (role) {
-	case ROLE_IPC:
-		doIPC()
-	case ROLE_ACTION:
-		doAction()
+	app := cli.NewApp()
+
+	app.Name = "zrepl"
+	app.Usage = "replicate zfs datasets"
+	app.EnableBashCompletion = true
+	app.Flags = []cli.Flag{
+		cli.StringFlag{Name: "config"},
 	}
-
-}
-
-func doIPC() {
-
-	sshByteStream = sshbytestream.Incoming()
-	handler = Handler{}
-	if err := ListenByteStreamRPC(sshByteStream, handler); err != nil {
-		// PANIC
-	}
-
-	// exit(0)
-
-}
-
-func doAction() {
-
-	sshByteStream = sshbytestream.Outgoing(model.SSHTransport{})
-
-	remote,_ := ConnectByteStreamRPC(sshByteStream)
-
-	request := NewFilesystemRequest(["zroot/var/db", "zroot/home"])
-	forest, _ := remote.FilesystemRequest(request)
-
-	for tree := forest {
-		fmt.Println(tree)
-	}
-
-}
-
-
-type Handler struct {}
-
-func (h Handler) HandleFilesystemRequest(r FilesystemRequest) (roots []model.Filesystem, err error) {
-
-	roots = make([]model.Filesystem, 0, 10)
-
-	for _, root := range r.Roots {
-		if zfsRoot, err := zfs.FilesystemsAtRoot(root); err != nil {
-			return nil, err
+	app.Before = func (c *cli.Context) (err error) {
+		if !c.GlobalIsSet("config") {
+			return errors.New("config flag not set")
 		}
-		roots = append(roots, zfsRoot)
+		if conf, err = ParseConfig(c.GlobalString("config")); err != nil {
+			return
+		}
+		handler = Handler{}
+		return
+	}
+	app.Commands = []cli.Command{
+	{
+		Name:    "sink",
+		Aliases: []string{"s"},
+		Usage:   "start in sink mode",
+		Flags: []cli.Flag{
+			cli.StringFlag{Name: "identity"},
+		},
+		Action: doSink,
+	},
+	{
+		Name: "run",
+		Aliases: []string{"r"},
+		Usage: "do replication",
+		Action: doRun,
+	},
+}
+
+	app.RunAndExitOnError()
+
+}
+
+func doSink(c *cli.Context) (err error) {
+
+	var sshByteStream io.ReadWriteCloser
+	if sshByteStream, err = sshbytestream.Incoming(); err != nil {
+		return
 	}
 
-	return
+	return rpc.ListenByteStreamRPC(sshByteStream, handler)
 }
 
-func (h Handler) HandleInitialTransferRequest(r InitialTransferRequest) (io.Read, error) {
-	// TODO ACL
-	return zfs.InitialSend(r.Snapshot)
-}
-func (h Handler) HandleIncrementalTransferRequestRequest(r IncrementalTransferRequest) (io.Read, error) {
-	// TODO ACL
-	return zfs.IncrementalSend(r.FromSnapshot, r.ToSnapshot)
+func doRun(c *cli.Context) error {
+
+	fmt.Printf("%#v", conf)
+
+	return nil
 }
