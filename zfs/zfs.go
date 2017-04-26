@@ -35,6 +35,11 @@ func (p DatasetPath) ToString() string {
 	return strings.Join(p, "/")
 }
 
+func NewDatasetPath(s string) (p DatasetPath, err error) {
+	// TODO validation
+	return toDatasetPath(s), nil
+}
+
 func toDatasetPath(s string) DatasetPath {
 	return strings.Split(s, "/")
 }

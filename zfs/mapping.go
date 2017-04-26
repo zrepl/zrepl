@@ -64,6 +64,11 @@ type DirectMapping struct {
 }
 
 func (m DirectMapping) Map(source DatasetPath) (target DatasetPath, err error) {
+
+	if m.Source == nil {
+		return m.Target, nil
+	}
+
 	if len(m.Source) != len(source) {
 		return nil, NoMatchError
 	}
