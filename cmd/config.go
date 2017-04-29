@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"github.com/mitchellh/mapstructure"
 	"github.com/zrepl/zrepl/zfs"
 	yaml "gopkg.in/yaml.v2"
@@ -14,11 +15,11 @@ type Pool struct {
 	Url  string
 }
 type Push struct {
-	To       string
+	To       *Pool
 	Datasets []zfs.DatasetPath
 }
 type Pull struct {
-	From    string
+	From    *Pool
 	Mapping zfs.DatasetMapping
 }
 type Sink struct {
@@ -54,10 +55,20 @@ func parseMain(root map[string]interface{}) (c Config, err error) {
 	if c.Pools, err = parsePools(root["pools"]); err != nil {
 		return
 	}
-	if c.Pushs, err = parsePushs(root["pushs"]); err != nil {
+
+	poolLookup := func(name string) (*Pool, error) {
+		for _, pool := range c.Pools {
+			if pool.Name == name {
+				return &pool, nil
+			}
+		}
+		return nil, errors.New(fmt.Sprintf("pool '%s' not defined", name))
+	}
+
+	if c.Pushs, err = parsePushs(root["pushs"], poolLookup); err != nil {
 		return
 	}
-	if c.Pulls, err = parsePulls(root["pulls"]); err != nil {
+	if c.Pulls, err = parsePulls(root["pulls"], poolLookup); err != nil {
 		return
 	}
 	if c.Sinks, err = parseSinks(root["sinks"]); err != nil {
@@ -72,7 +83,9 @@ func parsePools(v interface{}) (p []Pool, err error) {
 	return
 }
 
-func parsePushs(v interface{}) (p []Push, err error) {
+type poolLookup func(name string) (*Pool, error)
+
+func parsePushs(v interface{}, pl poolLookup) (p []Push, err error) {
 
 	asList := make([]struct {
 		To       string
@@ -86,8 +99,13 @@ func parsePushs(v interface{}) (p []Push, err error) {
 	p = make([]Push, len(asList))
 
 	for i, e := range asList {
+
+		var toPool *Pool
+		if toPool, err = pl(e.To); err != nil {
+			return
+		}
 		push := Push{
-			To:       e.To,
+			To:       toPool,
 			Datasets: make([]zfs.DatasetPath, len(e.Datasets)),
 		}
 
@@ -103,7 +121,7 @@ func parsePushs(v interface{}) (p []Push, err error) {
 	return
 }
 
-func parsePulls(v interface{}) (p []Pull, err error) {
+func parsePulls(v interface{}, pl poolLookup) (p []Pull, err error) {
 
 	asList := make([]struct {
 		From    string
@@ -117,8 +135,13 @@ func parsePulls(v interface{}) (p []Pull, err error) {
 	p = make([]Pull, len(asList))
 
 	for i, e := range asList {
+
+		var fromPool *Pool
+		if fromPool, err = pl(e.From); err != nil {
+			return
+		}
 		pull := Pull{
-			From: e.From,
+			From: fromPool,
 		}
 		if pull.Mapping, err = parseComboMapping(e.Mapping); err != nil {
 			return
