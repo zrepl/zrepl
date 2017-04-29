@@ -4,12 +4,19 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/zrepl/zrepl/model"
 	"io"
 	"os"
 	"os/exec"
 	"sync"
 )
+
+type SSHTransport struct {
+	Host                 string
+	User                 string
+	Port                 uint16
+	TransportOpenCommand []string
+	Options              []string
+}
 
 var SSHCommand string = "ssh"
 
@@ -33,7 +40,7 @@ func (f IncomingReadWriteCloser) Close() (err error) {
 	return nil
 }
 
-func Outgoing(name string, remote model.SSHTransport) (conn io.ReadWriteCloser, err error) {
+func Outgoing(remote SSHTransport) (conn io.ReadWriteCloser, err error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 

@@ -19,11 +19,3 @@ type Snapshot struct {
 type Pool struct {
 	Root Filesystem
 }
-
-type SSHTransport struct {
-	Host                 string
-	User                 string
-	Port                 uint16
-	TransportOpenCommand []string
-	Options              []string
-}
