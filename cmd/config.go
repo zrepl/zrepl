@@ -85,7 +85,7 @@ func parsePushs(v interface{}) (p []Push, err error) {
 
 	p = make([]Push, len(asList))
 
-	for _, e := range asList {
+	for i, e := range asList {
 		push := Push{
 			To:       e.To,
 			Datasets: make([]zfs.DatasetPath, len(e.Datasets)),
@@ -97,7 +97,7 @@ func parsePushs(v interface{}) (p []Push, err error) {
 			}
 		}
 
-		p = append(p, push)
+		p[i] = push
 	}
 
 	return
@@ -116,20 +116,20 @@ func parsePulls(v interface{}) (p []Pull, err error) {
 
 	p = make([]Pull, len(asList))
 
-	for _, e := range asList {
+	for i, e := range asList {
 		pull := Pull{
 			From: e.From,
 		}
 		if pull.Mapping, err = parseComboMapping(e.Mapping); err != nil {
 			return
 		}
-		p = append(p, pull)
+		p[i] = pull
 	}
 
 	return
 }
 
-func parseSinks(v interface{}) (s []Sink, err error) {
+func parseSinks(v interface{}) (sinks []Sink, err error) {
 
 	var asList []interface{}
 	var ok bool
@@ -137,14 +137,14 @@ func parseSinks(v interface{}) (s []Sink, err error) {
 		return nil, errors.New("expected list")
 	}
 
-	s = make([]Sink, len(asList))
+	sinks = make([]Sink, len(asList))
 
-	for _, i := range asList {
+	for i, s := range asList {
 		var sink Sink
-		if sink, err = parseSink(i); err != nil {
+		if sink, err = parseSink(s); err != nil {
 			return
 		}
-		s = append(s, sink)
+		sinks[i] = sink
 	}
 
 	return
