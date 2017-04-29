@@ -3,17 +3,37 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/jinzhu/copier"
 	"github.com/mitchellh/mapstructure"
+	"github.com/zrepl/zrepl/rpc"
+	"github.com/zrepl/zrepl/sshbytestream"
 	"github.com/zrepl/zrepl/zfs"
 	yaml "gopkg.in/yaml.v2"
+	"io"
 	"io/ioutil"
 	"strings"
 )
 
 type Pool struct {
-	Name string
-	Url  string
+	Name      string
+	Transport Transport
 }
+
+type Transport interface {
+	Connect() (rpc.RPCRequester, error)
+}
+type LocalTransport struct {
+	Pool string
+}
+type SSHTransport struct {
+	ZreplIdentity        string
+	Host                 string
+	User                 string
+	Port                 uint16
+	TransportOpenCommand []string
+	Options              []string
+}
+
 type Push struct {
 	To       *Pool
 	Datasets []zfs.DatasetPath
@@ -77,10 +97,61 @@ func parseMain(root map[string]interface{}) (c Config, err error) {
 	return
 }
 
-func parsePools(v interface{}) (p []Pool, err error) {
-	p = make([]Pool, 0)
-	err = mapstructure.Decode(v, &p)
+func parsePools(v interface{}) (pools []Pool, err error) {
+
+	asList := make([]struct {
+		Name      string
+		Transport map[string]interface{}
+	}, 0)
+	if err = mapstructure.Decode(v, &asList); err != nil {
+		return
+	}
+
+	pools = make([]Pool, len(asList))
+	for i, p := range asList {
+		var transport Transport
+		if transport, err = parseTransport(p.Transport); err != nil {
+			return
+		}
+		pools[i] = Pool{
+			Name:      p.Name,
+			Transport: transport,
+		}
+	}
+
 	return
+}
+
+func parseTransport(it map[string]interface{}) (t Transport, err error) {
+
+	if len(it) != 1 {
+		err = errors.New("ambiguous transport type")
+		return
+	}
+
+	for key, val := range it {
+		switch key {
+		case "ssh":
+			t := SSHTransport{}
+			if err = mapstructure.Decode(val, &t); err != nil {
+				err = errors.New(fmt.Sprintf("could not parse ssh transport: %s", err))
+				return nil, err
+			}
+			return t, nil
+		case "local":
+			t := LocalTransport{}
+			if err = mapstructure.Decode(val, &t); err != nil {
+				err = errors.New(fmt.Sprintf("could not parse local transport: %s", err))
+				return nil, err
+			}
+			return t, nil
+		default:
+			return nil, errors.New(fmt.Sprintf("unknown transport type '%s'\n", key))
+		}
+	}
+
+	return // unreachable
+
 }
 
 type poolLookup func(name string) (*Pool, error)
@@ -243,4 +314,19 @@ func parseComboMapping(m map[string]string) (c zfs.ComboMapping, err error) {
 
 	return
 
+}
+
+func (t SSHTransport) Connect() (r rpc.RPCRequester, err error) {
+	var stream io.ReadWriteCloser
+	var rpcTransport sshbytestream.SSHTransport
+	copier.Copy(rpcTransport, t)
+	if stream, err = sshbytestream.Outgoing(rpcTransport); err != nil {
+		return
+	}
+	return rpc.ConnectByteStreamRPC(stream)
+}
+
+func (t LocalTransport) Connect() (r rpc.RPCRequester, err error) {
+	// TODO ugly hidden global variable reference
+	return rpc.ConnectLocalRPC(handler), nil
 }

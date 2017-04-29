@@ -1,9 +1,18 @@
 pools:
   - name: offsite_backups
-    url: ssh://db2@backups1/db2/
-  - name:
+    transport:
+      ssh:
+        zrepl_identity: db2
+        host: backups1.example.com
+        user: root
+        port: 22
+        command: ssh
+        args: []
+
   - name: local_mirror
-    url: local://mirrorpool/mirrors/tank
+    transport:
+      local:
+        pool: mirrorpool
 
 pushs:
   - to: offsite_backups
@@ -11,14 +20,15 @@ pushs:
       - tank/var/db
       - tank/usr/home
 
-  - to: local_mirror
-    datasets:
-      - tank
-
 pulls:
-  - from: offsite
+  - from: offsite_backups
     mapping: {
       # like in sinks
+    }
+
+  - from: local_mirror
+    mapping: {
+      "tank/usr/home":"mirrorpool/foo/bar"
     }
 
 sinks:
