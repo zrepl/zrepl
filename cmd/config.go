@@ -45,16 +45,17 @@ type Pull struct {
 	From    *Pool
 	Mapping zfs.DatasetMapping
 }
-type Sink struct {
+type ClientMapping struct {
 	From    string
 	Mapping zfs.DatasetMapping
 }
 
 type Config struct {
-	Pools []Pool
-	Pushs []Push
-	Pulls []Pull
-	Sinks []Sink
+	Pools    []Pool
+	Pushs    []Push
+	Pulls    []Pull
+	Sinks    []ClientMapping
+	PullACLs []ClientMapping
 }
 
 func ParseConfig(path string) (config Config, err error) {
@@ -94,7 +95,10 @@ func parseMain(root map[string]interface{}) (c Config, err error) {
 	if c.Pulls, err = parsePulls(root["pulls"], poolLookup); err != nil {
 		return
 	}
-	if c.Sinks, err = parseSinks(root["sinks"]); err != nil {
+	if c.Sinks, err = parseClientMappings(root["sinks"]); err != nil {
+		return
+	}
+	if c.PullACLs, err = parseClientMappings(root["pull_acls"]); err != nil {
 		return
 	}
 	return
@@ -112,6 +116,12 @@ func parsePools(v interface{}) (pools []Pool, err error) {
 
 	pools = make([]Pool, len(asList))
 	for i, p := range asList {
+
+		if p.Name == LOCAL_TRANSPORT_IDENTITY {
+			err = errors.New(fmt.Sprintf("pool name '%s' reserved for local pulls", LOCAL_TRANSPORT_IDENTITY))
+			return
+		}
+
 		var transport Transport
 		if transport, err = parseTransport(p.Transport); err != nil {
 			return
@@ -227,28 +237,34 @@ func parsePulls(v interface{}, pl poolLookup) (p []Pull, err error) {
 	return
 }
 
-func parseSinks(v interface{}) (sinks []Sink, err error) {
-
-	var asList []interface{}
+func expectList(v interface{}) (asList []interface{}, err error) {
 	var ok bool
 	if asList, ok = v.([]interface{}); !ok {
-		return nil, errors.New("expected list")
+		err = errors.New("expected list")
 	}
-
-	sinks = make([]Sink, len(asList))
-
-	for i, s := range asList {
-		var sink Sink
-		if sink, err = parseSink(s); err != nil {
-			return
-		}
-		sinks[i] = sink
-	}
-
 	return
 }
 
-func parseSink(v interface{}) (s Sink, err error) {
+func parseClientMappings(v interface{}) (cm []ClientMapping, err error) {
+
+	var asList []interface{}
+	if asList, err = expectList(v); err != nil {
+		return
+	}
+
+	cm = make([]ClientMapping, len(asList))
+
+	for i, e := range asList {
+		var m ClientMapping
+		if m, err = parseClientMapping(e); err != nil {
+			return
+		}
+		cm[i] = m
+	}
+	return
+}
+
+func parseClientMapping(v interface{}) (s ClientMapping, err error) {
 	t := struct {
 		From    string
 		Mapping map[string]string

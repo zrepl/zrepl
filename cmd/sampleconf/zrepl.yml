@@ -2,17 +2,10 @@ pools:
   - name: offsite_backups
     transport:
       ssh:
-        zrepl_identity: db2
-        host: backups1.example.com
+        host: 192.168.122.6
         user: root
         port: 22
-        command: ssh
-        args: []
-
-  - name: local_mirror
-    transport:
-      local:
-        pool: mirrorpool
+        identity_file: /etc/zrepl/identities/offsite_backups
 
 pushs:
   - to: offsite_backups
@@ -26,7 +19,9 @@ pulls:
       # like in sinks
     }
 
-  - from: local_mirror
+  # local replication, only allowed in pull mode
+  # the from name 'local' is reserved for this purpose
+  - from: local
     mapping: {
       "tank/usr/home":"mirrorpool/foo/bar"
     }
@@ -78,4 +73,11 @@ sinks:
       "sun/var/db":   backups/special_snowflake/database,
       "*":            backups/special_snowflake/remainingbackup
       # NOTE:         ^ alignment, should be possible, looks nicer
+    }
+
+pull_acls:
+  # same synatx as in sinks, but the returned mapping does not matter
+  - from: office_backup
+    mapping: {
+      "tank/usr/home":"notnull"
     }
