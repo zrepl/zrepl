@@ -14,6 +14,8 @@ import (
 	"strings"
 )
 
+const LOCAL_TRANSPORT_IDENTITY string = "local"
+
 type Pool struct {
 	Name      string
 	Transport Transport
@@ -23,14 +25,15 @@ type Transport interface {
 	Connect() (rpc.RPCRequester, error)
 }
 type LocalTransport struct {
-	Pool string
+	Handler rpc.RPCHandler
 }
 type SSHTransport struct {
-	ZreplIdentity        string
 	Host                 string
 	User                 string
 	Port                 uint16
-	TransportOpenCommand []string
+	IdentityFile         string   `mapstructure:"identity_file"`
+	TransportOpenCommand []string `mapstructure:"transport_open_command"`
+	SSHCommand           string   `mapstructure:"ssh_command"`
 	Options              []string
 }
 
@@ -138,13 +141,6 @@ func parseTransport(it map[string]interface{}) (t Transport, err error) {
 				return nil, err
 			}
 			return t, nil
-		case "local":
-			t := LocalTransport{}
-			if err = mapstructure.Decode(val, &t); err != nil {
-				err = errors.New(fmt.Sprintf("could not parse local transport: %s", err))
-				return nil, err
-			}
-			return t, nil
 		default:
 			return nil, errors.New(fmt.Sprintf("unknown transport type '%s'\n", key))
 		}
@@ -208,8 +204,16 @@ func parsePulls(v interface{}, pl poolLookup) (p []Pull, err error) {
 	for i, e := range asList {
 
 		var fromPool *Pool
-		if fromPool, err = pl(e.From); err != nil {
-			return
+
+		if e.From == LOCAL_TRANSPORT_IDENTITY {
+			fromPool = &Pool{
+				Name:      "local",
+				Transport: LocalTransport{},
+			}
+		} else {
+			if fromPool, err = pl(e.From); err != nil {
+				return
+			}
 		}
 		pull := Pull{
 			From: fromPool,
@@ -319,7 +323,9 @@ func parseComboMapping(m map[string]string) (c zfs.ComboMapping, err error) {
 func (t SSHTransport) Connect() (r rpc.RPCRequester, err error) {
 	var stream io.ReadWriteCloser
 	var rpcTransport sshbytestream.SSHTransport
-	copier.Copy(rpcTransport, t)
+	if err = copier.Copy(&rpcTransport, t); err != nil {
+		return
+	}
 	if stream, err = sshbytestream.Outgoing(rpcTransport); err != nil {
 		return
 	}
@@ -327,6 +333,12 @@ func (t SSHTransport) Connect() (r rpc.RPCRequester, err error) {
 }
 
 func (t LocalTransport) Connect() (r rpc.RPCRequester, err error) {
-	// TODO ugly hidden global variable reference
-	return rpc.ConnectLocalRPC(handler), nil
+	if t.Handler == nil {
+		panic("local transport with uninitialized handler")
+	}
+	return rpc.ConnectLocalRPC(t.Handler), nil
+}
+
+func (t *LocalTransport) SetHandler(handler rpc.RPCHandler) {
+	t.Handler = handler
 }

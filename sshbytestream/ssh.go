@@ -11,11 +11,12 @@ import (
 )
 
 type SSHTransport struct {
-	Host                 string
-	User                 string
-	Port                 uint16
-	TransportOpenCommand []string
-	Options              []string
+	Host         string
+	User         string
+	Port         uint16
+	IdentityFile string
+	SSHCommand   string
+	Options      []string
 }
 
 var SSHCommand string = "ssh"
@@ -44,27 +45,39 @@ func Outgoing(remote SSHTransport) (conn io.ReadWriteCloser, err error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	sshArgs := make([]string, 0, 2*len(remote.Options)+len(remote.TransportOpenCommand)+4)
+	sshArgs := make([]string, 0, 2*len(remote.Options)+4)
 	sshArgs = append(sshArgs,
 		"-p", fmt.Sprintf("%d", remote.Port),
+		"-q",
+		"-i", remote.IdentityFile,
 		"-o", "BatchMode=yes",
 	)
 	for _, option := range remote.Options {
 		sshArgs = append(sshArgs, "-o", option)
 	}
 	sshArgs = append(sshArgs, fmt.Sprintf("%s@%s", remote.User, remote.Host))
-	sshArgs = append(sshArgs, remote.TransportOpenCommand...)
 
-	cmd := exec.CommandContext(ctx, SSHCommand, sshArgs...)
+	var sshCommand = SSHCommand
+	if len(remote.SSHCommand) > 0 {
+		sshCommand = SSHCommand
+	}
+	cmd := exec.CommandContext(ctx, sshCommand, sshArgs...)
+
+	// Clear environment of cmd
+	cmd.Env = []string{}
 
 	var in io.WriteCloser
 	var out io.ReadCloser
+	var stderr io.Reader
 
 	if in, err = cmd.StdinPipe(); err != nil {
 		return
 	}
 
 	if out, err = cmd.StdoutPipe(); err != nil {
+		return
+	}
+	if stderr, err = cmd.StderrPipe(); err != nil {
 		return
 	}
 
@@ -77,16 +90,19 @@ func Outgoing(remote SSHTransport) (conn io.ReadWriteCloser, err error) {
 	}
 
 	f.exitWaitGroup.Add(1)
+	if err = cmd.Start(); err != nil {
+		return
+	}
 
 	go func() {
 		defer f.exitWaitGroup.Done()
-		stderr, _ := cmd.StderrPipe()
 		var b bytes.Buffer
-		if err := cmd.Run(); err != nil {
-			io.Copy(&b, stderr)
-			fmt.Println(b.String())
-			fmt.Printf("%v\n", cmd.ProcessState)
-			//panic(err)
+		if _, err := io.Copy(&b, stderr); err != nil {
+			panic(err)
+		}
+		if err := cmd.Wait(); err != nil {
+			fmt.Fprintf(os.Stderr, "ssh command exited with error: %v. Stderr:\n%s\n", cmd.ProcessState, b)
+			//panic(err) TODO
 		}
 	}()
 
