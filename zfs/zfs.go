@@ -35,7 +35,16 @@ func (p DatasetPath) ToString() string {
 	return strings.Join(p, "/")
 }
 
+func (p DatasetPath) Empty() bool {
+	return len(p) == 0
+}
+
+var EmptyDatasetPath DatasetPath = []string{}
+
 func NewDatasetPath(s string) (p DatasetPath, err error) {
+	if s == "" {
+		return EmptyDatasetPath, nil // the empty dataset path
+	}
 	// TODO validation
 	return toDatasetPath(s), nil
 }
@@ -60,11 +69,17 @@ var ZFS_BINARY string = "zfs"
 func zfsList(root string, filter DatasetFilter) (datasets []DatasetPath, err error) {
 
 	const ZFS_LIST_FIELD_COUNT = 1
-
-	cmd := exec.Command(ZFS_BINARY, "list", "-H", "-r",
+	args := make([]string, 0, 10)
+	args = append(args,
+		"list", "-H", "-r",
 		"-t", "filesystem,volume",
-		"-o", "name",
-		root)
+		"-o", "name")
+
+	if len(root) > 0 {
+		args = append(args, root)
+	}
+
+	cmd := exec.Command(ZFS_BINARY, args...)
 
 	var stdout io.Reader
 	var stderr io.Reader

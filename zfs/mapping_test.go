@@ -27,6 +27,20 @@ func TestGlobMapping(t *testing.T) {
 
 }
 
+func TestGlobMappingWildcard(t *testing.T) {
+	m := GlobMapping{
+		PrefixPath: EmptyDatasetPath,
+		TargetRoot: toDatasetPath("backups/share1"),
+	}
+
+	var r DatasetPath
+	var err error
+	r, err = m.Map(toDatasetPath("tank/usr/home"))
+
+	assert.Equal(t, toDatasetPath("backups/share1/tank/usr/home"), r)
+	assert.NoError(t, err)
+}
+
 func TestComboMapping(t *testing.T) {
 
 	m1 := GlobMapping{
