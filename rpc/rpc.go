@@ -245,7 +245,7 @@ func (c ByteStreamRPC) FilesystemRequest(r FilesystemRequest) (roots []Filesyste
 
 	roots = make([]Filesystem, 0)
 
-	if err = c.decoder.Decode(roots); err != nil {
+	if err = c.decoder.Decode(&roots); err != nil {
 		return
 	}
 
