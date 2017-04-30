@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"github.com/zrepl/zrepl/model"
 	"github.com/zrepl/zrepl/sshbytestream"
 	"github.com/zrepl/zrepl/util"
 	// "bytes"
@@ -20,7 +19,9 @@ func main() {
 	incomingFile := flag.String("incoming.file", "", "file to deliver to callers")
 	outgoingHost := flag.String("outgoing.sshHost", "", "ssh host")
 	outgoingUser := flag.String("outgoing.sshUser", "", "ssh user")
+	outgoingIdentity := flag.String("outgoing.sshIdentity", "", "ssh private key")
 	outgoingPort := flag.Uint("outgoing.sshPort", 22, "ssh port")
+	outgoingFile := flag.String("outgoing.File", "", "")
 	flag.Parse()
 
 	switch {
@@ -47,21 +48,24 @@ func main() {
 
 	case *mode == "outgoing":
 
-		conn, err := sshbytestream.Outgoing("client", model.SSHTransport{
-			Host:                 *outgoingHost,
-			User:                 *outgoingUser,
-			Port:                 uint16(*outgoingPort),
-			Options:              []string{"Compression=no"},
-			TransportOpenCommand: []string{"/tmp/sshwrap", "-mode", "incoming", "-incoming.file", "/random.img"},
+		conn, err := sshbytestream.Outgoing(sshbytestream.SSHTransport{
+			Host:         *outgoingHost,
+			User:         *outgoingUser,
+			IdentityFile: *outgoingIdentity,
+			Port:         uint16(*outgoingPort),
 		})
+		if err != nil {
+			panic(err)
+		}
 
+		f, err := os.OpenFile(*outgoingFile, os.O_WRONLY, 0600)
 		if err != nil {
 			panic(err)
 		}
 
 		unchunker := chunking.NewUnchunker(conn)
 
-		_, err = io.Copy(os.Stdout, &unchunker)
+		_, err = io.Copy(f, unchunker)
 		if err != nil {
 			panic(err)
 		}
