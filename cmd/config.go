@@ -225,6 +225,7 @@ func parsePulls(v interface{}, pl poolLookup) (p []Pull, err error) {
 				return
 			}
 		}
+
 		pull := Pull{
 			From: fromPool,
 		}
@@ -280,11 +281,11 @@ func parseClientMapping(v interface{}) (s ClientMapping, err error) {
 
 func parseComboMapping(m map[string]string) (c zfs.ComboMapping, err error) {
 
-	c.Mappings = make([]zfs.DatasetMapping, len(m))
+	c.Mappings = make([]zfs.DatasetMapping, 0, len(m))
 
 	for lhs, rhs := range m {
 
-		if lhs[0] == '|' {
+		if lhs == "|" {
 
 			if len(m) != 1 {
 				err = errors.New("non-recursive mapping must be the only mapping for a sink")
@@ -300,7 +301,7 @@ func parseComboMapping(m map[string]string) (c zfs.ComboMapping, err error) {
 
 			c.Mappings = append(c.Mappings, m)
 
-		} else if lhs[0] == '*' {
+		} else if lhs == "*" && strings.HasPrefix(rhs, "!") {
 
 			m := zfs.ExecMapping{}
 			fields := strings.Fields(strings.TrimPrefix(rhs, "!"))
