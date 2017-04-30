@@ -64,7 +64,7 @@ func ListenByteStreamRPC(conn io.ReadWriteCloser, handler RPCHandler) error {
 
 		var header RequestHeader = RequestHeader{}
 		if err := decoder.Decode(&header); err != nil {
-			respondWithError(conn, EDecodeHeader, err)
+			respondWithError(encoder, EDecodeHeader, err)
 			conn.Close()
 			return err
 		}
@@ -73,12 +73,12 @@ func ListenByteStreamRPC(conn io.ReadWriteCloser, handler RPCHandler) error {
 		case RTProtocolVersionRequest:
 			var rq ByteStreamRPCProtocolVersionRequest
 			if err := decoder.Decode(&rq); err != nil {
-				respondWithError(conn, EDecodeRequestBody, nil)
+				respondWithError(encoder, EDecodeRequestBody, nil)
 				conn.Close()
 			}
 
 			if rq.ClientVersion != ByteStreamRPCProtocolVersion {
-				respondWithError(conn, EProtocolVersionMismatch, nil)
+				respondWithError(encoder, EProtocolVersionMismatch, nil)
 				conn.Close()
 			}
 
@@ -92,13 +92,13 @@ func ListenByteStreamRPC(conn io.ReadWriteCloser, handler RPCHandler) error {
 		case RTFilesystemRequest:
 			var rq FilesystemRequest
 			if err := decoder.Decode(&rq); err != nil {
-				respondWithError(conn, EDecodeRequestBody, nil)
+				respondWithError(encoder, EDecodeRequestBody, nil)
 				conn.Close()
 			}
 
 			roots, err := handler.HandleFilesystemRequest(rq)
 			if err != nil {
-				respondWithError(conn, EHandler, err)
+				respondWithError(encoder, EHandler, err)
 			} else {
 				if err := encoder.Encode(&roots); err != nil {
 					return err
@@ -108,12 +108,12 @@ func ListenByteStreamRPC(conn io.ReadWriteCloser, handler RPCHandler) error {
 		case RTInitialTransferRequest:
 			var rq InitialTransferRequest
 			if err := decoder.Decode(&rq); err != nil {
-				respondWithError(conn, EDecodeRequestBody, nil)
+				respondWithError(encoder, EDecodeRequestBody, nil)
 			}
 
 			snapReader, err := handler.HandleInitialTransferRequest(rq)
 			if err != nil {
-				respondWithError(conn, EHandler, err)
+				respondWithError(encoder, EHandler, err)
 			} else {
 				chunker := NewChunker(snapReader)
 				_, err := io.Copy(conn, &chunker)
@@ -126,12 +126,12 @@ func ListenByteStreamRPC(conn io.ReadWriteCloser, handler RPCHandler) error {
 
 			var rq IncrementalTransferRequest
 			if err := decoder.Decode(&rq); err != nil {
-				respondWithError(conn, EDecodeRequestBody, nil)
+				respondWithError(encoder, EDecodeRequestBody, nil)
 			}
 
 			snapReader, err := handler.HandleIncrementalTransferRequest(rq)
 			if err != nil {
-				respondWithError(conn, EHandler, err)
+				respondWithError(encoder, EHandler, err)
 			} else {
 				chunker := NewChunker(snapReader)
 				_, err := io.Copy(conn, &chunker)
@@ -141,7 +141,7 @@ func ListenByteStreamRPC(conn io.ReadWriteCloser, handler RPCHandler) error {
 			}
 
 		default:
-			respondWithError(conn, EUnknownRequestType, nil)
+			respondWithError(encoder, EUnknownRequestType, nil)
 			conn.Close()
 		}
 	}
@@ -149,8 +149,17 @@ func ListenByteStreamRPC(conn io.ReadWriteCloser, handler RPCHandler) error {
 	return nil
 }
 
-func respondWithError(conn io.Writer, id ErrorId, err error) error {
-	return nil
+func respondWithError(encoder *json.Encoder, id ErrorId, err error) {
+
+	r := ResponseHeader{
+		ErrorId:      id,
+		ResponseType: RNONE,
+		Message:      err.Error(),
+	}
+	if err := encoder.Encode(&r); err != nil {
+		panic(err)
+	}
+
 }
 
 func inferRequestType(v interface{}) (RequestType, error) {

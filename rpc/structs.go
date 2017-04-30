@@ -56,7 +56,8 @@ const (
 type ResponseType uint8
 
 const (
-	ROK            ResponseType = 1
+	RNONE          ResponseType = 0
+	ROK                         = 1
 	RFilesystems                = 2
 	RChunkedStream              = 3
 )
