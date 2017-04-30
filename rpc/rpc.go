@@ -104,6 +104,13 @@ func ListenByteStreamRPC(conn io.ReadWriteCloser, handler RPCHandler) error {
 				respondWithError(encoder, EHandler, err)
 				return conn.Close()
 			} else {
+				r := ResponseHeader{
+					RequestId:    header.Id,
+					ResponseType: RFilesystems,
+				}
+				if err := encoder.Encode(&r); err != nil {
+					panic(err)
+				}
 				if err := encoder.Encode(&roots); err != nil {
 					panic(err)
 				}
