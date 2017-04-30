@@ -10,24 +10,27 @@ type Job struct {
 	Name      string
 	RunFunc   func() (err error)
 	LastStart time.Time
+	LastError error
 	Interval  time.Duration
 	Repeats   bool
 }
 
 type JobRunner struct {
-	newJobChan      chan Job
-	finishedJobChan chan Job
-	scheduleTimer   <-chan time.Time
-	pending         map[string]Job
-	running         map[string]Job
+	notificationChan chan Job
+	newJobChan       chan Job
+	finishedJobChan  chan Job
+	scheduleTimer    <-chan time.Time
+	pending          map[string]Job
+	running          map[string]Job
 }
 
 func NewJobRunner() *JobRunner {
 	return &JobRunner{
-		newJobChan:      make(chan Job),
-		finishedJobChan: make(chan Job),
-		pending:         make(map[string]Job),
-		running:         make(map[string]Job),
+		notificationChan: make(chan Job),
+		newJobChan:       make(chan Job),
+		finishedJobChan:  make(chan Job),
+		pending:          make(map[string]Job),
+		running:          make(map[string]Job),
 	}
 }
 
@@ -37,6 +40,10 @@ func (r *JobRunner) AddJobChan() chan<- Job {
 
 func (r *JobRunner) AddJob(j Job) {
 	r.newJobChan <- j
+}
+
+func (r *JobRunner) NotificationChan() <-chan Job {
+	return r.notificationChan
 }
 
 func (r *JobRunner) Start() {
@@ -104,7 +111,8 @@ loop:
 
 		go func(job Job) {
 			if err := job.RunFunc(); err != nil {
-				panic(fmt.Sprintf("%#v", err)) // TODO better policy, store in job + notification channel?
+				job.LastError = err
+				r.notificationChan <- job
 			}
 			r.finishedJobChan <- job
 		}(job)
