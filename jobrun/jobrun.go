@@ -2,6 +2,7 @@ package jobrun
 
 import (
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -58,9 +59,9 @@ loop:
 
 		runTime := time.Since(finishedJob.LastStart)
 
-		fmt.Printf("[%s] finished after %v\n", finishedJob.Name, runTime)
+		fmt.Fprintf(os.Stderr, "[%s] finished after %v\n", finishedJob.Name, runTime)
 		if runTime > finishedJob.Interval {
-			fmt.Printf("[%s] WARN: job exceeded interval of %v\n", finishedJob.Name, finishedJob.Interval)
+			fmt.Fprintf(os.Stderr, "[%s] WARN: job exceeded interval of %v\n", finishedJob.Name, finishedJob.Interval)
 		}
 
 		delete(r.running, finishedJob.Name)
@@ -102,7 +103,9 @@ loop:
 		job.LastStart = now
 
 		go func(job Job) {
-			job.RunFunc()
+			if err := job.RunFunc(); err != nil {
+				panic(fmt.Sprintf("%#v", err)) // TODO better policy, store in job + notification channel?
+			}
 			r.finishedJobChan <- job
 		}(job)
 
@@ -110,7 +113,7 @@ loop:
 
 	if jobPending || len(r.running) > 0 {
 		nextJobDue = nextJobDue.Add(time.Second).Round(time.Second)
-		fmt.Printf("jobrun: waiting until %v\n", nextJobDue)
+		fmt.Fprintf(os.Stderr, "jobrun: waiting until %v\n", nextJobDue)
 		r.scheduleTimer = time.After(nextJobDue.Sub(now))
 		goto loop
 	}
