@@ -45,7 +45,10 @@ func NewDatasetPath(s string) (p DatasetPath, err error) {
 	if s == "" {
 		return EmptyDatasetPath, nil // the empty dataset path
 	}
-	// TODO validation
+	const FORBIDDEN = "@#|\t "
+	if strings.ContainsAny(s, FORBIDDEN) { // TODO space may be a bit too restrictive...
+		return nil, errors.New(fmt.Sprintf("path '%s' contains forbidden characters (any of '%s')", s, FORBIDDEN))
+	}
 	return toDatasetPath(s), nil
 }
 
