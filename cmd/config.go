@@ -285,23 +285,7 @@ func parseComboMapping(m map[string]string) (c zfs.ComboMapping, err error) {
 
 	for lhs, rhs := range m {
 
-		if lhs == "|" {
-
-			if len(m) != 1 {
-				err = errors.New("non-recursive mapping must be the only mapping for a sink")
-			}
-
-			m := zfs.DirectMapping{
-				Source: nil,
-			}
-
-			if m.Target, err = zfs.NewDatasetPath(rhs); err != nil {
-				return
-			}
-
-			c.Mappings = append(c.Mappings, m)
-
-		} else if lhs == "*" && strings.HasPrefix(rhs, "!") {
+		if lhs == "*" && strings.HasPrefix(rhs, "!") {
 
 			m := zfs.ExecMapping{}
 			fields := strings.Fields(strings.TrimPrefix(rhs, "!"))
@@ -324,6 +308,24 @@ func parseComboMapping(m map[string]string) (c zfs.ComboMapping, err error) {
 			}
 
 			if m.TargetRoot, err = zfs.NewDatasetPath(rhs); err != nil {
+				return
+			}
+
+			c.Mappings = append(c.Mappings, m)
+
+		} else {
+
+			m := zfs.DirectMapping{}
+
+			if lhs == "|" {
+				m.Source = nil
+			} else {
+				if m.Source, err = zfs.NewDatasetPath(lhs); err != nil {
+					return
+				}
+			}
+
+			if m.Target, err = zfs.NewDatasetPath(rhs); err != nil {
 				return
 			}
 
