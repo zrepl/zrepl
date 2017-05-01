@@ -10,9 +10,7 @@ func TestZFSListHandlesProducesZFSErrorOnNonZeroExit(t *testing.T) {
 
 	ZFS_BINARY = "./test_helpers/zfs_failer.sh"
 
-	_, err = zfsList("nonexistent/dataset", func(p DatasetPath) bool {
-		return true
-	})
+	_, err = ZFSList([]string{"fictionalprop"}, "nonexistent/dataset")
 
 	assert.Error(t, err)
 	zfsError, ok := err.(ZFSError)

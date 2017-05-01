@@ -2,11 +2,10 @@ package zfs
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
-	"github.com/zrepl/zrepl/model"
 	"io"
-	"io/ioutil"
 	"os/exec"
 	"strings"
 )
@@ -17,16 +16,6 @@ func InitialSend(snapshot string) (io.Reader, error) {
 
 func IncrementalSend(from, to string) (io.Reader, error) {
 	return nil, nil
-}
-
-func FilesystemsAtRoot(root string) (fs model.Filesystem, err error) {
-
-	_, _ = zfsList("zroot", func(path DatasetPath) bool {
-		return true
-	})
-
-	return
-
 }
 
 type DatasetPath []string
@@ -49,11 +38,15 @@ func NewDatasetPath(s string) (p DatasetPath, err error) {
 	if strings.ContainsAny(s, FORBIDDEN) { // TODO space may be a bit too restrictive...
 		return nil, errors.New(fmt.Sprintf("path '%s' contains forbidden characters (any of '%s')", s, FORBIDDEN))
 	}
-	return toDatasetPath(s), nil
+	return strings.Split(s, "/"), nil
 }
 
 func toDatasetPath(s string) DatasetPath {
-	return strings.Split(s, "/")
+	p, err := NewDatasetPath(s)
+	if err != nil {
+		panic(err)
+	}
+	return p
 }
 
 type DatasetFilter func(path DatasetPath) bool
@@ -69,29 +62,21 @@ func (e ZFSError) Error() string {
 
 var ZFS_BINARY string = "zfs"
 
-func zfsList(root string, filter DatasetFilter) (datasets []DatasetPath, err error) {
+func ZFSList(properties []string, zfsArgs ...string) (res [][]string, err error) {
 
-	const ZFS_LIST_FIELD_COUNT = 1
-	args := make([]string, 0, 10)
+	args := make([]string, 0, 4+len(zfsArgs))
 	args = append(args,
-		"list", "-H", "-r",
-		"-t", "filesystem,volume",
-		"-o", "name")
-
-	if len(root) > 0 {
-		args = append(args, root)
-	}
+		"list", "-H",
+		"-o", strings.Join(properties, ","))
+	args = append(args, zfsArgs...)
 
 	cmd := exec.Command(ZFS_BINARY, args...)
 
 	var stdout io.Reader
-	var stderr io.Reader
+	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
+	cmd.Stderr = stderr
 
 	if stdout, err = cmd.StdoutPipe(); err != nil {
-		return
-	}
-
-	if stderr, err = cmd.StderrPipe(); err != nil {
 		return
 	}
 
@@ -103,32 +88,25 @@ func zfsList(root string, filter DatasetFilter) (datasets []DatasetPath, err err
 	buf := make([]byte, 1024)
 	s.Buffer(buf, 0)
 
-	datasets = make([]DatasetPath, 0)
+	res = make([][]string, 0)
 
 	for s.Scan() {
-		fields := strings.SplitN(s.Text(), "\t", ZFS_LIST_FIELD_COUNT)
-		if len(fields) != ZFS_LIST_FIELD_COUNT {
+		fields := strings.SplitN(s.Text(), "\t", len(properties))
+
+		if len(fields) != len(properties) {
 			err = errors.New("unexpected output")
 			return
 		}
 
-		dp := toDatasetPath(fields[0])
-
-		if filter(dp) {
-			datasets = append(datasets, dp)
-		}
+		res = append(res, fields)
 	}
-
-	stderrOutput, err := ioutil.ReadAll(stderr)
 
 	if waitErr := cmd.Wait(); waitErr != nil {
 		err := ZFSError{
-			Stderr:  stderrOutput,
+			Stderr:  stderr.Bytes(),
 			WaitErr: waitErr,
 		}
 		return nil, err
 	}
-
 	return
-
 }

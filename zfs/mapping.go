@@ -12,6 +12,38 @@ type DatasetMapping interface {
 	Map(source DatasetPath) (target DatasetPath, err error)
 }
 
+func ZFSListMapping(mapping DatasetMapping) (datasets []DatasetPath, err error) {
+
+	if mapping == nil {
+		panic("mapping must not be nil")
+	}
+
+	var lines [][]string
+	lines, err = ZFSList([]string{"name"}, "-r", "-t", "filesystem,volume")
+
+	datasets = make([]DatasetPath, len(lines))
+
+	for i, line := range lines {
+
+		var path DatasetPath
+		if path, err = NewDatasetPath(line[0]); err != nil {
+			return
+		}
+
+		_, mapErr := mapping.Map(path)
+		if mapErr != nil && err != NoMatchError {
+			return nil, err
+		}
+
+		if mapErr == nil {
+			datasets[i] = path
+		}
+
+	}
+
+	return
+}
+
 type GlobMapping struct {
 	PrefixPath DatasetPath
 	TargetRoot DatasetPath
@@ -118,7 +150,8 @@ func (m ExecMapping) Map(source DatasetPath) (target DatasetPath, err error) {
 	go func() {
 		err := cmd.Wait()
 		if err != nil {
-			fmt.Printf("error: %v\n", err) // TODO
+			panic(err)
+			// fmt.Printf("error: %v\n", err) // TODO
 		}
 	}()
 
