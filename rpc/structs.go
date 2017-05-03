@@ -19,8 +19,16 @@ type RequestHeader struct {
 	Id   [16]byte // UUID
 }
 
+type Direction string
+
+const (
+	DirectionPush Direction = "push"
+	DirectionPull Direction = "pull"
+)
+
 type FilesystemRequest struct {
-	Roots []string
+	Roots     []string // may be nil, indicating interest in all filesystems
+	Direction Direction
 }
 
 type FilesystemVersionsRequest struct {
