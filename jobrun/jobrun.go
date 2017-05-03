@@ -1,10 +1,12 @@
 package jobrun
 
 import (
-	"fmt"
-	"os"
 	"time"
 )
+
+type Logger interface {
+	Printf(format string, v ...interface{})
+}
 
 type Job struct {
 	Name      string
@@ -16,6 +18,7 @@ type Job struct {
 }
 
 type JobRunner struct {
+	logger           Logger
 	notificationChan chan Job
 	newJobChan       chan Job
 	finishedJobChan  chan Job
@@ -24,8 +27,9 @@ type JobRunner struct {
 	running          map[string]Job
 }
 
-func NewJobRunner() *JobRunner {
+func NewJobRunner(logger Logger) *JobRunner {
 	return &JobRunner{
+		logger:           logger,
 		notificationChan: make(chan Job),
 		newJobChan:       make(chan Job),
 		finishedJobChan:  make(chan Job),
@@ -66,9 +70,9 @@ loop:
 
 		runTime := time.Since(finishedJob.LastStart)
 
-		fmt.Fprintf(os.Stderr, "[%s] finished after %v\n", finishedJob.Name, runTime)
+		r.logger.Printf("[%s] finished after %v\n", finishedJob.Name, runTime)
 		if runTime > finishedJob.Interval {
-			fmt.Fprintf(os.Stderr, "[%s] WARN: job exceeded interval of %v\n", finishedJob.Name, finishedJob.Interval)
+			r.logger.Printf("[%s] job exceeded interval of %v\n", finishedJob.Name, finishedJob.Interval)
 		}
 
 		delete(r.running, finishedJob.Name)
@@ -121,7 +125,7 @@ loop:
 
 	if jobPending || len(r.running) > 0 {
 		nextJobDue = nextJobDue.Add(time.Second).Round(time.Second)
-		fmt.Fprintf(os.Stderr, "jobrun: waiting until %v\n", nextJobDue)
+		r.logger.Printf("waiting until %v\n", nextJobDue)
 		r.scheduleTimer = time.After(nextJobDue.Sub(now))
 		goto loop
 	}

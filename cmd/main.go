@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/urfave/cli"
 	"github.com/zrepl/zrepl/jobrun"
+	"log"
+	"os"
 	"sync"
 	"time"
 )
@@ -30,7 +32,8 @@ func main() {
 			return
 		}
 
-		runner = jobrun.NewJobRunner()
+		jobrunLogger := log.New(os.Stderr, "jobrun: ", log.LUTC|log.Ldate|log.Ltime)
+		runner = jobrun.NewJobRunner(jobrunLogger)
 		return
 	}
 	app.Commands = []cli.Command{
