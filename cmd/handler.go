@@ -6,7 +6,10 @@ import (
 	"io"
 )
 
-type Handler struct{}
+type Handler struct {
+	PushMapping zfs.DatasetMapping
+	PullMapping zfs.DatasetMapping
+}
 
 func (h Handler) HandleFilesystemRequest(r rpc.FilesystemRequest) (roots []zfs.DatasetPath, err error) {
 	return

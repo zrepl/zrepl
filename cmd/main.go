@@ -5,22 +5,11 @@ import (
 	"fmt"
 	"github.com/urfave/cli"
 	"github.com/zrepl/zrepl/jobrun"
-	"github.com/zrepl/zrepl/rpc"
-	"github.com/zrepl/zrepl/sshbytestream"
-	"io"
 	"sync"
 	"time"
 )
 
-type Role uint
-
-const (
-	ROLE_IPC    Role = iota
-	ROLE_ACTION Role = iota
-)
-
 var conf Config
-var handler Handler
 var runner *jobrun.JobRunner
 
 func main() {
@@ -40,7 +29,6 @@ func main() {
 		if conf, err = ParseConfig(c.GlobalString("config")); err != nil {
 			return
 		}
-		handler = Handler{}
 
 		runner = jobrun.NewJobRunner()
 		return
@@ -68,13 +56,7 @@ func main() {
 }
 
 func doSink(c *cli.Context) (err error) {
-
-	var sshByteStream io.ReadWriteCloser
-	if sshByteStream, err = sshbytestream.Incoming(); err != nil {
-		return
-	}
-
-	return rpc.ListenByteStreamRPC(sshByteStream, handler)
+	return
 }
 
 func doRun(c *cli.Context) error {
