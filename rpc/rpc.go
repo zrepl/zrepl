@@ -6,18 +6,24 @@ import (
 	"fmt"
 	. "github.com/zrepl/zrepl/model"
 	. "github.com/zrepl/zrepl/util"
+	"github.com/zrepl/zrepl/zfs"
 	"io"
 	"reflect"
 )
 
 type RPCRequester interface {
 	FilesystemRequest(r FilesystemRequest) (roots []Filesystem, err error)
+	FilesystemVersionsRequest(r FilesystemVersionsRequest) (versions []zfs.FilesystemVersion, err error)
 	InitialTransferRequest(r InitialTransferRequest) (io.Reader, error)
 	IncrementalTransferRequest(r IncrementalTransferRequest) (io.Reader, error)
 }
 
 type RPCHandler interface {
 	HandleFilesystemRequest(r FilesystemRequest) (roots []Filesystem, err error)
+
+	// returned versions ordered by birthtime, oldest first
+	HandleFilesystemVersionsRequest(r FilesystemVersionsRequest) (versions []zfs.FilesystemVersion, err error)
+
 	HandleInitialTransferRequest(r InitialTransferRequest) (io.Reader, error)
 	HandleIncrementalTransferRequest(r IncrementalTransferRequest) (io.Reader, error)
 }
@@ -116,6 +122,31 @@ func ListenByteStreamRPC(conn io.ReadWriteCloser, handler RPCHandler) error {
 				}
 			}
 
+		case RTFilesystemVersionsRequest:
+
+			var rq FilesystemVersionsRequest
+			if err := decoder.Decode(&rq); err != nil {
+				respondWithError(encoder, EDecodeRequestBody, err)
+				return err
+			}
+
+			diff, err := handler.HandleFilesystemVersionsRequest(rq)
+			if err != nil {
+				respondWithError(encoder, EHandler, err)
+				return err
+			} else {
+				r := ResponseHeader{
+					RequestId:    header.Id,
+					ResponseType: RFilesystemDiff,
+				}
+				if err := encoder.Encode(&r); err != nil {
+					panic(err)
+				}
+				if err := encoder.Encode(&diff); err != nil {
+					panic(err)
+				}
+			}
+
 		case RTInitialTransferRequest:
 			var rq InitialTransferRequest
 			if err := decoder.Decode(&rq); err != nil {
@@ -182,6 +213,8 @@ func inferRequestType(v interface{}) (RequestType, error) {
 		return RTProtocolVersionRequest, nil
 	case FilesystemRequest:
 		return RTFilesystemRequest, nil
+	case FilesystemVersionsRequest:
+		return RTFilesystemVersionsRequest, nil
 	case InitialTransferRequest:
 		return RTInitialTransferRequest, nil
 	default:
@@ -266,6 +299,16 @@ func (c ByteStreamRPC) FilesystemRequest(r FilesystemRequest) (roots []Filesyste
 	return
 }
 
+func (c ByteStreamRPC) FilesystemVersionsRequest(r FilesystemVersionsRequest) (versions []zfs.FilesystemVersion, err error) {
+
+	if err = c.sendRequestReceiveHeader(r, RFilesystemDiff); err != nil {
+		return
+	}
+
+	err = c.decoder.Decode(&versions)
+	return
+}
+
 func (c ByteStreamRPC) InitialTransferRequest(r InitialTransferRequest) (unchunker io.Reader, err error) {
 
 	if err = c.sendRequestReceiveHeader(r, RChunkedStream); err != nil {
@@ -293,6 +336,10 @@ func ConnectLocalRPC(handler RPCHandler) RPCRequester {
 
 func (c LocalRPC) FilesystemRequest(r FilesystemRequest) (roots []Filesystem, err error) {
 	return c.handler.HandleFilesystemRequest(r)
+}
+
+func (c LocalRPC) FilesystemVersionsRequest(r FilesystemVersionsRequest) (versions []zfs.FilesystemVersion, err error) {
+	return c.handler.HandleFilesystemVersionsRequest(r)
 }
 
 func (c LocalRPC) InitialTransferRequest(r InitialTransferRequest) (io.Reader, error) {

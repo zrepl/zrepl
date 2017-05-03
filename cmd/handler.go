@@ -24,6 +24,9 @@ func (h Handler) HandleFilesystemRequest(r rpc.FilesystemRequest) (roots []model
 	return
 }
 
+func (h Handler) HandleFilesystemVersionsRequest(r rpc.FilesystemVersionsRequest) (versions []zfs.FilesystemVersion, err error) {
+}
+
 func (h Handler) HandleInitialTransferRequest(r rpc.InitialTransferRequest) (io.Reader, error) {
 	// TODO ACL
 	return zfs.InitialSend(r.Snapshot)

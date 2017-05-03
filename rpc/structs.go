@@ -1,6 +1,7 @@
 package rpc
 
 import "io"
+import "github.com/zrepl/zrepl/zfs"
 
 type RequestId [16]byte
 type RequestType uint8
@@ -10,6 +11,7 @@ const (
 	RTFilesystemRequest                      = 16
 	RTInitialTransferRequest                 = 17
 	RTIncrementalTransferRequest             = 18
+	RTFilesystemVersionsRequest              = 19
 )
 
 type RequestHeader struct {
@@ -19,6 +21,10 @@ type RequestHeader struct {
 
 type FilesystemRequest struct {
 	Roots []string
+}
+
+type FilesystemVersionsRequest struct {
+	Filesystem zfs.DatasetPath
 }
 
 type InitialTransferRequest struct {
@@ -60,6 +66,7 @@ const (
 	ROK                         = 1
 	RFilesystems                = 2
 	RChunkedStream              = 3
+	RFilesystemDiff             = 4
 )
 
 type ResponseHeader struct {
