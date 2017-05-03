@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/zrepl/zrepl/model"
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/zfs"
 	"io"
@@ -9,22 +8,12 @@ import (
 
 type Handler struct{}
 
-func (h Handler) HandleFilesystemRequest(r rpc.FilesystemRequest) (roots []model.Filesystem, err error) {
-
-	roots = make([]model.Filesystem, 0, 10)
-
-	for _, root := range r.Roots {
-		var zfsRoot model.Filesystem
-		if zfsRoot, err = zfs.FilesystemsAtRoot(root); err != nil {
-			return
-		}
-		roots = append(roots, zfsRoot)
-	}
-
+func (h Handler) HandleFilesystemRequest(r rpc.FilesystemRequest) (roots []zfs.DatasetPath, err error) {
 	return
 }
 
 func (h Handler) HandleFilesystemVersionsRequest(r rpc.FilesystemVersionsRequest) (versions []zfs.FilesystemVersion, err error) {
+	return
 }
 
 func (h Handler) HandleInitialTransferRequest(r rpc.InitialTransferRequest) (io.Reader, error) {

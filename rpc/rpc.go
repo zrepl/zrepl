@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/zrepl/zrepl/model"
 	. "github.com/zrepl/zrepl/util"
 	"github.com/zrepl/zrepl/zfs"
 	"io"
@@ -12,14 +11,14 @@ import (
 )
 
 type RPCRequester interface {
-	FilesystemRequest(r FilesystemRequest) (roots []Filesystem, err error)
+	FilesystemRequest(r FilesystemRequest) (roots []zfs.DatasetPath, err error)
 	FilesystemVersionsRequest(r FilesystemVersionsRequest) (versions []zfs.FilesystemVersion, err error)
 	InitialTransferRequest(r InitialTransferRequest) (io.Reader, error)
 	IncrementalTransferRequest(r IncrementalTransferRequest) (io.Reader, error)
 }
 
 type RPCHandler interface {
-	HandleFilesystemRequest(r FilesystemRequest) (roots []Filesystem, err error)
+	HandleFilesystemRequest(r FilesystemRequest) (roots []zfs.DatasetPath, err error)
 
 	// returned versions ordered by birthtime, oldest first
 	HandleFilesystemVersionsRequest(r FilesystemVersionsRequest) (versions []zfs.FilesystemVersion, err error)
@@ -284,13 +283,13 @@ func (c ByteStreamRPC) ProtocolVersionRequest() (err error) {
 	return c.sendRequestReceiveHeader(b, ROK)
 }
 
-func (c ByteStreamRPC) FilesystemRequest(r FilesystemRequest) (roots []Filesystem, err error) {
+func (c ByteStreamRPC) FilesystemRequest(r FilesystemRequest) (roots []zfs.DatasetPath, err error) {
 
 	if err = c.sendRequestReceiveHeader(r, RFilesystems); err != nil {
 		return
 	}
 
-	roots = make([]Filesystem, 0)
+	roots = make([]zfs.DatasetPath, 0)
 
 	if err = c.decoder.Decode(&roots); err != nil {
 		return
@@ -334,7 +333,7 @@ func ConnectLocalRPC(handler RPCHandler) RPCRequester {
 	return LocalRPC{handler}
 }
 
-func (c LocalRPC) FilesystemRequest(r FilesystemRequest) (roots []Filesystem, err error) {
+func (c LocalRPC) FilesystemRequest(r FilesystemRequest) (roots []zfs.DatasetPath, err error) {
 	return c.handler.HandleFilesystemRequest(r)
 }
 
