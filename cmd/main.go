@@ -13,6 +13,7 @@ import (
 
 var conf Config
 var runner *jobrun.JobRunner
+var logFlags int = log.LUTC | log.Ldate | log.Ltime
 
 func main() {
 
@@ -32,7 +33,7 @@ func main() {
 			return
 		}
 
-		jobrunLogger := log.New(os.Stderr, "jobrun: ", log.LUTC|log.Ldate|log.Ltime)
+		jobrunLogger := log.New(os.Stderr, "jobrun ", logFlags)
 		runner = jobrun.NewJobRunner(jobrunLogger)
 		return
 	}
@@ -81,10 +82,10 @@ func doRun(c *cli.Context) error {
 			Name:     fmt.Sprintf("pull%d", i),
 			Interval: time.Duration(5 * time.Second),
 			Repeats:  true,
-			RunFunc: func() error {
-				fmt.Printf("%v: %#v\n", time.Now(), pull)
+			RunFunc: func(log jobrun.Logger) error {
+				log.Printf("%v: %#v\n", time.Now(), pull)
 				time.Sleep(10 * time.Second)
-				fmt.Printf("%v: %#v\n", time.Now(), pull)
+				log.Printf("%v: %#v\n", time.Now(), pull)
 				return nil
 			},
 		}
@@ -99,8 +100,8 @@ func doRun(c *cli.Context) error {
 			Name:     fmt.Sprintf("push%d", i),
 			Interval: time.Duration(5 * time.Second),
 			Repeats:  true,
-			RunFunc: func() error {
-				fmt.Printf("%v: %#v\n", time.Now(), push)
+			RunFunc: func(log jobrun.Logger) error {
+				log.Printf("%v: %#v\n", time.Now(), push)
 				return nil
 			},
 		}

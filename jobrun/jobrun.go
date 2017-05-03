@@ -1,6 +1,7 @@
 package jobrun
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -8,9 +9,18 @@ type Logger interface {
 	Printf(format string, v ...interface{})
 }
 
+type jobLogger struct {
+	MainLog Logger
+	JobName string
+}
+
+func (l jobLogger) Printf(format string, v ...interface{}) {
+	l.MainLog.Printf(fmt.Sprintf("job[%s]: %s", l.JobName, format), v...)
+}
+
 type Job struct {
 	Name      string
-	RunFunc   func() (err error)
+	RunFunc   func(log Logger) (err error)
 	LastStart time.Time
 	LastError error
 	Interval  time.Duration
@@ -114,7 +124,8 @@ loop:
 		job.LastStart = now
 
 		go func(job Job) {
-			if err := job.RunFunc(); err != nil {
+			jobLog := jobLogger{r.logger, job.Name}
+			if err := job.RunFunc(jobLog); err != nil {
 				job.LastError = err
 				r.notificationChan <- job
 			}
