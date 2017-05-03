@@ -11,9 +11,14 @@ import (
 	"time"
 )
 
+type Logger interface {
+	Printf(format string, v ...interface{})
+}
+
 var conf Config
 var runner *jobrun.JobRunner
 var logFlags int = log.LUTC | log.Ldate | log.Ltime
+var defaultLog Logger
 
 func main() {
 
@@ -26,6 +31,9 @@ func main() {
 		cli.StringFlag{Name: "config"},
 	}
 	app.Before = func(c *cli.Context) (err error) {
+
+		defaultLog = log.New(os.Stderr, "", logFlags)
+
 		if !c.GlobalIsSet("config") {
 			return errors.New("config flag not set")
 		}

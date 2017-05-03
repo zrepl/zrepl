@@ -7,8 +7,8 @@ import (
 	// "bytes"
 	_ "bufio"
 	// "strings"
-	"fmt"
 	"io"
+	"log"
 	"os"
 	_ "time"
 )
@@ -44,7 +44,7 @@ func main() {
 			panic(err)
 		}
 
-		fmt.Fprintf(os.Stderr, "Chunk Count: %d\n", chunker.ChunkCount)
+		log.Printf("Chunk Count: %d\n", chunker.ChunkCount)
 
 	case *mode == "outgoing":
 
@@ -72,7 +72,7 @@ func main() {
 
 		conn.Close()
 
-		fmt.Fprintf(os.Stderr, "Chunk Count: %d\n", unchunker.ChunkCount)
+		log.Printf("Chunk Count: %d\n", unchunker.ChunkCount)
 
 		os.Exit(0)
 

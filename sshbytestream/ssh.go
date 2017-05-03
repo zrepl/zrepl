@@ -115,7 +115,6 @@ func Outgoing(remote SSHTransport) (conn io.ReadWriteCloser, err error) {
 				Stderr:  stderrBuf.Bytes(),
 				WaitErr: err,
 			}
-			// fmt.Fprintf(os.Stderr, "ssh conn wait err: %#v\n", f.SSHCommandError.(Error))
 		} else {
 			f.SSHCommandError = nil
 		}
