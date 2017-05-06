@@ -66,7 +66,7 @@ func ZFSList(properties []string, zfsArgs ...string) (res [][]string, err error)
 
 	args := make([]string, 0, 4+len(zfsArgs))
 	args = append(args,
-		"list", "-H",
+		"list", "-H", "-p",
 		"-o", strings.Join(properties, ","))
 	args = append(args, zfsArgs...)
 

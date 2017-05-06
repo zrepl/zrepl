@@ -3,6 +3,8 @@ package zfs
 import (
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -15,8 +17,24 @@ const (
 
 type FilesystemVersion struct {
 	Type VersionType
+
+	// Display name. Should not be used for identification, only for user output
 	Name string
-	//ZFS_PROP_CREATETX and ZFS_PROP_GUID would be nice here => ZFS_PROP_CREATETX, libzfs_dataset.c:zfs_prop_get
+
+	// GUID as exported by ZFS. Uniquely identifies a snapshot across pools
+	Guid uint64
+
+	// The TXG in which the snapshot was created. For bookmarks,
+	// this is the GUID of the snapshot it was initially tied to.
+	CreateTXG uint64
+}
+
+type fsbyCreateTXG []FilesystemVersion
+
+func (l fsbyCreateTXG) Len() int      { return len(l) }
+func (l fsbyCreateTXG) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
+func (l fsbyCreateTXG) Less(i, j int) bool {
+	return l[i].CreateTXG < l[j].CreateTXG
 }
 
 /* The sender (left) wants to know if the receiver (right) has more recent versions
@@ -69,10 +87,10 @@ type FilesystemDiff struct {
 func ZFSListFilesystemVersions(fs DatasetPath) (res []FilesystemVersion, err error) {
 	var fieldLines [][]string
 	fieldLines, err = ZFSList(
-		[]string{"name"},
+		[]string{"name", "guid", "createtxg"},
 		"-r", "-d", "1",
 		"-t", "bookmark,snapshot",
-		"-s", "creation", fs.ToString())
+		"-s", "createtxg", fs.ToString())
 	if err != nil {
 		return
 	}
@@ -100,6 +118,16 @@ func ZFSListFilesystemVersions(fs DatasetPath) (res []FilesystemVersion, err err
 			v.Type = Bookmark
 		}
 
+		if v.Guid, err = strconv.ParseUint(line[1], 10, 64); err != nil {
+			err = errors.New(fmt.Sprintf("cannot parse GUID: %s", err.Error()))
+			return
+		}
+
+		if v.CreateTXG, err = strconv.ParseUint(line[2], 10, 64); err != nil {
+			err = errors.New(fmt.Sprintf("cannot parse CreateTXG: %s", err.Error()))
+			return
+		}
+
 		res[i] = v
 
 	}
@@ -110,15 +138,26 @@ func ZFSListFilesystemVersions(fs DatasetPath) (res []FilesystemVersion, err err
 // names are unique (bas ZFS_PROP_GUID replacement)
 func MakeFilesystemDiff(left, right []FilesystemVersion) (diff FilesystemDiff) {
 
+	// Assert both left and right are sorted by createtxg
+	var leftSorted, rightSorted fsbyCreateTXG
+	leftSorted = left
+	rightSorted = right
+	if !sort.IsSorted(leftSorted) {
+		panic("cannot make filesystem diff: unsorted left")
+	}
+	if !sort.IsSorted(rightSorted) {
+		panic("cannot make filesystem diff: unsorted right")
+	}
+
 	// Find most recent common ancestor by name, preferring snapshots over bookmars
 	mrcaLeft := len(left) - 1
 	var mrcaRight int
 outer:
 	for ; mrcaLeft >= 0; mrcaLeft-- {
 		for i := len(right) - 1; i >= 0; i-- {
-			if left[mrcaLeft].Name == right[i].Name {
+			if left[mrcaLeft].Guid == right[i].Guid {
 				mrcaRight = i
-				if i-1 >= 0 && right[i-1].Name == right[i].Name && right[i-1].Type == Snapshot {
+				if i-1 >= 0 && right[i-1].Guid == right[i].Guid && right[i-1].Type == Snapshot {
 					// prefer snapshots over bookmarks
 					mrcaRight = i - 1
 				}
