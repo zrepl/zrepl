@@ -256,7 +256,8 @@ func (c ByteStreamRPC) expectResponseType(rt ResponseType) (err error) {
 	}
 
 	if h.ResponseType != rt {
-		return errors.New("unexpected response type in response header")
+		return errors.New(fmt.Sprintf("unexpected response type in response header: got %#v, expected %#v. response header: %#v",
+			h.ResponseType, rt, h))
 	}
 	return
 }
