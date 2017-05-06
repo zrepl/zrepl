@@ -158,6 +158,15 @@ func ListenByteStreamRPC(conn io.ReadWriteCloser, handler RPCHandler) error {
 				respondWithError(encoder, EHandler, err)
 				return conn.Close()
 			} else {
+
+				r := ResponseHeader{
+					RequestId:    header.Id,
+					ResponseType: RChunkedStream,
+				}
+				if err := encoder.Encode(&r); err != nil {
+					panic(err)
+				}
+
 				chunker := NewChunker(snapReader)
 				_, err := io.Copy(conn, &chunker)
 				if err != nil {
