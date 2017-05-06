@@ -116,7 +116,7 @@ func Outgoing(remote SSHTransport) (conn io.ReadWriteCloser, err error) {
 				WaitErr: err,
 			}
 		} else {
-			f.SSHCommandError = nil
+			f.SSHCommandError = io.EOF
 		}
 	}()
 
@@ -139,9 +139,7 @@ func (f *ForkedSSHReadWriteCloser) Read(p []byte) (n int, err error) {
 	if n, err = f.RemoteStdout.Read(p); err == io.EOF {
 		// the ssh command has exited, but we need to wait for post-portem to finish
 		f.exitWaitGroup.Wait()
-		if f.SSHCommandError != nil {
-			err = f.SSHCommandError
-		}
+		err = f.SSHCommandError
 	}
 	return
 }
@@ -153,9 +151,7 @@ func (f *ForkedSSHReadWriteCloser) Write(p []byte) (n int, err error) {
 	if n, err = f.RemoteStdin.Write(p); err == io.EOF {
 		// the ssh command has exited, but we need to wait for post-portem to finish
 		f.exitWaitGroup.Wait()
-		if f.SSHCommandError != nil {
-			err = f.SSHCommandError
-		}
+		err = f.SSHCommandError
 	}
 	return
 }
