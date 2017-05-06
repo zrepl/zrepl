@@ -21,9 +21,9 @@ func ZFSListMapping(mapping DatasetMapping) (datasets []DatasetPath, err error) 
 	var lines [][]string
 	lines, err = ZFSList([]string{"name"}, "-r", "-t", "filesystem,volume")
 
-	datasets = make([]DatasetPath, len(lines))
+	datasets = make([]DatasetPath, 0, len(lines))
 
-	for i, line := range lines {
+	for _, line := range lines {
 
 		var path DatasetPath
 		if path, err = NewDatasetPath(line[0]); err != nil {
@@ -31,12 +31,12 @@ func ZFSListMapping(mapping DatasetMapping) (datasets []DatasetPath, err error) 
 		}
 
 		_, mapErr := mapping.Map(path)
-		if mapErr != nil && err != NoMatchError {
-			return nil, err
+		if mapErr != nil && mapErr != NoMatchError {
+			return nil, mapErr
 		}
 
 		if mapErr == nil {
-			datasets[i] = path
+			datasets = append(datasets, path)
 		}
 
 	}
