@@ -1,6 +1,7 @@
 package zfs
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sort"
@@ -15,6 +16,18 @@ const (
 	Snapshot             = "snapshot"
 )
 
+func (t VersionType) DelimiterChar() string {
+	switch t {
+	case Bookmark:
+		return "#"
+	case Snapshot:
+		return "@"
+	default:
+		panic(fmt.Sprintf("unexpected VersionType %#v", t))
+	}
+	return ""
+}
+
 type FilesystemVersion struct {
 	Type VersionType
 
@@ -27,6 +40,14 @@ type FilesystemVersion struct {
 	// The TXG in which the snapshot was created. For bookmarks,
 	// this is the GUID of the snapshot it was initially tied to.
 	CreateTXG uint64
+}
+
+func (v FilesystemVersion) ToAbsPath(p DatasetPath) string {
+	var b bytes.Buffer
+	b.WriteString(p.ToString())
+	b.WriteString(v.Type.DelimiterChar())
+	b.WriteString(v.Name)
+	return b.String()
 }
 
 type fsbyCreateTXG []FilesystemVersion

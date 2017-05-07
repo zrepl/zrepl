@@ -102,3 +102,19 @@ func ZFSList(properties []string, zfsArgs ...string) (res [][]string, err error)
 	}
 	return
 }
+
+func ZFSSend(fs DatasetPath, from, to *FilesystemVersion) (stream io.Reader, err error) {
+
+	args := make([]string, 0)
+	args = append(args, "send")
+
+	if to == nil { // Initial
+		args = append(args, from.ToAbsPath(fs))
+	} else {
+		args = append(args, "-i", from.ToAbsPath(fs), to.ToAbsPath(fs))
+	}
+
+	stream, err = NewForkReader(ZFS_BINARY, args...)
+
+	return
+}
