@@ -10,14 +10,6 @@ import (
 	"strings"
 )
 
-func InitialSend(snapshot string) (io.Reader, error) {
-	return nil, nil
-}
-
-func IncrementalSend(from, to string) (io.Reader, error) {
-	return nil, nil
-}
-
 type DatasetPath []string
 
 func (p DatasetPath) ToString() string {

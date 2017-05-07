@@ -19,12 +19,10 @@ func (h Handler) HandleFilesystemVersionsRequest(r rpc.FilesystemVersionsRequest
 	return
 }
 
-func (h Handler) HandleInitialTransferRequest(r rpc.InitialTransferRequest) (io.Reader, error) {
-	// TODO ACL
-	return zfs.InitialSend(r.Snapshot)
+func (h Handler) HandleInitialTransferRequest(r rpc.InitialTransferRequest) (stream io.Reader, err error) {
+	return
 }
 
-func (h Handler) HandleIncrementalTransferRequest(r rpc.IncrementalTransferRequest) (io.Reader, error) {
-	// TODO ACL
-	return zfs.IncrementalSend(r.FromSnapshot, r.ToSnapshot)
+func (h Handler) HandleIncrementalTransferRequest(r rpc.IncrementalTransferRequest) (stream io.Reader, err error) {
+	return
 }

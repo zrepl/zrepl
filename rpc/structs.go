@@ -36,7 +36,8 @@ type FilesystemVersionsRequest struct {
 }
 
 type InitialTransferRequest struct {
-	Snapshot string // tank/my/db@ljlsdjflksdf
+	Filesystem        zfs.DatasetPath
+	FilesystemVersion zfs.FilesystemVersion
 }
 
 func (r InitialTransferRequest) Respond(snapshotReader io.Reader) {
@@ -44,8 +45,9 @@ func (r InitialTransferRequest) Respond(snapshotReader io.Reader) {
 }
 
 type IncrementalTransferRequest struct {
-	FromSnapshot string
-	ToSnapshot   string
+	Filesystem zfs.DatasetPath
+	From       zfs.FilesystemVersion
+	To         zfs.FilesystemVersion
 }
 
 func (r IncrementalTransferRequest) Respond(snapshotReader io.Reader) {
