@@ -159,3 +159,27 @@ func ZFSRecv(fs DatasetPath, stream io.Reader, additionalArgs ...string) (err er
 	return nil
 }
 
+func ZFSSet(fs DatasetPath, prop, val string) (err error) {
+
+	if strings.ContainsRune(prop, '=') {
+		panic("prop contains rune '=' which is the delimiter between property name and value")
+	}
+
+	cmd := exec.Command(ZFS_BINARY, "set", fmt.Sprintf("%s=%s", prop, val), fs.ToString())
+
+	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
+	cmd.Stderr = stderr
+
+	if err = cmd.Start(); err != nil {
+		return err
+	}
+
+	if err = cmd.Wait(); err != nil {
+		err = ZFSError{
+			Stderr:  stderr.Bytes(),
+			WaitErr: err,
+		}
+	}
+
+	return
+}
