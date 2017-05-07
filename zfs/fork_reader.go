@@ -43,7 +43,6 @@ func NewForkReader(command string, args ...string) (r *ForkReader, err error) {
 
 	go func() {
 		defer r.exitWaitGroup.Done()
-		os.Stderr.WriteString("waiting")
 		if err := cmd.Wait(); err != nil {
 			os.Stderr.WriteString(err.Error())
 			r.waitErr = ZFSError{
@@ -52,7 +51,6 @@ func NewForkReader(command string, args ...string) (r *ForkReader, err error) {
 			}
 			return
 		}
-		os.Stderr.WriteString("exited")
 	}()
 	return
 }

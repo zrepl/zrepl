@@ -137,8 +137,6 @@ func ZFSRecv(fs DatasetPath, stream io.Reader, additionalArgs ...string) (err er
 	// Setup an unused stdout buffer.
 	// Otherwise, ZoL v0.6.5.9-1 3.16.0-4-amd64 writes the following error to stderr and exits with code 1
 	//   cannot receive new filesystem stream: invalid backup stream
-	// The stdout buffer contains the following
-	//   waitingexited
 	stdout := bytes.NewBuffer(make([]byte, 0, 1024))
 	cmd.Stdout = stdout
 
