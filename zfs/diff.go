@@ -138,6 +138,17 @@ func ZFSListFilesystemVersions(fs DatasetPath) (res []FilesystemVersion, err err
 // names are unique (bas ZFS_PROP_GUID replacement)
 func MakeFilesystemDiff(left, right []FilesystemVersion) (diff FilesystemDiff) {
 
+	if right == nil {
+		panic("right must not be nil")
+	}
+	if left == nil { // treat like no common ancestor
+		diff = FilesystemDiff{
+			IncrementalPath: nil,
+			Diverged:        false,
+			MRCAPathRight:   right,
+		}
+	}
+
 	// Assert both left and right are sorted by createtxg
 	var leftSorted, rightSorted fsbyCreateTXG
 	leftSorted = left
