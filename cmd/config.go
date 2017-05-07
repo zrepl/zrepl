@@ -16,6 +16,8 @@ import (
 
 const LOCAL_TRANSPORT_IDENTITY string = "local"
 
+const DEFAULT_INITIAL_REPL_POLICY = InitialReplPolicyMostRecent
+
 type Pool struct {
 	Name      string
 	Transport Transport
@@ -37,13 +39,22 @@ type SSHTransport struct {
 	Options              []string
 }
 
+type InitialReplPolicy string
+
+const (
+	InitialReplPolicyMostRecent InitialReplPolicy = "most_recent"
+	InitialReplPolicyAll        InitialReplPolicy = "all"
+)
+
 type Push struct {
-	To       *Pool
-	Datasets []zfs.DatasetPath
+	To                *Pool
+	Datasets          []zfs.DatasetPath
+	InitialReplPolicy InitialReplPolicy
 }
 type Pull struct {
-	From    *Pool
-	Mapping zfs.DatasetMapping
+	From              *Pool
+	Mapping           zfs.DatasetMapping
+	InitialReplPolicy InitialReplPolicy
 }
 type ClientMapping struct {
 	From    string
@@ -165,8 +176,9 @@ type poolLookup func(name string) (*Pool, error)
 func parsePushs(v interface{}, pl poolLookup) (p []Push, err error) {
 
 	asList := make([]struct {
-		To       string
-		Datasets []string
+		To                string
+		Datasets          []string
+		InitialReplPolicy string
 	}, 0)
 
 	if err = mapstructure.Decode(v, &asList); err != nil {
@@ -192,6 +204,10 @@ func parsePushs(v interface{}, pl poolLookup) (p []Push, err error) {
 			}
 		}
 
+		if push.InitialReplPolicy, err = parseInitialReplPolicy(e.InitialReplPolicy, DEFAULT_INITIAL_REPL_POLICY); err != nil {
+			return
+		}
+
 		p[i] = push
 	}
 
@@ -201,8 +217,9 @@ func parsePushs(v interface{}, pl poolLookup) (p []Push, err error) {
 func parsePulls(v interface{}, pl poolLookup) (p []Pull, err error) {
 
 	asList := make([]struct {
-		From    string
-		Mapping map[string]string
+		From              string
+		Mapping           map[string]string
+		InitialReplPolicy string
 	}, 0)
 
 	if err = mapstructure.Decode(v, &asList); err != nil {
@@ -232,9 +249,37 @@ func parsePulls(v interface{}, pl poolLookup) (p []Pull, err error) {
 		if pull.Mapping, err = parseComboMapping(e.Mapping); err != nil {
 			return
 		}
+		if pull.InitialReplPolicy, err = parseInitialReplPolicy(e.InitialReplPolicy, DEFAULT_INITIAL_REPL_POLICY); err != nil {
+			return
+		}
+
 		p[i] = pull
 	}
 
+	return
+}
+
+func parseInitialReplPolicy(v interface{}, defaultPolicy InitialReplPolicy) (p InitialReplPolicy, err error) {
+	s, ok := v.(string)
+	if !ok {
+		goto err
+	}
+
+	switch {
+	case s == "":
+		p = defaultPolicy
+	case s == "most_recent":
+		p = InitialReplPolicyMostRecent
+	case s == "all":
+		p = InitialReplPolicyAll
+	default:
+		goto err
+	}
+
+	return
+
+err:
+	err = errors.New(fmt.Sprintf("expected InitialReplPolicy, got %#v", v))
 	return
 }
 
