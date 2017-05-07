@@ -27,8 +27,9 @@ var defaultLog Logger
 func main() {
 
 	defer func() {
-		_ = recover()
-		defaultLog.Printf("panic:\n%s", debug.Stack())
+		e := recover()
+		defaultLog.Printf("panic:\n%s\n\n", debug.Stack())
+		defaultLog.Printf("error: %t %s", e, e)
 		os.Exit(1)
 	}()
 
@@ -212,15 +213,15 @@ func doPull(pull Pull, log jobrun.Logger) (err error) {
 		Local       zfs.DatasetPath
 		LocalExists bool
 	}
-	replMapping := make([]RemoteLocalMapping, 0, len(remoteFilesystems))
+	replMapping := make(map[string]RemoteLocalMapping, len(remoteFilesystems))
+	localTraversal := zfs.NewDatasetPathForest()
+	localExists, err := zfs.ZFSListFilesystemExists()
+	if err != nil {
+		log.Printf("cannot get local filesystems map: %s", err)
+		return err
+	}
 
 	{
-
-		localExists, err := zfs.ZFSListFilesystemExists()
-		if err != nil {
-			log.Printf("cannot get local filesystems map: %s", err)
-			return err
-		}
 
 		log.Printf("mapping using %#v\n", pull.Mapping)
 		for fs := range remoteFilesystems {
@@ -235,7 +236,8 @@ func doPull(pull Pull, log jobrun.Logger) (err error) {
 				continue
 			}
 			m := RemoteLocalMapping{remoteFilesystems[fs], localFs, localExists(localFs)}
-			replMapping = append(replMapping, m)
+			replMapping[m.Local.ToString()] = m
+			localTraversal.Add(m.Local)
 		}
 
 	}
@@ -243,8 +245,21 @@ func doPull(pull Pull, log jobrun.Logger) (err error) {
 	log.Printf("remoteFilesystems: %#v\nreplMapping: %#v\n", remoteFilesystems, replMapping)
 
 	// per fs sync, assume sorted in top-down order TODO
-replMappingLoop:
-	for _, m := range replMapping {
+
+	localTraversal.WalkTopDown(func(v zfs.DatasetPathVisit) bool {
+
+		if v.FilledIn {
+			if localExists(v.Path) {
+				return true
+			}
+			log.Printf("creating fill-in dataset %s", v.Path)
+			return false
+		}
+
+		m, ok := replMapping[v.Path.ToString()]
+		if !ok {
+			panic("internal inconsistency: replMapping should contain mapping for any path that was not filled in by WalkTopDown()")
+		}
 
 		log := func(format string, args ...interface{}) {
 			log.Printf("[%s => %s]: %s", m.Remote.ToString(), m.Local.ToString(), fmt.Sprintf(format, args...))
@@ -256,7 +271,7 @@ replMappingLoop:
 		if m.LocalExists {
 			if versions, err = zfs.ZFSListFilesystemVersions(m.Local); err != nil {
 				log("cannot get filesystem versions, stopping...: %v\n", m.Local.ToString(), m, err)
-				break replMappingLoop
+				return false
 			}
 		}
 
@@ -266,7 +281,7 @@ replMappingLoop:
 		})
 		if err != nil {
 			log("cannot fetch remote filesystem versions, stopping: %s", err)
-			break replMappingLoop
+			return false
 		}
 
 		diff := zfs.MakeFilesystemDiff(versions, theirVersions)
@@ -288,7 +303,7 @@ replMappingLoop:
 
 			if len(snapsOnly) < 1 {
 				log("cannot perform initial sync: no remote snapshots. stopping...")
-				break replMappingLoop
+				return false
 			}
 
 			r := rpc.InitialTransferRequest{
@@ -301,14 +316,14 @@ replMappingLoop:
 			var stream io.Reader
 			if stream, err = remote.InitialTransferRequest(r); err != nil {
 				log("error initial transfer request, stopping...: %s", err)
-				break replMappingLoop
+				return false
 			}
 
 			log("received initial transfer request response. zfs recv...")
 
 			if err = zfs.ZFSRecv(m.Local, stream, "-u"); err != nil {
 				log("error receiving stream, stopping...: %s", err)
-				break replMappingLoop
+				return false
 			}
 
 			log("configuring properties of received filesystem")
@@ -343,14 +358,14 @@ replMappingLoop:
 				var stream io.Reader
 				if stream, err = remote.IncrementalTransferRequest(r); err != nil {
 					log("error requesting incremental transfer, stopping...: %s", err.Error())
-					break replMappingLoop
+					return false
 				}
 
 				log("receving incremental transfer")
 
 				if err = zfs.ZFSRecv(m.Local, stream); err != nil {
 					log("error receiving stream, stopping...: %s", err)
-					break replMappingLoop
+					return false
 				}
 
 				log("finished incremental transfer")
@@ -361,6 +376,9 @@ replMappingLoop:
 
 		}
 
-	}
+		return true
+
+	})
+
 	return nil
 }
