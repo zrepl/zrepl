@@ -241,3 +241,24 @@ outer:
 	}
 	return
 }
+
+// A somewhat efficient way to determine if a filesystem exists on this host.
+// Particularly useful if exists is called more than once (will only fork exec once and cache the result)
+func ZFSListFilesystemExists() (exists func(p DatasetPath) bool, err error) {
+
+	var actual [][]string
+	if actual, err = ZFSList([]string{"name"}, "-t", "filesystem,volume"); err != nil {
+		return
+	}
+
+	filesystems := make(map[string]bool, len(actual))
+	for _, e := range actual {
+		filesystems[e[0]] = true
+	}
+
+	exists = func(p DatasetPath) bool {
+		return filesystems[p.ToString()]
+	}
+	return
+
+}
