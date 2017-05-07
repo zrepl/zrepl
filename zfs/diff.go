@@ -62,7 +62,7 @@ type FilesystemDiff struct {
 
 	// The increments required to get left up to right's most recent version
 	// 0th element is the common ancestor, ordered by birthtime, oldest first
-	// If empty, left and right are at same most recent version
+	// If len() < 2, left and right are at same most recent version
 	// If nil, there is no incremental path for left to get to right's most recent version
 	// This means either (check Diverged field to determine which case we are in)
 	//   a) no common ancestor (left deleted all the snapshots it previously transferred to right)
@@ -150,17 +150,19 @@ func MakeFilesystemDiff(left, right []FilesystemVersion) (diff FilesystemDiff) {
 	}
 
 	// Assert both left and right are sorted by createtxg
-	var leftSorted, rightSorted fsbyCreateTXG
-	leftSorted = left
-	rightSorted = right
-	if !sort.IsSorted(leftSorted) {
-		panic("cannot make filesystem diff: unsorted left")
-	}
-	if !sort.IsSorted(rightSorted) {
-		panic("cannot make filesystem diff: unsorted right")
+	{
+		var leftSorted, rightSorted fsbyCreateTXG
+		leftSorted = left
+		rightSorted = right
+		if !sort.IsSorted(leftSorted) {
+			panic("cannot make filesystem diff: unsorted left")
+		}
+		if !sort.IsSorted(rightSorted) {
+			panic("cannot make filesystem diff: unsorted right")
+		}
 	}
 
-	// Find most recent common ancestor by name, preferring snapshots over bookmars
+	// Find most recent common ancestor by name, preferring snapshots over bookmarks
 	mrcaLeft := len(left) - 1
 	var mrcaRight int
 outer:
@@ -202,7 +204,8 @@ outer:
 		panic("invariant violated: mrca on left must be the last item in the left list")
 	}
 
-	// strip bookmarks going forward from right
+	// incPath must not contain bookmarks except initial one,
+	//   and only if that initial bookmark's snapshot is gone
 	incPath := make([]FilesystemVersion, 0, len(right))
 	incPath = append(incPath, right[mrcaRight])
 	// right[mrcaRight] may be a bookmark if there's no equally named snapshot
