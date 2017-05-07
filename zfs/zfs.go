@@ -118,3 +118,44 @@ func ZFSSend(fs DatasetPath, from, to *FilesystemVersion) (stream io.Reader, err
 
 	return
 }
+
+func ZFSRecv(fs DatasetPath, stream io.Reader, additionalArgs ...string) (err error) {
+
+	args := make([]string, 0)
+	args = append(args, "recv")
+	if len(args) > 0 {
+		args = append(args, additionalArgs...)
+	}
+	args = append(args, fs.ToString())
+
+	cmd := exec.Command(ZFS_BINARY, args...)
+
+	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
+	cmd.Stderr = stderr
+
+	// TODO report bug upstream
+	// Setup an unused stdout buffer.
+	// Otherwise, ZoL v0.6.5.9-1 3.16.0-4-amd64 writes the following error to stderr and exits with code 1
+	//   cannot receive new filesystem stream: invalid backup stream
+	// The stdout buffer contains the following
+	//   waitingexited
+	stdout := bytes.NewBuffer(make([]byte, 0, 1024))
+	cmd.Stdout = stdout
+
+	cmd.Stdin = stream
+
+	if err = cmd.Start(); err != nil {
+		return
+	}
+
+	if err = cmd.Wait(); err != nil {
+		err = ZFSError{
+			Stderr:  stderr.Bytes(),
+			WaitErr: err,
+		}
+		return
+	}
+
+	return nil
+}
+
