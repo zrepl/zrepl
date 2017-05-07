@@ -186,6 +186,15 @@ func ListenByteStreamRPC(conn io.ReadWriteCloser, handler RPCHandler) error {
 			if err != nil {
 				respondWithError(encoder, EHandler, err)
 			} else {
+
+				r := ResponseHeader{
+					RequestId:    header.Id,
+					ResponseType: RChunkedStream,
+				}
+				if err := encoder.Encode(&r); err != nil {
+					panic(err)
+				}
+
 				chunker := NewChunker(snapReader)
 				_, err := io.Copy(conn, &chunker)
 				if err != nil {
@@ -225,6 +234,8 @@ func inferRequestType(v interface{}) (RequestType, error) {
 		return RTFilesystemVersionsRequest, nil
 	case InitialTransferRequest:
 		return RTInitialTransferRequest, nil
+	case IncrementalTransferRequest:
+		return RTIncrementalTransferRequest, nil
 	default:
 		return 0, errors.New(fmt.Sprintf("cannot infer request type for type '%v'",
 			reflect.TypeOf(v)))
