@@ -114,7 +114,7 @@ func ZFSSend(fs DatasetPath, from, to *FilesystemVersion) (stream io.Reader, err
 		args = append(args, "-i", from.ToAbsPath(fs), to.ToAbsPath(fs))
 	}
 
-	stream, err = NewForkReader(ZFS_BINARY, args...)
+	stream, err = NewForkExecReader(ZFS_BINARY, args...)
 
 	return
 }

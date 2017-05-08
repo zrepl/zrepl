@@ -2,68 +2,60 @@ package zfs
 
 import (
 	"bytes"
-	"context"
+	"fmt"
 	"io"
-	"os"
 	"os/exec"
-	"sync"
 )
 
 // A ForkReader is an io.Reader for a forked process's stdout.
 // It Wait()s for the process to exit and - if it exits with error - returns this exit error
 // on subsequent Read()s.
-type ForkReader struct {
-	cancelFunc    context.CancelFunc
-	cmd           *exec.Cmd
-	stdout        io.Reader
-	waitErr       error
-	exitWaitGroup sync.WaitGroup
+type ForkExecReader struct {
+	Cmd       *exec.Cmd
+	InStream  io.Reader
+	StderrBuf *bytes.Buffer
 }
 
-func NewForkReader(command string, args ...string) (r *ForkReader, err error) {
+func NewForkExecReader(command string, args ...string) (r *ForkExecReader, err error) {
 
-	r = &ForkReader{}
+	r = &ForkExecReader{}
 
-	var ctx context.Context
-	ctx, r.cancelFunc = context.WithCancel(context.Background())
+	r.Cmd = exec.Command(command, args...)
 
-	cmd := exec.CommandContext(ctx, command, args...)
-
-	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
-	cmd.Stderr = stderr
-
-	if r.stdout, err = cmd.StdoutPipe(); err != nil {
+	r.InStream, err = r.Cmd.StdoutPipe()
+	if err != nil {
 		return
 	}
 
-	if err = cmd.Start(); err != nil {
+	r.StderrBuf = bytes.NewBuffer(make([]byte, 0, 1024))
+	r.Cmd.Stderr = r.StderrBuf
+
+	if err = r.Cmd.Start(); err != nil {
 		return
 	}
-	r.exitWaitGroup.Add(1)
 
-	go func() {
-		defer r.exitWaitGroup.Done()
-		if err := cmd.Wait(); err != nil {
-			os.Stderr.WriteString(err.Error())
-			r.waitErr = ZFSError{
-				Stderr:  stderr.Bytes(),
-				WaitErr: err,
-			}
-			return
-		}
-	}()
 	return
+
 }
 
-func (r *ForkReader) Read(buf []byte) (n int, err error) {
-	if r.waitErr != nil {
-		return 0, r.waitErr
-	}
-	if n, err = r.stdout.Read(buf); err == io.EOF {
-		// the command has exited but we need to wait for Wait()ing goroutine to finish
-		r.exitWaitGroup.Wait()
-		if r.waitErr != nil {
-			err = r.waitErr
+type ForkExecReaderError struct {
+	WaitErr error
+	Stderr  []byte
+}
+
+func (e ForkExecReaderError) Error() string {
+	return fmt.Sprintf("underlying process exited with error: %s\nstderr: %s\n", e.WaitErr, e.Stderr)
+}
+
+func (t *ForkExecReader) Read(buf []byte) (n int, err error) {
+	n, err = t.InStream.Read(buf)
+	if err == io.EOF {
+		waitErr := t.Cmd.Wait()
+		if waitErr != nil {
+			err = ForkExecReaderError{
+				WaitErr: waitErr,
+				Stderr:  t.StderrBuf.Bytes(),
+			}
 		}
 	}
 	return

@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"sync"
 )
 
 type Error struct {
@@ -55,9 +54,7 @@ func (f IncomingReadWriteCloser) Close() (err error) {
 	return
 }
 
-func Outgoing(remote SSHTransport) (conn io.ReadWriteCloser, err error) {
-
-	ctx, cancel := context.WithCancel(context.Background())
+func Outgoing(remote SSHTransport) (f *ForkExecReadWriter, err error) {
 
 	sshArgs := make([]string, 0, 2*len(remote.Options)+4)
 	sshArgs = append(sshArgs,
@@ -75,6 +72,7 @@ func Outgoing(remote SSHTransport) (conn io.ReadWriteCloser, err error) {
 	if len(remote.SSHCommand) > 0 {
 		sshCommand = SSHCommand
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	cmd := exec.CommandContext(ctx, sshCommand, sshArgs...)
 
 	// Clear environment of cmd
@@ -93,72 +91,45 @@ func Outgoing(remote SSHTransport) (conn io.ReadWriteCloser, err error) {
 	stderrBuf := bytes.NewBuffer(make([]byte, 0, 1024))
 	cmd.Stderr = stderrBuf
 
-	f := &ForkedSSHReadWriteCloser{
-		RemoteStdin:   in,
-		RemoteStdout:  out,
-		Cancel:        cancel,
+	f = &ForkExecReadWriter{
+		Stdin:         in,
+		Stdout:        out,
 		Command:       cmd,
-		exitWaitGroup: &sync.WaitGroup{},
+		CommandCancel: cancel,
+		StderrBuf:     stderrBuf,
 	}
 
-	f.exitWaitGroup.Add(1)
-	if err = cmd.Start(); err != nil {
-		return
-	}
+	err = cmd.Start()
+	return
+}
 
-	go func() {
-		defer f.exitWaitGroup.Done()
+type ForkExecReadWriter struct {
+	Command       *exec.Cmd
+	CommandCancel context.CancelFunc
+	Stdin         io.Writer
+	Stdout        io.Reader
+	StderrBuf     *bytes.Buffer
+}
 
-		// stderr output is only relevant for errors if the exit code is non-zero
-		if err := cmd.Wait(); err != nil {
-			f.SSHCommandError = Error{
-				Stderr:  stderrBuf.Bytes(),
-				WaitErr: err,
+func (f *ForkExecReadWriter) Read(buf []byte) (n int, err error) {
+	n, err = f.Stdout.Read(buf)
+	if err == io.EOF {
+		waitErr := f.Command.Wait()
+		if waitErr != nil {
+			err = Error{
+				WaitErr: waitErr,
+				Stderr:  f.StderrBuf.Bytes(),
 			}
-		} else {
-			f.SSHCommandError = io.EOF
 		}
-	}()
-
-	return f, nil
-}
-
-type ForkedSSHReadWriteCloser struct {
-	RemoteStdin     io.Writer
-	RemoteStdout    io.Reader
-	Command         *exec.Cmd
-	Cancel          context.CancelFunc
-	exitWaitGroup   *sync.WaitGroup
-	SSHCommandError error
-}
-
-func (f *ForkedSSHReadWriteCloser) Read(p []byte) (n int, err error) {
-	if f.SSHCommandError != nil {
-		return 0, f.SSHCommandError
-	}
-	if n, err = f.RemoteStdout.Read(p); err == io.EOF {
-		// the ssh command has exited, but we need to wait for post-portem to finish
-		f.exitWaitGroup.Wait()
-		err = f.SSHCommandError
 	}
 	return
 }
 
-func (f *ForkedSSHReadWriteCloser) Write(p []byte) (n int, err error) {
-	if f.SSHCommandError != nil {
-		return 0, f.SSHCommandError
-	}
-	if n, err = f.RemoteStdin.Write(p); err == io.EOF {
-		// the ssh command has exited, but we need to wait for post-portem to finish
-		f.exitWaitGroup.Wait()
-		err = f.SSHCommandError
-	}
-	return
+func (f *ForkExecReadWriter) Write(p []byte) (n int, err error) {
+	return f.Stdin.Write(p)
 }
 
-func (f *ForkedSSHReadWriteCloser) Close() (err error) {
-	// TODO should check SSHCommandError?
-	f.Cancel()
-	f.exitWaitGroup.Wait()
-	return f.SSHCommandError
+func (f *ForkExecReadWriter) Close() error {
+	f.CommandCancel()
+	return nil
 }
