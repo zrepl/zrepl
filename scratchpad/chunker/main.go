@@ -58,7 +58,7 @@ func main() {
 			panic(err)
 		}
 
-		f, err := os.OpenFile(*outgoingFile, os.O_WRONLY, 0600)
+		f, err := os.OpenFile(*outgoingFile, os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			panic(err)
 		}
