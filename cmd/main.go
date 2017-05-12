@@ -117,7 +117,7 @@ func doSink(c *cli.Context) (err error) {
 		PullMapping: findMapping(conf.PullACLs),
 	}
 
-	if err = rpc.ListenByteStreamRPC(sshByteStream, handler); err != nil {
+	if err = rpc.ListenByteStreamRPC(sshByteStream, handler, sinkLogger); err != nil {
 		//os.Exit(1)
 		err = cli.NewExitError(err, 1)
 		defaultLog.Printf("listenbytestreamerror: %#v\n", err)

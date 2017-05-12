@@ -27,12 +27,17 @@ type RPCHandler interface {
 	HandleIncrementalTransferRequest(r IncrementalTransferRequest) (io.Reader, error)
 }
 
+type Logger interface {
+	Printf(format string, args ...interface{})
+}
+
 const ByteStreamRPCProtocolVersion = 1
 
 type ByteStreamRPC struct {
 	conn    io.ReadWriteCloser
 	encoder *json.Encoder
 	decoder *json.Decoder
+	log     Logger
 }
 
 func ConnectByteStreamRPC(conn io.ReadWriteCloser) (RPCRequester, error) {
@@ -52,7 +57,7 @@ func ConnectByteStreamRPC(conn io.ReadWriteCloser) (RPCRequester, error) {
 	return rpc, nil
 }
 
-func ListenByteStreamRPC(conn io.ReadWriteCloser, handler RPCHandler) error {
+func ListenByteStreamRPC(conn io.ReadWriteCloser, handler RPCHandler, log Logger) error {
 
 	// A request consists of two subsequent JSON objects
 	// Object 1: RequestHeader => contains type of Request Body
