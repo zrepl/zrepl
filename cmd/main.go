@@ -7,6 +7,7 @@ import (
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/sshbytestream"
 	"github.com/zrepl/zrepl/zfs"
+	"golang.org/x/sys/unix"
 	"io"
 	"log"
 	"os"
@@ -88,10 +89,17 @@ func doSink(c *cli.Context) (err error) {
 
 	var logOut io.Writer
 	if c.IsSet("logfile") {
-		logOut, err = os.OpenFile(c.String("logfile"), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+		var logFile *os.File
+		logFile, err = os.OpenFile(c.String("logfile"), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 		if err != nil {
 			return
 		}
+
+		if err = unix.Dup2(int(logFile.Fd()), int(os.Stderr.Fd())); err != nil {
+			logFile.WriteString(fmt.Sprintf("error duping logfile to stderr: %s\n", err))
+			return
+		}
+		logOut = logFile
 	} else {
 		logOut = os.Stderr
 	}
