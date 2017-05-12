@@ -148,7 +148,7 @@ func doRun(c *cli.Context) error {
 			Repeats:  true,
 			RunFunc: func(log jobrun.Logger) error {
 				log.Printf("doing pull: %v", pull)
-				return doPull(pull, log)
+				return doPull(pull, c, log)
 			},
 		}
 
@@ -183,7 +183,7 @@ func doRun(c *cli.Context) error {
 	return nil
 }
 
-func doPull(pull Pull, log jobrun.Logger) (err error) {
+func doPull(pull Pull, c *cli.Context, log jobrun.Logger) (err error) {
 
 	if lt, ok := pull.From.Transport.(LocalTransport); ok {
 		lt.SetHandler(Handler{

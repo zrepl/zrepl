@@ -7,6 +7,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/sshbytestream"
+	. "github.com/zrepl/zrepl/util"
 	"github.com/zrepl/zrepl/zfs"
 	yaml "gopkg.in/yaml.v2"
 	"io"
@@ -37,6 +38,8 @@ type SSHTransport struct {
 	TransportOpenCommand []string `mapstructure:"transport_open_command"`
 	SSHCommand           string   `mapstructure:"ssh_command"`
 	Options              []string
+	ConnLogReadFile      string `mapstructure:"connlog_read_file"`
+	ConnLogWriteFile     string `mapstructure:"connlog_write_file"`
 }
 
 type InitialReplPolicy string
@@ -391,6 +394,10 @@ func (t SSHTransport) Connect() (r rpc.RPCRequester, err error) {
 		return
 	}
 	if stream, err = sshbytestream.Outgoing(rpcTransport); err != nil {
+		return
+	}
+	stream, err = NewReadWriteCloserLogger(stream, t.ConnLogReadFile, t.ConnLogWriteFile)
+	if err != nil {
 		return
 	}
 	return rpc.ConnectByteStreamRPC(stream)
