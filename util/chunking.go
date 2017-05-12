@@ -26,7 +26,7 @@ func NewUnchunker(conn io.Reader) *Unchunker {
 func (c *Unchunker) Read(b []byte) (n int, err error) {
 
 	if c.finishErr != nil {
-		return 0, err
+		return 0, c.finishErr
 	}
 
 	if c.remainingChunkBytes == 0 {
@@ -66,6 +66,19 @@ func (c *Unchunker) Read(b []byte) (n int, err error) {
 
 	return
 
+}
+
+func (c *Unchunker) Close() (err error) {
+
+	buf := make([]byte, 4096)
+	for err == nil {
+		_, err = c.Read(buf)
+		if err == io.EOF {
+			err = nil
+			break
+		}
+	}
+	return
 }
 
 func min(a, b int) int {
