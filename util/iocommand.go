@@ -2,20 +2,20 @@ package util
 
 import (
 	"bytes"
-	"context"
 	"fmt"
+	"golang.org/x/sys/unix"
 	"io"
 	"os/exec"
+	"syscall"
 )
 
 // An IOCommand exposes a forked process's std(in|out|err) through the io.ReadWriteCloser interface.
 type IOCommand struct {
 	Cmd        *exec.Cmd
-	CmdContext context.Context
-	CmdCancel  context.CancelFunc
 	Stdin      io.Writer
 	Stdout     io.Reader
 	StderrBuf  *bytes.Buffer
+	ExitResult IOCommandExitResult
 }
 
 const IOCommandStderrBufSize = 1024
@@ -23,6 +23,11 @@ const IOCommandStderrBufSize = 1024
 type IOCommandError struct {
 	WaitErr error
 	Stderr  []byte
+}
+
+type IOCommandExitResult struct {
+	Error      error
+	WaitStatus syscall.WaitStatus
 }
 
 func (e IOCommandError) Error() string {
@@ -46,8 +51,7 @@ func NewIOCommand(command string, args []string, stderrBufSize int) (c *IOComman
 
 	c = &IOCommand{}
 
-	c.CmdContext, c.CmdCancel = context.WithCancel(context.Background())
-	c.Cmd = exec.CommandContext(c.CmdContext, command, args...)
+	c.Cmd = exec.Command(command, args...)
 
 	if c.Stdout, err = c.Cmd.StdoutPipe(); err != nil {
 		return
@@ -85,11 +89,26 @@ func (c *IOCommand) Read(buf []byte) (n int, err error) {
 
 func (c *IOCommand) doWait() (err error) {
 	waitErr := c.Cmd.Wait()
+	waitStatus := c.Cmd.ProcessState.Sys().(syscall.WaitStatus) // Fail hard if we're not on UNIX
 	if waitErr != nil {
+
+		// https://support.ssh.com/manuals/client-user/44/ssh2_Return_Values.html
+		// If ssh is terminated via signal, its exit status is 128 + signal number
+		if waitStatus.ExitStatus() == 128+int(syscall.SIGTERM) {
+			// discard wait err, we assume this is due to earlier c.Close()
+			goto out
+		}
+
 		err = IOCommandError{
 			WaitErr: waitErr,
 			Stderr:  c.StderrBuf.Bytes(),
 		}
+	}
+
+out:
+	c.ExitResult = IOCommandExitResult{
+		Error:      err,
+		WaitStatus: waitStatus,
 	}
 	return
 }
@@ -100,8 +119,17 @@ func (c *IOCommand) Write(buf []byte) (n int, err error) {
 	return c.Stdin.Write(buf)
 }
 
-// Kill the child process and collect its exit status
-func (c *IOCommand) Close() error {
-	c.CmdCancel()
-	return c.doWait()
+// Terminate the child process and collect its exit status
+// It is safe to call Close() multiple times.
+func (c *IOCommand) Close() (err error) {
+	if c.Cmd.ProcessState == nil {
+		// racy...
+		err = unix.Kill(c.Cmd.Process.Pid, syscall.SIGTERM)
+		if err != nil {
+			return
+		}
+		return c.doWait()
+	} else {
+		return c.ExitResult.Error
+	}
 }
