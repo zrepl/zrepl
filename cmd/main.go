@@ -208,6 +208,8 @@ func doPull(pull Pull, c *cli.Context, log jobrun.Logger) (err error) {
 		return
 	}
 
+	defer remote.Close()
+
 	fsr := rpc.FilesystemRequest{
 		Direction: rpc.DirectionPull,
 	}

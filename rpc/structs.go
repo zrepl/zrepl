@@ -12,6 +12,7 @@ const (
 	RTFilesystemVersionsRequest              = 0x11
 	RTInitialTransferRequest                 = 0x12
 	RTIncrementalTransferRequest             = 0x13
+	RTCloseRequest                           = 0x20
 )
 
 type RequestHeader struct {
@@ -56,6 +57,10 @@ func (r IncrementalTransferRequest) Respond(snapshotReader io.Reader) {
 
 type ByteStreamRPCProtocolVersionRequest struct {
 	ClientVersion uint8
+}
+
+type CloseRequest struct {
+	Goodbye string
 }
 
 type ErrorId uint8
