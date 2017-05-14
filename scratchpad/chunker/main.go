@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/zrepl/zrepl/sshbytestream"
-	"github.com/zrepl/zrepl/util"
+	. "github.com/zrepl/zrepl/util"
 	// "bytes"
 	_ "bufio"
 	// "strings"
@@ -37,7 +37,7 @@ func main() {
 			panic(err)
 		}
 
-		chunker := chunking.NewChunker(file)
+		chunker := NewChunker(file)
 
 		_, err = io.Copy(conn, &chunker)
 		if err != nil && err != io.EOF {
@@ -63,7 +63,7 @@ func main() {
 			panic(err)
 		}
 
-		unchunker := chunking.NewUnchunker(conn)
+		unchunker := NewUnchunker(conn)
 
 		_, err = io.Copy(f, unchunker)
 		if err != nil {
