@@ -26,6 +26,7 @@ type SSHTransport struct {
 }
 
 var SSHCommand string = "ssh"
+var SSHServerAliveInterval uint = 60
 
 func Incoming() (wc io.ReadWriteCloser, err error) {
 	// derivce ReadWriteCloser from stdin & stdout
@@ -60,6 +61,7 @@ func Outgoing(remote SSHTransport) (c *util.IOCommand, err error) {
 		"-q",
 		"-i", remote.IdentityFile,
 		"-o", "BatchMode=yes",
+		"-o", fmt.Sprintf("ServerAliveInterval=%d", SSHServerAliveInterval),
 	)
 	for _, option := range remote.Options {
 		sshArgs = append(sshArgs, "-o", option)
