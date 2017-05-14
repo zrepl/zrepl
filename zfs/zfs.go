@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/zrepl/zrepl/util"
 	"io"
 	"os/exec"
 	"strings"
@@ -114,7 +115,7 @@ func ZFSSend(fs DatasetPath, from, to *FilesystemVersion) (stream io.Reader, err
 		args = append(args, "-i", from.ToAbsPath(fs), to.ToAbsPath(fs))
 	}
 
-	stream, err = NewForkExecReader(ZFS_BINARY, args...)
+	stream, err = util.RunIOCommand(ZFS_BINARY, args...)
 
 	return
 }

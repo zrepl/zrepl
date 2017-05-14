@@ -1,12 +1,10 @@
 package sshbytestream
 
 import (
-	"bytes"
-	"context"
 	"fmt"
+	"github.com/zrepl/zrepl/util"
 	"io"
 	"os"
-	"os/exec"
 )
 
 type Error struct {
@@ -54,7 +52,7 @@ func (f IncomingReadWriteCloser) Close() (err error) {
 	return
 }
 
-func Outgoing(remote SSHTransport) (f *ForkExecReadWriter, err error) {
+func Outgoing(remote SSHTransport) (c *util.IOCommand, err error) {
 
 	sshArgs := make([]string, 0, 2*len(remote.Options)+4)
 	sshArgs = append(sshArgs,
@@ -72,64 +70,14 @@ func Outgoing(remote SSHTransport) (f *ForkExecReadWriter, err error) {
 	if len(remote.SSHCommand) > 0 {
 		sshCommand = SSHCommand
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cmd := exec.CommandContext(ctx, sshCommand, sshArgs...)
 
-	// Clear environment of cmd
-	cmd.Env = []string{}
-
-	var in io.WriteCloser
-	var out io.ReadCloser
-
-	if in, err = cmd.StdinPipe(); err != nil {
-		return
-	}
-	if out, err = cmd.StdoutPipe(); err != nil {
+	if c, err = util.NewIOCommand(sshCommand, sshArgs, util.IOCommandStderrBufSize); err != nil {
 		return
 	}
 
-	stderrBuf := bytes.NewBuffer(make([]byte, 0, 1024))
-	cmd.Stderr = stderrBuf
+	// Clear environment of cmd, ssh shall not rely on SSH_AUTH_SOCK, etc.
+	c.Cmd.Env = []string{}
 
-	f = &ForkExecReadWriter{
-		Stdin:         in,
-		Stdout:        out,
-		Command:       cmd,
-		CommandCancel: cancel,
-		StderrBuf:     stderrBuf,
-	}
-
-	err = cmd.Start()
+	err = c.Start()
 	return
-}
-
-type ForkExecReadWriter struct {
-	Command       *exec.Cmd
-	CommandCancel context.CancelFunc
-	Stdin         io.Writer
-	Stdout        io.Reader
-	StderrBuf     *bytes.Buffer
-}
-
-func (f *ForkExecReadWriter) Read(buf []byte) (n int, err error) {
-	n, err = f.Stdout.Read(buf)
-	if err == io.EOF {
-		waitErr := f.Command.Wait()
-		if waitErr != nil {
-			err = Error{
-				WaitErr: waitErr,
-				Stderr:  f.StderrBuf.Bytes(),
-			}
-		}
-	}
-	return
-}
-
-func (f *ForkExecReadWriter) Write(p []byte) (n int, err error) {
-	return f.Stdin.Write(p)
-}
-
-func (f *ForkExecReadWriter) Close() error {
-	f.CommandCancel()
-	return nil
 }
