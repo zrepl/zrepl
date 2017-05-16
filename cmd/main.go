@@ -61,20 +61,20 @@ func main() {
 	}
 	app.Commands = []cli.Command{
 		{
-			Name:    "sink",
+			Name:    "stdinserver",
 			Aliases: []string{"s"},
-			Usage:   "start in sink mode",
+			Usage:   "start in stdin server mode (from authorized keys)",
 			Flags: []cli.Flag{
 				cli.StringFlag{Name: "identity"},
 				cli.StringFlag{Name: "logfile"},
 			},
-			Action: doSink,
+			Action: cmdStdinServer,
 		},
 		{
 			Name:    "run",
 			Aliases: []string{"r"},
 			Usage:   "do replication",
-			Action:  doRun,
+			Action:  cmdRun,
 		},
 	}
 
@@ -82,7 +82,7 @@ func main() {
 
 }
 
-func doSink(c *cli.Context) (err error) {
+func cmdStdinServer(c *cli.Context) (err error) {
 
 	if !c.IsSet("identity") {
 		return cli.NewExitError("identity flag not set", 2)
@@ -137,7 +137,7 @@ func doSink(c *cli.Context) (err error) {
 
 }
 
-func doRun(c *cli.Context) error {
+func cmdRun(c *cli.Context) error {
 
 	// Do every pull, do every push
 	// Scheduling
