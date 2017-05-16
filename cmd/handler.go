@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/zfs"
 	"io"
@@ -9,18 +10,21 @@ import (
 type Handler struct {
 	Logger          Logger
 	PullACL         zfs.DatasetMapping
+	SinkMappingFunc func(clientIdentity string) (mapping zfs.DatasetMapping, err error)
 }
 
 func (h Handler) HandleFilesystemRequest(r rpc.FilesystemRequest) (roots []zfs.DatasetPath, err error) {
 
 	h.Logger.Printf("handling fsr: %#v", r)
 
+	h.Logger.Printf("using PullACL: %#v", h.PullACL)
+
 	if roots, err = zfs.ZFSListMapping(h.PullACL); err != nil {
 		h.Logger.Printf("handle fsr err: %v\n", err)
 		return
 	}
 
-	h.Logger.Printf("got filesystems: %#v", roots)
+	h.Logger.Printf("returning: %#v", roots)
 
 	return
 }
@@ -87,4 +91,37 @@ func (h Handler) HandleIncrementalTransferRequest(r rpc.IncrementalTransferReque
 
 	return
 
+}
+
+func (h Handler) HandlePullMeRequest(r rpc.PullMeRequest, clientIdentity string, client rpc.RPCRequester) (err error) {
+
+	// Check if we have a sink for this request
+	// Use that mapping to do what happens in doPull
+
+	h.Logger.Printf("handling PullMeRequest: %#v", r)
+
+	var sinkMapping zfs.DatasetMapping
+	sinkMapping, err = h.SinkMappingFunc(clientIdentity)
+	if err != nil {
+		h.Logger.Printf("no sink mapping for client identity '%s', denying PullMeRequest", clientIdentity)
+		err = fmt.Errorf("no sink for client identity '%s'", clientIdentity)
+		return
+	}
+
+	h.Logger.Printf("doing pull...")
+
+	err = doPull(PullContext{
+		Remote:            client,
+		Log:               h.Logger,
+		Mapping:           sinkMapping,
+		InitialReplPolicy: r.InitialReplPolicy,
+	})
+	if err != nil {
+		h.Logger.Printf("PullMeRequest failed with error: %s", err)
+		return
+	}
+
+	h.Logger.Printf("finished handling PullMeRequest: %#v", r)
+
+	return
 }

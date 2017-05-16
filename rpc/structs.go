@@ -12,7 +12,8 @@ const (
 	RTFilesystemVersionsRequest              = 0x11
 	RTInitialTransferRequest                 = 0x12
 	RTIncrementalTransferRequest             = 0x13
-	RTCloseRequest                           = 0x20
+	RTPullMeRequest                          = 0x20
+	RTCloseRequest                           = 0xf0
 )
 
 type RequestHeader struct {
@@ -61,6 +62,12 @@ const (
 	InitialReplPolicyMostRecent InitialReplPolicy = "most_recent"
 	InitialReplPolicyAll        InitialReplPolicy = "all"
 )
+
+type PullMeRequest struct {
+	// if true, the other fields are undefined
+	Finished          bool
+	InitialReplPolicy InitialReplPolicy
+}
 
 type CloseRequest struct {
 	Goodbye string

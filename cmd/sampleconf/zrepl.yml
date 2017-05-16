@@ -9,9 +9,10 @@ pools:
 
 pushs:
   - to: offsite_backups
-    datasets:
-      - tank/var/db
-      - tank/usr/home
+    filter: {
+      "tank/var/db*":"ok",
+      "tank/usr/home*":"ok"
+    }
 
 pulls:
   - from: offsite_backups

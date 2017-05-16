@@ -111,7 +111,7 @@ func cmdStdinServer(c *cli.Context) (err error) {
 		return
 	}
 
-	findMapping := func(cm []ClientMapping) zfs.DatasetMapping {
+	findMapping := func(cm []ClientMapping, identity string) zfs.DatasetMapping {
 		for i := range cm {
 			if cm[i].From == identity {
 				return cm[i].Mapping
@@ -119,14 +119,21 @@ func cmdStdinServer(c *cli.Context) (err error) {
 		}
 		return nil
 	}
+	sinkMapping := func(identity string) (sink zfs.DatasetMapping, err error) {
+		if sink = findMapping(conf.Sinks, identity); sink == nil {
+			return nil, fmt.Errorf("could not find sink for dataset")
+		}
+		return
+	}
 
 	sinkLogger := log.New(logOut, fmt.Sprintf("sink[%s] ", identity), logFlags)
 	handler := Handler{
-		Logger:  sinkLogger,
-		PullACL: findMapping(conf.PullACLs),
+		Logger:          sinkLogger,
+		SinkMappingFunc: sinkMapping,
+		PullACL:         findMapping(conf.PullACLs, identity),
 	}
 
-	if err = rpc.ListenByteStreamRPC(sshByteStream, handler, sinkLogger); err != nil {
+	if err = rpc.ListenByteStreamRPC(sshByteStream, identity, handler, sinkLogger); err != nil {
 		//os.Exit(1)
 		err = cli.NewExitError(err, 1)
 		defaultLog.Printf("listenbytestreamerror: %#v\n", err)
@@ -172,8 +179,8 @@ func cmdRun(c *cli.Context) error {
 			Interval: time.Duration(5 * time.Second),
 			Repeats:  true,
 			RunFunc: func(log jobrun.Logger) error {
-				log.Printf("%v: %#v\n", time.Now(), push)
-				return nil
+				log.Printf("doing push: %v", push)
+				return jobPush(push, c, log)
 			},
 		}
 
@@ -205,11 +212,47 @@ func jobPull(pull Pull, c *cli.Context, log jobrun.Logger) (err error) {
 
 	var remote rpc.RPCRequester
 
-	if remote, err = pull.From.Transport.Connect(); err != nil {
+	if remote, err = pull.From.Transport.Connect(log); err != nil {
 		return
 	}
 
 	defer closeRPCWithTimeout(log, remote, time.Second*10, "")
 
 	return doPull(PullContext{remote, log, pull.Mapping, pull.InitialReplPolicy})
+}
+
+func jobPush(push Push, c *cli.Context, log jobrun.Logger) (err error) {
+
+	if _, ok := push.To.Transport.(LocalTransport); ok {
+		panic("no support for local pushs")
+	}
+
+	var remote rpc.RPCRequester
+	if remote, err = push.To.Transport.Connect(log); err != nil {
+		return err
+	}
+
+	defer closeRPCWithTimeout(log, remote, time.Second*10, "")
+
+	log.Printf("building handler for PullMeRequest")
+	handler := Handler{
+		Logger:          log,
+		PullACL:         push.Filter,
+		SinkMappingFunc: nil, // no need for that in the handler for PullMe
+	}
+	log.Printf("handler: %#v", handler)
+
+	r := rpc.PullMeRequest{
+		InitialReplPolicy: push.InitialReplPolicy,
+	}
+	log.Printf("doing PullMeRequest: %#v", r)
+
+	if err = remote.PullMeRequest(r, handler); err != nil {
+		log.Printf("PullMeRequest failed: %s", err)
+		return
+	}
+
+	log.Printf("push job finished")
+	return
+
 }

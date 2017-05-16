@@ -17,6 +17,7 @@ type RPCRequester interface {
 	FilesystemVersionsRequest(r FilesystemVersionsRequest) (versions []zfs.FilesystemVersion, err error)
 	InitialTransferRequest(r InitialTransferRequest) (io.Reader, error)
 	IncrementalTransferRequest(r IncrementalTransferRequest) (io.Reader, error)
+	PullMeRequest(r PullMeRequest, handler RPCHandler) (err error)
 	CloseRequest(r CloseRequest) (err error)
 	ForceClose() (err error)
 }
@@ -29,6 +30,9 @@ type RPCHandler interface {
 
 	HandleInitialTransferRequest(r InitialTransferRequest) (io.Reader, error)
 	HandleIncrementalTransferRequest(r IncrementalTransferRequest) (io.Reader, error)
+
+	// invert roles, i.e. handler becomes server and performs the requested pull using the client connection
+	HandlePullMeRequest(r PullMeRequest, clientIdentity string, client RPCRequester) (err error)
 }
 
 type Logger interface {
@@ -42,14 +46,16 @@ type ByteStream interface {
 }
 
 type ByteStreamRPC struct {
-	conn ByteStream
-	log  Logger
+	conn           ByteStream
+	log            Logger
+	clientIdentity string
 }
 
-func ConnectByteStreamRPC(conn ByteStream) (RPCRequester, error) {
+func ConnectByteStreamRPC(conn ByteStream, log Logger) (RPCRequester, error) {
 
 	rpc := ByteStreamRPC{
 		conn: conn,
+		log:  log,
 	}
 
 	// Assert protocol versions are equal
@@ -70,7 +76,18 @@ func (e ByteStreamRPCDecodeJSONError) Error() string {
 	return fmt.Sprintf("cannot decode %s: %s", e.Type, e.DecoderErr)
 }
 
-func ListenByteStreamRPC(conn ByteStream, handler RPCHandler, log Logger) error {
+func ListenByteStreamRPC(conn ByteStream, clientIdentity string, handler RPCHandler, log Logger) error {
+
+	c := ByteStreamRPC{
+		conn:           conn,
+		log:            log,
+		clientIdentity: clientIdentity,
+	}
+	return c.serverLoop(handler)
+
+}
+
+func (c ByteStreamRPC) serverLoop(handler RPCHandler) error {
 
 	// A request consists of two subsequent chunked JSON objects
 	// Object 1: RequestHeader => contains type of Request Body
@@ -80,7 +97,16 @@ func ListenByteStreamRPC(conn ByteStream, handler RPCHandler, log Logger) error 
 	// 	 a) a chunked response
 	//   b) or another JSON object
 
-	defer conn.Close()
+	conn := c.conn
+	log := c.log
+	defer func() {
+		panicObj := recover()
+		// if we just exited, we don't want to close the connection (PullMeRequest depends on this)
+		log.Printf("exiting server loop, panic object %#v", panicObj)
+		if panicObj != nil {
+			conn.Close()
+		}
+	}()
 
 	send := func(r interface{}) {
 		if err := writeChunkedJSON(conn, r); err != nil {
@@ -193,6 +219,8 @@ func ListenByteStreamRPC(conn ByteStream, handler RPCHandler, log Logger) error 
 				send(&diff)
 			}
 
+			log.Printf("finished FilesystemVersionReqeust")
+
 		case RTInitialTransferRequest:
 			var rq InitialTransferRequest
 			if err := recv(&rq); err != nil {
@@ -246,6 +274,50 @@ func ListenByteStreamRPC(conn ByteStream, handler RPCHandler, log Logger) error 
 				}
 			}
 
+		case RTPullMeRequest:
+
+			var rq PullMeRequest
+			if err := recv(&rq); err != nil {
+				sendError(EDecodeRequestBody, err.Error())
+
+				return conn.Close()
+			}
+
+			if rq.Finished {
+				// we are the client that sent a PullMeRequest with Finished = false
+				// and then entered this server loop
+				log.Printf("PullMeRequest.Finished == true, exiting server loop")
+				send(ResponseHeader{
+					RequestId:    header.Id,
+					ResponseType: ROK,
+				})
+				return nil
+			}
+
+			// We are a server receiving a PullMeRequest from a client
+
+			log.Printf("confirming PullMeRequest")
+			send(ResponseHeader{
+				RequestId:    header.Id,
+				ResponseType: ROK,
+			})
+
+			log.Printf("pulling from client '%s', expecting client is in server loop", c.clientIdentity)
+			if c.clientIdentity == "" || c.clientIdentity == LOCAL_TRANSPORT_IDENTITY {
+				err := fmt.Errorf("client has bad name: '%s'", c.clientIdentity)
+				log.Printf(err.Error())
+				panic(err)
+			}
+			pullErr := handler.HandlePullMeRequest(rq, c.clientIdentity, c)
+			if pullErr != nil {
+				log.Printf("pulling failed with error: %s", pullErr)
+				panic(pullErr)
+			}
+
+			log.Printf("finished handling PullMeRequest, sending Finished = true")
+			req := PullMeRequest{Finished: true}
+			c.sendRequestReceiveHeader(req, ROK)
+
 		default:
 			sendError(EUnknownRequestType, "")
 			return conn.Close()
@@ -293,6 +365,8 @@ func inferRequestType(v interface{}) (RequestType, error) {
 		return RTInitialTransferRequest, nil
 	case IncrementalTransferRequest:
 		return RTIncrementalTransferRequest, nil
+	case PullMeRequest:
+		return RTPullMeRequest, nil
 	case CloseRequest:
 		return RTCloseRequest, nil
 	default:
@@ -407,6 +481,11 @@ func (c ByteStreamRPC) IncrementalTransferRequest(r IncrementalTransferRequest) 
 	return
 }
 
+func (c ByteStreamRPC) PullMeRequest(r PullMeRequest, handler RPCHandler) (err error) {
+	err = c.sendRequestReceiveHeader(r, ROK)
+	return c.serverLoop(handler)
+}
+
 func (c ByteStreamRPC) CloseRequest(r CloseRequest) (err error) {
 	if err = c.sendRequestReceiveHeader(r, ROK); err != nil {
 		return
@@ -443,6 +522,13 @@ func (c LocalRPC) InitialTransferRequest(r InitialTransferRequest) (io.Reader, e
 func (c LocalRPC) IncrementalTransferRequest(r IncrementalTransferRequest) (reader io.Reader, err error) {
 	reader, err = c.handler.HandleIncrementalTransferRequest(r)
 	return
+}
+
+func (c LocalRPC) PullMeRequest(r PullMeRequest, handler RPCHandler) (err error) {
+	// The config syntactically only allows local Pulls, hence this is never called
+	// In theory, the following line should work:
+	// return handler.HandlePullMeRequest(r, LOCAL_TRANSPORT_IDENTITY, c)
+	panic("internal inconsistency: local pull me request unsupported")
 }
 
 func (c LocalRPC) CloseRequest(r CloseRequest) error { return nil }

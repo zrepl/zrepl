@@ -21,7 +21,7 @@ type Pool struct {
 }
 
 type Transport interface {
-	Connect() (rpc.RPCRequester, error)
+	Connect(rpcLog Logger) (rpc.RPCRequester, error)
 }
 type LocalTransport struct {
 	Handler rpc.RPCHandler
@@ -40,7 +40,7 @@ type SSHTransport struct {
 
 type Push struct {
 	To                *Pool
-	Datasets          []zfs.DatasetPath
+	Filter            zfs.DatasetMapping
 	InitialReplPolicy rpc.InitialReplPolicy
 }
 type Pull struct {
@@ -169,7 +169,7 @@ func parsePushs(v interface{}, pl poolLookup) (p []Push, err error) {
 
 	asList := make([]struct {
 		To                string
-		Datasets          []string
+		Filter            map[string]string
 		InitialReplPolicy string
 	}, 0)
 
@@ -186,14 +186,11 @@ func parsePushs(v interface{}, pl poolLookup) (p []Push, err error) {
 			return
 		}
 		push := Push{
-			To:       toPool,
-			Datasets: make([]zfs.DatasetPath, len(e.Datasets)),
+			To: toPool,
 		}
 
-		for i, ds := range e.Datasets {
-			if push.Datasets[i], err = zfs.NewDatasetPath(ds); err != nil {
-				return
-			}
+		if push.Filter, err = parseComboMapping(e.Filter); err != nil {
+			return
 		}
 
 		if push.InitialReplPolicy, err = parseInitialReplPolicy(e.InitialReplPolicy, rpc.DEFAULT_INITIAL_REPL_POLICY); err != nil {
@@ -376,7 +373,7 @@ func parseComboMapping(m map[string]string) (c zfs.ComboMapping, err error) {
 
 }
 
-func (t SSHTransport) Connect() (r rpc.RPCRequester, err error) {
+func (t SSHTransport) Connect(rpcLog Logger) (r rpc.RPCRequester, err error) {
 	var stream io.ReadWriteCloser
 	var rpcTransport sshbytestream.SSHTransport
 	if err = copier.Copy(&rpcTransport, t); err != nil {
@@ -389,10 +386,10 @@ func (t SSHTransport) Connect() (r rpc.RPCRequester, err error) {
 	if err != nil {
 		return
 	}
-	return rpc.ConnectByteStreamRPC(stream)
+	return rpc.ConnectByteStreamRPC(stream, rpcLog)
 }
 
-func (t LocalTransport) Connect() (r rpc.RPCRequester, err error) {
+func (t LocalTransport) Connect(rpcLog Logger) (r rpc.RPCRequester, err error) {
 	if t.Handler == nil {
 		panic("local transport with uninitialized handler")
 	}
