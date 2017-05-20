@@ -5,6 +5,27 @@ import (
 	"testing"
 )
 
+func TestGlobMappingPrefixWildcard(t *testing.T) {
+
+	m := GlobMapping{
+		PrefixPath: toDatasetPath("a/b/c/"), // TRAILING empty component!
+		TargetRoot: toDatasetPath("x/y"),
+	}
+
+	t.Logf("PrefixPath: %#v", m.PrefixPath)
+
+	var r DatasetPath
+	var err error
+
+	r, err = m.Map(toDatasetPath("a/b/c"))
+	assert.NotNil(t, err)
+
+	r, err = m.Map(toDatasetPath("a/b/c/d"))
+	assert.Nil(t, err)
+	assert.Equal(t, toDatasetPath("x/y/a/b/c/d"), r)
+
+}
+
 func TestGlobMapping(t *testing.T) {
 
 	m := GlobMapping{

@@ -64,7 +64,11 @@ func (m GlobMapping) Map(source DatasetPath) (target DatasetPath, err error) {
 	for si, sc := range source {
 		target = append(target, sc)
 		if si < len(m.PrefixPath) {
-			if sc != m.PrefixPath[si] {
+
+			compsMatch := sc == m.PrefixPath[si]
+			endOfPrefixPath := si == len(m.PrefixPath)-1 && m.PrefixPath[si] == ""
+
+			if !(compsMatch || endOfPrefixPath) {
 				err = NoMatchError
 				return
 			}
