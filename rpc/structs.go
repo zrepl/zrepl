@@ -59,6 +59,17 @@ type ByteStreamRPCProtocolVersionRequest struct {
 	ClientVersion uint8
 }
 
+const LOCAL_TRANSPORT_IDENTITY string = "local"
+
+const DEFAULT_INITIAL_REPL_POLICY = InitialReplPolicyMostRecent
+
+type InitialReplPolicy string
+
+const (
+	InitialReplPolicyMostRecent InitialReplPolicy = "most_recent"
+	InitialReplPolicyAll        InitialReplPolicy = "all"
+)
+
 type CloseRequest struct {
 	Goodbye string
 }

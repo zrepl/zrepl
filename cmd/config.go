@@ -15,10 +15,6 @@ import (
 	"strings"
 )
 
-const LOCAL_TRANSPORT_IDENTITY string = "local"
-
-const DEFAULT_INITIAL_REPL_POLICY = InitialReplPolicyMostRecent
-
 type Pool struct {
 	Name      string
 	Transport Transport
@@ -42,22 +38,15 @@ type SSHTransport struct {
 	ConnLogWriteFile     string `mapstructure:"connlog_write_file"`
 }
 
-type InitialReplPolicy string
-
-const (
-	InitialReplPolicyMostRecent InitialReplPolicy = "most_recent"
-	InitialReplPolicyAll        InitialReplPolicy = "all"
-)
-
 type Push struct {
 	To                *Pool
 	Datasets          []zfs.DatasetPath
-	InitialReplPolicy InitialReplPolicy
+	InitialReplPolicy rpc.InitialReplPolicy
 }
 type Pull struct {
 	From              *Pool
 	Mapping           zfs.DatasetMapping
-	InitialReplPolicy InitialReplPolicy
+	InitialReplPolicy rpc.InitialReplPolicy
 }
 type ClientMapping struct {
 	From    string
@@ -131,8 +120,8 @@ func parsePools(v interface{}) (pools []Pool, err error) {
 	pools = make([]Pool, len(asList))
 	for i, p := range asList {
 
-		if p.Name == LOCAL_TRANSPORT_IDENTITY {
-			err = errors.New(fmt.Sprintf("pool name '%s' reserved for local pulls", LOCAL_TRANSPORT_IDENTITY))
+		if p.Name == rpc.LOCAL_TRANSPORT_IDENTITY {
+			err = errors.New(fmt.Sprintf("pool name '%s' reserved for local pulls", rpc.LOCAL_TRANSPORT_IDENTITY))
 			return
 		}
 
@@ -207,7 +196,7 @@ func parsePushs(v interface{}, pl poolLookup) (p []Push, err error) {
 			}
 		}
 
-		if push.InitialReplPolicy, err = parseInitialReplPolicy(e.InitialReplPolicy, DEFAULT_INITIAL_REPL_POLICY); err != nil {
+		if push.InitialReplPolicy, err = parseInitialReplPolicy(e.InitialReplPolicy, rpc.DEFAULT_INITIAL_REPL_POLICY); err != nil {
 			return
 		}
 
@@ -235,7 +224,7 @@ func parsePulls(v interface{}, pl poolLookup) (p []Pull, err error) {
 
 		var fromPool *Pool
 
-		if e.From == LOCAL_TRANSPORT_IDENTITY {
+		if e.From == rpc.LOCAL_TRANSPORT_IDENTITY {
 			fromPool = &Pool{
 				Name:      "local",
 				Transport: LocalTransport{},
@@ -252,7 +241,7 @@ func parsePulls(v interface{}, pl poolLookup) (p []Pull, err error) {
 		if pull.Mapping, err = parseComboMapping(e.Mapping); err != nil {
 			return
 		}
-		if pull.InitialReplPolicy, err = parseInitialReplPolicy(e.InitialReplPolicy, DEFAULT_INITIAL_REPL_POLICY); err != nil {
+		if pull.InitialReplPolicy, err = parseInitialReplPolicy(e.InitialReplPolicy, rpc.DEFAULT_INITIAL_REPL_POLICY); err != nil {
 			return
 		}
 
@@ -262,7 +251,7 @@ func parsePulls(v interface{}, pl poolLookup) (p []Pull, err error) {
 	return
 }
 
-func parseInitialReplPolicy(v interface{}, defaultPolicy InitialReplPolicy) (p InitialReplPolicy, err error) {
+func parseInitialReplPolicy(v interface{}, defaultPolicy rpc.InitialReplPolicy) (p rpc.InitialReplPolicy, err error) {
 	s, ok := v.(string)
 	if !ok {
 		goto err
@@ -272,9 +261,9 @@ func parseInitialReplPolicy(v interface{}, defaultPolicy InitialReplPolicy) (p I
 	case s == "":
 		p = defaultPolicy
 	case s == "most_recent":
-		p = InitialReplPolicyMostRecent
+		p = rpc.InitialReplPolicyMostRecent
 	case s == "all":
-		p = InitialReplPolicyAll
+		p = rpc.InitialReplPolicyAll
 	default:
 		goto err
 	}
