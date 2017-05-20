@@ -23,6 +23,7 @@ type Logger interface {
 var conf Config
 var runner *jobrun.JobRunner
 var logFlags int = log.LUTC | log.Ldate | log.Ltime
+var logOut io.Writer
 var defaultLog Logger
 
 func main() {
@@ -43,11 +44,27 @@ func main() {
 	app.EnableBashCompletion = true
 	app.Flags = []cli.Flag{
 		cli.StringFlag{Name: "config"},
+		cli.StringFlag{Name: "logfile"},
 	}
 	app.Before = func(c *cli.Context) (err error) {
 
-		defaultLog = log.New(os.Stderr, "", logFlags)
+		if c.GlobalIsSet("logfile") {
+			var logFile *os.File
+			logFile, err = os.OpenFile(c.String("logfile"), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+			if err != nil {
+				return
+			}
 
+			if err = unix.Dup2(int(logFile.Fd()), int(os.Stderr.Fd())); err != nil {
+				logFile.WriteString(fmt.Sprintf("error duping logfile to stderr: %s\n", err))
+				return
+			}
+			logOut = logFile
+		} else {
+			logOut = os.Stderr
+		}
+
+		defaultLog = log.New(logOut, "", logFlags)
 		if !c.GlobalIsSet("config") {
 			return cli.NewExitError("config flag not set", 2)
 		}
@@ -66,7 +83,6 @@ func main() {
 			Usage:   "start in stdin server mode (from authorized keys)",
 			Flags: []cli.Flag{
 				cli.StringFlag{Name: "identity"},
-				cli.StringFlag{Name: "logfile"},
 			},
 			Action: cmdStdinServer,
 		},
@@ -88,23 +104,6 @@ func cmdStdinServer(c *cli.Context) (err error) {
 		return cli.NewExitError("identity flag not set", 2)
 	}
 	identity := c.String("identity")
-
-	var logOut io.Writer
-	if c.IsSet("logfile") {
-		var logFile *os.File
-		logFile, err = os.OpenFile(c.String("logfile"), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
-		if err != nil {
-			return
-		}
-
-		if err = unix.Dup2(int(logFile.Fd()), int(os.Stderr.Fd())); err != nil {
-			logFile.WriteString(fmt.Sprintf("error duping logfile to stderr: %s\n", err))
-			return
-		}
-		logOut = logFile
-	} else {
-		logOut = os.Stderr
-	}
 
 	var sshByteStream io.ReadWriteCloser
 	if sshByteStream, err = sshbytestream.Incoming(); err != nil {
