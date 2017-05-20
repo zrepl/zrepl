@@ -46,9 +46,7 @@ func doPull(pull PullContext) (err error) {
 	remote := pull.Remote
 	log := pull.Log
 
-	fsr := rpc.FilesystemRequest{
-		Direction: rpc.DirectionPull,
-	}
+	fsr := rpc.FilesystemRequest{}
 	var remoteFilesystems []zfs.DatasetPath
 	if remoteFilesystems, err = remote.FilesystemRequest(fsr); err != nil {
 		return

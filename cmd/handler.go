@@ -14,17 +14,9 @@ type Handler struct {
 
 func (h Handler) HandleFilesystemRequest(r rpc.FilesystemRequest) (roots []zfs.DatasetPath, err error) {
 
-	var mapping zfs.DatasetMapping
-	switch r.Direction {
-	case rpc.DirectionPush:
-		mapping = h.PushMapping
-	case rpc.DirectionPull:
-		mapping = h.PullMapping
-	}
-
 	h.Logger.Printf("handling fsr: %#v", r)
 
-	if roots, err = zfs.ZFSListMapping(mapping); err != nil {
+	if roots, err = zfs.ZFSListMapping(h.PullMapping); err != nil {
 		h.Logger.Printf("handle fsr err: %v\n", err)
 		return
 	}
