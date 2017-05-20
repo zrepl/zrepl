@@ -7,16 +7,15 @@ import (
 )
 
 type Handler struct {
-	Logger      Logger
-	PushMapping zfs.DatasetMapping
-	PullMapping zfs.DatasetMapping
+	Logger          Logger
+	PullACL         zfs.DatasetMapping
 }
 
 func (h Handler) HandleFilesystemRequest(r rpc.FilesystemRequest) (roots []zfs.DatasetPath, err error) {
 
 	h.Logger.Printf("handling fsr: %#v", r)
 
-	if roots, err = zfs.ZFSListMapping(h.PullMapping); err != nil {
+	if roots, err = zfs.ZFSListMapping(h.PullACL); err != nil {
 		h.Logger.Printf("handle fsr err: %v\n", err)
 		return
 	}
@@ -29,9 +28,9 @@ func (h Handler) HandleFilesystemRequest(r rpc.FilesystemRequest) (roots []zfs.D
 func (h Handler) HandleFilesystemVersionsRequest(r rpc.FilesystemVersionsRequest) (versions []zfs.FilesystemVersion, err error) {
 
 	// allowed to request that?
-	if _, err = h.PullMapping.Map(r.Filesystem); err != nil {
+	if _, err = h.PullACL.Map(r.Filesystem); err != nil {
 		h.Logger.Printf("filesystem: %#v\n", r.Filesystem)
-		h.Logger.Printf("pull mapping: %#v\n", h.PullMapping)
+		h.Logger.Printf("pull mapping: %#v\n", h.PullACL)
 		h.Logger.Printf("allowed error: %#v\n", err)
 		return
 	}
@@ -52,7 +51,7 @@ func (h Handler) HandleInitialTransferRequest(r rpc.InitialTransferRequest) (str
 
 	h.Logger.Printf("handling initial transfer request: %#v", r)
 	// allowed to request that?
-	if _, err = h.PullMapping.Map(r.Filesystem); err != nil {
+	if _, err = h.PullACL.Map(r.Filesystem); err != nil {
 		h.Logger.Printf("initial transfer request acl errror: %#v", err)
 		return
 	}
@@ -73,7 +72,7 @@ func (h Handler) HandleIncrementalTransferRequest(r rpc.IncrementalTransferReque
 
 	h.Logger.Printf("handling incremental transfer request: %#v", r)
 	// allowed to request that?
-	if _, err = h.PullMapping.Map(r.Filesystem); err != nil {
+	if _, err = h.PullACL.Map(r.Filesystem); err != nil {
 		h.Logger.Printf("incremental transfer request acl errror: %#v", err)
 		return
 	}

@@ -122,9 +122,8 @@ func cmdStdinServer(c *cli.Context) (err error) {
 
 	sinkLogger := log.New(logOut, fmt.Sprintf("sink[%s] ", identity), logFlags)
 	handler := Handler{
-		Logger:      sinkLogger,
-		PushMapping: findMapping(conf.Sinks),
-		PullMapping: findMapping(conf.PullACLs),
+		Logger:  sinkLogger,
+		PullACL: findMapping(conf.PullACLs),
 	}
 
 	if err = rpc.ListenByteStreamRPC(sshByteStream, handler, sinkLogger); err != nil {
@@ -197,8 +196,8 @@ func jobPull(pull Pull, c *cli.Context, log jobrun.Logger) (err error) {
 
 	if lt, ok := pull.From.Transport.(LocalTransport); ok {
 		lt.SetHandler(Handler{
-			Logger:      log,
-			PullMapping: pull.Mapping,
+			Logger:  log,
+			PullACL: pull.Mapping,
 		})
 		pull.From.Transport = lt
 		log.Printf("fixing up local transport: %#v", pull.From.Transport)
