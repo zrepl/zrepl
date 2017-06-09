@@ -158,9 +158,8 @@ func cmdRun(c *cli.Context) error {
 	i := 0
 	for _, pull := range conf.Pulls {
 		jobs[i] = jobrun.Job{
-			Name:     fmt.Sprintf("pull%d", i),
-			Interval: time.Duration(5 * time.Second),
-			Repeats:  true,
+			Name:           fmt.Sprintf("pull.%d", i),
+			RepeatStrategy: pull.RepeatStrategy,
 			RunFunc: func(log jobrun.Logger) error {
 				log.Printf("doing pull: %v", pull)
 				return jobPull(pull, c, log)
@@ -170,9 +169,8 @@ func cmdRun(c *cli.Context) error {
 	}
 	for _, push := range conf.Pushs {
 		jobs[i] = jobrun.Job{
-			Name:     fmt.Sprintf("push%d", i),
-			Interval: time.Duration(5 * time.Second),
-			Repeats:  true,
+			Name:           fmt.Sprintf("push.%d", i),
+			RepeatStrategy: push.RepeatStrategy,
 			RunFunc: func(log jobrun.Logger) error {
 				log.Printf("doing push: %v", push)
 				return jobPush(push, c, log)

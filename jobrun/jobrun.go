@@ -19,12 +19,24 @@ func (l jobLogger) Printf(format string, v ...interface{}) {
 }
 
 type Job struct {
-	Name      string
-	RunFunc   func(log Logger) (err error)
-	LastStart time.Time
-	LastError error
-	Interval  time.Duration
-	Repeats   bool
+	Name           string
+	RunFunc        func(log Logger) (err error)
+	LastStart      time.Time
+	LastError      error
+	DueAt          time.Time
+	RepeatStrategy RepeatStrategy
+}
+
+type JobRunResult struct {
+	Start  time.Time
+	Finish time.Time
+	Error  error
+}
+
+func (r JobRunResult) RunTime() time.Duration { return r.Finish.Sub(r.Start) }
+
+type RepeatStrategy interface {
+	ShouldReschedule(lastResult JobRunResult) (nextDue time.Time, reschedule bool)
 }
 
 type JobRunner struct {
@@ -78,15 +90,20 @@ loop:
 
 	case finishedJob := <-r.finishedJobChan:
 
-		runTime := time.Since(finishedJob.LastStart)
+		delete(r.running, finishedJob.Name)
 
-		r.logger.Printf("[%s] finished after %v\n", finishedJob.Name, runTime)
-		if runTime > finishedJob.Interval {
-			r.logger.Printf("[%s] job exceeded interval of %v\n", finishedJob.Name, finishedJob.Interval)
+		res := JobRunResult{
+			Start:  finishedJob.LastStart,
+			Finish: time.Now(),
+			Error:  finishedJob.LastError,
 		}
 
-		delete(r.running, finishedJob.Name)
-		if finishedJob.Repeats {
+		r.logger.Printf("[%s] finished after %s\n", finishedJob.Name, res.RunTime())
+
+		dueTime, resched := finishedJob.RepeatStrategy.ShouldReschedule(res)
+		if resched {
+			r.logger.Printf("[%s] rescheduling to %s", dueTime)
+			finishedJob.DueAt = dueTime
 			r.pending[finishedJob.Name] = finishedJob
 		}
 
@@ -108,11 +125,9 @@ loop:
 
 	for jobName, job := range r.pending {
 
-		jobDueTime := job.LastStart.Add(job.Interval)
-
-		if jobDueTime.After(time.Now()) {
-			if jobDueTime.Before(nextJobDue) {
-				nextJobDue = jobDueTime
+		if job.DueAt.After(time.Now()) {
+			if job.DueAt.Before(nextJobDue) {
+				nextJobDue = job.DueAt
 			}
 			jobPending = true
 			continue

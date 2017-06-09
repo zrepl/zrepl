@@ -23,6 +23,8 @@ pulls:
   # local replication, only allowed in pull mode
   # the from name 'local' is reserved for this purpose
   - from: local
+    repeat:
+      interval: 15m
     mapping: {
       "tank/usr/home":"mirrorpool/foo/bar"
     }

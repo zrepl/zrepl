@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jinzhu/copier"
 	"github.com/mitchellh/mapstructure"
+	"github.com/zrepl/zrepl/jobrun"
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/sshbytestream"
 	. "github.com/zrepl/zrepl/util"
@@ -13,6 +14,7 @@ import (
 	"io"
 	"io/ioutil"
 	"strings"
+	"time"
 )
 
 type Pool struct {
@@ -42,12 +44,15 @@ type Push struct {
 	To                *Pool
 	Filter            zfs.DatasetMapping
 	InitialReplPolicy rpc.InitialReplPolicy
+	RepeatStrategy    jobrun.RepeatStrategy
 }
 type Pull struct {
 	From              *Pool
 	Mapping           zfs.DatasetMapping
 	InitialReplPolicy rpc.InitialReplPolicy
+	RepeatStrategy    jobrun.RepeatStrategy
 }
+
 type ClientMapping struct {
 	From    string
 	Mapping zfs.DatasetMapping
@@ -171,6 +176,7 @@ func parsePushs(v interface{}, pl poolLookup) (p []Push, err error) {
 		To                string
 		Filter            map[string]string
 		InitialReplPolicy string
+		Repeat            map[string]string
 	}, 0)
 
 	if err = mapstructure.Decode(v, &asList); err != nil {
@@ -197,6 +203,10 @@ func parsePushs(v interface{}, pl poolLookup) (p []Push, err error) {
 			return
 		}
 
+		if push.RepeatStrategy, err = parseRepeatStrategy(e.Repeat); err != nil {
+			return
+		}
+
 		p[i] = push
 	}
 
@@ -209,6 +219,7 @@ func parsePulls(v interface{}, pl poolLookup) (p []Pull, err error) {
 		From              string
 		Mapping           map[string]string
 		InitialReplPolicy string
+		Repeat            map[string]string
 	}, 0)
 
 	if err = mapstructure.Decode(v, &asList); err != nil {
@@ -241,6 +252,9 @@ func parsePulls(v interface{}, pl poolLookup) (p []Pull, err error) {
 		if pull.InitialReplPolicy, err = parseInitialReplPolicy(e.InitialReplPolicy, rpc.DEFAULT_INITIAL_REPL_POLICY); err != nil {
 			return
 		}
+		if pull.RepeatStrategy, err = parseRepeatStrategy(e.Repeat); err != nil {
+			return
+		}
 
 		p[i] = pull
 	}
@@ -270,6 +284,25 @@ func parseInitialReplPolicy(v interface{}, defaultPolicy rpc.InitialReplPolicy) 
 err:
 	err = errors.New(fmt.Sprintf("expected InitialReplPolicy, got %#v", v))
 	return
+}
+
+func parseRepeatStrategy(r map[string]string) (s jobrun.RepeatStrategy, err error) {
+
+	if r == nil {
+		return jobrun.NoRepeatStrategy{}, nil
+	}
+
+	if repeatStr, ok := r["interval"]; ok {
+		d, err := time.ParseDuration(repeatStr)
+		if err != nil {
+			return nil, err
+		}
+		s = &jobrun.PeriodicRepeatStrategy{d}
+		return s, err
+	} else {
+		return nil, fmt.Errorf("attribute 'interval' not found but required in repeat specification")
+	}
+
 }
 
 func expectList(v interface{}) (asList []interface{}, err error) {
