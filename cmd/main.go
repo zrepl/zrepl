@@ -105,6 +105,10 @@ func main() {
 			Action:  cmdRun,
 			Flags: []cli.Flag{
 				cli.StringFlag{Name: "job"},
+				cli.BoolFlag{
+					Name:  "once",
+					Usage: "run jobs only once, regardless of configured repeat behavior",
+				},
 			},
 		},
 	}
@@ -192,9 +196,13 @@ func cmdRun(c *cli.Context) error {
 	}
 
 	for _, j := range jobs {
+		if c.IsSet("once") {
+			j.RepeatStrategy = jobrun.NoRepeatStrategy{}
+		}
 		if c.IsSet("job") {
 			if c.String("job") == j.Name {
 				runner.AddJob(j)
+				break
 			}
 			continue
 		}
