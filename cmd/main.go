@@ -10,6 +10,8 @@ import (
 	"golang.org/x/sys/unix"
 	"io"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"runtime/debug"
 	"sync"
@@ -45,9 +47,11 @@ func main() {
 	app.Flags = []cli.Flag{
 		cli.StringFlag{Name: "config"},
 		cli.StringFlag{Name: "logfile"},
+		cli.StringFlag{Name: "debug.pprof.http"},
 	}
 	app.Before = func(c *cli.Context) (err error) {
 
+		// Logging
 		if c.GlobalIsSet("logfile") {
 			var logFile *os.File
 			logFile, err = os.OpenFile(c.String("logfile"), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
@@ -63,8 +67,16 @@ func main() {
 		} else {
 			logOut = os.Stderr
 		}
-
 		defaultLog = log.New(logOut, "", logFlags)
+
+		// CPU profiling
+		if c.GlobalIsSet("debug.pprof.http") {
+			go func() {
+				http.ListenAndServe(c.GlobalString("debug.pprof.http"), nil)
+			}()
+		}
+
+		// Config
 		if !c.GlobalIsSet("config") {
 			return cli.NewExitError("config flag not set", 2)
 		}
