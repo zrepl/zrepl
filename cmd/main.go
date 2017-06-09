@@ -91,6 +91,9 @@ func main() {
 			Aliases: []string{"r"},
 			Usage:   "do replication",
 			Action:  cmdRun,
+			Flags: []cli.Flag{
+				cli.StringFlag{Name: "job"},
+			},
 		},
 	}
 
@@ -144,9 +147,6 @@ func cmdStdinServer(c *cli.Context) (err error) {
 
 func cmdRun(c *cli.Context) error {
 
-	// Do every pull, do every push
-	// Scheduling
-
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -154,10 +154,10 @@ func cmdRun(c *cli.Context) error {
 		runner.Start()
 	}()
 
-	for i := range conf.Pulls {
-		pull := conf.Pulls[i]
-
-		j := jobrun.Job{
+	jobs := make([]jobrun.Job, len(conf.Pulls)+len(conf.Pushs))
+	i := 0
+	for _, pull := range conf.Pulls {
+		jobs[i] = jobrun.Job{
 			Name:     fmt.Sprintf("pull%d", i),
 			Interval: time.Duration(5 * time.Second),
 			Repeats:  true,
@@ -166,14 +166,10 @@ func cmdRun(c *cli.Context) error {
 				return jobPull(pull, c, log)
 			},
 		}
-
-		runner.AddJob(j)
+		i++
 	}
-
-	for i := range conf.Pushs {
-		push := conf.Pushs[i]
-
-		j := jobrun.Job{
+	for _, push := range conf.Pushs {
+		jobs[i] = jobrun.Job{
 			Name:     fmt.Sprintf("push%d", i),
 			Interval: time.Duration(5 * time.Second),
 			Repeats:  true,
@@ -182,14 +178,23 @@ func cmdRun(c *cli.Context) error {
 				return jobPush(push, c, log)
 			},
 		}
+		i++
+	}
 
+	for _, j := range jobs {
+		if c.IsSet("job") {
+			if c.String("job") == j.Name {
+				runner.AddJob(j)
+			}
+			continue
+		}
 		runner.AddJob(j)
 	}
 
 	for {
 		select {
 		case job := <-runner.NotificationChan():
-			log.Printf("notificaiton on job %s: error=%v\n", job.Name, job.LastError)
+			log.Printf("job %s reported error: %v\n", job.Name, job.LastError)
 		}
 	}
 
