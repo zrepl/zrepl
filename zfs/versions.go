@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type VersionType string
@@ -39,6 +40,9 @@ type FilesystemVersion struct {
 	// The TXG in which the snapshot was created. For bookmarks,
 	// this is the GUID of the snapshot it was initially tied to.
 	CreateTXG uint64
+
+	// The time the dataset was created
+	Creation time.Time
 }
 
 func (v FilesystemVersion) ToAbsPath(p DatasetPath) string {
@@ -56,7 +60,7 @@ type FilesystemVersionFilter interface {
 func ZFSListFilesystemVersions(fs DatasetPath, filter FilesystemVersionFilter) (res []FilesystemVersion, err error) {
 	var fieldLines [][]string
 	fieldLines, err = ZFSList(
-		[]string{"name", "guid", "createtxg"},
+		[]string{"name", "guid", "createtxg", "creation"},
 		"-r", "-d", "1",
 		"-t", "bookmark,snapshot",
 		"-s", "createtxg", fs.ToString())
@@ -95,6 +99,14 @@ func ZFSListFilesystemVersions(fs DatasetPath, filter FilesystemVersionFilter) (
 		if v.CreateTXG, err = strconv.ParseUint(line[2], 10, 64); err != nil {
 			err = errors.New(fmt.Sprintf("cannot parse CreateTXG: %s", err.Error()))
 			return
+		}
+
+		creationUnix, err := strconv.ParseInt(line[3], 10, 64)
+		if err != nil {
+			err = fmt.Errorf("cannot parse creation date '%s': %s", line[3], err)
+			return nil, err
+		} else {
+			v.Creation = time.Unix(creationUnix, 0)
 		}
 
 		accept := true

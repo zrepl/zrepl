@@ -13,6 +13,8 @@ import (
 	yaml "gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -58,12 +60,20 @@ type ClientMapping struct {
 	Mapping zfs.DatasetMapping
 }
 
+type Prune struct {
+	Name            string
+	DatasetFilter   zfs.DatasetMapping
+	SnapshotFilter  zfs.FilesystemVersionFilter
+	RetentionPolicy *RetentionGrid // TODO abstract interface to support future policies?
+}
+
 type Config struct {
 	Pools    []Pool
 	Pushs    []Push
 	Pulls    []Pull
 	Sinks    []ClientMapping
 	PullACLs []ClientMapping
+	Prunes   []Prune
 }
 
 func ParseConfig(path string) (config Config, err error) {
@@ -107,6 +117,9 @@ func parseMain(root map[string]interface{}) (c Config, err error) {
 		return
 	}
 	if c.PullACLs, err = parseClientMappings(root["pull_acls"]); err != nil {
+		return
+	}
+	if c.Prunes, err = parsePrunes(root["prune"]); err != nil {
 		return
 	}
 	return
@@ -431,4 +444,183 @@ func (t LocalTransport) Connect(rpcLog Logger) (r rpc.RPCRequester, err error) {
 
 func (t *LocalTransport) SetHandler(handler rpc.RPCHandler) {
 	t.Handler = handler
+}
+
+func parsePrunes(m interface{}) (rets []Prune, err error) {
+
+	asList := make([]map[string]interface{}, 0)
+	if err = mapstructure.Decode(m, &asList); err != nil {
+		return
+	}
+
+	rets = make([]Prune, len(asList))
+
+	for i, e := range asList {
+		if rets[i], err = parsePrune(e); err != nil {
+			err = fmt.Errorf("cannot parse prune job #%d: %s", i+1, err)
+			return
+		}
+	}
+
+	return
+}
+
+func parsePrune(e map[string]interface{}) (prune Prune, err error) {
+	// Only support grid policy for now
+	policyName, ok := e["policy"]
+	if !ok || policyName != "grid" {
+		err = fmt.Errorf("prune job with unimplemented policy '%s'", policyName)
+		return
+	}
+
+	var i struct {
+		Name           string
+		Grid           string
+		DatasetFilter  map[string]string `mapstructure:"dataset_filter"`
+		SnapshotFilter map[string]string `mapstructure:"snapshot_filter"`
+	}
+
+	if err = mapstructure.Decode(e, &i); err != nil {
+		return
+	}
+
+	prune.Name = i.Name
+
+	// Parse grid policy
+	intervals, err := parseRetentionGridIntervalsString(i.Grid)
+	if err != nil {
+		err = fmt.Errorf("cannot parse retention grid: %s", err)
+		return
+	}
+	// Assert intervals are of increasing length (not necessarily required, but indicates config mistake)
+	lastDuration := time.Duration(0)
+	for i := range intervals {
+		if intervals[i].Length < lastDuration {
+			err = fmt.Errorf("retention grid interval length must be monotonically increasing:"+
+				"interval %d is shorter than %d", i+1, i)
+			return
+		} else {
+			lastDuration = intervals[i].Length
+		}
+	}
+	prune.RetentionPolicy = NewRetentionGrid(intervals)
+
+	// Parse filters
+	if prune.DatasetFilter, err = parseComboMapping(i.DatasetFilter); err != nil {
+		err = fmt.Errorf("cannot parse dataset filter: %s", err)
+		return
+	}
+	if prune.SnapshotFilter, err = parseSnapshotFilter(i.SnapshotFilter); err != nil {
+		err = fmt.Errorf("cannot parse snapshot filter: %s", err)
+		return
+	}
+
+	return
+}
+
+var retentionStringIntervalRegex *regexp.Regexp = regexp.MustCompile(`^\s*(\d+)\s*x\s*(\d+)\s*(s|min|h|d|w|mon)\s*\s*(\((.*)\))?\s*$`)
+
+func parseRetentionGridIntervalString(e string) (intervals []RetentionInterval, err error) {
+
+	comps := retentionStringIntervalRegex.FindStringSubmatch(e)
+	if comps == nil {
+		err = fmt.Errorf("retention string does not match expected format")
+		return
+	}
+
+	times, err := strconv.Atoi(comps[1])
+	if err != nil {
+		return nil, err
+	} else if times <= 0 {
+		return nil, fmt.Errorf("contains factor <= 0")
+	}
+
+	durationFactor, err := strconv.ParseInt(comps[2], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	var durationUnit time.Duration
+	switch comps[3] {
+	case "s":
+		durationUnit = time.Second
+	case "min":
+		durationUnit = time.Minute
+	case "h":
+		durationUnit = time.Hour
+	case "d":
+		durationUnit = 24 * time.Hour
+	case "w":
+		durationUnit = 24 * 7 * time.Hour
+	case "mon":
+		durationUnit = 32 * 24 * 7 * time.Hour
+	default:
+		err = fmt.Errorf("contains unknown time unit '%s'", comps[3])
+		return nil, err
+	}
+
+	keepCount := 1
+	if comps[4] != "" {
+		// Decompose key=value, comma separated
+		// For now, only keep_count is supported
+		re := regexp.MustCompile(`^\s*keep=(.+)\s*$`)
+		res := re.FindStringSubmatch(comps[5])
+		if res == nil || len(res) != 2 {
+			err = fmt.Errorf("interval parameter contains unknown parameters")
+		}
+		if res[1] == "all" {
+			keepCount = RetentionGridKeepCountAll
+		} else {
+			keepCount, err = strconv.Atoi(res[1])
+			if err != nil {
+				err = fmt.Errorf("cannot parse keep_count value")
+				return
+			}
+		}
+	}
+
+	intervals = make([]RetentionInterval, times)
+	for i := range intervals {
+		intervals[i] = RetentionInterval{
+			Length:    time.Duration(durationFactor) * durationUnit, // TODO is this conversion fututre-proof?
+			KeepCount: keepCount,
+		}
+	}
+
+	return
+
+}
+
+func parseRetentionGridIntervalsString(s string) (intervals []RetentionInterval, err error) {
+
+	ges := strings.Split(s, "|")
+	intervals = make([]RetentionInterval, 0, 7*len(ges))
+
+	for intervalIdx, e := range ges {
+		parsed, err := parseRetentionGridIntervalString(e)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse interval %d of %d: %s: %s", intervalIdx+1, len(ges), err, strings.TrimSpace(e))
+		}
+		intervals = append(intervals, parsed...)
+	}
+
+	return
+}
+
+type prefixSnapshotFilter struct {
+	prefix string
+}
+
+func (f prefixSnapshotFilter) Filter(fsv zfs.FilesystemVersion) (accept bool, err error) {
+	return fsv.Type == zfs.Snapshot && strings.HasPrefix(fsv.Name, f.prefix), nil
+}
+
+func parseSnapshotFilter(fm map[string]string) (snapFilter zfs.FilesystemVersionFilter, err error) {
+	prefix, ok := fm["prefix"]
+	if !ok {
+		err = fmt.Errorf("unsupported snapshot filter")
+		return
+	}
+	snapFilter = prefixSnapshotFilter{prefix}
+	return
 }

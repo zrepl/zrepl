@@ -84,3 +84,16 @@ pull_acls:
     mapping: {
       "tank/usr/home":"notnull"
     }
+
+
+prune:
+
+  - name: clean_backups
+    policy: grid
+    grid: 6x10min | 24x1h | 7x1d | 32 x 1d | 4 x 3mon
+    dataset_filter: {
+      "tank/backups/*": ok
+    }
+    snapshot_filter: {
+      prefix: zrepl_
+    }

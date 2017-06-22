@@ -111,6 +111,14 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:   "prune",
+			Action: cmdPrune,
+			Flags: []cli.Flag{
+				cli.StringFlag{Name: "job"},
+				cli.BoolFlag{Name: "n", Usage: "simulation (dry run)"},
+			},
+		},
 	}
 
 	app.Run(os.Args)
@@ -276,5 +284,35 @@ func jobPush(push Push, c *cli.Context, log jobrun.Logger) (err error) {
 
 	log.Printf("push job finished")
 	return
+
+}
+
+func cmdPrune(c *cli.Context) error {
+
+	log := defaultLog
+
+	jobFailed := false
+
+	log.Printf("retending...")
+
+	for _, prune := range conf.Prunes {
+
+		if !c.IsSet("job") || (c.IsSet("job") && c.String("job") == prune.Name) {
+			log.Printf("Beginning prune job:\n%s", prune)
+			ctx := PruneContext{prune, time.Now(), c.IsSet("n")}
+			err := doPrune(ctx, log)
+			if err != nil {
+				jobFailed = true
+				log.Printf("Prune job failed with error: %s", err)
+			}
+			log.Printf("\n")
+		}
+
+	}
+
+	if jobFailed {
+		return cli.NewExitError("At least one job failed with an error. Check log for details.", 1)
+	}
+	return nil
 
 }
