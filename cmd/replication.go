@@ -114,7 +114,7 @@ func doPull(pull PullContext) (err error) {
 
 		var versions []zfs.FilesystemVersion
 		if m.LocalExists {
-			if versions, err = zfs.ZFSListFilesystemVersions(m.Local); err != nil {
+			if versions, err = zfs.ZFSListFilesystemVersions(m.Local, nil); err != nil {
 				log("cannot get filesystem versions, stopping...: %v\n", m.Local.ToString(), m, err)
 				return false
 			}

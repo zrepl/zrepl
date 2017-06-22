@@ -41,7 +41,7 @@ func (h Handler) HandleFilesystemVersionsRequest(r rpc.FilesystemVersionsRequest
 	h.Logger.Printf("allowed: %#v\n", r.Filesystem)
 
 	// find our versions
-	if versions, err = zfs.ZFSListFilesystemVersions(r.Filesystem); err != nil {
+	if versions, err = zfs.ZFSListFilesystemVersions(r.Filesystem, nil); err != nil {
 		h.Logger.Printf("our versions error: %#v\n", err)
 		return
 	}
