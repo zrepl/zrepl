@@ -182,3 +182,25 @@ func ZFSSet(fs DatasetPath, prop, val string) (err error) {
 
 	return
 }
+
+func ZFSDestroy(dataset string) (err error) {
+
+	cmd := exec.Command(ZFS_BINARY, "destroy", dataset)
+
+	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
+	cmd.Stderr = stderr
+
+	if err = cmd.Start(); err != nil {
+		return err
+	}
+
+	if err = cmd.Wait(); err != nil {
+		err = ZFSError{
+			Stderr:  stderr.Bytes(),
+			WaitErr: err,
+		}
+	}
+
+	return
+
+}
