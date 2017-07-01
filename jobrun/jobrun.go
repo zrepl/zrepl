@@ -102,7 +102,7 @@ loop:
 
 		dueTime, resched := finishedJob.RepeatStrategy.ShouldReschedule(res)
 		if resched {
-			r.logger.Printf("[%s] rescheduling to %s", dueTime)
+			r.logger.Printf("[%s] rescheduling to %s", finishedJob.Name, dueTime)
 			finishedJob.DueAt = dueTime
 			r.pending[finishedJob.Name] = finishedJob
 		}
@@ -125,7 +125,7 @@ loop:
 
 	for jobName, job := range r.pending {
 
-		if job.DueAt.After(time.Now()) {
+		if job.DueAt.After(now) {
 			if job.DueAt.Before(nextJobDue) {
 				nextJobDue = job.DueAt
 			}
@@ -150,7 +150,6 @@ loop:
 	}
 
 	if jobPending || len(r.running) > 0 {
-		nextJobDue = nextJobDue.Add(time.Second).Round(time.Second)
 		r.logger.Printf("waiting until %v\n", nextJobDue)
 		r.scheduleTimer = time.After(nextJobDue.Sub(now))
 		goto loop
