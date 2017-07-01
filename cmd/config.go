@@ -67,13 +67,21 @@ type Prune struct {
 	RetentionPolicy *RetentionGrid // TODO abstract interface to support future policies?
 }
 
+type Autosnap struct {
+	Name          string
+	Prefix        string
+	Interval      jobrun.RepeatStrategy
+	DatasetFilter zfs.DatasetMapping
+}
+
 type Config struct {
-	Pools    []Pool
-	Pushs    []Push
-	Pulls    []Pull
-	Sinks    []ClientMapping
-	PullACLs []ClientMapping
-	Prunes   []Prune
+	Pools     []Pool
+	Pushs     []Push
+	Pulls     []Pull
+	Sinks     []ClientMapping
+	PullACLs  []ClientMapping
+	Prunes    []Prune
+	Autosnaps []Autosnap
 }
 
 func ParseConfig(path string) (config Config, err error) {
@@ -120,6 +128,9 @@ func parseMain(root map[string]interface{}) (c Config, err error) {
 		return
 	}
 	if c.Prunes, err = parsePrunes(root["prune"]); err != nil {
+		return
+	}
+	if c.Autosnaps, err = parseAutosnaps(root["autosnap"]); err != nil {
 		return
 	}
 	return
@@ -622,5 +633,65 @@ func parseSnapshotFilter(fm map[string]string) (snapFilter zfs.FilesystemVersion
 		return
 	}
 	snapFilter = prefixSnapshotFilter{prefix}
+	return
+}
+
+func parseAutosnaps(m interface{}) (snaps []Autosnap, err error) {
+
+	asList := make([]map[string]interface{}, 0)
+	if err = mapstructure.Decode(m, &asList); err != nil {
+		return
+	}
+
+	snaps = make([]Autosnap, len(asList))
+
+	for i, e := range asList {
+		if snaps[i], err = parseAutosnap(e); err != nil {
+			err = fmt.Errorf("cannot parse autonsap job #%d: %s", i+1, err)
+			return
+		}
+	}
+
+	return
+
+}
+
+func parseAutosnap(m map[string]interface{}) (a Autosnap, err error) {
+
+	var i struct {
+		Name          string
+		Prefix        string
+		Interval      string
+		DatasetFilter map[string]string `mapstructure:"dataset_filter"`
+	}
+
+	if err = mapstructure.Decode(m, &i); err != nil {
+		err = fmt.Errorf("structure unfit: %s", err)
+		return
+	}
+
+	a.Name = i.Name
+
+	if len(i.Prefix) < 1 {
+		err = fmt.Errorf("prefix must not be empty")
+		return
+	}
+	a.Prefix = i.Prefix
+
+	var interval time.Duration
+	if interval, err = time.ParseDuration(i.Interval); err != nil {
+		err = fmt.Errorf("cannot parse interval: %s", err)
+		return
+	}
+	a.Interval = &jobrun.PeriodicRepeatStrategy{interval}
+
+	if len(i.DatasetFilter) == 0 {
+		err = fmt.Errorf("dataset_filter not specified")
+		return
+	}
+	if a.DatasetFilter, err = parseComboMapping(i.DatasetFilter); err != nil {
+		err = fmt.Errorf("cannot parse dataset filter: %s", err)
+	}
+
 	return
 }

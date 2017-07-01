@@ -97,3 +97,25 @@ prune:
     snapshot_filter: {
       prefix: zrepl_
     }
+
+  - name: hfbak_prune # cleans up after hfbak autosnap job
+    policy: grid
+    grid: 1x1min(keep=all)
+    dataset_filter: {
+      "pool1*": ok
+    }
+    snapshot_filter: {
+      prefix: zrepl_hfbak_
+    }
+
+autosnap:
+
+  - name: hfbak
+    prefix: zrepl_hfbak_
+    interval: 1s
+    dataset_filter: {
+      "pool1*": ok
+    }
+    # prune: hfbak_prune
+    # future versions may inline the retention policy here, but for now,
+    # pruning has to be triggered manually (it's safe to run autosnap + prune in parallel)

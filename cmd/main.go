@@ -119,6 +119,13 @@ func main() {
 				cli.BoolFlag{Name: "n", Usage: "simulation (dry run)"},
 			},
 		},
+		{
+			Name:   "autosnap",
+			Action: cmdAutosnap,
+			Flags: []cli.Flag{
+				cli.StringFlag{Name: "job"},
+			},
+		},
 	}
 
 	app.Run(os.Args)
@@ -306,6 +313,7 @@ func cmdPrune(c *cli.Context) error {
 				log.Printf("Prune job failed with error: %s", err)
 			}
 			log.Printf("\n")
+
 		}
 
 	}
@@ -313,6 +321,45 @@ func cmdPrune(c *cli.Context) error {
 	if jobFailed {
 		return cli.NewExitError("At least one job failed with an error. Check log for details.", 1)
 	}
+
+	return nil
+}
+
+func cmdAutosnap(c *cli.Context) error {
+
+	log := defaultLog
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		runner.Start()
+	}()
+
+	log.Printf("autosnap...")
+
+	for i := range conf.Autosnaps {
+
+		snap := conf.Autosnaps[i]
+
+		if !c.IsSet("job") || (c.IsSet("job") && c.String("job") == snap.Name) {
+
+			job := jobrun.Job{
+				Name:           fmt.Sprintf("autosnap.%s", snap.Name),
+				RepeatStrategy: snap.Interval,
+				RunFunc: func(log jobrun.Logger) error {
+					log.Printf("doing autosnap: %v", snap)
+					ctx := AutosnapContext{snap}
+					return doAutosnap(ctx, log)
+				},
+			}
+			runner.AddJob(job)
+
+		}
+	}
+
+	wg.Wait()
+
 	return nil
 
 }
