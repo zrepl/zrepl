@@ -1,12 +1,149 @@
-package main
+package cmd
 
 import (
 	"fmt"
+	"github.com/spf13/cobra"
+	"github.com/zrepl/zrepl/jobrun"
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/zfs"
 	"io"
+	"sync"
 	"time"
 )
+
+var runArgs struct {
+	job  string
+	once bool
+}
+
+var RunCmd = &cobra.Command{
+	Use:   "run",
+	Short: "run push & pull replication",
+	Run:   cmdRun,
+}
+
+func init() {
+	RootCmd.AddCommand(RunCmd)
+	RunCmd.Flags().BoolVar(&runArgs.once, "once", false, "run jobs only once, regardless of configured repeat behavior")
+	RunCmd.Flags().StringVar(&runArgs.job, "job", "", "run only the given job")
+}
+
+func cmdRun(cmd *cobra.Command, args []string) {
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		runner.Start()
+	}()
+
+	jobs := make([]jobrun.Job, len(conf.Pulls)+len(conf.Pushs))
+	i := 0
+	for _, pull := range conf.Pulls {
+		jobs[i] = jobrun.Job{
+			Name:           fmt.Sprintf("pull.%d", i),
+			RepeatStrategy: pull.RepeatStrategy,
+			RunFunc: func(log jobrun.Logger) error {
+				log.Printf("doing pull: %v", pull)
+				return jobPull(pull, log)
+			},
+		}
+		i++
+	}
+	for _, push := range conf.Pushs {
+		jobs[i] = jobrun.Job{
+			Name:           fmt.Sprintf("push.%d", i),
+			RepeatStrategy: push.RepeatStrategy,
+			RunFunc: func(log jobrun.Logger) error {
+				log.Printf("doing push: %v", push)
+				return jobPush(push, log)
+			},
+		}
+		i++
+	}
+
+	for _, j := range jobs {
+		if runArgs.once {
+			j.RepeatStrategy = jobrun.NoRepeatStrategy{}
+		}
+		if runArgs.job != "" {
+			if runArgs.job == j.Name {
+				runner.AddJob(j)
+				break
+			}
+			continue
+		}
+		runner.AddJob(j)
+	}
+
+	for {
+		select {
+		case job := <-runner.NotificationChan():
+			log.Printf("job %s reported error: %v\n", job.Name, job.LastError)
+		}
+	}
+
+	wg.Wait()
+
+}
+
+func jobPull(pull Pull, log jobrun.Logger) (err error) {
+
+	if lt, ok := pull.From.Transport.(LocalTransport); ok {
+		lt.SetHandler(Handler{
+			Logger:  log,
+			PullACL: pull.Mapping,
+		})
+		pull.From.Transport = lt
+		log.Printf("fixing up local transport: %#v", pull.From.Transport)
+	}
+
+	var remote rpc.RPCRequester
+
+	if remote, err = pull.From.Transport.Connect(log); err != nil {
+		return
+	}
+
+	defer closeRPCWithTimeout(log, remote, time.Second*10, "")
+
+	return doPull(PullContext{remote, log, pull.Mapping, pull.InitialReplPolicy})
+}
+
+func jobPush(push Push, log jobrun.Logger) (err error) {
+
+	if _, ok := push.To.Transport.(LocalTransport); ok {
+		panic("no support for local pushs")
+	}
+
+	var remote rpc.RPCRequester
+	if remote, err = push.To.Transport.Connect(log); err != nil {
+		return err
+	}
+
+	defer closeRPCWithTimeout(log, remote, time.Second*10, "")
+
+	log.Printf("building handler for PullMeRequest")
+	handler := Handler{
+		Logger:          log,
+		PullACL:         push.Filter,
+		SinkMappingFunc: nil, // no need for that in the handler for PullMe
+	}
+	log.Printf("handler: %#v", handler)
+
+	r := rpc.PullMeRequest{
+		InitialReplPolicy: push.InitialReplPolicy,
+	}
+	log.Printf("doing PullMeRequest: %#v", r)
+
+	if err = remote.PullMeRequest(r, handler); err != nil {
+		log.Printf("PullMeRequest failed: %s", err)
+		return
+	}
+
+	log.Printf("push job finished")
+	return
+
+}
 
 func closeRPCWithTimeout(log Logger, remote rpc.RPCRequester, timeout time.Duration, goodbye string) {
 	log.Printf("closing rpc connection")

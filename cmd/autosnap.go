@@ -1,10 +1,63 @@
-package main
+package cmd
 
 import (
 	"fmt"
+	"github.com/spf13/cobra"
+	"github.com/zrepl/zrepl/jobrun"
 	"github.com/zrepl/zrepl/zfs"
+	"sync"
 	"time"
 )
+
+var autosnapArgs struct {
+	job string
+}
+
+var AutosnapCmd = &cobra.Command{
+	Use:   "autosnap",
+	Short: "perform automatic snapshotting",
+	Run:   cmdAutosnap,
+}
+
+func init() {
+	AutosnapCmd.Flags().StringVar(&autosnapArgs.job, "job", "", "job to run")
+	RootCmd.AddCommand(AutosnapCmd)
+}
+
+func cmdAutosnap(cmd *cobra.Command, args []string) {
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		runner.Start()
+	}()
+
+	log.Printf("autosnap...")
+
+	for i := range conf.Autosnaps {
+
+		snap := conf.Autosnaps[i]
+
+		if autosnapArgs.job == "" || autosnapArgs.job == snap.Name {
+
+			job := jobrun.Job{
+				Name:           fmt.Sprintf("autosnap.%s", snap.Name),
+				RepeatStrategy: snap.Interval,
+				RunFunc: func(log jobrun.Logger) error {
+					log.Printf("doing autosnap: %v", snap)
+					ctx := AutosnapContext{snap}
+					return doAutosnap(ctx, log)
+				},
+			}
+			runner.AddJob(job)
+
+		}
+	}
+
+	wg.Wait()
+
+}
 
 type AutosnapContext struct {
 	Autosnap Autosnap

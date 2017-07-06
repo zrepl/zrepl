@@ -1,12 +1,60 @@
-package main
+package cmd
 
 import (
 	"fmt"
+	"github.com/spf13/cobra"
 	"github.com/zrepl/zrepl/util"
 	"github.com/zrepl/zrepl/zfs"
+	"os"
 	"sort"
 	"time"
 )
+
+var pruneArgs struct {
+	job    string
+	dryRun bool
+}
+
+var PruneCmd = &cobra.Command{
+	Use:   "prune",
+	Short: "perform pruning",
+	Run:   cmdPrune,
+}
+
+func init() {
+	PruneCmd.Flags().StringVar(&pruneArgs.job, "job", "", "job to run")
+	PruneCmd.Flags().BoolVarP(&pruneArgs.dryRun, "dryrun", "n", false, "dry run")
+	RootCmd.AddCommand(PruneCmd)
+}
+
+func cmdPrune(cmd *cobra.Command, args []string) {
+
+	jobFailed := false
+
+	log.Printf("retending...")
+
+	for _, prune := range conf.Prunes {
+
+		if pruneArgs.job == "" || pruneArgs.job == prune.Name {
+			log.Printf("Beginning prune job:\n%s", prune)
+			ctx := PruneContext{prune, time.Now(), pruneArgs.dryRun}
+			err := doPrune(ctx, log)
+			if err != nil {
+				jobFailed = true
+				log.Printf("Prune job failed with error: %s", err)
+			}
+			log.Printf("\n")
+
+		}
+
+	}
+
+	if jobFailed {
+		log.Printf("At least one job failed with an error. Check log for details.")
+		os.Exit(1)
+	}
+
+}
 
 type PruneContext struct {
 	Prune  Prune
