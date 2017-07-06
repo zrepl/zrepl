@@ -7,6 +7,7 @@ import (
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/zfs"
 	"io"
+	"os"
 	"sync"
 	"time"
 )
@@ -22,10 +23,61 @@ var RunCmd = &cobra.Command{
 	Run:   cmdRun,
 }
 
+var PushCmd = &cobra.Command{
+	Use:   "push",
+	Short: "run push job (first positional argument)",
+	Run:   cmdPush,
+}
+
+var PullCmd = &cobra.Command{
+	Use:   "pull",
+	Short: "run pull job (first positional argument)",
+	Run:   cmdPull,
+}
+
 func init() {
 	RootCmd.AddCommand(RunCmd)
 	RunCmd.Flags().BoolVar(&runArgs.once, "once", false, "run jobs only once, regardless of configured repeat behavior")
 	RunCmd.Flags().StringVar(&runArgs.job, "job", "", "run only the given job")
+
+	RootCmd.AddCommand(PushCmd)
+	RootCmd.AddCommand(PullCmd)
+}
+
+func cmdPush(cmd *cobra.Command, args []string) {
+
+	if len(args) != 1 {
+		log.Printf("must specify exactly one job as positional argument")
+		os.Exit(1)
+	}
+	job, ok := conf.Pushs[args[0]]
+	if !ok {
+		log.Printf("could not find push job %s", args[0])
+		os.Exit(1)
+	}
+	if err := jobPush(job, log); err != nil {
+		log.Printf("error doing push: %s", err)
+		os.Exit(1)
+	}
+
+}
+
+func cmdPull(cmd *cobra.Command, args []string) {
+
+	if len(args) != 1 {
+		log.Printf("must specify exactly one job as positional argument")
+		os.Exit(1)
+	}
+	job, ok := conf.Pulls[args[0]]
+	if !ok {
+		log.Printf("could not find pull job %s", args[0])
+		os.Exit(1)
+	}
+	if err := jobPull(job, log); err != nil {
+		log.Printf("error doing pull: %s", err)
+		os.Exit(1)
+	}
+
 }
 
 func cmdRun(cmd *cobra.Command, args []string) {
@@ -87,7 +139,7 @@ func cmdRun(cmd *cobra.Command, args []string) {
 
 }
 
-func jobPull(pull Pull, log jobrun.Logger) (err error) {
+func jobPull(pull *Pull, log jobrun.Logger) (err error) {
 
 	if lt, ok := pull.From.Transport.(LocalTransport); ok {
 		lt.SetHandler(Handler{
@@ -109,7 +161,7 @@ func jobPull(pull Pull, log jobrun.Logger) (err error) {
 	return doPull(PullContext{remote, log, pull.Mapping, pull.InitialReplPolicy})
 }
 
-func jobPush(push Push, log jobrun.Logger) (err error) {
+func jobPush(push *Push, log jobrun.Logger) (err error) {
 
 	if _, ok := push.To.Transport.(LocalTransport); ok {
 		panic("no support for local pushs")

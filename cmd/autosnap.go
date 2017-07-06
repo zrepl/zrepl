@@ -5,13 +5,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zrepl/zrepl/jobrun"
 	"github.com/zrepl/zrepl/zfs"
+	"os"
 	"sync"
 	"time"
 )
-
-var autosnapArgs struct {
-	job string
-}
 
 var AutosnapCmd = &cobra.Command{
 	Use:   "autosnap",
@@ -20,7 +17,6 @@ var AutosnapCmd = &cobra.Command{
 }
 
 func init() {
-	AutosnapCmd.Flags().StringVar(&autosnapArgs.job, "job", "", "job to run")
 	RootCmd.AddCommand(AutosnapCmd)
 }
 
@@ -33,34 +29,34 @@ func cmdAutosnap(cmd *cobra.Command, args []string) {
 		runner.Start()
 	}()
 
-	log.Printf("autosnap...")
-
-	for i := range conf.Autosnaps {
-
-		snap := conf.Autosnaps[i]
-
-		if autosnapArgs.job == "" || autosnapArgs.job == snap.Name {
-
-			job := jobrun.Job{
-				Name:           fmt.Sprintf("autosnap.%s", snap.Name),
-				RepeatStrategy: snap.Interval,
-				RunFunc: func(log jobrun.Logger) error {
-					log.Printf("doing autosnap: %v", snap)
-					ctx := AutosnapContext{snap}
-					return doAutosnap(ctx, log)
-				},
-			}
-			runner.AddJob(job)
-
-		}
+	if len(args) < 1 {
+		log.Printf("must specify exactly one job as positional argument")
+		os.Exit(1)
 	}
+
+	snap, ok := conf.Autosnaps[args[0]]
+	if !ok {
+		log.Printf("could not find autosnap job: %s", args[0])
+		os.Exit(1)
+	}
+
+	job := jobrun.Job{
+		Name:           snap.JobName,
+		RepeatStrategy: snap.Interval,
+		RunFunc: func(log jobrun.Logger) error {
+			log.Printf("doing autosnap: %v", snap)
+			ctx := AutosnapContext{snap}
+			return doAutosnap(ctx, log)
+		},
+	}
+	runner.AddJob(job)
 
 	wg.Wait()
 
 }
 
 type AutosnapContext struct {
-	Autosnap Autosnap
+	Autosnap *Autosnap
 }
 
 func doAutosnap(ctx AutosnapContext, log Logger) (err error) {

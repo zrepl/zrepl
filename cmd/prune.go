@@ -29,35 +29,29 @@ func init() {
 
 func cmdPrune(cmd *cobra.Command, args []string) {
 
-	jobFailed := false
-
-	log.Printf("retending...")
-
-	for _, prune := range conf.Prunes {
-
-		if pruneArgs.job == "" || pruneArgs.job == prune.Name {
-			log.Printf("Beginning prune job:\n%s", prune)
-			ctx := PruneContext{prune, time.Now(), pruneArgs.dryRun}
-			err := doPrune(ctx, log)
-			if err != nil {
-				jobFailed = true
-				log.Printf("Prune job failed with error: %s", err)
-			}
-			log.Printf("\n")
-
-		}
-
+	if len(args) < 1 {
+		log.Printf("must specify exactly one job as positional argument")
+		os.Exit(1)
 	}
 
-	if jobFailed {
-		log.Printf("At least one job failed with an error. Check log for details.")
+	job, ok := conf.Prunes[args[0]]
+	if !ok {
+		log.Printf("could not find prune job: %s", args[0])
+		os.Exit(1)
+	}
+
+	log.Printf("Beginning prune job:\n%s", job)
+	ctx := PruneContext{job, time.Now(), pruneArgs.dryRun}
+	err := doPrune(ctx, log)
+	if err != nil {
+		log.Printf("Prune job failed with error: %s", err)
 		os.Exit(1)
 	}
 
 }
 
 type PruneContext struct {
-	Prune  Prune
+	Prune  *Prune
 	Now    time.Time
 	DryRun bool
 }

@@ -11,18 +11,13 @@ import (
 	"os"
 )
 
-var stdinserver struct {
-	identity string
-}
-
 var StdinserverCmd = &cobra.Command{
-	Use:   "stdinserver",
+	Use:   "stdinserver CLIENT_IDENTITY",
 	Short: "start in stdin server mode (from authorized_keys file)",
 	Run:   cmdStdinServer,
 }
 
 func init() {
-	StdinserverCmd.Flags().StringVar(&stdinserver.identity, "identity", "", "")
 	RootCmd.AddCommand(StdinserverCmd)
 }
 
@@ -36,37 +31,36 @@ func cmdStdinServer(cmd *cobra.Command, args []string) {
 		}
 	}()
 
-	if stdinserver.identity == "" {
-		err = fmt.Errorf("identity flag not set")
+	if len(args) != 1 || args[0] == "" {
+		err = fmt.Errorf("must specify client identity as positional argument")
 		return
 	}
-	identity := stdinserver.identity
+	identity := args[0]
+
+	pullACL := conf.PullACLs[identity]
+	if pullACL == nil {
+		err = fmt.Errorf("could not find PullACL for identity '%s'", identity)
+		return
+	}
 
 	var sshByteStream io.ReadWriteCloser
 	if sshByteStream, err = sshbytestream.Incoming(); err != nil {
 		return
 	}
 
-	findMapping := func(cm []ClientMapping, identity string) zfs.DatasetMapping {
-		for i := range cm {
-			if cm[i].From == identity {
-				return cm[i].Mapping
-			}
-		}
-		return nil
-	}
-	sinkMapping := func(identity string) (sink zfs.DatasetMapping, err error) {
-		if sink = findMapping(conf.Sinks, identity); sink == nil {
+	sinkMapping := func(identity string) (m zfs.DatasetMapping, err error) {
+		sink := conf.Sinks[identity]
+		if sink == nil {
 			return nil, fmt.Errorf("could not find sink for dataset")
 		}
-		return
+		return sink.Mapping, nil
 	}
 
 	sinkLogger := golog.New(logOut, fmt.Sprintf("sink[%s] ", identity), logFlags)
 	handler := Handler{
 		Logger:          sinkLogger,
 		SinkMappingFunc: sinkMapping,
-		PullACL:         findMapping(conf.PullACLs, identity),
+		PullACL:         pullACL.Mapping,
 	}
 
 	if err = rpc.ListenByteStreamRPC(sshByteStream, identity, handler, sinkLogger); err != nil {

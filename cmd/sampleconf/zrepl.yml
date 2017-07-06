@@ -1,5 +1,5 @@
 pools:
-  - name: offsite_backups
+  offsite_backups:
     transport:
       ssh:
         host: 192.168.122.6
@@ -8,21 +8,26 @@ pools:
         identity_file: /etc/zrepl/identities/offsite_backups
 
 pushs:
-  - to: offsite_backups
+
+  offsite:
+    to: offsite_backups
     filter: {
       "tank/var/db*":"ok",
       "tank/usr/home*":"ok"
     }
 
 pulls:
-  - from: offsite_backups
+
+  offsite:
+    from: offsite_backups
     mapping: {
       # like in sinks
     }
 
   # local replication, only allowed in pull mode
   # the from name 'local' is reserved for this purpose
-  - from: local
+  homemirror:
+    from: local
     repeat:
       interval: 15m
     mapping: {
@@ -35,21 +40,21 @@ sinks:
   #       1:1 mapping of remote dataset to local dataset
   #       We will reject a push request which contains > 0 datasets that do not
   #         match a mapping
-  - from: db1
+  db1:
     mapping: {
       "ssdpool/var/db/postgresql9.6":"zroot/backups/db1/pg_data"
     }
 
   # "|" non-recursive wildcard
   #       the remote must present excatly one dataset, mapped to the rhs
-  - from: cdn_master
+  cdn_master:
     mapping: {
       "|":"tank/srv/cdn" # NOTE: | is currently an invalid character for a ZFS dataset
     }
 
   # "*" recursive wildcard
   #       the remote may present an arbitrary set of marks a recursive wildcard, i.e. map all remotes to a tree under rhs
-  - from: mirror1
+  mirror1:
     mapping: {
       "tank/foo/bar*":"zroot/backups/mirror1" # NOTE: * is currently an invalid character for a ZFS dataset
     }
@@ -60,7 +65,7 @@ sinks:
   #       local dataset (same order) or '!<space>optional reason' on stdout
   #       If the acceptor scripts exits with non-zero status code, the remote's
   #       request will be rejected
-  - from: complex_host
+  complex_host:
     mapping: { #
       "*":"!/path/to/acceptor" # we could just wire the path to the acceptor directly to the mapping
                                # but let's stick with the same type for the mapping field for now'
@@ -70,7 +75,7 @@ sinks:
   # Mixing the rules
   #   Mixing should be possible if there is a defined precedence (direct before *)
   #   and non-recursive wildcards are not allowed in multi-entry mapping objects
-  - from: special_snowflake
+  special_snowflake:
     mapping: { # an explicit mapping mixed with a recursive wildcard
       "sun/usr/home": backups/special_snowflake/homedirs,
       "sun/var/db":   backups/special_snowflake/database,
@@ -79,8 +84,9 @@ sinks:
     }
 
 pull_acls:
+
   # same synatx as in sinks, but the returned mapping does not matter
-  - from: office_backup
+  office_backup:
     mapping: {
       "tank/usr/home":"notnull"
     }
@@ -88,7 +94,7 @@ pull_acls:
 
 prune:
 
-  - name: clean_backups
+  clean_backups:
     policy: grid
     grid: 6x10min | 24x1h | 7x1d | 32 x 1d | 4 x 3mon
     dataset_filter: {
@@ -98,7 +104,7 @@ prune:
       prefix: zrepl_
     }
 
-  - name: hfbak_prune # cleans up after hfbak autosnap job
+  hfbak_prune: # cleans up after hfbak autosnap job
     policy: grid
     grid: 1x1min(keep=all)
     dataset_filter: {
@@ -110,7 +116,7 @@ prune:
 
 autosnap:
 
-  - name: hfbak
+  hfbak:
     prefix: zrepl_hfbak_
     interval: 1s
     dataset_filter: {
