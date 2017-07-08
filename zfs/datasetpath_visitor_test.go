@@ -27,9 +27,9 @@ func makeVisitRecorder() (v DatasetPathsVisitor, rec *visitRecorder) {
 	rec = &visitRecorder{
 		visits: make([]DatasetPathVisit, 0),
 	}
-	v = func(v DatasetPathVisit) error {
+	v = func(v DatasetPathVisit) bool {
 		rec.visits = append(rec.visits, v)
-		return nil
+		return true
 	}
 	return
 }
