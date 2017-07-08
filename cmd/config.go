@@ -598,7 +598,7 @@ func parseRetentionGridIntervalString(e string) (intervals []RetentionInterval, 
 	case "w":
 		durationUnit = 24 * 7 * time.Hour
 	case "mon":
-		durationUnit = 32 * 24 * 7 * time.Hour
+		durationUnit = 24 * 32 * time.Hour
 	default:
 		err = fmt.Errorf("contains unknown time unit '%s'", comps[3])
 		return nil, err
