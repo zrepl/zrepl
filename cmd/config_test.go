@@ -14,7 +14,7 @@ func TestSampleConfigFileIsParsedWithoutErrors(t *testing.T) {
 
 func TestParseRetentionGridStringParsing(t *testing.T) {
 
-	intervals, err := parseRetentionGridIntervalsString("2x10min(keep=2) | 1x1h | 3x1w")
+	intervals, err := parseRetentionGridIntervalsString("2x10m(keep=2) | 1x1h | 3x1w")
 
 	assert.Nil(t, err)
 	assert.Len(t, intervals, 6)
@@ -36,10 +36,10 @@ func TestParseRetentionGridStringParsing(t *testing.T) {
 
 	intervals, err = parseRetentionGridIntervalsString("|")
 	assert.Error(t, err)
-	intervals, err = parseRetentionGridIntervalsString("2x10min")
+	intervals, err = parseRetentionGridIntervalsString("2x10m")
 	assert.NoError(t, err)
 
-	intervals, err = parseRetentionGridIntervalsString("1x10min(keep=all)")
+	intervals, err = parseRetentionGridIntervalsString("1x10m(keep=all)")
 	assert.NoError(t, err)
 	assert.Len(t, intervals, 1)
 	assert.EqualValues(t, util.RetentionGridKeepCountAll, intervals[0].KeepCount)

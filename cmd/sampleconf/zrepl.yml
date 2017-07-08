@@ -96,7 +96,7 @@ prune:
 
   clean_backups:
     policy: grid
-    grid: 6x10min | 24x1h | 7x1d | 32 x 1d | 4 x 3mon
+    grid: 6x10m | 24x1h | 7x1d | 5 x 1w | 4 x 5w
     dataset_filter: {
       "tank/backups/*": ok
     }
@@ -106,7 +106,7 @@ prune:
 
   hfbak_prune: # cleans up after hfbak autosnap job
     policy: grid
-    grid: 1x1min(keep=all)
+    grid: 1x1m(keep=all)
     dataset_filter: {
       "pool1*": ok
     }

@@ -345,7 +345,7 @@ func parseRepeatStrategy(r map[string]string) (s jobrun.RepeatStrategy, err erro
 	}
 
 	if repeatStr, ok := r["interval"]; ok {
-		d, err := time.ParseDuration(repeatStr)
+		d, err := parseDuration(repeatStr)
 		if err != nil {
 			return nil, err
 		}
@@ -563,7 +563,43 @@ func parsePrune(e map[string]interface{}, name string) (prune *Prune, err error)
 	return
 }
 
-var retentionStringIntervalRegex *regexp.Regexp = regexp.MustCompile(`^\s*(\d+)\s*x\s*(\d+)\s*(s|min|h|d|w|mon)\s*\s*(\((.*)\))?\s*$`)
+var durationStringRegex *regexp.Regexp = regexp.MustCompile(`^\s*(\d+)\s*(s|m|h|d|w)\s*$`)
+
+func parseDuration(e string) (d time.Duration, err error) {
+	comps := durationStringRegex.FindStringSubmatch(e)
+	if len(comps) != 3 {
+		err = fmt.Errorf("does not match regex: %s %#v", e, comps)
+		return
+	}
+
+	durationFactor, err := strconv.ParseInt(comps[1], 10, 64)
+	if err != nil {
+		return
+	}
+
+	var durationUnit time.Duration
+	switch comps[2] {
+	case "s":
+		durationUnit = time.Second
+	case "m":
+		durationUnit = time.Minute
+	case "h":
+		durationUnit = time.Hour
+	case "d":
+		durationUnit = 24 * time.Hour
+	case "w":
+		durationUnit = 24 * 7 * time.Hour
+	default:
+		err = fmt.Errorf("contains unknown time unit '%s'", comps[2])
+		return
+	}
+
+	d = time.Duration(durationFactor) * durationUnit
+	return
+
+}
+
+var retentionStringIntervalRegex *regexp.Regexp = regexp.MustCompile(`^\s*(\d+)\s*x\s*([^\(]+)\s*(\((.*)\))?\s*$`)
 
 func parseRetentionGridIntervalString(e string) (intervals []RetentionInterval, err error) {
 
@@ -580,38 +616,20 @@ func parseRetentionGridIntervalString(e string) (intervals []RetentionInterval, 
 		return nil, fmt.Errorf("contains factor <= 0")
 	}
 
-	durationFactor, err := strconv.ParseInt(comps[2], 10, 64)
+	duration, err := parseDuration(comps[2])
 	if err != nil {
 		return nil, err
 	}
 
-	var durationUnit time.Duration
-	switch comps[3] {
-	case "s":
-		durationUnit = time.Second
-	case "min":
-		durationUnit = time.Minute
-	case "h":
-		durationUnit = time.Hour
-	case "d":
-		durationUnit = 24 * time.Hour
-	case "w":
-		durationUnit = 24 * 7 * time.Hour
-	case "mon":
-		durationUnit = 24 * 32 * time.Hour
-	default:
-		err = fmt.Errorf("contains unknown time unit '%s'", comps[3])
-		return nil, err
-	}
-
 	keepCount := 1
-	if comps[4] != "" {
+	if comps[3] != "" {
 		// Decompose key=value, comma separated
 		// For now, only keep_count is supported
 		re := regexp.MustCompile(`^\s*keep=(.+)\s*$`)
-		res := re.FindStringSubmatch(comps[5])
+		res := re.FindStringSubmatch(comps[4])
 		if res == nil || len(res) != 2 {
 			err = fmt.Errorf("interval parameter contains unknown parameters")
+			return
 		}
 		if res[1] == "all" {
 			keepCount = RetentionGridKeepCountAll
@@ -627,7 +645,7 @@ func parseRetentionGridIntervalString(e string) (intervals []RetentionInterval, 
 	intervals = make([]RetentionInterval, times)
 	for i := range intervals {
 		intervals[i] = RetentionInterval{
-			Length:    time.Duration(durationFactor) * durationUnit, // TODO is this conversion fututre-proof?
+			Length:    duration,
 			KeepCount: keepCount,
 		}
 	}
@@ -718,7 +736,7 @@ func parseAutosnap(m interface{}, name string) (a *Autosnap, err error) {
 	a.Prefix = i.Prefix
 
 	var interval time.Duration
-	if interval, err = time.ParseDuration(i.Interval); err != nil {
+	if interval, err = parseDuration(i.Interval); err != nil {
 		err = fmt.Errorf("cannot parse interval: %s", err)
 		return
 	}
