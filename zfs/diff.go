@@ -12,7 +12,16 @@ func (l fsbyCreateTXG) Less(i, j int) bool {
 	return l[i].CreateTXG < l[j].CreateTXG
 }
 
-/* The sender (left) wants to know if the receiver (right) has more recent versions
+type Conflict int
+
+const (
+	ConflictIncremental      = 0 // no conflict, incremental repl possible
+	ConflictAllRight         = 1 // no conflict, initial repl possible
+	ConflictNoCommonAncestor = 2
+	ConflictDiverged         = 3
+)
+
+/* The receiver (left) wants to know if the sender (right) has more recent versions
 
 	Left :         | C |
 	Right: | A | B | C | D | E |
@@ -35,27 +44,27 @@ IMPORTANT: since ZFS currently does not export dataset UUIDs, the best heuristic
 */
 type FilesystemDiff struct {
 
-	// The increments required to get left up to right's most recent version
-	// 0th element is the common ancestor, ordered by birthtime, oldest first
-	// If len() < 2, left and right are at same most recent version
-	// If nil, there is no incremental path for left to get to right's most recent version
-	// This means either (check Diverged field to determine which case we are in)
-	//   a) no common ancestor (left deleted all the snapshots it previously transferred to right)
-	//		=> consult MRCAPathRight and request initial retransfer after prep on left side
-	//   b) divergence bewteen left and right (left made snapshots that right doesn't have)
-	//   	=> check MRCAPathLeft and MRCAPathRight and decide what to do based on that
+	// Which kind of conflict / "way forward" is possible.
+	// Check this first to determine the semantics of this struct's remaining members
+	Conflict Conflict
+
+	// Conflict = Incremental | AllRight
+	// 		The incremental steps required to get left up to right's most recent version
+	// 		0th element is the common ancestor, ordered by birthtime, oldest first
+	// 		If len() < 2, left and right are at same most recent version
+	// Conflict = otherwise
+	// 		nil; there is no incremental path for left to get to right's most recent version
 	IncrementalPath []FilesystemVersion
 
-	// true if left and right diverged, false otherwise
-	Diverged bool
-	// If Diverged, contains path from left most recent common ancestor (mrca)
-	// to most recent version on left
-	// Otherwise: nil
+	// Conflict = Incremental | AllRight: nil
+	// Conflict = NoCommonAncestor: left as passed as input
+	// Conflict = Diverged: contains path from left most recent common ancestor (mrca) to most
+	//						recent version on left
 	MRCAPathLeft []FilesystemVersion
-	// If  Diverged, contains path from right most recent common ancestor (mrca)
-	// to most recent version on right
-	// If there is no common ancestor (i.e. not diverged), contains entire list of
-	// versions on right
+	// Conflict = Incremental | AllRight: nil
+	// Conflict = NoCommonAncestor: right as passed as input
+	// Conflict = Diverged: contains path from right most recent common ancestor (mrca)
+	// 						to most recent version on right
 	MRCAPathRight []FilesystemVersion
 }
 
@@ -66,12 +75,14 @@ func MakeFilesystemDiff(left, right []FilesystemVersion) (diff FilesystemDiff) {
 	if right == nil {
 		panic("right must not be nil")
 	}
-	if left == nil { // treat like no common ancestor
+	if left == nil {
 		diff = FilesystemDiff{
 			IncrementalPath: nil,
-			Diverged:        false,
+			Conflict:        ConflictAllRight,
+			MRCAPathLeft:    left,
 			MRCAPathRight:   right,
 		}
+		return
 	}
 
 	// Assert both left and right are sorted by createtxg
@@ -108,7 +119,8 @@ outer:
 	if mrcaLeft == -1 {
 		diff = FilesystemDiff{
 			IncrementalPath: nil,
-			Diverged:        false,
+			Conflict:        ConflictNoCommonAncestor,
+			MRCAPathLeft:    left,
 			MRCAPathRight:   right,
 		}
 		return
@@ -118,7 +130,7 @@ outer:
 	if mrcaLeft != len(left)-1 {
 		diff = FilesystemDiff{
 			IncrementalPath: nil,
-			Diverged:        true,
+			Conflict:        ConflictDiverged,
 			MRCAPathLeft:    left[mrcaLeft:],
 			MRCAPathRight:   right[mrcaRight:],
 		}

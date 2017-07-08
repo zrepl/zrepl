@@ -321,7 +321,9 @@ func doPull(pull PullContext) (err error) {
 		diff := zfs.MakeFilesystemDiff(versions, theirVersions)
 		log("diff: %#v\n", diff)
 
-		if diff.IncrementalPath == nil {
+		switch diff.Conflict {
+		case zfs.ConflictAllRight:
+
 			log("performing initial sync, following policy: %#v", pull.InitialReplPolicy)
 
 			if pull.InitialReplPolicy != rpc.InitialReplPolicyMostRecent {
@@ -367,10 +369,14 @@ func doPull(pull PullContext) (err error) {
 			}
 
 			log("finished initial transfer")
+			return true
 
-		} else if len(diff.IncrementalPath) < 2 {
-			log("remote and local are in sync")
-		} else {
+		case zfs.ConflictIncremental:
+
+			if len(diff.IncrementalPath) < 2 {
+				log("remote and local are in sync")
+				return true
+			}
 
 			log("incremental transfers using path: %#v", diff.IncrementalPath)
 
@@ -407,10 +413,29 @@ func doPull(pull PullContext) (err error) {
 			}
 
 			log("finished incremental transfer path")
+			return true
+
+		case zfs.ConflictNoCommonAncestor:
+
+			log("sender and receiver filesystem have snapshots, but no common one")
+			log("perform manual replication to establish a common snapshot history")
+			log("sender snapshot list: %#v", diff.MRCAPathRight)
+			log("receiver snapshot list: %#v", diff.MRCAPathLeft)
+			return false
+
+		case zfs.ConflictDiverged:
+
+			log("sender and receiver filesystem share a history but have diverged")
+			log("perform manual replication or delete snapshots on the receiving" +
+				"side  to establish an incremental replication parse")
+			log("sender-only snapshots: %#v", diff.MRCAPathRight)
+			log("receiver-only snapshots: %#v", diff.MRCAPathLeft)
+			return false
 
 		}
 
-		return true
+		panic("implementation error: this should not be reached")
+		return false
 
 	})
 
