@@ -26,7 +26,7 @@ var (
 	JobSectionAutosnap string = "autosnap"
 )
 
-type Pool struct {
+type Remote struct {
 	Name      string
 	Transport Transport
 }
@@ -51,14 +51,14 @@ type SSHTransport struct {
 
 type Push struct {
 	JobName           string // for use with jobrun package
-	To                *Pool
+	To                *Remote
 	Filter            zfs.DatasetMapping
 	InitialReplPolicy rpc.InitialReplPolicy
 	RepeatStrategy    jobrun.RepeatStrategy
 }
 type Pull struct {
 	JobName           string // for use with jobrun package
-	From              *Pool
+	From              *Remote
 	Mapping           zfs.DatasetMapping
 	InitialReplPolicy rpc.InitialReplPolicy
 	RepeatStrategy    jobrun.RepeatStrategy
@@ -84,7 +84,7 @@ type Autosnap struct {
 }
 
 type Config struct {
-	Pools     map[string]*Pool
+	Remotes   map[string]*Remote
 	Pushs     map[string]*Push          // job name -> job
 	Pulls     map[string]*Pull          // job name -> job
 	Sinks     map[string]*ClientMapping // client identity -> mapping
@@ -111,22 +111,22 @@ func ParseConfig(path string) (config Config, err error) {
 }
 
 func parseMain(root map[string]interface{}) (c Config, err error) {
-	if c.Pools, err = parsePools(root["pools"]); err != nil {
+	if c.Remotes, err = parseRemotes(root["remotes"]); err != nil {
 		return
 	}
 
-	poolLookup := func(name string) (pool *Pool, err error) {
-		pool = c.Pools[name]
-		if pool == nil {
-			err = fmt.Errorf("pool '%s' not defined", name)
+	remoteLookup := func(name string) (remote *Remote, err error) {
+		remote = c.Remotes[name]
+		if remote == nil {
+			err = fmt.Errorf("remote '%s' not defined", name)
 		}
 		return
 	}
 
-	if c.Pushs, err = parsePushs(root["pushs"], poolLookup); err != nil {
+	if c.Pushs, err = parsePushs(root["pushs"], remoteLookup); err != nil {
 		return
 	}
-	if c.Pulls, err = parsePulls(root["pulls"], poolLookup); err != nil {
+	if c.Pulls, err = parsePulls(root["pulls"], remoteLookup); err != nil {
 		return
 	}
 	if c.Sinks, err = parseClientMappings(root["sinks"]); err != nil {
@@ -154,7 +154,7 @@ func fullJobName(section, name string) (full string, err error) {
 	return
 }
 
-func parsePools(v interface{}) (pools map[string]*Pool, err error) {
+func parseRemotes(v interface{}) (remotes map[string]*Remote, err error) {
 
 	asMap := make(map[string]struct {
 		Transport map[string]interface{}
@@ -163,11 +163,11 @@ func parsePools(v interface{}) (pools map[string]*Pool, err error) {
 		return
 	}
 
-	pools = make(map[string]*Pool, len(asMap))
+	remotes = make(map[string]*Remote, len(asMap))
 	for name, p := range asMap {
 
 		if name == rpc.LOCAL_TRANSPORT_IDENTITY {
-			err = errors.New(fmt.Sprintf("pool name '%s' reserved for local pulls", rpc.LOCAL_TRANSPORT_IDENTITY))
+			err = errors.New(fmt.Sprintf("remote name '%s' reserved for local pulls", rpc.LOCAL_TRANSPORT_IDENTITY))
 			return
 		}
 
@@ -175,7 +175,7 @@ func parsePools(v interface{}) (pools map[string]*Pool, err error) {
 		if transport, err = parseTransport(p.Transport); err != nil {
 			return
 		}
-		pools[name] = &Pool{
+		remotes[name] = &Remote{
 			Name:      name,
 			Transport: transport,
 		}
@@ -209,9 +209,9 @@ func parseTransport(it map[string]interface{}) (t Transport, err error) {
 
 }
 
-type poolLookup func(name string) (*Pool, error)
+type remoteLookup func(name string) (*Remote, error)
 
-func parsePushs(v interface{}, pl poolLookup) (p map[string]*Push, err error) {
+func parsePushs(v interface{}, rl remoteLookup) (p map[string]*Push, err error) {
 
 	asMap := make(map[string]struct {
 		To                string
@@ -228,12 +228,12 @@ func parsePushs(v interface{}, pl poolLookup) (p map[string]*Push, err error) {
 
 	for name, e := range asMap {
 
-		var toPool *Pool
-		if toPool, err = pl(e.To); err != nil {
+		var toRemote *Remote
+		if toRemote, err = rl(e.To); err != nil {
 			return
 		}
 		push := &Push{
-			To: toPool,
+			To: toRemote,
 		}
 
 		if push.JobName, err = fullJobName(JobSectionPush, name); err != nil {
@@ -257,7 +257,7 @@ func parsePushs(v interface{}, pl poolLookup) (p map[string]*Push, err error) {
 	return
 }
 
-func parsePulls(v interface{}, pl poolLookup) (p map[string]*Pull, err error) {
+func parsePulls(v interface{}, rl remoteLookup) (p map[string]*Pull, err error) {
 
 	asMap := make(map[string]struct {
 		From              string
@@ -275,25 +275,25 @@ func parsePulls(v interface{}, pl poolLookup) (p map[string]*Pull, err error) {
 	for name, e := range asMap {
 
 		if len(e.From) < 1 {
-			err = fmt.Errorf("source pool not set (from attribute is empty)")
+			err = fmt.Errorf("source not set ('from' attribute is empty)")
 			return
 		}
 
-		var fromPool *Pool
+		var fromRemote *Remote
 
 		if e.From == rpc.LOCAL_TRANSPORT_IDENTITY {
-			fromPool = &Pool{
+			fromRemote = &Remote{
 				Name:      rpc.LOCAL_TRANSPORT_IDENTITY,
 				Transport: LocalTransport{},
 			}
 		} else {
-			if fromPool, err = pl(e.From); err != nil {
+			if fromRemote, err = rl(e.From); err != nil {
 				return
 			}
 		}
 
 		pull := &Pull{
-			From: fromPool,
+			From: fromRemote,
 		}
 		if pull.JobName, err = fullJobName(JobSectionPull, name); err != nil {
 			return

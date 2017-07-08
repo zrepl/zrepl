@@ -1,4 +1,4 @@
-pools:
+remotes:
   offsite_backups:
     transport:
       ssh:
