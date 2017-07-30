@@ -3,6 +3,7 @@ package util
 import (
 	"io"
 	"os"
+	"time"
 )
 
 type ReadWriteCloserLogger struct {
@@ -94,5 +95,54 @@ func (c *ChainedReader) Read(buf []byte) (n int, err error) {
 		err = io.EOF // actually, there was no gap
 	}
 
+	return
+}
+
+type IOProgress struct {
+	TotalRX uint64
+}
+
+type IOProgressCallback func(progress IOProgress)
+
+type IOProgressWatcher struct {
+	Reader         io.Reader
+	callback       IOProgressCallback
+	callbackTicker *time.Ticker
+	progress       IOProgress
+	updateChannel  chan int
+}
+
+func (w *IOProgressWatcher) KickOff(callbackInterval time.Duration, callback IOProgressCallback) {
+	w.callback = callback
+	w.callbackTicker = time.NewTicker(callbackInterval)
+	w.updateChannel = make(chan int)
+	go func() {
+	outer:
+		for {
+			select {
+			case newBytes, more := <-w.updateChannel:
+				w.progress.TotalRX += uint64(newBytes)
+				if !more {
+					w.callbackTicker.Stop()
+					break outer
+				}
+			case <-w.callbackTicker.C:
+				w.callback(w.progress)
+			}
+		}
+		w.callback(w.progress)
+	}()
+}
+
+func (w *IOProgressWatcher) Progress() IOProgress {
+	return w.progress
+}
+
+func (w *IOProgressWatcher) Read(p []byte) (n int, err error) {
+	n, err = w.Reader.Read(p)
+	w.updateChannel <- n
+	if err != nil {
+		close(w.updateChannel)
+	}
 	return
 }

@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"time"
 )
 
 type RPCRequester interface {
@@ -242,10 +243,16 @@ func (c ByteStreamRPC) serverLoop(handler RPCHandler) error {
 				send(&r)
 
 				chunker := NewChunker(snapReader)
-				_, err := io.Copy(conn, &chunker)
+				watcher := IOProgressWatcher{Reader: &chunker}
+				watcher.KickOff(1*time.Second, func(p IOProgress) {
+					log.Printf("progress sending initial snapshot stream: %v bytes sent", p.TotalRX)
+				})
+				_, err := io.Copy(conn, &watcher)
 				if err != nil {
+					log.Printf("error sending initial snapshot stream: %s", err)
 					panic(err)
 				}
+				log.Printf("finished sending initial snapshot stream: total %v bytes sent", watcher.Progress().TotalRX)
 			}
 
 		case RTIncrementalTransferRequest:
@@ -268,10 +275,16 @@ func (c ByteStreamRPC) serverLoop(handler RPCHandler) error {
 				send(&r)
 
 				chunker := NewChunker(snapReader)
-				_, err := io.Copy(conn, &chunker)
+
+				watcher := IOProgressWatcher{Reader: &chunker}
+				watcher.KickOff(1*time.Second, func(p IOProgress) {
+					log.Printf("progress sending incremental snapshot stream: %v bytes sent", p.TotalRX)
+				})
+				_, err := io.Copy(conn, &watcher)
 				if err != nil {
 					panic(err)
 				}
+				log.Printf("finished sending incremental snapshot stream: total %v bytes sent", watcher.Progress().TotalRX)
 			}
 
 		case RTPullMeRequest:

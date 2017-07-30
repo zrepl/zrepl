@@ -66,8 +66,6 @@ func (h Handler) HandleInitialTransferRequest(r rpc.InitialTransferRequest) (str
 		h.Logger.Printf("error sending filesystem: %#v", err)
 	}
 
-	h.Logger.Printf("finished zfs send")
-
 	return
 
 }
@@ -86,8 +84,6 @@ func (h Handler) HandleIncrementalTransferRequest(r rpc.IncrementalTransferReque
 	if stream, err = zfs.ZFSSend(r.Filesystem, &r.From, &r.To); err != nil {
 		h.Logger.Printf("error sending filesystem: %#v", err)
 	}
-
-	h.Logger.Printf("finished zfs send")
 
 	return
 

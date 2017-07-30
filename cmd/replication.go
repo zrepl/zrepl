@@ -2,14 +2,16 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/zrepl/zrepl/jobrun"
-	"github.com/zrepl/zrepl/rpc"
-	"github.com/zrepl/zrepl/zfs"
 	"io"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/zrepl/zrepl/jobrun"
+	"github.com/zrepl/zrepl/rpc"
+	"github.com/zrepl/zrepl/util"
+	"github.com/zrepl/zrepl/zfs"
 )
 
 var runArgs struct {
@@ -357,10 +359,16 @@ func doPull(pull PullContext) (err error) {
 
 			log("received initial transfer request response. zfs recv...")
 
-			if err = zfs.ZFSRecv(m.Local, stream, "-u"); err != nil {
+			watcher := util.IOProgressWatcher{Reader: stream}
+			watcher.KickOff(1*time.Second, func(p util.IOProgress) {
+				log("progress on receive operation: %v bytes received", p.TotalRX)
+			})
+
+			if err = zfs.ZFSRecv(m.Local, &watcher, "-u"); err != nil {
 				log("error receiving stream, stopping...: %s", err)
 				return false
 			}
+			log("received stream, %v bytes total", watcher.Progress().TotalRX)
 
 			log("configuring properties of received filesystem")
 
@@ -379,6 +387,7 @@ func doPull(pull PullContext) (err error) {
 			}
 
 			log("incremental transfers using path: %#v", diff.IncrementalPath)
+			var pathRx uint64
 
 			for i := 0; i < len(diff.IncrementalPath)-1; i++ {
 
@@ -403,16 +412,23 @@ func doPull(pull PullContext) (err error) {
 
 				log("receving incremental transfer")
 
-				if err = zfs.ZFSRecv(m.Local, stream); err != nil {
+				watcher := util.IOProgressWatcher{Reader: stream}
+				watcher.KickOff(1*time.Second, func(p util.IOProgress) {
+					log("progress on receive operation: %v bytes received", p.TotalRX)
+				})
+
+				if err = zfs.ZFSRecv(m.Local, &watcher); err != nil {
 					log("error receiving stream, stopping...: %s", err)
 					return false
 				}
 
-				log("finished incremental transfer")
+				totalRx := watcher.Progress().TotalRX
+				pathRx += totalRx
+				log("finished incremental transfer, %v bytes total", totalRx)
 
 			}
 
-			log("finished incremental transfer path")
+			log("finished incremental transfer path, %v bytes total", pathRx)
 			return true
 
 		case zfs.ConflictNoCommonAncestor:
