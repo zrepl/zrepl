@@ -243,19 +243,13 @@ func doPull(pull PullContext) (err error) {
 		return
 	}
 
+	// build mapping (local->RemoteLocalMapping) + traversal datastructure
 	type RemoteLocalMapping struct {
-		Remote      zfs.DatasetPath
-		Local       zfs.DatasetPath
-		LocalExists bool
+		Remote zfs.DatasetPath
+		Local  zfs.DatasetPath
 	}
 	replMapping := make(map[string]RemoteLocalMapping, len(remoteFilesystems))
 	localTraversal := zfs.NewDatasetPathForest()
-	localExists, err := zfs.ZFSListFilesystemExists()
-	if err != nil {
-		log.Printf("cannot get local filesystems map: %s", err)
-		return err
-	}
-
 	{
 
 		log.Printf("mapping using %#v\n", pull.Mapping)
@@ -270,11 +264,18 @@ func doPull(pull PullContext) (err error) {
 				}
 				continue
 			}
-			m := RemoteLocalMapping{remoteFilesystems[fs], localFs, localExists(localFs)}
+			m := RemoteLocalMapping{remoteFilesystems[fs], localFs}
 			replMapping[m.Local.ToString()] = m
 			localTraversal.Add(m.Local)
 		}
 
+	}
+
+	// get info about local filesystems
+	localFilesystemState, err := zfs.ZFSListFilesystemState()
+	if err != nil {
+		log.Printf("cannot get local filesystems map: %s", err)
+		return err
 	}
 
 	log.Printf("remoteFilesystems: %#v\nreplMapping: %#v\n", remoteFilesystems, replMapping)
@@ -284,12 +285,18 @@ func doPull(pull PullContext) (err error) {
 	localTraversal.WalkTopDown(func(v zfs.DatasetPathVisit) bool {
 
 		if v.FilledIn {
-			if localExists(v.Path) {
+			if _, exists := localFilesystemState[v.Path.ToString()]; exists {
+				// No need to verify if this is a placeholder or not. It is sufficient
+				// to know we can add child filesystems to it
 				return true
 			}
-			log.Printf("aborting, don't know how to create fill-in dataset %s", v.Path)
-			err = fmt.Errorf("aborting, don't know how to create fill-in dataset: %s", v.Path)
-			return false
+			log.Printf("creating placeholder filesystem %s", v.Path)
+			err = zfs.ZFSCreatePlaceholderFilesystem(v.Path)
+			if err != nil {
+				err = fmt.Errorf("aborting, cannot create placeholder filesystem %s: %s", v.Path, err)
+				return false
+			}
+			return true
 		}
 
 		m, ok := replMapping[v.Path.ToString()]
@@ -303,8 +310,16 @@ func doPull(pull PullContext) (err error) {
 
 		log("mapping: %#v\n", m)
 
+		localState, localExists := localFilesystemState[m.Local.ToString()]
+
 		var versions []zfs.FilesystemVersion
-		if m.LocalExists {
+		switch {
+		case !localExists:
+			log("local filesystem does not exist")
+		case localState.Placeholder:
+			log("local filesystem is marked as placeholder")
+		default:
+			log("local filesystem exists, retrieving versions for diff")
 			if versions, err = zfs.ZFSListFilesystemVersions(m.Local, nil); err != nil {
 				log("cannot get filesystem versions, stopping...: %v\n", m.Local.ToString(), m, err)
 				return false
@@ -322,6 +337,10 @@ func doPull(pull PullContext) (err error) {
 
 		diff := zfs.MakeFilesystemDiff(versions, theirVersions)
 		log("diff: %#v\n", diff)
+
+		if localState.Placeholder && diff.Conflict != zfs.ConflictAllRight {
+			panic("internal inconsistency: local placeholder implies ConflictAllRight")
+		}
 
 		switch diff.Conflict {
 		case zfs.ConflictAllRight:
@@ -364,7 +383,13 @@ func doPull(pull PullContext) (err error) {
 				log("progress on receive operation: %v bytes received", p.TotalRX)
 			})
 
-			if err = zfs.ZFSRecv(m.Local, &watcher, "-u"); err != nil {
+			recvArgs := []string{"-u"}
+			if localState.Placeholder {
+				log("receive with forced rollback to replace placeholder filesystem")
+				recvArgs = append(recvArgs, "-F")
+			}
+
+			if err = zfs.ZFSRecv(m.Local, &watcher, recvArgs...); err != nil {
 				log("error receiving stream, stopping...: %s", err)
 				return false
 			}
