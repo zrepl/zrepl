@@ -11,27 +11,97 @@ import (
 	"strings"
 )
 
-type DatasetPath []string
+type DatasetPath struct {
+	comps []string
+}
 
 func (p DatasetPath) ToString() string {
-	return strings.Join(p, "/")
+	return strings.Join(p.comps, "/")
 }
 
 func (p DatasetPath) Empty() bool {
-	return len(p) == 0
+	return len(p.comps) == 0
 }
 
-var EmptyDatasetPath DatasetPath = []string{}
+func (p *DatasetPath) Extend(extend DatasetPath) {
+	p.comps = append(p.comps, extend.comps...)
+}
+
+func (p DatasetPath) HasPrefix(prefix DatasetPath) bool {
+	if len(prefix.comps) > len(p.comps) {
+		return false
+	}
+	for i := range prefix.comps {
+		if prefix.comps[i] != p.comps[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func (p *DatasetPath) TrimPrefix(prefix DatasetPath) {
+	if !p.HasPrefix(prefix) {
+		return
+	}
+	prelen := len(prefix.comps)
+	newlen := len(p.comps) - prelen
+	oldcomps := p.comps
+	p.comps = make([]string, newlen)
+	for i := 0; i < newlen; i++ {
+		p.comps[i] = oldcomps[prelen+i]
+	}
+	return
+}
+
+func (p *DatasetPath) TrimNPrefixComps(n int) {
+	if len(p.comps) < n {
+		n = len(p.comps)
+	}
+	if n == 0 {
+		return
+	}
+	p.comps = p.comps[n:]
+
+}
+
+func (p DatasetPath) Equal(q DatasetPath) bool {
+	if len(p.comps) != len(q.comps) {
+		return false
+	}
+	for i := range p.comps {
+		if p.comps[i] != q.comps[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func (p DatasetPath) Length() int {
+	return len(p.comps)
+}
+
+func (p DatasetPath) Copy() (c DatasetPath) {
+	c.comps = make([]string, len(p.comps))
+	copy(c.comps, p.comps)
+	return
+}
 
 func NewDatasetPath(s string) (p DatasetPath, err error) {
 	if s == "" {
-		return EmptyDatasetPath, nil // the empty dataset path
+		p.comps = make([]string, 0)
+		return p, nil // the empty dataset path
 	}
-	const FORBIDDEN = "@#|\t "
+	const FORBIDDEN = "@#|\t <>*"
 	if strings.ContainsAny(s, FORBIDDEN) { // TODO space may be a bit too restrictive...
-		return nil, errors.New(fmt.Sprintf("path '%s' contains forbidden characters (any of '%s')", s, FORBIDDEN))
+		err = fmt.Errorf("contains forbidden characters (any of '%s')", FORBIDDEN)
+		return
 	}
-	return strings.Split(s, "/"), nil
+	p.comps = strings.Split(s, "/")
+	if p.comps[len(p.comps)-1] == "" {
+		err = fmt.Errorf("must not end with a '/'")
+		return
+	}
+	return
 }
 
 func toDatasetPath(s string) DatasetPath {
@@ -41,8 +111,6 @@ func toDatasetPath(s string) DatasetPath {
 	}
 	return p
 }
-
-type DatasetFilter func(path DatasetPath) bool
 
 type ZFSError struct {
 	Stderr  []byte

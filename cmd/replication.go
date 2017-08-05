@@ -141,12 +141,24 @@ func cmdRun(cmd *cobra.Command, args []string) {
 
 }
 
+type localPullACL struct{}
+
+func (a localPullACL) Filter(p zfs.DatasetPath) (pass bool, err error) {
+	return true, nil
+}
+
 func jobPull(pull *Pull, log jobrun.Logger) (err error) {
 
 	if lt, ok := pull.From.Transport.(LocalTransport); ok {
+
 		lt.SetHandler(Handler{
-			Logger:  log,
-			PullACL: pull.Mapping,
+			Logger: log,
+			// Allow access to any dataset since we control what mapping
+			// is passed to the pull routine.
+			// All local datasets will be passed to its Map() function,
+			// but only those for which a mapping exists will actually be pulled.
+			// We can pay this small performance penalty for now.
+			PullACL: localPullACL{},
 		})
 		pull.From.Transport = lt
 		log.Printf("fixing up local transport: %#v", pull.From.Transport)
@@ -228,7 +240,7 @@ func closeRPCWithTimeout(log Logger, remote rpc.RPCRequester, timeout time.Durat
 type PullContext struct {
 	Remote            rpc.RPCRequester
 	Log               Logger
-	Mapping           zfs.DatasetMapping
+	Mapping           DatasetMapping
 	InitialReplPolicy rpc.InitialReplPolicy
 }
 
@@ -258,7 +270,7 @@ func doPull(pull PullContext) (err error) {
 			var localFs zfs.DatasetPath
 			localFs, err = pull.Mapping.Map(remoteFilesystems[fs])
 			if err != nil {
-				if err != zfs.NoMatchError {
+				if err != NoMatchError {
 					log.Printf("error mapping %s: %#v\n", remoteFilesystems[fs], err)
 					return err
 				}

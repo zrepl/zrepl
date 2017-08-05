@@ -7,7 +7,7 @@ import (
 
 func TestNewDatasetPathTree(t *testing.T) {
 
-	r := newDatasetPathTree(toDatasetPath("pool1/foo/bar"))
+	r := newDatasetPathTree(toDatasetPath("pool1/foo/bar").comps)
 
 	assert.Equal(t, "pool1", r.Component)
 	assert.True(t, len(r.Children) == 1)

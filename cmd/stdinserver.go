@@ -5,7 +5,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/sshbytestream"
-	"github.com/zrepl/zrepl/zfs"
 	"io"
 	golog "log"
 	"os"
@@ -37,8 +36,8 @@ func cmdStdinServer(cmd *cobra.Command, args []string) {
 	}
 	identity := args[0]
 
-	pullACL := conf.PullACLs[identity]
-	if pullACL == nil {
+	pullACL, ok := conf.PullACLs[identity]
+	if !ok {
 		err = fmt.Errorf("could not find PullACL for identity '%s'", identity)
 		return
 	}
@@ -48,19 +47,19 @@ func cmdStdinServer(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	sinkMapping := func(identity string) (m zfs.DatasetMapping, err error) {
-		sink := conf.Sinks[identity]
-		if sink == nil {
-			return nil, fmt.Errorf("could not find sink for dataset")
+	sinkMapping := func(identity string) (m DatasetMapping, err error) {
+		sink, ok := conf.Sinks[identity]
+		if !ok {
+			return nil, fmt.Errorf("could not find sink for identity '%s'", identity)
 		}
-		return sink.Mapping, nil
+		return sink, nil
 	}
 
 	sinkLogger := golog.New(logOut, fmt.Sprintf("sink[%s] ", identity), logFlags)
 	handler := Handler{
 		Logger:          sinkLogger,
 		SinkMappingFunc: sinkMapping,
-		PullACL:         pullACL.Mapping,
+		PullACL:         pullACL,
 	}
 
 	if err = rpc.ListenByteStreamRPC(sshByteStream, identity, handler, sinkLogger); err != nil {

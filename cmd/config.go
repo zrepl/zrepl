@@ -52,26 +52,21 @@ type SSHTransport struct {
 type Push struct {
 	JobName           string // for use with jobrun package
 	To                *Remote
-	Filter            zfs.DatasetMapping
+	Filter            zfs.DatasetFilter
 	InitialReplPolicy rpc.InitialReplPolicy
 	RepeatStrategy    jobrun.RepeatStrategy
 }
 type Pull struct {
 	JobName           string // for use with jobrun package
 	From              *Remote
-	Mapping           zfs.DatasetMapping
+	Mapping           DatasetMapFilter
 	InitialReplPolicy rpc.InitialReplPolicy
 	RepeatStrategy    jobrun.RepeatStrategy
 }
 
-type ClientMapping struct {
-	From    string
-	Mapping zfs.DatasetMapping
-}
-
 type Prune struct {
 	JobName         string // for use with jobrun package
-	DatasetFilter   zfs.DatasetMapping
+	DatasetFilter   zfs.DatasetFilter
 	SnapshotFilter  zfs.FilesystemVersionFilter
 	RetentionPolicy *RetentionGrid // TODO abstract interface to support future policies?
 }
@@ -80,17 +75,17 @@ type Autosnap struct {
 	JobName       string // for use with jobrun package
 	Prefix        string
 	Interval      jobrun.RepeatStrategy
-	DatasetFilter zfs.DatasetMapping
+	DatasetFilter zfs.DatasetFilter
 }
 
 type Config struct {
 	Remotes   map[string]*Remote
-	Pushs     map[string]*Push          // job name -> job
-	Pulls     map[string]*Pull          // job name -> job
-	Sinks     map[string]*ClientMapping // client identity -> mapping
-	PullACLs  map[string]*ClientMapping // client identity -> mapping
-	Prunes    map[string]*Prune         // job name -> job
-	Autosnaps map[string]*Autosnap      // job name -> job
+	Pushs     map[string]*Push            // job name -> job
+	Pulls     map[string]*Pull            // job name -> job
+	Sinks     map[string]DatasetMapFilter // client identity -> mapping
+	PullACLs  map[string]DatasetMapFilter // client identity -> filter
+	Prunes    map[string]*Prune           // job name -> job
+	Autosnaps map[string]*Autosnap        // job name -> job
 }
 
 func ParseConfig(path string) (config Config, err error) {
@@ -129,10 +124,10 @@ func parseMain(root map[string]interface{}) (c Config, err error) {
 	if c.Pulls, err = parsePulls(root["pulls"], remoteLookup); err != nil {
 		return
 	}
-	if c.Sinks, err = parseClientMappings(root["sinks"]); err != nil {
+	if c.Sinks, err = parseSinks(root["sinks"]); err != nil {
 		return
 	}
-	if c.PullACLs, err = parseClientMappings(root["pull_acls"]); err != nil {
+	if c.PullACLs, err = parsePullACLs(root["pull_acls"]); err != nil {
 		return
 	}
 	if c.Prunes, err = parsePrunes(root["prune"]); err != nil {
@@ -239,7 +234,7 @@ func parsePushs(v interface{}, rl remoteLookup) (p map[string]*Push, err error) 
 		if push.JobName, err = fullJobName(JobSectionPush, name); err != nil {
 			return
 		}
-		if push.Filter, err = parseComboMapping(e.Filter); err != nil {
+		if push.Filter, err = parseDatasetMapFilter(e.Filter, true); err != nil {
 			return
 		}
 
@@ -298,7 +293,7 @@ func parsePulls(v interface{}, rl remoteLookup) (p map[string]*Pull, err error) 
 		if pull.JobName, err = fullJobName(JobSectionPull, name); err != nil {
 			return
 		}
-		if pull.Mapping, err = parseComboMapping(e.Mapping); err != nil {
+		if pull.Mapping, err = parseDatasetMapFilter(e.Mapping, false); err != nil {
 			return
 		}
 		if pull.InitialReplPolicy, err = parseInitialReplPolicy(e.InitialReplPolicy, rpc.DEFAULT_INITIAL_REPL_POLICY); err != nil {
@@ -365,97 +360,78 @@ func expectList(v interface{}) (asList []interface{}, err error) {
 	return
 }
 
-func parseClientMappings(v interface{}) (cm map[string]*ClientMapping, err error) {
-
-	var asMap map[string]interface{}
+func parseSinks(v interface{}) (m map[string]DatasetMapFilter, err error) {
+	var asMap map[string]map[string]interface{}
 	if err = mapstructure.Decode(v, &asMap); err != nil {
 		return
 	}
 
-	cm = make(map[string]*ClientMapping, len(asMap))
+	m = make(map[string]DatasetMapFilter, len(asMap))
 
-	for identity, e := range asMap {
-		var m *ClientMapping
-		if m, err = parseClientMapping(e, identity); err != nil {
+	for identity, entry := range asMap {
+		parseSink := func() (mapping DatasetMapFilter, err error) {
+			mappingMap, ok := entry["mapping"]
+			if !ok {
+				err = fmt.Errorf("no mapping specified")
+				return
+			}
+			mapping, err = parseDatasetMapFilter(mappingMap, false)
 			return
 		}
-		cm[identity] = m
+		mapping, sinkErr := parseSink()
+		if sinkErr != nil {
+			err = fmt.Errorf("cannot parse sink for identity '%s': %s", identity, sinkErr)
+			return
+		}
+		m[identity] = mapping
 	}
 	return
 }
 
-func parseClientMapping(v interface{}, identity string) (s *ClientMapping, err error) {
-	t := struct {
-		Mapping map[string]string
-	}{}
-	if err = mapstructure.Decode(v, &t); err != nil {
+func parsePullACLs(v interface{}) (m map[string]DatasetMapFilter, err error) {
+	var asMap map[string]map[string]interface{}
+	if err = mapstructure.Decode(v, &asMap); err != nil {
 		return
 	}
-	s = &ClientMapping{
-		From: identity,
+
+	m = make(map[string]DatasetMapFilter, len(asMap))
+
+	for identity, entry := range asMap {
+		parsePullACL := func() (filter DatasetMapFilter, err error) {
+			filterMap, ok := entry["filter"]
+			if !ok {
+				err = fmt.Errorf("no filter specified")
+				return
+			}
+			filter, err = parseDatasetMapFilter(filterMap, true)
+			return
+		}
+		filter, filterErr := parsePullACL()
+		if filterErr != nil {
+			err = fmt.Errorf("cannot parse pull-ACL for identity '%s': %s", identity, filterErr)
+			return
+		}
+		m[identity] = filter
 	}
-	s.Mapping, err = parseComboMapping(t.Mapping)
 	return
 }
 
-func parseComboMapping(m map[string]string) (c zfs.ComboMapping, err error) {
+func parseDatasetMapFilter(mi interface{}, filterOnly bool) (f DatasetMapFilter, err error) {
 
-	c.Mappings = make([]zfs.DatasetMapping, 0, len(m))
-
-	for lhs, rhs := range m {
-
-		if lhs == "*" && strings.HasPrefix(rhs, "!") {
-
-			m := zfs.ExecMapping{}
-			fields := strings.Fields(strings.TrimPrefix(rhs, "!"))
-			if len(fields) < 1 {
-				err = errors.New("ExecMapping without acceptor path")
-				return
-			}
-			m.Name = fields[0]
-			m.Args = fields[1:]
-
-			c.Mappings = append(c.Mappings, m)
-
-		} else if strings.HasSuffix(lhs, "*") {
-
-			m := zfs.GlobMapping{}
-
-			m.PrefixPath, err = zfs.NewDatasetPath(strings.TrimSuffix(lhs, "*"))
-			if err != nil {
-				return
-			}
-
-			if m.TargetRoot, err = zfs.NewDatasetPath(rhs); err != nil {
-				return
-			}
-
-			c.Mappings = append(c.Mappings, m)
-
-		} else {
-
-			m := zfs.DirectMapping{}
-
-			if lhs == "|" {
-				m.Source = nil
-			} else {
-				if m.Source, err = zfs.NewDatasetPath(lhs); err != nil {
-					return
-				}
-			}
-
-			if m.Target, err = zfs.NewDatasetPath(rhs); err != nil {
-				return
-			}
-
-			c.Mappings = append(c.Mappings, m)
-
-		}
-
+	var m map[string]string
+	if err = mapstructure.Decode(mi, &m); err != nil {
+		err = fmt.Errorf("maps / filters must be specified as map[string]string: %s", err)
+		return
 	}
 
+	f = NewDatasetMapFilter(len(m), filterOnly)
+	for pathPattern, mapping := range m {
+		if err = f.Add(pathPattern, mapping); err != nil {
+			err = fmt.Errorf("invalid mapping entry ['%s':'%s']: %s", pathPattern, mapping, err)
+			return
+		}
+	}
 	return
-
 }
 
 func (t SSHTransport) Connect(rpcLog Logger) (r rpc.RPCRequester, err error) {
@@ -551,7 +527,7 @@ func parsePrune(e map[string]interface{}, name string) (prune *Prune, err error)
 	prune.RetentionPolicy = NewRetentionGrid(intervals)
 
 	// Parse filters
-	if prune.DatasetFilter, err = parseComboMapping(i.DatasetFilter); err != nil {
+	if prune.DatasetFilter, err = parseDatasetMapFilter(i.DatasetFilter, true); err != nil {
 		err = fmt.Errorf("cannot parse dataset filter: %s", err)
 		return
 	}
@@ -746,7 +722,7 @@ func parseAutosnap(m interface{}, name string) (a *Autosnap, err error) {
 		err = fmt.Errorf("dataset_filter not specified")
 		return
 	}
-	if a.DatasetFilter, err = parseComboMapping(i.DatasetFilter); err != nil {
+	if a.DatasetFilter, err = parseDatasetMapFilter(i.DatasetFilter, true); err != nil {
 		err = fmt.Errorf("cannot parse dataset filter: %s", err)
 	}
 

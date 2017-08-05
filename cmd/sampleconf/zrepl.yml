@@ -12,8 +12,9 @@ pushs:
   offsite:
     to: offsite_backups
     filter: {
-      "tank/var/db*":"ok",
-      "tank/usr/home*":"ok"
+      # like in pull_acls
+      "tank/var/db<":   ok,
+      "tank/usr/home<": ok,
     }
 
 pulls:
@@ -36,59 +37,39 @@ pulls:
 
 sinks:
 
-  # direct mapping
-  #       1:1 mapping of remote dataset to local dataset
-  #       We will reject a push request which contains > 0 datasets that do not
-  #         match a mapping
   db1:
     mapping: {
+      # direct mapping
       "ssdpool/var/db/postgresql9.6":"zroot/backups/db1/pg_data"
     }
 
-  # "|" non-recursive wildcard
-  #       the remote must present excatly one dataset, mapped to the rhs
-  cdn_master:
-    mapping: {
-      "|":"tank/srv/cdn" # NOTE: | is currently an invalid character for a ZFS dataset
-    }
-
-  # "*" recursive wildcard
-  #       the remote may present an arbitrary set of marks a recursive wildcard, i.e. map all remotes to a tree under rhs
   mirror1:
     mapping: {
-      "tank/foo/bar*":"zroot/backups/mirror1" # NOTE: * is currently an invalid character for a ZFS dataset
+      # "<" subtree wildcard matches the dataset left of < and all its children
+      "tank/foo/bar<":"zroot/backups/mirror1" 
     }
 
-  # "*":"!..." acceptor script
-  #       shell out to an accceptor that receives the remote's offered datasets
-  #       on stdin and, foreach line of this input, returns the corresponding
-  #       local dataset (same order) or '!<space>optional reason' on stdout
-  #       If the acceptor scripts exits with non-zero status code, the remote's
-  #       request will be rejected
-  complex_host:
-    mapping: { #
-      "*":"!/path/to/acceptor" # we could just wire the path to the acceptor directly to the mapping
-                               # but let's stick with the same type for the mapping field for now'
-                               # NOTE: * and ! are currently invalid characters for a ZFS dataset
+  mirror2:
+    # more specific path patterns win over less specific ones
+    # direct mappings win over subtree wildcards
+    # detailed rule precedence: check unit tests & docs for exact behavior
+    # TODO subcommand to test a mapping & filter
+    mapping: {
+      "tank<":                       "zroot/backups/mirror1/tank1",
+      "tank/cdn/root<":              "storage/cdn/root",
+      "tank/legacydb":               "legacypool/backups/legacydb",
     }
 
-  # Mixing the rules
-  #   Mixing should be possible if there is a defined precedence (direct before *)
-  #   and non-recursive wildcards are not allowed in multi-entry mapping objects
-  special_snowflake:
-    mapping: { # an explicit mapping mixed with a recursive wildcard
-      "sun/usr/home": backups/special_snowflake/homedirs,
-      "sun/var/db":   backups/special_snowflake/database,
-      "*":            backups/special_snowflake/remainingbackup
-      # NOTE:         ^ alignment, should be possible, looks nicer
-    }
 
 pull_acls:
 
-  # same synatx as in sinks, but the returned mapping does not matter
   office_backup:
-    mapping: {
-      "tank/usr/home":"notnull"
+    filter: {
+      # valid filter results (right hand side): ok, omit
+      # default is to omit
+      # rule precedence is same as for mappings
+      "tank<":         omit,
+      "tank/usr/home": ok,
     }
 
 
@@ -98,7 +79,8 @@ prune:
     policy: grid
     grid: 6x10m | 24x1h | 7x1d | 5 x 1w | 4 x 5w
     dataset_filter: {
-      "tank/backups/*": ok
+      "tank/backups/legacyscript<": omit,
+      "tank/backups<":              ok,
     }
     snapshot_filter: {
       prefix: zrepl_
@@ -108,7 +90,7 @@ prune:
     policy: grid
     grid: 1x1m(keep=all)
     dataset_filter: {
-      "pool1*": ok
+      "pool1<": ok
     }
     snapshot_filter: {
       prefix: zrepl_hfbak_
@@ -120,7 +102,7 @@ autosnap:
     prefix: zrepl_hfbak_
     interval: 1s
     dataset_filter: {
-      "pool1*": ok
+      "pool1<": ok
     }
     # prune: hfbak_prune
     # future versions may inline the retention policy here, but for now,

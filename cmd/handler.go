@@ -7,10 +7,14 @@ import (
 	"io"
 )
 
+type DatasetMapping interface {
+	Map(source zfs.DatasetPath) (target zfs.DatasetPath, err error)
+}
+
 type Handler struct {
 	Logger          Logger
-	PullACL         zfs.DatasetMapping
-	SinkMappingFunc func(clientIdentity string) (mapping zfs.DatasetMapping, err error)
+	PullACL         zfs.DatasetFilter
+	SinkMappingFunc func(clientIdentity string) (mapping DatasetMapping, err error)
 }
 
 func (h Handler) HandleFilesystemRequest(r rpc.FilesystemRequest) (roots []zfs.DatasetPath, err error) {
@@ -90,7 +94,7 @@ func (h Handler) HandlePullMeRequest(r rpc.PullMeRequest, clientIdentity string,
 
 	h.Logger.Printf("handling PullMeRequest: %#v", r)
 
-	var sinkMapping zfs.DatasetMapping
+	var sinkMapping DatasetMapping
 	sinkMapping, err = h.SinkMappingFunc(clientIdentity)
 	if err != nil {
 		h.Logger.Printf("no sink mapping for client identity '%s', denying PullMeRequest", clientIdentity)

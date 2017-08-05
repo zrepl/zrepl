@@ -11,20 +11,20 @@ func NewDatasetPathForest() *DatasetPathForest {
 }
 
 func (f *DatasetPathForest) Add(p DatasetPath) {
-	if len(p) <= 0 {
+	if len(p.comps) <= 0 {
 		panic("dataset path too short. must have length > 0")
 	}
 
 	// Find its root
 	var root *datasetPathTree
 	for _, r := range f.roots {
-		if r.Add(p) {
+		if r.Add(p.comps) {
 			root = r
 			break
 		}
 	}
 	if root == nil {
-		root = newDatasetPathTree(p)
+		root = newDatasetPathTree(p.comps)
 		f.roots = append(f.roots, root)
 	}
 }
@@ -57,7 +57,7 @@ type datasetPathTree struct {
 	Children  []*datasetPathTree
 }
 
-func (t *datasetPathTree) Add(p DatasetPath) bool {
+func (t *datasetPathTree) Add(p []string) bool {
 
 	if len(p) == 0 {
 		return true
@@ -88,11 +88,15 @@ func (t *datasetPathTree) Add(p DatasetPath) bool {
 
 }
 
-func (t *datasetPathTree) WalkTopDown(parent DatasetPath, visitor DatasetPathsVisitor) {
+func (t *datasetPathTree) WalkTopDown(parent []string, visitor DatasetPathsVisitor) {
 
 	this := append(parent, t.Component)
 
-	visitChildTree := visitor(DatasetPathVisit{this, t.FilledIn})
+	thisVisit := DatasetPathVisit{
+		DatasetPath{this},
+		t.FilledIn,
+	}
+	visitChildTree := visitor(thisVisit)
 
 	if visitChildTree {
 		for _, c := range t.Children {
@@ -102,15 +106,15 @@ func (t *datasetPathTree) WalkTopDown(parent DatasetPath, visitor DatasetPathsVi
 
 }
 
-func newDatasetPathTree(initial DatasetPath) (t *datasetPathTree) {
+func newDatasetPathTree(initialComps []string) (t *datasetPathTree) {
 	t = &datasetPathTree{}
 	var cur *datasetPathTree
 	cur = t
-	for i, comp := range initial {
+	for i, comp := range initialComps {
 		cur.Component = comp
 		cur.FilledIn = true
 		cur.Children = make([]*datasetPathTree, 0, 1)
-		if i == len(initial)-1 {
+		if i == len(initialComps)-1 {
 			cur.FilledIn = false // last component is not filled in
 			break
 		}
