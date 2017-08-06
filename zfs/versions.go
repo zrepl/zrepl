@@ -45,6 +45,10 @@ type FilesystemVersion struct {
 	Creation time.Time
 }
 
+func (v FilesystemVersion) String() string {
+	return fmt.Sprintf("%s%s", v.Type.DelimiterChar(), v.Name)
+}
+
 func (v FilesystemVersion) ToAbsPath(p *DatasetPath) string {
 	var b bytes.Buffer
 	b.WriteString(p.ToString())

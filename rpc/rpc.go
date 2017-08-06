@@ -8,7 +8,6 @@ import (
 	. "github.com/zrepl/zrepl/util"
 	"github.com/zrepl/zrepl/zfs"
 	"io"
-	"os"
 	"reflect"
 	"time"
 )
@@ -503,7 +502,6 @@ func (c ByteStreamRPC) CloseRequest(r CloseRequest) (err error) {
 	if err = c.sendRequestReceiveHeader(r, ROK); err != nil {
 		return
 	}
-	os.Stderr.WriteString("close request conn.Close()")
 	err = c.conn.Close()
 	return
 }

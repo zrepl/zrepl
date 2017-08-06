@@ -75,6 +75,7 @@ func cmdPull(cmd *cobra.Command, args []string) {
 		log.Printf("could not find pull job %s", args[0])
 		os.Exit(1)
 	}
+
 	if err := jobPull(job, log); err != nil {
 		log.Printf("error doing pull: %s", err)
 		os.Exit(1)
@@ -249,51 +250,46 @@ func doPull(pull PullContext) (err error) {
 	remote := pull.Remote
 	log := pull.Log
 
+	log.Printf("requesting remote filesystem list")
 	fsr := rpc.FilesystemRequest{}
 	var remoteFilesystems []*zfs.DatasetPath
 	if remoteFilesystems, err = remote.FilesystemRequest(fsr); err != nil {
 		return
 	}
 
-	// build mapping (local->RemoteLocalMapping) + traversal datastructure
+	log.Printf("map remote filesystems to local paths and determine order for per-filesystem sync")
 	type RemoteLocalMapping struct {
 		Remote *zfs.DatasetPath
 		Local  *zfs.DatasetPath
 	}
 	replMapping := make(map[string]RemoteLocalMapping, len(remoteFilesystems))
 	localTraversal := zfs.NewDatasetPathForest()
-	{
-
-		log.Printf("mapping using %#v\n", pull.Mapping)
-		for fs := range remoteFilesystems {
-			var err error
-			var localFs *zfs.DatasetPath
-			localFs, err = pull.Mapping.Map(remoteFilesystems[fs])
-			if err != nil {
-				if err != NoMatchError {
-					log.Printf("error mapping %s: %#v\n", remoteFilesystems[fs], err)
-					return err
-				}
-				continue
+	for fs := range remoteFilesystems {
+		var err error
+		var localFs *zfs.DatasetPath
+		localFs, err = pull.Mapping.Map(remoteFilesystems[fs])
+		if err != nil {
+			if err != NoMatchError {
+				err := fmt.Errorf("error mapping %s: %s", remoteFilesystems[fs], err)
+				log.Printf("%s", err)
+				return err
 			}
-			m := RemoteLocalMapping{remoteFilesystems[fs], localFs}
-			replMapping[m.Local.ToString()] = m
-			localTraversal.Add(m.Local)
+			continue
 		}
-
+		log.Printf("%s => %s", remoteFilesystems[fs].ToString(), localFs.ToString())
+		m := RemoteLocalMapping{remoteFilesystems[fs], localFs}
+		replMapping[m.Local.ToString()] = m
+		localTraversal.Add(m.Local)
 	}
 
-	// get info about local filesystems
+	log.Printf("build cache for already present local filesystem state")
 	localFilesystemState, err := zfs.ZFSListFilesystemState()
 	if err != nil {
-		log.Printf("cannot get local filesystems map: %s", err)
+		log.Printf("error requesting local filesystem state: %s", err)
 		return err
 	}
 
-	log.Printf("remoteFilesystems: %#v\nreplMapping: %#v\n", remoteFilesystems, replMapping)
-
-	// per fs sync, assume sorted in top-down order TODO
-
+	log.Printf("start per-filesystem sync")
 	localTraversal.WalkTopDown(func(v zfs.DatasetPathVisit) bool {
 
 		if v.FilledIn {
@@ -302,7 +298,7 @@ func doPull(pull PullContext) (err error) {
 				// to know we can add child filesystems to it
 				return true
 			}
-			log.Printf("creating placeholder filesystem %s", v.Path)
+			log.Printf("creating placeholder filesystem %s", v.Path.ToString())
 			err = zfs.ZFSCreatePlaceholderFilesystem(v.Path)
 			if err != nil {
 				err = fmt.Errorf("aborting, cannot create placeholder filesystem %s: %s", v.Path, err)
@@ -320,10 +316,8 @@ func doPull(pull PullContext) (err error) {
 			log.Printf("[%s => %s]: %s", m.Remote.ToString(), m.Local.ToString(), fmt.Sprintf(format, args...))
 		}
 
-		log("mapping: %#v\n", m)
-
+		log("examing local filesystem state")
 		localState, localExists := localFilesystemState[m.Local.ToString()]
-
 		var versions []zfs.FilesystemVersion
 		switch {
 		case !localExists:
@@ -331,24 +325,28 @@ func doPull(pull PullContext) (err error) {
 		case localState.Placeholder:
 			log("local filesystem is marked as placeholder")
 		default:
-			log("local filesystem exists, retrieving versions for diff")
+			log("local filesystem exists")
+			log("requesting local filesystem versions")
 			if versions, err = zfs.ZFSListFilesystemVersions(m.Local, nil); err != nil {
-				log("cannot get filesystem versions, stopping...: %v\n", m.Local.ToString(), m, err)
+				log("cannot get local filesystem versions: %s", err)
 				return false
 			}
 		}
 
+		log("requesting remote filesystem versions")
 		var theirVersions []zfs.FilesystemVersion
 		theirVersions, err = remote.FilesystemVersionsRequest(rpc.FilesystemVersionsRequest{
 			Filesystem: m.Remote,
 		})
 		if err != nil {
-			log("cannot fetch remote filesystem versions, stopping: %s", err)
+			log("error requesting remote filesystem versions: %s", err)
+			log("stopping replication for all filesystems mapped as children of %s", m.Local.ToString())
 			return false
 		}
 
+		log("computing diff between remote and local filesystem versions")
 		diff := zfs.MakeFilesystemDiff(versions, theirVersions)
-		log("diff: %#v\n", diff)
+		log("%s", diff)
 
 		if localState.Placeholder && diff.Conflict != zfs.ConflictAllRight {
 			panic("internal inconsistency: local placeholder implies ConflictAllRight")
@@ -357,10 +355,10 @@ func doPull(pull PullContext) (err error) {
 		switch diff.Conflict {
 		case zfs.ConflictAllRight:
 
-			log("performing initial sync, following policy: %#v", pull.InitialReplPolicy)
+			log("performing initial sync, following policy: '%s'", pull.InitialReplPolicy)
 
 			if pull.InitialReplPolicy != rpc.InitialReplPolicyMostRecent {
-				panic(fmt.Sprintf("policy %#v not implemented", pull.InitialReplPolicy))
+				panic(fmt.Sprintf("policy '%s' not implemented", pull.InitialReplPolicy))
 			}
 
 			snapsOnly := make([]zfs.FilesystemVersion, 0, len(diff.MRCAPathRight))
@@ -380,16 +378,16 @@ func doPull(pull PullContext) (err error) {
 				FilesystemVersion: snapsOnly[len(snapsOnly)-1],
 			}
 
-			log("requesting initial transfer")
+			log("requesting snapshot stream for %s", r.FilesystemVersion)
 
 			var stream io.Reader
 			if stream, err = remote.InitialTransferRequest(r); err != nil {
-				log("error initial transfer request, stopping...: %s", err)
+				log("error requesting initial transfer: %s", err)
 				return false
 			}
+			log("received initial transfer request response")
 
-			log("received initial transfer request response. zfs recv...")
-
+			log("invoking zfs receive")
 			watcher := util.IOProgressWatcher{Reader: stream}
 			watcher.KickOff(1*time.Second, func(p util.IOProgress) {
 				log("progress on receive operation: %v bytes received", p.TotalRX)
@@ -402,13 +400,12 @@ func doPull(pull PullContext) (err error) {
 			}
 
 			if err = zfs.ZFSRecv(m.Local, &watcher, recvArgs...); err != nil {
-				log("error receiving stream, stopping...: %s", err)
+				log("error receiving stream: %s", err)
 				return false
 			}
-			log("received stream, %v bytes total", watcher.Progress().TotalRX)
+			log("finished receiving stream, %v bytes total", watcher.Progress().TotalRX)
 
 			log("configuring properties of received filesystem")
-
 			if err = zfs.ZFSSet(m.Local, "readonly", "on"); err != nil {
 
 			}
@@ -423,7 +420,7 @@ func doPull(pull PullContext) (err error) {
 				return true
 			}
 
-			log("incremental transfers using path: %#v", diff.IncrementalPath)
+			log("following incremental path from diff")
 			var pathRx uint64
 
 			for i := 0; i < len(diff.IncrementalPath)-1; i++ {
@@ -431,31 +428,30 @@ func doPull(pull PullContext) (err error) {
 				from, to := diff.IncrementalPath[i], diff.IncrementalPath[i+1]
 
 				log := func(format string, args ...interface{}) {
-					log("[%s => %s]: %s", from.Name, to.Name, fmt.Sprintf(format, args...))
+					log("[%v/%v][%s => %s]: %s", i+1, len(diff.IncrementalPath)-1,
+						from.Name, to.Name, fmt.Sprintf(format, args...))
 				}
 
+				log("requesting incremental snapshot stream")
 				r := rpc.IncrementalTransferRequest{
 					Filesystem: m.Remote,
 					From:       from,
 					To:         to,
 				}
-				log("requesting incremental transfer: %#v", r)
-
 				var stream io.Reader
 				if stream, err = remote.IncrementalTransferRequest(r); err != nil {
-					log("error requesting incremental transfer, stopping...: %s", err.Error())
+					log("error requesting incremental snapshot stream: %s", err)
 					return false
 				}
 
-				log("receving incremental transfer")
-
+				log("invoking zfs receive")
 				watcher := util.IOProgressWatcher{Reader: stream}
 				watcher.KickOff(1*time.Second, func(p util.IOProgress) {
 					log("progress on receive operation: %v bytes received", p.TotalRX)
 				})
 
 				if err = zfs.ZFSRecv(m.Local, &watcher); err != nil {
-					log("error receiving stream, stopping...: %s", err)
+					log("error receiving stream: %s", err)
 					return false
 				}
 
@@ -465,24 +461,36 @@ func doPull(pull PullContext) (err error) {
 
 			}
 
-			log("finished incremental transfer path, %v bytes total", pathRx)
+			log("finished following incremental path, %v bytes total", pathRx)
 			return true
 
 		case zfs.ConflictNoCommonAncestor:
 
-			log("sender and receiver filesystem have snapshots, but no common one")
+			log("remote and local filesystem have snapshots, but no common one")
 			log("perform manual replication to establish a common snapshot history")
-			log("sender snapshot list: %#v", diff.MRCAPathRight)
-			log("receiver snapshot list: %#v", diff.MRCAPathLeft)
+			log("remote versions:")
+			for _, v := range diff.MRCAPathRight {
+				log(" %s (GUID %v)", v, v.Guid)
+			}
+			log("local versions:")
+			for _, v := range diff.MRCAPathLeft {
+				log(" %s (GUID %v)", v, v.Guid)
+			}
 			return false
 
 		case zfs.ConflictDiverged:
 
-			log("sender and receiver filesystem share a history but have diverged")
+			log("remote and local filesystem share a history but have diverged")
 			log("perform manual replication or delete snapshots on the receiving" +
 				"side  to establish an incremental replication parse")
-			log("sender-only snapshots: %#v", diff.MRCAPathRight)
-			log("receiver-only snapshots: %#v", diff.MRCAPathLeft)
+			log("remote-only versions:")
+			for _, v := range diff.MRCAPathRight {
+				log(" %s (GUID %v)", v, v.Guid)
+			}
+			log("local-only versions:")
+			for _, v := range diff.MRCAPathLeft {
+				log(" %s (GUID %v)", v, v.Guid)
+			}
 			return false
 
 		}

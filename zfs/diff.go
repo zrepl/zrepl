@@ -17,13 +17,14 @@ func (l fsbyCreateTXG) Less(i, j int) bool {
 	return l[i].CreateTXG < l[j].CreateTXG
 }
 
+//go:generate stringer -type=Conflict
 type Conflict int
 
 const (
-	ConflictIncremental      = 0 // no conflict, incremental repl possible
-	ConflictAllRight         = 1 // no conflict, initial repl possible
-	ConflictNoCommonAncestor = 2
-	ConflictDiverged         = 3
+	ConflictIncremental Conflict = iota // no conflict, incremental repl possible
+	ConflictAllRight                    // no conflict, initial repl possible
+	ConflictNoCommonAncestor
+	ConflictDiverged
 )
 
 /* The receiver (left) wants to know if the sender (right) has more recent versions
@@ -71,6 +72,27 @@ type FilesystemDiff struct {
 	// Conflict = Diverged: contains path from right most recent common ancestor (mrca)
 	// 						to most recent version on right
 	MRCAPathRight []FilesystemVersion
+}
+
+func (f FilesystemDiff) String() (str string) {
+	var b bytes.Buffer
+
+	fmt.Fprintf(&b, "%s, ", f.Conflict)
+
+	switch f.Conflict {
+	case ConflictIncremental:
+		fmt.Fprintf(&b, "incremental path length %v, common ancestor at %s", len(f.IncrementalPath)-1, f.IncrementalPath[0])
+	case ConflictAllRight:
+		fmt.Fprintf(&b, "%v versions, most recent is %s", len(f.MRCAPathRight)-1, f.MRCAPathRight[len(f.MRCAPathRight)-1])
+	case ConflictDiverged:
+		fmt.Fprintf(&b, "diverged at %s", f.MRCAPathRight[0]) // right always has at least one snap...?
+	case ConflictNoCommonAncestor:
+		fmt.Fprintf(&b, "no diff to show")
+	default:
+		fmt.Fprintf(&b, "unknown conflict type, likely a bug")
+	}
+
+	return b.String()
 }
 
 // we must assume left and right are ordered ascendingly by ZFS_PROP_CREATETXG and that
