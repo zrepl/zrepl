@@ -10,7 +10,7 @@ func NewDatasetPathForest() *DatasetPathForest {
 	}
 }
 
-func (f *DatasetPathForest) Add(p DatasetPath) {
+func (f *DatasetPathForest) Add(p *DatasetPath) {
 	if len(p.comps) <= 0 {
 		panic("dataset path too short. must have length > 0")
 	}
@@ -30,7 +30,7 @@ func (f *DatasetPathForest) Add(p DatasetPath) {
 }
 
 type DatasetPathVisit struct {
-	Path DatasetPath
+	Path *DatasetPath
 	// If true, the dataset referenced by Path was not in the list of datasets to traverse
 	FilledIn bool
 }
@@ -93,7 +93,7 @@ func (t *datasetPathTree) WalkTopDown(parent []string, visitor DatasetPathsVisit
 	this := append(parent, t.Component)
 
 	thisVisit := DatasetPathVisit{
-		DatasetPath{this},
+		&DatasetPath{this},
 		t.FilledIn,
 	}
 	visitChildTree := visitor(thisVisit)

@@ -34,7 +34,7 @@ func makeVisitRecorder() (v DatasetPathsVisitor, rec *visitRecorder) {
 	return
 }
 
-func buildForest(paths []DatasetPath) (f *DatasetPathForest) {
+func buildForest(paths []*DatasetPath) (f *DatasetPathForest) {
 	f = NewDatasetPathForest()
 	for _, p := range paths {
 		f.Add(p)
@@ -44,7 +44,7 @@ func buildForest(paths []DatasetPath) (f *DatasetPathForest) {
 
 func TestDatasetPathForestWalkTopDown(t *testing.T) {
 
-	paths := []DatasetPath{
+	paths := []*DatasetPath{
 		toDatasetPath("pool1"),
 		toDatasetPath("pool1/foo/bar"),
 		toDatasetPath("pool1/foo/bar/looloo"),
@@ -70,7 +70,7 @@ func TestDatasetPathForestWalkTopDown(t *testing.T) {
 
 func TestDatasetPathWalkTopDownWorksUnordered(t *testing.T) {
 
-	paths := []DatasetPath{
+	paths := []*DatasetPath{
 		toDatasetPath("pool1"),
 		toDatasetPath("pool1/foo/bar/looloo"),
 		toDatasetPath("pool1/foo/bar"),

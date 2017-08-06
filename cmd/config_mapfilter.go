@@ -17,7 +17,7 @@ type DatasetMapFilter struct {
 }
 
 type datasetMapFilterEntry struct {
-	path zfs.DatasetPath
+	path *zfs.DatasetPath
 	// the mapping. since this datastructure acts as both mapping and filter
 	// we have to convert it to the desired rep dynamically
 	mapping      string
@@ -50,12 +50,10 @@ func (m *DatasetMapFilter) Add(pathPattern, mapping string) (err error) {
 		return
 	}
 
-	var path zfs.DatasetPath
 	pathStr := strings.TrimSuffix(pathPattern, SUBTREE_PATTERN)
-	path, err = zfs.NewDatasetPath(pathStr)
+	path, err := zfs.NewDatasetPath(pathStr)
 	if err != nil {
-		err = fmt.Errorf("pattern is not a dataset path: %s", err)
-		return
+		return fmt.Errorf("pattern is not a dataset path: %s", err)
 	}
 
 	entry := datasetMapFilterEntry{
@@ -71,7 +69,7 @@ func (m *DatasetMapFilter) Add(pathPattern, mapping string) (err error) {
 // find the most specific prefix mapping we have
 //
 // longer prefix wins over shorter prefix, direct wins over glob
-func (m DatasetMapFilter) mostSpecificPrefixMapping(path zfs.DatasetPath) (idx int, found bool) {
+func (m DatasetMapFilter) mostSpecificPrefixMapping(path *zfs.DatasetPath) (idx int, found bool) {
 	lcp, lcp_entry_idx := -1, -1
 	direct_idx := -1
 	for e := range m.entries {
@@ -103,7 +101,7 @@ func (m DatasetMapFilter) mostSpecificPrefixMapping(path zfs.DatasetPath) (idx i
 	return
 }
 
-func (m DatasetMapFilter) Map(source zfs.DatasetPath) (target zfs.DatasetPath, err error) {
+func (m DatasetMapFilter) Map(source *zfs.DatasetPath) (target *zfs.DatasetPath, err error) {
 
 	if m.filterOnly {
 		err = fmt.Errorf("using a filter for mapping simply does not work")
@@ -136,7 +134,7 @@ func (m DatasetMapFilter) Map(source zfs.DatasetPath) (target zfs.DatasetPath, e
 	return
 }
 
-func (m DatasetMapFilter) Filter(p zfs.DatasetPath) (pass bool, err error) {
+func (m DatasetMapFilter) Filter(p *zfs.DatasetPath) (pass bool, err error) {
 	mi, hasMapping := m.mostSpecificPrefixMapping(p)
 	if !hasMapping {
 		pass = false

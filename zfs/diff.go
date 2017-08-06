@@ -208,13 +208,13 @@ func ZFSListFilesystemState() (localState map[string]FilesystemState, err error)
 // move.
 //
 // TODO better solution available?
-func PlaceholderPropertyValue(p DatasetPath) string {
+func PlaceholderPropertyValue(p *DatasetPath) string {
 	ps := []byte(p.ToString())
 	sum := sha512.Sum512_256(ps)
 	return hex.EncodeToString(sum[:])
 }
 
-func IsPlaceholder(p DatasetPath, placeholderPropertyValue string) (isPlaceholder bool, err error) {
+func IsPlaceholder(p *DatasetPath, placeholderPropertyValue string) (isPlaceholder bool, err error) {
 	expected := PlaceholderPropertyValue(p)
 	isPlaceholder = expected == placeholderPropertyValue
 	if !isPlaceholder {
@@ -223,7 +223,7 @@ func IsPlaceholder(p DatasetPath, placeholderPropertyValue string) (isPlaceholde
 	return
 }
 
-func ZFSCreatePlaceholderFilesystem(p DatasetPath) (err error) {
+func ZFSCreatePlaceholderFilesystem(p *DatasetPath) (err error) {
 	v := PlaceholderPropertyValue(p)
 	cmd := exec.Command(ZFS_BINARY, "create",
 		"-o", fmt.Sprintf("%s=%s", ZREPL_PLACEHOLDER_PROPERTY_NAME, v),

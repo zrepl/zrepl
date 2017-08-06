@@ -1,7 +1,14 @@
 package rpc
 
-import "io"
-import "github.com/zrepl/zrepl/zfs"
+import (
+	"encoding/json"
+	"io"
+
+	"github.com/zrepl/zrepl/zfs"
+)
+
+var _ json.Marshaler = &zfs.DatasetPath{}
+var _ json.Unmarshaler = &zfs.DatasetPath{}
 
 type RequestId [16]byte
 type RequestType uint8
@@ -26,11 +33,11 @@ type FilesystemRequest struct {
 }
 
 type FilesystemVersionsRequest struct {
-	Filesystem zfs.DatasetPath
+	Filesystem *zfs.DatasetPath
 }
 
 type InitialTransferRequest struct {
-	Filesystem        zfs.DatasetPath
+	Filesystem        *zfs.DatasetPath
 	FilesystemVersion zfs.FilesystemVersion
 }
 
@@ -39,7 +46,7 @@ func (r InitialTransferRequest) Respond(snapshotReader io.Reader) {
 }
 
 type IncrementalTransferRequest struct {
-	Filesystem zfs.DatasetPath
+	Filesystem *zfs.DatasetPath
 	From       zfs.FilesystemVersion
 	To         zfs.FilesystemVersion
 }

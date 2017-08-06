@@ -45,7 +45,7 @@ type FilesystemVersion struct {
 	Creation time.Time
 }
 
-func (v FilesystemVersion) ToAbsPath(p DatasetPath) string {
+func (v FilesystemVersion) ToAbsPath(p *DatasetPath) string {
 	var b bytes.Buffer
 	b.WriteString(p.ToString())
 	b.WriteString(v.Type.DelimiterChar())
@@ -57,7 +57,7 @@ type FilesystemVersionFilter interface {
 	Filter(fsv FilesystemVersion) (accept bool, err error)
 }
 
-func ZFSListFilesystemVersions(fs DatasetPath, filter FilesystemVersionFilter) (res []FilesystemVersion, err error) {
+func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) (res []FilesystemVersion, err error) {
 	var fieldLines [][]string
 	fieldLines, err = ZFSList(
 		[]string{"name", "guid", "createtxg", "creation"},
@@ -125,7 +125,7 @@ func ZFSListFilesystemVersions(fs DatasetPath, filter FilesystemVersionFilter) (
 	return
 }
 
-func ZFSDestroyFilesystemVersion(filesystem DatasetPath, version FilesystemVersion) (err error) {
+func ZFSDestroyFilesystemVersion(filesystem *DatasetPath, version FilesystemVersion) (err error) {
 
 	datasetPath := version.ToAbsPath(filesystem)
 

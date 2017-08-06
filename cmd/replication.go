@@ -143,7 +143,7 @@ func cmdRun(cmd *cobra.Command, args []string) {
 
 type localPullACL struct{}
 
-func (a localPullACL) Filter(p zfs.DatasetPath) (pass bool, err error) {
+func (a localPullACL) Filter(p *zfs.DatasetPath) (pass bool, err error) {
 	return true, nil
 }
 
@@ -250,15 +250,15 @@ func doPull(pull PullContext) (err error) {
 	log := pull.Log
 
 	fsr := rpc.FilesystemRequest{}
-	var remoteFilesystems []zfs.DatasetPath
+	var remoteFilesystems []*zfs.DatasetPath
 	if remoteFilesystems, err = remote.FilesystemRequest(fsr); err != nil {
 		return
 	}
 
 	// build mapping (local->RemoteLocalMapping) + traversal datastructure
 	type RemoteLocalMapping struct {
-		Remote zfs.DatasetPath
-		Local  zfs.DatasetPath
+		Remote *zfs.DatasetPath
+		Local  *zfs.DatasetPath
 	}
 	replMapping := make(map[string]RemoteLocalMapping, len(remoteFilesystems))
 	localTraversal := zfs.NewDatasetPathForest()
@@ -267,7 +267,7 @@ func doPull(pull PullContext) (err error) {
 		log.Printf("mapping using %#v\n", pull.Mapping)
 		for fs := range remoteFilesystems {
 			var err error
-			var localFs zfs.DatasetPath
+			var localFs *zfs.DatasetPath
 			localFs, err = pull.Mapping.Map(remoteFilesystems[fs])
 			if err != nil {
 				if err != NoMatchError {

@@ -14,7 +14,7 @@ import (
 )
 
 type RPCRequester interface {
-	FilesystemRequest(r FilesystemRequest) (roots []zfs.DatasetPath, err error)
+	FilesystemRequest(r FilesystemRequest) (roots []*zfs.DatasetPath, err error)
 	FilesystemVersionsRequest(r FilesystemVersionsRequest) (versions []zfs.FilesystemVersion, err error)
 	InitialTransferRequest(r InitialTransferRequest) (io.Reader, error)
 	IncrementalTransferRequest(r IncrementalTransferRequest) (io.Reader, error)
@@ -24,7 +24,7 @@ type RPCRequester interface {
 }
 
 type RPCHandler interface {
-	HandleFilesystemRequest(r FilesystemRequest) (roots []zfs.DatasetPath, err error)
+	HandleFilesystemRequest(r FilesystemRequest) (roots []*zfs.DatasetPath, err error)
 
 	// returned versions ordered by birthtime, oldest first
 	HandleFilesystemVersionsRequest(r FilesystemVersionsRequest) (versions []zfs.FilesystemVersion, err error)
@@ -451,13 +451,13 @@ func (c ByteStreamRPC) ProtocolVersionRequest() (err error) {
 	return c.sendRequestReceiveHeader(b, ROK)
 }
 
-func (c ByteStreamRPC) FilesystemRequest(r FilesystemRequest) (roots []zfs.DatasetPath, err error) {
+func (c ByteStreamRPC) FilesystemRequest(r FilesystemRequest) (roots []*zfs.DatasetPath, err error) {
 
 	if err = c.sendRequestReceiveHeader(r, RFilesystems); err != nil {
 		return
 	}
 
-	roots = make([]zfs.DatasetPath, 0)
+	roots = make([]*zfs.DatasetPath, 0)
 
 	if err = readChunkedJSON(c.conn, &roots); err != nil {
 		return
@@ -520,7 +520,7 @@ func ConnectLocalRPC(handler RPCHandler) RPCRequester {
 	return LocalRPC{handler}
 }
 
-func (c LocalRPC) FilesystemRequest(r FilesystemRequest) (roots []zfs.DatasetPath, err error) {
+func (c LocalRPC) FilesystemRequest(r FilesystemRequest) (roots []*zfs.DatasetPath, err error) {
 	return c.handler.HandleFilesystemRequest(r)
 }
 

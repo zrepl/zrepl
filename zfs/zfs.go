@@ -3,31 +3,33 @@ package zfs
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/zrepl/zrepl/util"
 	"io"
 	"os/exec"
 	"strings"
+
+	"github.com/zrepl/zrepl/util"
 )
 
 type DatasetPath struct {
 	comps []string
 }
 
-func (p DatasetPath) ToString() string {
+func (p *DatasetPath) ToString() string {
 	return strings.Join(p.comps, "/")
 }
 
-func (p DatasetPath) Empty() bool {
+func (p *DatasetPath) Empty() bool {
 	return len(p.comps) == 0
 }
 
-func (p *DatasetPath) Extend(extend DatasetPath) {
+func (p *DatasetPath) Extend(extend *DatasetPath) {
 	p.comps = append(p.comps, extend.comps...)
 }
 
-func (p DatasetPath) HasPrefix(prefix DatasetPath) bool {
+func (p *DatasetPath) HasPrefix(prefix *DatasetPath) bool {
 	if len(prefix.comps) > len(p.comps) {
 		return false
 	}
@@ -39,7 +41,7 @@ func (p DatasetPath) HasPrefix(prefix DatasetPath) bool {
 	return true
 }
 
-func (p *DatasetPath) TrimPrefix(prefix DatasetPath) {
+func (p *DatasetPath) TrimPrefix(prefix *DatasetPath) {
 	if !p.HasPrefix(prefix) {
 		return
 	}
@@ -64,7 +66,7 @@ func (p *DatasetPath) TrimNPrefixComps(n int) {
 
 }
 
-func (p DatasetPath) Equal(q DatasetPath) bool {
+func (p DatasetPath) Equal(q *DatasetPath) bool {
 	if len(p.comps) != len(q.comps) {
 		return false
 	}
@@ -76,17 +78,28 @@ func (p DatasetPath) Equal(q DatasetPath) bool {
 	return true
 }
 
-func (p DatasetPath) Length() int {
+func (p *DatasetPath) Length() int {
 	return len(p.comps)
 }
 
-func (p DatasetPath) Copy() (c DatasetPath) {
+func (p *DatasetPath) Copy() (c *DatasetPath) {
+	c = &DatasetPath{}
 	c.comps = make([]string, len(p.comps))
 	copy(c.comps, p.comps)
 	return
 }
 
-func NewDatasetPath(s string) (p DatasetPath, err error) {
+func (p *DatasetPath) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p.comps)
+}
+
+func (p *DatasetPath) UnmarshalJSON(b []byte) error {
+	p.comps = make([]string, 0)
+	return json.Unmarshal(b, &p.comps)
+}
+
+func NewDatasetPath(s string) (p *DatasetPath, err error) {
+	p = &DatasetPath{}
 	if s == "" {
 		p.comps = make([]string, 0)
 		return p, nil // the empty dataset path
@@ -104,7 +117,7 @@ func NewDatasetPath(s string) (p DatasetPath, err error) {
 	return
 }
 
-func toDatasetPath(s string) DatasetPath {
+func toDatasetPath(s string) *DatasetPath {
 	p, err := NewDatasetPath(s)
 	if err != nil {
 		panic(err)
@@ -172,7 +185,7 @@ func ZFSList(properties []string, zfsArgs ...string) (res [][]string, err error)
 	return
 }
 
-func ZFSSend(fs DatasetPath, from, to *FilesystemVersion) (stream io.Reader, err error) {
+func ZFSSend(fs *DatasetPath, from, to *FilesystemVersion) (stream io.Reader, err error) {
 
 	args := make([]string, 0)
 	args = append(args, "send")
@@ -188,7 +201,7 @@ func ZFSSend(fs DatasetPath, from, to *FilesystemVersion) (stream io.Reader, err
 	return
 }
 
-func ZFSRecv(fs DatasetPath, stream io.Reader, additionalArgs ...string) (err error) {
+func ZFSRecv(fs *DatasetPath, stream io.Reader, additionalArgs ...string) (err error) {
 
 	args := make([]string, 0)
 	args = append(args, "recv")
@@ -226,7 +239,7 @@ func ZFSRecv(fs DatasetPath, stream io.Reader, additionalArgs ...string) (err er
 	return nil
 }
 
-func ZFSSet(fs DatasetPath, prop, val string) (err error) {
+func ZFSSet(fs *DatasetPath, prop, val string) (err error) {
 
 	if strings.ContainsRune(prop, '=') {
 		panic("prop contains rune '=' which is the delimiter between property name and value")
@@ -273,7 +286,7 @@ func ZFSDestroy(dataset string) (err error) {
 
 }
 
-func ZFSSnapshot(fs DatasetPath, name string, recursive bool) (err error) {
+func ZFSSnapshot(fs *DatasetPath, name string, recursive bool) (err error) {
 
 	snapname := fmt.Sprintf("%s@%s", fs.ToString(), name)
 	cmd := exec.Command(ZFS_BINARY, "snapshot", snapname)

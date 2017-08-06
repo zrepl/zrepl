@@ -8,7 +8,7 @@ import (
 )
 
 type DatasetMapping interface {
-	Map(source zfs.DatasetPath) (target zfs.DatasetPath, err error)
+	Map(source *zfs.DatasetPath) (target *zfs.DatasetPath, err error)
 }
 
 type Handler struct {
@@ -17,7 +17,7 @@ type Handler struct {
 	SinkMappingFunc func(clientIdentity string) (mapping DatasetMapping, err error)
 }
 
-func (h Handler) HandleFilesystemRequest(r rpc.FilesystemRequest) (roots []zfs.DatasetPath, err error) {
+func (h Handler) HandleFilesystemRequest(r rpc.FilesystemRequest) (roots []*zfs.DatasetPath, err error) {
 
 	h.Logger.Printf("handling fsr: %#v", r)
 
@@ -120,7 +120,7 @@ func (h Handler) HandlePullMeRequest(r rpc.PullMeRequest, clientIdentity string,
 	return
 }
 
-func (h Handler) pullACLCheck(p zfs.DatasetPath) (err error) {
+func (h Handler) pullACLCheck(p *zfs.DatasetPath) (err error) {
 	var allowed bool
 	allowed, err = h.PullACL.Filter(p)
 	if err != nil {
