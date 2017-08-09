@@ -3,7 +3,7 @@ set -eo pipefail
 
 GHPAGESREPO="git@github.com:zrepl/zrepl.github.io.git"
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-PUBLICDIR="${SCRIPTDIR}/public"
+PUBLICDIR="${SCRIPTDIR}/public_git" #use different dir than default dir 'public' (hugo server -D)
 
 checkout_repo_msg() {
     echo "checkout ${GHPAGESREPO} to ${PUBLICDIR}:"
@@ -39,17 +39,17 @@ git fetch origin
 git reset --hard origin/master
 
 echo "cleaning GitHub pages repo"
-git clean -dn
+git rm -rf .
 
 popd
 
 echo "building site"
-hugo
+hugo -d "$PUBLICDIR"
 
 pushd "$PUBLICDIR"
 
 echo "adding and commiting all changes in GitHub pages repo"
 git add -A
-git commit -m "hugo render from publish.sh - `date -u`"
+git commit -m "hugo render from publish.sh - `date -u`" #TODO include parent commit id
 git push origin master
 
