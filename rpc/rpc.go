@@ -166,9 +166,7 @@ func (c ByteStreamRPC) serverLoop(handler RPCHandler) error {
 				return conn.Close()
 			}
 
-			if rq.Goodbye != "" {
-				log.Printf("close request with goodbye: %s", rq.Goodbye)
-			}
+			log.Printf("close request with goodbye: %s", rq.Goodbye)
 
 			send(&ResponseHeader{
 				RequestId:    header.Id,
