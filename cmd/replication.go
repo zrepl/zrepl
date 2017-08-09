@@ -218,6 +218,7 @@ func closeRPCWithTimeout(log Logger, remote rpc.RPCRequester, timeout time.Durat
 	ch := make(chan error)
 	go func() {
 		ch <- remote.CloseRequest(rpc.CloseRequest{goodbye})
+		close(ch)
 	}()
 
 	var err error
