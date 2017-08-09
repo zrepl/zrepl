@@ -3,7 +3,6 @@ package util
 import (
 	"bytes"
 	"fmt"
-	"golang.org/x/sys/unix"
 	"io"
 	"os/exec"
 	"syscall"
@@ -15,7 +14,7 @@ type IOCommand struct {
 	Stdin      io.Writer
 	Stdout     io.Reader
 	StderrBuf  *bytes.Buffer
-	ExitResult IOCommandExitResult
+	ExitResult *IOCommandExitResult
 }
 
 const IOCommandStderrBufSize = 1024
@@ -90,24 +89,17 @@ func (c *IOCommand) Read(buf []byte) (n int, err error) {
 func (c *IOCommand) doWait() (err error) {
 	waitErr := c.Cmd.Wait()
 	waitStatus := c.Cmd.ProcessState.Sys().(syscall.WaitStatus) // Fail hard if we're not on UNIX
-	if waitErr != nil {
 
-		// https://support.ssh.com/manuals/client-user/44/ssh2_Return_Values.html
-		// If ssh is terminated via signal, its exit status is 128 + signal number
-		if waitStatus.ExitStatus() == 128+int(syscall.SIGTERM) {
-			// discard wait err, we assume this is due to earlier c.Close()
-			goto out
-		}
-
+	wasUs := waitStatus.Signaled() && waitStatus.Signal() == syscall.SIGTERM // in Close()
+	if waitErr != nil && !wasUs {
 		err = IOCommandError{
 			WaitErr: waitErr,
 			Stderr:  c.StderrBuf.Bytes(),
 		}
 	}
 
-out:
-	c.ExitResult = IOCommandExitResult{
-		Error:      err,
+	c.ExitResult = &IOCommandExitResult{
+		Error:      err, // is still empty if waitErr was due to signalling
 		WaitStatus: waitStatus,
 	}
 	return
@@ -124,7 +116,7 @@ func (c *IOCommand) Write(buf []byte) (n int, err error) {
 func (c *IOCommand) Close() (err error) {
 	if c.Cmd.ProcessState == nil {
 		// racy...
-		err = unix.Kill(c.Cmd.Process.Pid, syscall.SIGTERM)
+		err = syscall.Kill(c.Cmd.Process.Pid, syscall.SIGTERM)
 		if err != nil {
 			return
 		}
