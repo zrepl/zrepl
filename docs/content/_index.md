@@ -22,18 +22,24 @@ development. Some of the features below are not implemented yet. Use & test at y
         * compressed `send & receive`
         * raw encrypted `send & receive` (as soon as it is available)
     * access control checks when pulling datasets
-    * flexible mappings for filesystems
+    * [flexible mappings]({{< ref "configuration/overview.md#mapping-filter-syntax" >}}) for filesystems
 * automatic snapshot creation
     * periodic interval
 * automatic snapshot pruning
-    * *retention grid* TODO link explain
+    * [Retention Grid]({{< ref "configuration/snapshots.md#retention-grid" >}})
    
 ## Contributing
 
-We are happy about contributors, both for the `zrepl` codebase and theses docs.
-Feel free to open a ticket or even submit a pull request ;)
+`zrepl` is usable but nowhere near a stable release right now -  we are happy
+about contributors!
 
-* <i class='fa fa-github'></i> [zrepl GitHub repository](https://github.com/zrepl/zrepl)
-* these docs: 
-    * were started on 2017-08-08 and are not committed yet. 
-    * please use GitHub flavored markdown and open an issue in the `zrepl` repo
+* Explore the codebase
+    * These docs live in the `docs/` subdirectory
+* Document non-obvious / confusing / plain broken things you encounter when using `zrepl` for the first time
+* Check the *Issues* and *Projects* sections for things to do ;)
+
+{{% panel header="<i class='fa fa-github'></i> Getting your code merged"%}}
+[The <i class='fa fa-github'></i> GitHub repository](https://github.com/zrepl/zrepl) is where all development happens.
+Open your issue / PR there.
+{{% /panel %}}
+
