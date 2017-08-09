@@ -1,3 +1,6 @@
 [submodule "docs/themes/docdock"]
 	path = docs/themes/docdock
 	url = git@github.com:zrepl/hugo-theme-docdock.git
+[submodule "docs/public"]
+	path = docs/public
+	url = git@github.com:zrepl/zrepl.github.io.git
