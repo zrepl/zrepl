@@ -59,18 +59,23 @@ Run `zrepl --help` for a list of subcommands and options.
 ## Mapping & Filter Syntax
 
 For various job types, a filesystem `mapping` or `filter` needs to be
-specified. Both have in common that they return a result for a given filesystem
-path (in the ZFS filesystem hierarchy).
+specified.
 
-A mapping returns a *target filesystem*, a filter returns a *filter result*.
-The matching syntax & rules are the same for mappings and filters.
+Both have in common that they return a result for a given filesystem path (in
+the ZFS filesystem hierarchy): mappings return a *target filesystem*, filters
+return a *filter result* (`omit`, `ok`).
 
-#### Matching Rules
+The pattern syntax is the same for mappings and filters and is documented in
+the following section.
 
-Given a mapping / filter with a list of patterns and results, which result depends on the following rules:
+#### Pattern Syntax
+
+A mapping / filter is specified as a **YAML dictionary** with patterns as keys and
+results as values.<br />
+The following rules determine which result is chosen for a given filesystem path:
 
 * More specific path patterns win over less specific ones
-* Direct mappings win over *subtree wildcards* (`<` at end of pattern)
+* Non-wildcard patterns (full path patterns) win over *subtree wildcards* (`<` at end of pattern)
 
 {{% panel %}}
 The **subtree wildcard** `<` means "*the dataset left of `<` and all its children*".
@@ -80,9 +85,9 @@ The **subtree wildcard** `<` means "*the dataset left of `<` and all its childre
 
 ```
 # Rule number and its pattern
-1: tank<
-2: tank/foo/bar
-3: tank/foo<
+1: tank<            # tank and all its children
+2: tank/foo/bar     # full path pattern (no wildcard)
+3: tank/foo<        # tank/foo and all its children
 
 # Which rule applies to given path?
 tank/foo/bar/loo => 3
