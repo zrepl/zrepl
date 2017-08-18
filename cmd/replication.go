@@ -325,6 +325,87 @@ func doPull(pull PullContext) (err error) {
 			log("local filesystem does not exist")
 		case localState.Placeholder:
 			log("local filesystem is marked as placeholder")
+		case localState.ResumeToken != "":
+
+			log("local filesystem has receive_resume_token")
+			if false { // TODO Check if managed resume is disabled (explain information leakage in docs!)
+				log("managed resume tokens are disabled via zrepl config, assuming config change or external administrative action")
+				log("policy forbids aborting the partial recv automatically, skipping this filesystem")
+				log("for zrepl to resume replication for this dataset, administrators should finishing the recv manually or abort the recv via `zfs recv -A %s`", m.Local.ToString())
+				return true // TODO right choice to allow children? ... should be, since the fs exists...
+			}
+
+			log("decoding receive_resume_token")
+			// TODO, see handler comments
+			// TODO override logger with fromguid toguid
+
+			log("requesting resume of transfer")
+			r := rpc.ResumeTransferRequest{m.Remote, localState.ResumeToken}
+			stream, err := remote.ResumeTransferRequest(r)
+			if err != nil {
+
+				log("resume transfer request failed: %s", err)
+				rre, ok := err.(*rpc.ResumeTransferError)
+				if !ok {
+					log("skipping this filesystem, could be temporary issue")
+					return true // TODO right choice to allow children
+				}
+
+				// Determine if we should clear the resume token
+				clearAndUseSnaps := false
+				switch rre.Reason {
+				case rpc.ResumeTransferErrorReasonNotImplemented:
+					fallthrough
+				case rpc.ResumeTransferErrorReasonDisabled:
+					fallthrough
+				case rpc.ResumeTransferErrorReasonZFSErrorPermanent:
+					clearAndUseSnaps = true
+
+				case rpc.ResumeTransferErrorReasonZFSErrorMaybeTemporary:
+					fallthrough
+				default:
+					clearAndUseSnaps = false
+				}
+
+				if !clearAndUseSnaps {
+					log("skipping this filesystem, error identified as temporary")
+					return true // TODO right choice to allow children
+				}
+
+				log("clearing local receive_resume_token")
+				if err := zfs.ZFSRecvAbort(m.Local); err != nil {
+					log("error clearing receive_resume_token: %s", err)
+					return true // TODO right choice to allow children? the filesystem exists, so it should be ok
+				}
+				// TODO go back to top of function (put all this into separate function, then tail recursive call)
+				// TODO return this_function()
+			}
+
+			// TODO warning code duplication, see below. need to unify this
+			log("invoking zfs receive")
+			watcher := util.IOProgressWatcher{Reader: stream}
+			watcher.KickOff(1*time.Second, func(p util.IOProgress) {
+				log("progress on receive operation: %v bytes received", p.TotalRX)
+			})
+
+			recvArgs := []string{"-u"}
+			if localState.Placeholder {
+				log("receive with forced rollback to replace placeholder filesystem")
+				recvArgs = append(recvArgs, "-F")
+			}
+
+			if err = zfs.ZFSRecv(m.Local, &watcher, recvArgs...); err != nil {
+				log("error receiving stream: %s", err)
+				return false
+			}
+			log("finished receiving stream, %v bytes total", watcher.Progress().TotalRX)
+
+			// TODO further problem property handling code must be duplicated here...
+
+			// TODO tail recursive call to this function, we might not be dony syncing yet
+			// TODO return this_function()
+			return true
+
 		default:
 			log("local filesystem exists")
 			log("requesting local filesystem versions")

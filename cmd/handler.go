@@ -87,6 +87,46 @@ func (h Handler) HandleIncrementalTransferRequest(r rpc.IncrementalTransferReque
 
 }
 
+func (h Handler) HandleResumeTransferRequest(r rpc.ResumeTransferRequest) (stream io.Reader, err error) {
+	// decode receive_resume_token: zfs send -nvP <token>
+	// A) use exit code to determine if could send (exit != 0 means could not send)
+	// B) check ACL if the filesystem in toname field (it is a snapshot so strip its snapshot name first)
+	//    is allowed for the given client
+	/*
+
+			# zfs send -nvt will print nvlist contents on ZoL and FreeBSD, should be good enough
+			# will print regardless of whether it can send or not -> good for us
+			# need clean way to extract that...
+				# expect 'resume token contents:\nnvlist version: 0\n'
+				# parse everything after that is tab-indented as key value pairs separated by = sign
+				# => return dict
+
+			zfs send -nv -t 1-c6491acbe-c8-789c636064000310a500c4ec50360710e72765a526973030b0419460caa7a515a79630c001489e0d493ea9b224b5182451885d7f497e7a69660a0343f79b1b9a8a2b3db65b20c97382e5f312735319188a4bf28b12d353f5931293b34b0b8af5ab8a520b72f4d3f2f31d8a53f35220660300c1091dbe
+		resume token contents:
+		nvlist version: 0
+		        object = 0x6
+		        offset = 0x0
+		        bytes = 0x7100
+		        toguid = 0xb748a92129d8ec8b
+		        toname = storage/backups/zrepl/foo@send
+		cannot resume send: 'storage/backups/zrepl/foo@send' used in the initial send no longer exists
+
+		zfs send -nvt 1-ebbbbea7e-f0-789c636064000310a501c49c50360710a715e5e7a69766a6304041f79b1b9a8a2b3db62b00d9ec48eaf293b252934b181858a0ea30e4d3d28a534b18e00024cf86249f5459925a0ca44fc861d75f920f71c59c5fdf6f7b3eea32b24092e704cbe725e6a632301497e41725a6a7ea27252667971614eb5715a516e4e8a7e5e73b14a7e6a51881cd06005a222749
+		resume token contents:
+		nvlist version: 0
+		        fromguid = 0xb748a92129d8ec8b #NOTE the fromguid field which is only in this one, so don't hardcode
+		        object = 0x4
+		        offset = 0x0
+		        bytes = 0x1ec8
+		        toguid = 0x328ae249dbf7fa9c
+		        toname = storage/backups/zrepl/foo@send2
+		send from storage/backups/zrepl/foo@send to storage/backups/zrepl/foo@send2 estimated size is 1.02M
+
+	*/
+	panic("not implemented")
+	return nil, nil
+}
+
 func (h Handler) HandlePullMeRequest(r rpc.PullMeRequest, clientIdentity string, client rpc.RPCRequester) (err error) {
 
 	// Check if we have a sink for this request

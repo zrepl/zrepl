@@ -19,6 +19,7 @@ const (
 	RTFilesystemVersionsRequest              = 0x11
 	RTInitialTransferRequest                 = 0x12
 	RTIncrementalTransferRequest             = 0x13
+	RTResumeTransferRequest                  = 0x14
 	RTPullMeRequest                          = 0x20
 	RTCloseRequest                           = 0xf0
 )
@@ -50,6 +51,30 @@ type IncrementalTransferRequest struct {
 	From       zfs.FilesystemVersion
 	To         zfs.FilesystemVersion
 }
+
+type ResumeTransferRequest struct {
+	Filesystem *zfs.DatasetPath
+	Token      string
+}
+
+type ResumeTransferError struct {
+	Reason   ResumeTransferErrorReason
+	ZFSError string
+}
+
+func (e *ResumeTransferError) Error() string {
+	return e.Reason.String()
+}
+
+//go:generate stringer -type ResumeTransferErrorReason
+type ResumeTransferErrorReason uint8
+
+const (
+	ResumeTransferErrorReasonNotImplemented ResumeTransferErrorReason = iota
+	ResumeTransferErrorReasonDisabled
+	ResumeTransferErrorReasonZFSErrorPermanent
+	ResumeTransferErrorReasonZFSErrorMaybeTemporary
+)
 
 func (r IncrementalTransferRequest) Respond(snapshotReader io.Reader) {
 

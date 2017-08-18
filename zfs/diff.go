@@ -189,15 +189,21 @@ const ZREPL_PLACEHOLDER_PROPERTY_NAME string = "zrepl:placeholder"
 
 type FilesystemState struct {
 	Placeholder bool
-	// TODO extend with resume token when that feature is finally added
+	// If != "", the receive_resume_token found on the receiving side of a resumable send & recv
+	ResumeToken string
 }
 
 // A somewhat efficient way to determine if a filesystem exists on this host.
 // Particularly useful if exists is called more than once (will only fork exec once and cache the result)
 func ZFSListFilesystemState() (localState map[string]FilesystemState, err error) {
 
+	properties := []string{"name", ZREPL_PLACEHOLDER_PROPERTY_NAME}
+	if CLICompat.ResumableSendRecv {
+		properties = append(properties, "receive_resume_token")
+	}
+
 	var actual [][]string
-	if actual, err = ZFSList([]string{"name", ZREPL_PLACEHOLDER_PROPERTY_NAME}, "-t", "filesystem,volume"); err != nil {
+	if actual, err = ZFSList(properties, "-t", "filesystem,volume"); err != nil {
 		return
 	}
 
@@ -208,8 +214,12 @@ func ZFSListFilesystemState() (localState map[string]FilesystemState, err error)
 			fmt.Errorf("ZFS does not return parseable dataset path: %s", e[0])
 		}
 		placeholder, _ := IsPlaceholder(dp, e[1])
+		receive_resume_token := ""
+		if CLICompat.ResumableSendRecv {
+			receive_resume_token = e[2]
+		}
 		localState[e[0]] = FilesystemState{
-			placeholder,
+			placeholder, receive_resume_token,
 		}
 	}
 	return

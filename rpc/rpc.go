@@ -17,6 +17,7 @@ type RPCRequester interface {
 	FilesystemVersionsRequest(r FilesystemVersionsRequest) (versions []zfs.FilesystemVersion, err error)
 	InitialTransferRequest(r InitialTransferRequest) (io.Reader, error)
 	IncrementalTransferRequest(r IncrementalTransferRequest) (io.Reader, error)
+	ResumeTransferRequest(r ResumeTransferRequest) (io.Reader, error)
 	PullMeRequest(r PullMeRequest, handler RPCHandler) (err error)
 	CloseRequest(r CloseRequest) (err error)
 	ForceClose() (err error)
@@ -30,6 +31,7 @@ type RPCHandler interface {
 
 	HandleInitialTransferRequest(r InitialTransferRequest) (io.Reader, error)
 	HandleIncrementalTransferRequest(r IncrementalTransferRequest) (io.Reader, error)
+	HandleResumeTransferRequest(r ResumeTransferRequest) (io.Reader, error)
 
 	// invert roles, i.e. handler becomes server and performs the requested pull using the client connection
 	HandlePullMeRequest(r PullMeRequest, clientIdentity string, client RPCRequester) (err error)
@@ -284,6 +286,37 @@ func (c ByteStreamRPC) serverLoop(handler RPCHandler) error {
 				log.Printf("finished sending incremental snapshot stream: total %v bytes sent", watcher.Progress().TotalRX)
 			}
 
+		case RTResumeTransferRequest:
+
+			var rq ResumeTransferRequest
+			if err := recv(&rq); err != nil {
+				sendError(EDecodeRequestBody, "")
+				return conn.Close()
+			}
+
+			stream, err := handler.HandleResumeTransferRequest(rq)
+			if err != nil {
+				sendError(EHandler, err.Error())
+			} else {
+				r := ResponseHeader{
+					RequestId:    header.Id,
+					ResponseType: RChunkedStream,
+				}
+				send(&r)
+
+				chunker := NewChunker(stream)
+
+				watcher := IOProgressWatcher{Reader: &chunker}
+				watcher.KickOff(1*time.Second, func(p IOProgress) {
+					log.Printf("progress sending resumed stream: %v bytes sent", p.TotalRX)
+				})
+				_, err := io.Copy(conn, &watcher)
+				if err != nil {
+					panic(err)
+				}
+				log.Printf("finished sending resumed stream: total %v bytes sent", watcher.Progress().TotalRX)
+			}
+
 		case RTPullMeRequest:
 
 			var rq PullMeRequest
@@ -375,6 +408,8 @@ func inferRequestType(v interface{}) (RequestType, error) {
 		return RTInitialTransferRequest, nil
 	case IncrementalTransferRequest:
 		return RTIncrementalTransferRequest, nil
+	case ResumeTransferRequest:
+		return RTResumeTransferRequest, nil
 	case PullMeRequest:
 		return RTPullMeRequest, nil
 	case CloseRequest:
@@ -491,6 +526,14 @@ func (c ByteStreamRPC) IncrementalTransferRequest(r IncrementalTransferRequest) 
 	return
 }
 
+func (c ByteStreamRPC) ResumeTransferRequest(r ResumeTransferRequest) (io.Reader, error) {
+	// TODO reconstruct ResumeTransferError
+	if err := c.sendRequestReceiveHeader(r, RChunkedStream); err != nil {
+		return nil, err
+	}
+	return NewUnchunker(c.conn), nil
+}
+
 func (c ByteStreamRPC) PullMeRequest(r PullMeRequest, handler RPCHandler) (err error) {
 	err = c.sendRequestReceiveHeader(r, ROK)
 	return c.serverLoop(handler)
@@ -531,6 +574,10 @@ func (c LocalRPC) InitialTransferRequest(r InitialTransferRequest) (io.Reader, e
 func (c LocalRPC) IncrementalTransferRequest(r IncrementalTransferRequest) (reader io.Reader, err error) {
 	reader, err = c.handler.HandleIncrementalTransferRequest(r)
 	return
+}
+
+func (c LocalRPC) ResumeTransferRequest(r ResumeTransferRequest) (io.Reader, error) {
+	return c.handler.HandleResumeTransferRequest(r)
 }
 
 func (c LocalRPC) PullMeRequest(r PullMeRequest, handler RPCHandler) (err error) {

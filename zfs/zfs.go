@@ -13,6 +13,11 @@ import (
 	"github.com/zrepl/zrepl/util"
 )
 
+var CLICompat struct {
+	// whether the CLI supports resumable send & recv
+	ResumableSendRecv bool
+}
+
 type DatasetPath struct {
 	comps []string
 }
@@ -237,6 +242,13 @@ func ZFSRecv(fs *DatasetPath, stream io.Reader, additionalArgs ...string) (err e
 	}
 
 	return nil
+}
+
+func ZFSRecvAbort(fs *DatasetPath) (err error) {
+	if !CLICompat.ResumableSendRecv {
+		panic("decide if this is an error")
+	}
+	panic("not implemented")
 }
 
 func ZFSSet(fs *DatasetPath, prop, val string) (err error) {
