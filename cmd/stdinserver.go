@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/zrepl/zrepl/rpc"
-	"github.com/zrepl/zrepl/sshbytestream"
 	"io"
 	golog "log"
 	"os"
+
+	"github.com/spf13/cobra"
+	"github.com/zrepl/zrepl/rpc"
+	"github.com/zrepl/zrepl/sshbytestream"
 )
 
 var StdinserverCmd = &cobra.Command{
@@ -62,8 +63,10 @@ func cmdStdinServer(cmd *cobra.Command, args []string) {
 		PullACL:         pullACL,
 	}
 
-	if err = rpc.ListenByteStreamRPC(sshByteStream, identity, handler, sinkLogger); err != nil {
-		log.Printf("listenbytestreamerror: %#v\n", err)
+	server := rpc.NewServer(sshByteStream)
+	registerEndpoints(server, handler)
+	if err = server.Serve(); err != nil {
+		log.Printf("error serving connection: %s", err)
 		os.Exit(1)
 	}
 

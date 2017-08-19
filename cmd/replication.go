@@ -148,24 +148,20 @@ func (a localPullACL) Filter(p *zfs.DatasetPath) (pass bool, err error) {
 	return true, nil
 }
 
+const LOCAL_TRANSPORT_IDENTITY string = "local"
+
+const DEFAULT_INITIAL_REPL_POLICY = InitialReplPolicyMostRecent
+
+type InitialReplPolicy string
+
+const (
+	InitialReplPolicyMostRecent InitialReplPolicy = "most_recent"
+	InitialReplPolicyAll        InitialReplPolicy = "all"
+)
+
 func jobPull(pull *Pull, log jobrun.Logger) (err error) {
 
-	if lt, ok := pull.From.Transport.(LocalTransport); ok {
-
-		lt.SetHandler(Handler{
-			Logger: log,
-			// Allow access to any dataset since we control what mapping
-			// is passed to the pull routine.
-			// All local datasets will be passed to its Map() function,
-			// but only those for which a mapping exists will actually be pulled.
-			// We can pay this small performance penalty for now.
-			PullACL: localPullACL{},
-		})
-		pull.From.Transport = lt
-		log.Printf("fixing up local transport: %#v", pull.From.Transport)
-	}
-
-	var remote rpc.RPCRequester
+	var remote rpc.RPCClient
 
 	if remote, err = pull.From.Transport.Connect(log); err != nil {
 		return
@@ -182,7 +178,7 @@ func jobPush(push *Push, log jobrun.Logger) (err error) {
 		panic("no support for local pushs")
 	}
 
-	var remote rpc.RPCRequester
+	var remote rpc.RPCClient
 	if remote, err = push.To.Transport.Connect(log); err != nil {
 		return err
 	}
@@ -197,27 +193,19 @@ func jobPush(push *Push, log jobrun.Logger) (err error) {
 	}
 	log.Printf("handler: %#v", handler)
 
-	r := rpc.PullMeRequest{
-		InitialReplPolicy: push.InitialReplPolicy,
-	}
-	log.Printf("doing PullMeRequest: %#v", r)
-
-	if err = remote.PullMeRequest(r, handler); err != nil {
-		log.Printf("PullMeRequest failed: %s", err)
-		return
-	}
+	panic("no support for push atm")
 
 	log.Printf("push job finished")
 	return
 
 }
 
-func closeRPCWithTimeout(log Logger, remote rpc.RPCRequester, timeout time.Duration, goodbye string) {
+func closeRPCWithTimeout(log Logger, remote rpc.RPCClient, timeout time.Duration, goodbye string) {
 	log.Printf("closing rpc connection")
 
 	ch := make(chan error)
 	go func() {
-		ch <- remote.CloseRequest(rpc.CloseRequest{goodbye})
+		ch <- remote.Close()
 		close(ch)
 	}()
 
@@ -231,19 +219,15 @@ func closeRPCWithTimeout(log Logger, remote rpc.RPCRequester, timeout time.Durat
 
 	if err != nil {
 		log.Printf("error closing connection: %s", err)
-		err = remote.ForceClose()
-		if err != nil {
-			log.Printf("error force-closing connection: %s", err)
-		}
 	}
 	return
 }
 
 type PullContext struct {
-	Remote            rpc.RPCRequester
+	Remote            rpc.RPCClient
 	Log               Logger
 	Mapping           DatasetMapping
-	InitialReplPolicy rpc.InitialReplPolicy
+	InitialReplPolicy InitialReplPolicy
 }
 
 func doPull(pull PullContext) (err error) {
@@ -252,9 +236,9 @@ func doPull(pull PullContext) (err error) {
 	log := pull.Log
 
 	log.Printf("requesting remote filesystem list")
-	fsr := rpc.FilesystemRequest{}
+	fsr := FilesystemRequest{}
 	var remoteFilesystems []*zfs.DatasetPath
-	if remoteFilesystems, err = remote.FilesystemRequest(fsr); err != nil {
+	if err = remote.Call("FilesystemRequest", &fsr, &remoteFilesystems); err != nil {
 		return
 	}
 
@@ -335,11 +319,11 @@ func doPull(pull PullContext) (err error) {
 		}
 
 		log("requesting remote filesystem versions")
-		var theirVersions []zfs.FilesystemVersion
-		theirVersions, err = remote.FilesystemVersionsRequest(rpc.FilesystemVersionsRequest{
+		r := FilesystemVersionsRequest{
 			Filesystem: m.Remote,
-		})
-		if err != nil {
+		}
+		var theirVersions []zfs.FilesystemVersion
+		if err = remote.Call("FilesystemVersionsRequest", &r, &theirVersions); err != nil {
 			log("error requesting remote filesystem versions: %s", err)
 			log("stopping replication for all filesystems mapped as children of %s", m.Local.ToString())
 			return false
@@ -358,7 +342,7 @@ func doPull(pull PullContext) (err error) {
 
 			log("performing initial sync, following policy: '%s'", pull.InitialReplPolicy)
 
-			if pull.InitialReplPolicy != rpc.InitialReplPolicyMostRecent {
+			if pull.InitialReplPolicy != InitialReplPolicyMostRecent {
 				panic(fmt.Sprintf("policy '%s' not implemented", pull.InitialReplPolicy))
 			}
 
@@ -374,7 +358,7 @@ func doPull(pull PullContext) (err error) {
 				return false
 			}
 
-			r := rpc.InitialTransferRequest{
+			r := InitialTransferRequest{
 				Filesystem:        m.Remote,
 				FilesystemVersion: snapsOnly[len(snapsOnly)-1],
 			}
@@ -382,7 +366,8 @@ func doPull(pull PullContext) (err error) {
 			log("requesting snapshot stream for %s", r.FilesystemVersion)
 
 			var stream io.Reader
-			if stream, err = remote.InitialTransferRequest(r); err != nil {
+
+			if err = remote.Call("InitialTransferRequest", &r, &stream); err != nil {
 				log("error requesting initial transfer: %s", err)
 				return false
 			}
@@ -434,13 +419,13 @@ func doPull(pull PullContext) (err error) {
 				}
 
 				log("requesting incremental snapshot stream")
-				r := rpc.IncrementalTransferRequest{
+				r := IncrementalTransferRequest{
 					Filesystem: m.Remote,
 					From:       from,
 					To:         to,
 				}
 				var stream io.Reader
-				if stream, err = remote.IncrementalTransferRequest(r); err != nil {
+				if err = remote.Call("IncrementalTransferRequest", &r, &stream); err != nil {
 					log("error requesting incremental snapshot stream: %s", err)
 					return false
 				}

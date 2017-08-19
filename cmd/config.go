@@ -32,10 +32,9 @@ type Remote struct {
 }
 
 type Transport interface {
-	Connect(rpcLog Logger) (rpc.RPCRequester, error)
+	Connect(rpcLog Logger) (rpc.RPCClient, error)
 }
 type LocalTransport struct {
-	Handler rpc.RPCHandler
 }
 type SSHTransport struct {
 	Host                 string
@@ -53,14 +52,14 @@ type Push struct {
 	JobName           string // for use with jobrun package
 	To                *Remote
 	Filter            zfs.DatasetFilter
-	InitialReplPolicy rpc.InitialReplPolicy
+	InitialReplPolicy InitialReplPolicy
 	RepeatStrategy    jobrun.RepeatStrategy
 }
 type Pull struct {
 	JobName           string // for use with jobrun package
 	From              *Remote
 	Mapping           DatasetMapFilter
-	InitialReplPolicy rpc.InitialReplPolicy
+	InitialReplPolicy InitialReplPolicy
 	RepeatStrategy    jobrun.RepeatStrategy
 }
 
@@ -161,8 +160,8 @@ func parseRemotes(v interface{}) (remotes map[string]*Remote, err error) {
 	remotes = make(map[string]*Remote, len(asMap))
 	for name, p := range asMap {
 
-		if name == rpc.LOCAL_TRANSPORT_IDENTITY {
-			err = errors.New(fmt.Sprintf("remote name '%s' reserved for local pulls", rpc.LOCAL_TRANSPORT_IDENTITY))
+		if name == LOCAL_TRANSPORT_IDENTITY {
+			err = errors.New(fmt.Sprintf("remote name '%s' reserved for local pulls", LOCAL_TRANSPORT_IDENTITY))
 			return
 		}
 
@@ -238,7 +237,7 @@ func parsePushs(v interface{}, rl remoteLookup) (p map[string]*Push, err error) 
 			return
 		}
 
-		if push.InitialReplPolicy, err = parseInitialReplPolicy(e.InitialReplPolicy, rpc.DEFAULT_INITIAL_REPL_POLICY); err != nil {
+		if push.InitialReplPolicy, err = parseInitialReplPolicy(e.InitialReplPolicy, DEFAULT_INITIAL_REPL_POLICY); err != nil {
 			return
 		}
 
@@ -276,9 +275,9 @@ func parsePulls(v interface{}, rl remoteLookup) (p map[string]*Pull, err error) 
 
 		var fromRemote *Remote
 
-		if e.From == rpc.LOCAL_TRANSPORT_IDENTITY {
+		if e.From == LOCAL_TRANSPORT_IDENTITY {
 			fromRemote = &Remote{
-				Name:      rpc.LOCAL_TRANSPORT_IDENTITY,
+				Name:      LOCAL_TRANSPORT_IDENTITY,
 				Transport: LocalTransport{},
 			}
 		} else {
@@ -296,7 +295,7 @@ func parsePulls(v interface{}, rl remoteLookup) (p map[string]*Pull, err error) 
 		if pull.Mapping, err = parseDatasetMapFilter(e.Mapping, false); err != nil {
 			return
 		}
-		if pull.InitialReplPolicy, err = parseInitialReplPolicy(e.InitialReplPolicy, rpc.DEFAULT_INITIAL_REPL_POLICY); err != nil {
+		if pull.InitialReplPolicy, err = parseInitialReplPolicy(e.InitialReplPolicy, DEFAULT_INITIAL_REPL_POLICY); err != nil {
 			return
 		}
 		if pull.RepeatStrategy, err = parseRepeatStrategy(e.Repeat); err != nil {
@@ -309,7 +308,7 @@ func parsePulls(v interface{}, rl remoteLookup) (p map[string]*Pull, err error) 
 	return
 }
 
-func parseInitialReplPolicy(v interface{}, defaultPolicy rpc.InitialReplPolicy) (p rpc.InitialReplPolicy, err error) {
+func parseInitialReplPolicy(v interface{}, defaultPolicy InitialReplPolicy) (p InitialReplPolicy, err error) {
 	s, ok := v.(string)
 	if !ok {
 		goto err
@@ -319,9 +318,9 @@ func parseInitialReplPolicy(v interface{}, defaultPolicy rpc.InitialReplPolicy) 
 	case s == "":
 		p = defaultPolicy
 	case s == "most_recent":
-		p = rpc.InitialReplPolicyMostRecent
+		p = InitialReplPolicyMostRecent
 	case s == "all":
-		p = rpc.InitialReplPolicyAll
+		p = InitialReplPolicyAll
 	default:
 		goto err
 	}
@@ -434,7 +433,7 @@ func parseDatasetMapFilter(mi interface{}, filterOnly bool) (f DatasetMapFilter,
 	return
 }
 
-func (t SSHTransport) Connect(rpcLog Logger) (r rpc.RPCRequester, err error) {
+func (t SSHTransport) Connect(rpcLog Logger) (r rpc.RPCClient, err error) {
 	var stream io.ReadWriteCloser
 	var rpcTransport sshbytestream.SSHTransport
 	if err = copier.Copy(&rpcTransport, t); err != nil {
@@ -447,18 +446,23 @@ func (t SSHTransport) Connect(rpcLog Logger) (r rpc.RPCRequester, err error) {
 	if err != nil {
 		return
 	}
-	return rpc.ConnectByteStreamRPC(stream, rpcLog)
+	client := rpc.NewClient(stream)
+	return client, nil
 }
 
-func (t LocalTransport) Connect(rpcLog Logger) (r rpc.RPCRequester, err error) {
-	if t.Handler == nil {
-		panic("local transport with uninitialized handler")
+func (t LocalTransport) Connect(rpcLog Logger) (r rpc.RPCClient, err error) {
+	local := rpc.NewLocalRPC()
+	handler := Handler{
+		Logger: log,
+		// Allow access to any dataset since we control what mapping
+		// is passed to the pull routine.
+		// All local datasets will be passed to its Map() function,
+		// but only those for which a mapping exists will actually be pulled.
+		// We can pay this small performance penalty for now.
+		PullACL: localPullACL{},
 	}
-	return rpc.ConnectLocalRPC(t.Handler), nil
-}
-
-func (t *LocalTransport) SetHandler(handler rpc.RPCHandler) {
-	t.Handler = handler
+	registerEndpoints(local, handler)
+	return local, nil
 }
 
 func parsePrunes(m interface{}) (rets map[string]*Prune, err error) {
