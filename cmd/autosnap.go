@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -22,7 +23,14 @@ func init() {
 
 func cmdAutosnap(cmd *cobra.Command, args []string) {
 
+	var wg sync.WaitGroup
+
 	r := jobrun.NewJobRunner(log)
+	wg.Add(1)
+	go func() {
+		r.Run()
+		wg.Done()
+	}()
 
 	if len(args) < 1 {
 		log.Printf("must specify exactly one job as positional argument")
@@ -37,7 +45,7 @@ func cmdAutosnap(cmd *cobra.Command, args []string) {
 
 	r.AddJob(snap)
 
-	r.Wait()
+	wg.Wait()
 
 }
 
