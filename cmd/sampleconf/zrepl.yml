@@ -95,6 +95,8 @@ prune:
     snapshot_filter: {
       prefix: zrepl_hfbak_
     }
+    repeat:
+      interval: 10s
 
 autosnap:
 

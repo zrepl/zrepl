@@ -68,6 +68,7 @@ type Prune struct {
 	DatasetFilter   zfs.DatasetFilter
 	SnapshotFilter  zfs.FilesystemVersionFilter
 	RetentionPolicy *RetentionGrid // TODO abstract interface to support future policies?
+	Repeat          jobrun.RepeatStrategy
 }
 
 type Autosnap struct {
@@ -499,6 +500,7 @@ func parsePrune(e map[string]interface{}, name string) (prune *Prune, err error)
 		Grid           string
 		DatasetFilter  map[string]string `mapstructure:"dataset_filter"`
 		SnapshotFilter map[string]string `mapstructure:"snapshot_filter"`
+		Repeat         map[string]string
 	}
 
 	if err = mapstructure.Decode(e, &i); err != nil {
@@ -537,6 +539,12 @@ func parsePrune(e map[string]interface{}, name string) (prune *Prune, err error)
 	}
 	if prune.SnapshotFilter, err = parseSnapshotFilter(i.SnapshotFilter); err != nil {
 		err = fmt.Errorf("cannot parse snapshot filter: %s", err)
+		return
+	}
+
+	// Parse repeat strategy
+	if prune.Repeat, err = parseRepeatStrategy(i.Repeat); err != nil {
+		err = fmt.Errorf("cannot parse repeat strategy: %s", err)
 		return
 	}
 
