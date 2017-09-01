@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/zrepl/zrepl/util"
-	"github.com/zrepl/zrepl/zfs"
 	"os"
 	"sort"
 	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/zrepl/zrepl/util"
+	"github.com/zrepl/zrepl/zfs"
 )
 
 var pruneArgs struct {
@@ -121,7 +122,7 @@ func doPrune(ctx PruneContext, log Logger) error {
 			// special handling for EBUSY (zfs hold)
 			// error handling for clones? just echo to cli, skip over, and exit with non-zero status code (we're idempotent)
 			if !ctx.DryRun {
-				err := zfs.ZFSDestroy(r.ToAbsPath(fs))
+				err := zfs.ZFSDestroyFilesystemVersion(fs, r.FilesystemVersion)
 				if err != nil {
 					// handle
 					log.Printf("error: %s", err)
