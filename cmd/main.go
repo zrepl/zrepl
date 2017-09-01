@@ -13,7 +13,6 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"github.com/zrepl/zrepl/jobrun"
 	"golang.org/x/sys/unix"
 	"io"
 	golog "log"
@@ -29,7 +28,6 @@ type Logger interface {
 // global state / facilities
 var (
 	conf     Config
-	runner   *jobrun.JobRunner
 	logFlags int = golog.LUTC | golog.Ldate | golog.Ltime
 	logOut   io.Writer
 	log      Logger
@@ -97,8 +95,6 @@ func initConfig() {
 		os.Exit(1)
 	}
 
-	jobrunLogger := golog.New(os.Stderr, "jobrun ", logFlags)
-	runner = jobrun.NewJobRunner(jobrunLogger)
 	return
 
 }

@@ -2,6 +2,7 @@ package jobrun
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -18,13 +19,18 @@ func (l jobLogger) Printf(format string, v ...interface{}) {
 	l.MainLog.Printf(fmt.Sprintf("job[%s]: %s", l.JobName, format), v...)
 }
 
+type Job interface {
+	JobName() string
+	JobDo(log Logger) (err error)
+	JobRepeatStrategy() RepeatStrategy
+}
+
 type JobMetadata struct {
-	Name           string
-	RunFunc        func(log Logger) (err error)
-	LastStart      time.Time
-	LastError      error
-	DueAt          time.Time
-	RepeatStrategy RepeatStrategy
+	Job       Job
+	name      string
+	LastStart time.Time
+	LastError error
+	DueAt     time.Time
 }
 
 type JobRunResult struct {
@@ -42,29 +48,26 @@ type RepeatStrategy interface {
 type JobRunner struct {
 	logger           Logger
 	notificationChan chan JobMetadata
-	newJobChan       chan JobMetadata
+	newJobChan       chan Job
 	finishedJobChan  chan JobMetadata
 	scheduleTimer    <-chan time.Time
 	pending          map[string]JobMetadata
 	running          map[string]JobMetadata
+	wait             sync.WaitGroup
 }
 
 func NewJobRunner(logger Logger) *JobRunner {
 	return &JobRunner{
 		logger:           logger,
 		notificationChan: make(chan JobMetadata),
-		newJobChan:       make(chan JobMetadata),
+		newJobChan:       make(chan Job),
 		finishedJobChan:  make(chan JobMetadata),
 		pending:          make(map[string]JobMetadata),
 		running:          make(map[string]JobMetadata),
 	}
 }
 
-func (r *JobRunner) AddJobChan() chan<- JobMetadata {
-	return r.newJobChan
-}
-
-func (r *JobRunner) AddJob(j JobMetadata) {
+func (r *JobRunner) AddJob(j Job) {
 	r.newJobChan <- j
 }
 
@@ -73,24 +76,40 @@ func (r *JobRunner) NotificationChan() <-chan JobMetadata {
 }
 
 func (r *JobRunner) Start() {
+	r.wait.Add(1)
+	go func() {
+		r.loop()
+		r.wait.Done()
+	}()
+}
+
+func (r *JobRunner) Wait() {
+	r.wait.Wait()
+}
+
+func (r *JobRunner) loop() {
 
 loop:
 	select {
 
-	case newJob := <-r.newJobChan:
+	case j := <-r.newJobChan:
 
-		_, jobPending := r.pending[newJob.Name]
-		_, jobRunning := r.running[newJob.Name]
+		jn := j.JobName()
+
+		_, jobPending := r.pending[jn]
+		_, jobRunning := r.running[jn]
 
 		if jobPending || jobRunning {
 			panic("job already in runner")
 		}
 
-		r.pending[newJob.Name] = newJob
+		jm := JobMetadata{name: jn, Job: j}
+
+		r.pending[jn] = jm
 
 	case finishedJob := <-r.finishedJobChan:
 
-		delete(r.running, finishedJob.Name)
+		delete(r.running, finishedJob.name)
 
 		res := JobRunResult{
 			Start:  finishedJob.LastStart,
@@ -98,13 +117,13 @@ loop:
 			Error:  finishedJob.LastError,
 		}
 
-		r.logger.Printf("[%s] finished after %s\n", finishedJob.Name, res.RunTime())
+		r.logger.Printf("[%s] finished after %s\n", finishedJob.name, res.RunTime())
 
-		dueTime, resched := finishedJob.RepeatStrategy.ShouldReschedule(res)
+		dueTime, resched := finishedJob.Job.JobRepeatStrategy().ShouldReschedule(res)
 		if resched {
-			r.logger.Printf("[%s] rescheduling to %s", finishedJob.Name, dueTime)
+			r.logger.Printf("[%s] rescheduling to %s", finishedJob.name, dueTime)
 			finishedJob.DueAt = dueTime
-			r.pending[finishedJob.Name] = finishedJob
+			r.pending[finishedJob.name] = finishedJob
 		}
 
 	case <-r.scheduleTimer:
@@ -139,8 +158,8 @@ loop:
 		job.LastStart = now
 
 		go func(job JobMetadata) {
-			jobLog := jobLogger{r.logger, job.Name}
-			if err := job.RunFunc(jobLog); err != nil {
+			jobLog := jobLogger{r.logger, job.name}
+			if err := job.Job.JobDo(jobLog); err != nil {
 				job.LastError = err
 				r.notificationChan <- job
 			}

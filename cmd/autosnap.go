@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/spf13/cobra"
 	"github.com/zrepl/zrepl/jobrun"
 	"github.com/zrepl/zrepl/zfs"
-	"os"
-	"sync"
-	"time"
 )
 
 var AutosnapCmd = &cobra.Command{
@@ -22,12 +22,7 @@ func init() {
 
 func cmdAutosnap(cmd *cobra.Command, args []string) {
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		runner.Start()
-	}()
+	r := jobrun.NewJobRunner(log)
 
 	if len(args) < 1 {
 		log.Printf("must specify exactly one job as positional argument")
@@ -40,18 +35,9 @@ func cmdAutosnap(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	job := jobrun.JobMetadata{
-		Name:           snap.JobName,
-		RepeatStrategy: snap.Interval,
-		RunFunc: func(log jobrun.Logger) error {
-			log.Printf("doing autosnap: %v", snap)
-			ctx := AutosnapContext{snap}
-			return doAutosnap(ctx, log)
-		},
-	}
-	runner.AddJob(job)
+	r.AddJob(snap)
 
-	wg.Wait()
+	r.Wait()
 
 }
 

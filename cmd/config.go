@@ -49,14 +49,14 @@ type SSHTransport struct {
 }
 
 type Push struct {
-	JobName           string // for use with jobrun package
+	jobName           string // for use with jobrun package
 	To                *Remote
 	Filter            zfs.DatasetFilter
 	InitialReplPolicy InitialReplPolicy
 	RepeatStrategy    jobrun.RepeatStrategy
 }
 type Pull struct {
-	JobName           string // for use with jobrun package
+	jobName           string // for use with jobrun package
 	From              *Remote
 	Mapping           DatasetMapFilter
 	InitialReplPolicy InitialReplPolicy
@@ -64,14 +64,14 @@ type Pull struct {
 }
 
 type Prune struct {
-	JobName         string // for use with jobrun package
+	jobName         string // for use with jobrun package
 	DatasetFilter   zfs.DatasetFilter
 	SnapshotFilter  zfs.FilesystemVersionFilter
 	RetentionPolicy *RetentionGrid // TODO abstract interface to support future policies?
 }
 
 type Autosnap struct {
-	JobName       string // for use with jobrun package
+	jobName       string // for use with jobrun package
 	Prefix        string
 	Interval      jobrun.RepeatStrategy
 	DatasetFilter zfs.DatasetFilter
@@ -230,7 +230,7 @@ func parsePushs(v interface{}, rl remoteLookup) (p map[string]*Push, err error) 
 			To: toRemote,
 		}
 
-		if push.JobName, err = fullJobName(JobSectionPush, name); err != nil {
+		if push.jobName, err = fullJobName(JobSectionPush, name); err != nil {
 			return
 		}
 		if push.Filter, err = parseDatasetMapFilter(e.Filter, true); err != nil {
@@ -289,7 +289,7 @@ func parsePulls(v interface{}, rl remoteLookup) (p map[string]*Pull, err error) 
 		pull := &Pull{
 			From: fromRemote,
 		}
-		if pull.JobName, err = fullJobName(JobSectionPull, name); err != nil {
+		if pull.jobName, err = fullJobName(JobSectionPull, name); err != nil {
 			return
 		}
 		if pull.Mapping, err = parseDatasetMapFilter(e.Mapping, false); err != nil {
@@ -507,7 +507,7 @@ func parsePrune(e map[string]interface{}, name string) (prune *Prune, err error)
 
 	prune = &Prune{}
 
-	if prune.JobName, err = fullJobName(JobSectionPrune, name); err != nil {
+	if prune.jobName, err = fullJobName(JobSectionPrune, name); err != nil {
 		return
 	}
 
@@ -705,7 +705,7 @@ func parseAutosnap(m interface{}, name string) (a *Autosnap, err error) {
 
 	a = &Autosnap{}
 
-	if a.JobName, err = fullJobName(JobSectionAutosnap, name); err != nil {
+	if a.jobName, err = fullJobName(JobSectionAutosnap, name); err != nil {
 		return
 	}
 
