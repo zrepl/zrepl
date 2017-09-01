@@ -68,7 +68,7 @@ func doAutosnap(ctx AutosnapContext, log Logger) (err error) {
 	hadError := false
 
 	for _, fs := range filesystems { // optimization: use recursive snapshots / channel programs here
-		log.Printf("snapshotting filesystem %s@%s", fs, snapname)
+		log.Printf("snapshotting filesystem %s@%s", fs.ToString(), snapname)
 		err := zfs.ZFSSnapshot(fs, snapname, false)
 		if err != nil {
 			log.Printf("error snapshotting %s: %s", fs, err)
