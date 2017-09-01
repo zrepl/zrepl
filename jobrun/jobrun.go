@@ -18,7 +18,7 @@ func (l jobLogger) Printf(format string, v ...interface{}) {
 	l.MainLog.Printf(fmt.Sprintf("job[%s]: %s", l.JobName, format), v...)
 }
 
-type Job struct {
+type JobMetadata struct {
 	Name           string
 	RunFunc        func(log Logger) (err error)
 	LastStart      time.Time
@@ -41,34 +41,34 @@ type RepeatStrategy interface {
 
 type JobRunner struct {
 	logger           Logger
-	notificationChan chan Job
-	newJobChan       chan Job
-	finishedJobChan  chan Job
+	notificationChan chan JobMetadata
+	newJobChan       chan JobMetadata
+	finishedJobChan  chan JobMetadata
 	scheduleTimer    <-chan time.Time
-	pending          map[string]Job
-	running          map[string]Job
+	pending          map[string]JobMetadata
+	running          map[string]JobMetadata
 }
 
 func NewJobRunner(logger Logger) *JobRunner {
 	return &JobRunner{
 		logger:           logger,
-		notificationChan: make(chan Job),
-		newJobChan:       make(chan Job),
-		finishedJobChan:  make(chan Job),
-		pending:          make(map[string]Job),
-		running:          make(map[string]Job),
+		notificationChan: make(chan JobMetadata),
+		newJobChan:       make(chan JobMetadata),
+		finishedJobChan:  make(chan JobMetadata),
+		pending:          make(map[string]JobMetadata),
+		running:          make(map[string]JobMetadata),
 	}
 }
 
-func (r *JobRunner) AddJobChan() chan<- Job {
+func (r *JobRunner) AddJobChan() chan<- JobMetadata {
 	return r.newJobChan
 }
 
-func (r *JobRunner) AddJob(j Job) {
+func (r *JobRunner) AddJob(j JobMetadata) {
 	r.newJobChan <- j
 }
 
-func (r *JobRunner) NotificationChan() <-chan Job {
+func (r *JobRunner) NotificationChan() <-chan JobMetadata {
 	return r.notificationChan
 }
 
@@ -138,7 +138,7 @@ loop:
 		r.running[jobName] = job
 		job.LastStart = now
 
-		go func(job Job) {
+		go func(job JobMetadata) {
 			jobLog := jobLogger{r.logger, job.Name}
 			if err := job.RunFunc(jobLog); err != nil {
 				job.LastError = err

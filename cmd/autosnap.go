@@ -40,7 +40,7 @@ func cmdAutosnap(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	job := jobrun.Job{
+	job := jobrun.JobMetadata{
 		Name:           snap.JobName,
 		RepeatStrategy: snap.Interval,
 		RunFunc: func(log jobrun.Logger) error {

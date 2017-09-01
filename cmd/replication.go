@@ -92,10 +92,10 @@ func cmdRun(cmd *cobra.Command, args []string) {
 		runner.Start()
 	}()
 
-	jobs := make([]jobrun.Job, len(conf.Pulls)+len(conf.Pushs))
+	jobs := make([]jobrun.JobMetadata, len(conf.Pulls)+len(conf.Pushs))
 	i := 0
 	for _, pull := range conf.Pulls {
-		jobs[i] = jobrun.Job{
+		jobs[i] = jobrun.JobMetadata{
 			Name:           fmt.Sprintf("pull.%d", i),
 			RepeatStrategy: pull.RepeatStrategy,
 			RunFunc: func(log jobrun.Logger) error {
@@ -106,7 +106,7 @@ func cmdRun(cmd *cobra.Command, args []string) {
 		i++
 	}
 	for _, push := range conf.Pushs {
-		jobs[i] = jobrun.Job{
+		jobs[i] = jobrun.JobMetadata{
 			Name:           fmt.Sprintf("push.%d", i),
 			RepeatStrategy: push.RepeatStrategy,
 			RunFunc: func(log jobrun.Logger) error {
