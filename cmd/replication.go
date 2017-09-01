@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -17,12 +16,6 @@ import (
 var runArgs struct {
 	job  string
 	once bool
-}
-
-var RunCmd = &cobra.Command{
-	Use:   "run",
-	Short: "run push & pull replication",
-	Run:   cmdRun,
 }
 
 var PushCmd = &cobra.Command{
@@ -38,10 +31,6 @@ var PullCmd = &cobra.Command{
 }
 
 func init() {
-	RootCmd.AddCommand(RunCmd)
-	RunCmd.Flags().BoolVar(&runArgs.once, "once", false, "run jobs only once, regardless of configured repeat behavior")
-	RunCmd.Flags().StringVar(&runArgs.job, "job", "", "run only the given job")
-
 	RootCmd.AddCommand(PushCmd)
 	RootCmd.AddCommand(PullCmd)
 }
@@ -80,65 +69,6 @@ func cmdPull(cmd *cobra.Command, args []string) {
 		log.Printf("error doing pull: %s", err)
 		os.Exit(1)
 	}
-
-}
-
-func cmdRun(cmd *cobra.Command, args []string) {
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		runner.Start()
-	}()
-
-	jobs := make([]jobrun.JobMetadata, len(conf.Pulls)+len(conf.Pushs))
-	i := 0
-	for _, pull := range conf.Pulls {
-		jobs[i] = jobrun.JobMetadata{
-			Name:           fmt.Sprintf("pull.%d", i),
-			RepeatStrategy: pull.RepeatStrategy,
-			RunFunc: func(log jobrun.Logger) error {
-				log.Printf("doing pull: %v", pull)
-				return jobPull(pull, log)
-			},
-		}
-		i++
-	}
-	for _, push := range conf.Pushs {
-		jobs[i] = jobrun.JobMetadata{
-			Name:           fmt.Sprintf("push.%d", i),
-			RepeatStrategy: push.RepeatStrategy,
-			RunFunc: func(log jobrun.Logger) error {
-				log.Printf("doing push: %v", push)
-				return jobPush(push, log)
-			},
-		}
-		i++
-	}
-
-	for _, j := range jobs {
-		if runArgs.once {
-			j.RepeatStrategy = jobrun.NoRepeatStrategy{}
-		}
-		if runArgs.job != "" {
-			if runArgs.job == j.Name {
-				runner.AddJob(j)
-				break
-			}
-			continue
-		}
-		runner.AddJob(j)
-	}
-
-	for {
-		select {
-		case job := <-runner.NotificationChan():
-			log.Printf("job %s reported error: %v\n", job.Name, job.LastError)
-		}
-	}
-
-	wg.Wait()
 
 }
 
