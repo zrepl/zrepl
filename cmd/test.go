@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 
+	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -14,7 +15,7 @@ var testCmd = &cobra.Command{
 
 var testConfigSyntaxCmd = &cobra.Command{
 	Use:   "config",
-	Short: "test if config file can be parsed",
+	Short: "parse config file and dump parsed datastructure",
 	Run:   doTestConfig,
 }
 
@@ -33,6 +34,9 @@ func init() {
 
 func doTestConfig(cmd *cobra.Command, args []string) {
 	log.Printf("config ok")
+
+	log.Printf("%# v", pretty.Formatter(conf))
+
 	return
 }
 
