@@ -1,10 +1,10 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"github.com/jinzhu/copier"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/jobrun"
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/sshbytestream"
@@ -24,6 +24,8 @@ var (
 	JobSectionPull     string = "pull"
 	JobSectionPrune    string = "prune"
 	JobSectionAutosnap string = "autosnap"
+	JobSectionPullACL  string = "pull_acl"
+	JobSectionSinks    string = "sink"
 )
 
 type Remote struct {
@@ -51,7 +53,7 @@ type SSHTransport struct {
 type Push struct {
 	jobName           string // for use with jobrun package
 	To                *Remote
-	Filter            zfs.DatasetFilter
+	Filter            DatasetMapFilter
 	InitialReplPolicy InitialReplPolicy
 	RepeatStrategy    jobrun.RepeatStrategy
 }
@@ -65,7 +67,7 @@ type Pull struct {
 
 type Prune struct {
 	jobName         string // for use with jobrun package
-	DatasetFilter   zfs.DatasetFilter
+	DatasetFilter   DatasetMapFilter
 	SnapshotFilter  zfs.FilesystemVersionFilter
 	RetentionPolicy *RetentionGrid // TODO abstract interface to support future policies?
 	Repeat          jobrun.RepeatStrategy
@@ -75,7 +77,7 @@ type Autosnap struct {
 	jobName       string // for use with jobrun package
 	Prefix        string
 	Interval      jobrun.RepeatStrategy
-	DatasetFilter zfs.DatasetFilter
+	DatasetFilter DatasetMapFilter
 }
 
 type Config struct {
@@ -95,10 +97,12 @@ func ParseConfig(path string) (config Config, err error) {
 	var bytes []byte
 
 	if bytes, err = ioutil.ReadFile(path); err != nil {
+		err = errors.WithStack(err)
 		return
 	}
 
 	if err = yaml.Unmarshal(bytes, &c); err != nil {
+		err = errors.WithStack(err)
 		return
 	}
 
@@ -118,26 +122,55 @@ func parseMain(root map[string]interface{}) (c Config, err error) {
 		return
 	}
 
-	if c.Pushs, err = parsePushs(root["pushs"], remoteLookup); err != nil {
+	if c.Pushs, err = parsePushs(root[JobSectionPush], remoteLookup); err != nil {
 		return
 	}
-	if c.Pulls, err = parsePulls(root["pulls"], remoteLookup); err != nil {
+	if c.Pulls, err = parsePulls(root[JobSectionPull], remoteLookup); err != nil {
 		return
 	}
-	if c.Sinks, err = parseSinks(root["sinks"]); err != nil {
+	if c.Sinks, err = parseSinks(root[JobSectionSinks]); err != nil {
 		return
 	}
-	if c.PullACLs, err = parsePullACLs(root["pull_acls"]); err != nil {
+	if c.PullACLs, err = parsePullACLs(root[JobSectionPullACL]); err != nil {
 		return
 	}
-	if c.Prunes, err = parsePrunes(root["prune"]); err != nil {
+	if c.Prunes, err = parsePrunes(root[JobSectionPrune]); err != nil {
 		return
 	}
-	if c.Autosnaps, err = parseAutosnaps(root["autosnap"]); err != nil {
+	if c.Autosnaps, err = parseAutosnaps(root[JobSectionAutosnap]); err != nil {
 		return
 	}
 
 	return
+}
+
+func (c *Config) resolveJobName(jobname string) (i interface{}, err error) {
+	s := strings.SplitN(jobname, ".", 2)
+	if len(s) != 2 {
+		return nil, fmt.Errorf("invalid job name syntax (section.name)")
+	}
+	section, name := s[0], s[1]
+	var ok bool
+	switch section {
+	case JobSectionAutosnap:
+		i, ok = c.Autosnaps[name]
+	case JobSectionPush:
+		i, ok = c.Pushs[name]
+	case JobSectionPull:
+		i, ok = c.Pulls[name]
+	case JobSectionPrune:
+		i, ok = c.Prunes[name]
+	case JobSectionPullACL:
+		i, ok = c.PullACLs[name]
+	case JobSectionSinks:
+		i, ok = c.Sinks[name]
+	default:
+		return nil, fmt.Errorf("invalid section name: %s", section)
+	}
+	if !ok {
+		return nil, fmt.Errorf("cannot find job '%s' in section '%s'", name, section)
+	}
+	return i, nil
 }
 
 func fullJobName(section, name string) (full string, err error) {
@@ -470,7 +503,7 @@ func parsePrunes(m interface{}) (rets map[string]*Prune, err error) {
 
 	asList := make(map[string]map[string]interface{}, 0)
 	if err = mapstructure.Decode(m, &asList); err != nil {
-		return
+		return nil, errors.Wrap(err, "mapstructure error")
 	}
 
 	rets = make(map[string]*Prune, len(asList))

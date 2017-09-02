@@ -7,7 +7,7 @@ remotes:
         port: 22
         identity_file: /etc/zrepl/identities/offsite_backups
 
-pushs:
+push:
 
   offsite:
     to: offsite_backups
@@ -17,7 +17,7 @@ pushs:
       "tank/usr/home<": ok,
     }
 
-pulls:
+pull:
 
   offsite:
     from: offsite_backups
@@ -35,7 +35,7 @@ pulls:
       "tank/usr/home":"mirrorpool/foo/bar"
     }
 
-sinks:
+sink:
 
   db1:
     mapping: {
@@ -61,7 +61,7 @@ sinks:
     }
 
 
-pull_acls:
+pull_acl:
 
   office_backup:
     filter: {
