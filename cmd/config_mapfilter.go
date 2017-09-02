@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -23,8 +22,6 @@ type datasetMapFilterEntry struct {
 	mapping      string
 	subtreeMatch bool
 }
-
-var NoMatchError error = errors.New("no match found in mapping")
 
 func NewDatasetMapFilter(capacity int, filterOnly bool) DatasetMapFilter {
 	return DatasetMapFilter{
@@ -111,7 +108,7 @@ func (m DatasetMapFilter) Map(source *zfs.DatasetPath) (target *zfs.DatasetPath,
 
 	mi, hasMapping := m.mostSpecificPrefixMapping(source)
 	if !hasMapping {
-		err = NoMatchError
+		return nil, nil
 		return
 	}
 	me := m.entries[mi]

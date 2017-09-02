@@ -84,7 +84,11 @@ func doTestDatasetMapFilter(cmd *cobra.Command, args []string) {
 			log.Printf("error evaluating mapping: %s", err)
 			os.Exit(1)
 		}
-		log.Printf("%s => %s", ip.ToString(), res.ToString())
+		toStr := "NO MAPPING"
+		if res != nil {
+			toStr = res.ToString()
+		}
+		log.Printf("%s => %s", ip.ToString(), toStr)
 
 	}
 

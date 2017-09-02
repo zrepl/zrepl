@@ -184,11 +184,11 @@ func doPull(pull PullContext) (err error) {
 		var localFs *zfs.DatasetPath
 		localFs, err = pull.Mapping.Map(remoteFilesystems[fs])
 		if err != nil {
-			if err != NoMatchError {
-				err := fmt.Errorf("error mapping %s: %s", remoteFilesystems[fs], err)
-				log.Printf("%s", err)
-				return err
-			}
+			err := fmt.Errorf("error mapping %s: %s", remoteFilesystems[fs], err)
+			log.Printf("%s", err)
+			return err
+		}
+		if localFs == nil {
 			continue
 		}
 		log.Printf("%s => %s", remoteFilesystems[fs].ToString(), localFs.ToString())
