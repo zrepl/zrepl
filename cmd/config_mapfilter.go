@@ -28,7 +28,8 @@ var NoMatchError error = errors.New("no match found in mapping")
 
 func NewDatasetMapFilter(capacity int, filterOnly bool) DatasetMapFilter {
 	return DatasetMapFilter{
-		entries: make([]datasetMapFilterEntry, 0, capacity),
+		entries:    make([]datasetMapFilterEntry, 0, capacity),
+		filterOnly: filterOnly,
 	}
 }
 
