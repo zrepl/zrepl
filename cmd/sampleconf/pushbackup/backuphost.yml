@@ -1,0 +1,11 @@
+prod1.example.com:
+
+  global:
+    snapshot_prefix: zrepl_
+
+  # accept connections from prod1.example.com via ssh / stdinserver command
+  serve:
+    auth: ssh
+    role: sink
+    root: storage/backups/zrepl/sink/prod1.example.com
+

@@ -1,0 +1,33 @@
+backuphost.example.com:
+
+  global:
+    snapshot_prefix: zrepl_
+
+  # accept connections from backups.example.com via ssh / stdinserver command
+  serve:
+    auth: ssh
+    role: source
+    acl: {
+      "zroot<": ok,
+      "zroot/usr/home<": omit,
+    }
+
+  # periodic task list, following given schedule
+  schedule:
+    type: auto  # infer from autosnap step
+  steps:
+
+    - type: autosnap
+      interval: 10m
+      dataset_filter: {
+        "zroot<": ok
+      }
+
+    - type: prune
+      policy: grid
+      grid: 1x1h(keep=all)
+      dataset_filter: {
+        "zroot<": ok
+      }
+
+

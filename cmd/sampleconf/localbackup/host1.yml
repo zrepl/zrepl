@@ -1,0 +1,36 @@
+# mirror local pool to backup pool
+local:
+
+  global:
+    snapshot_prefix: zrepl_
+
+  schedule:
+    type: auto # infer schedule from autosnap step
+
+  steps:
+
+    - type: autosnap
+      interval: 10m
+      dataset_filter: {
+        "zroot<": ok
+      }
+
+    - type: pull
+      mapping: {
+        "zroot<":"backups/local/zroot"
+      }
+
+    - type: prune
+      policy: grid
+      grid: 1x1h(keep=all)
+      dataset_filter: {
+        "zroot<": ok
+      }
+
+    - type: prune
+      policy: grid
+      grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
+      dataset_filter: {
+        "backups/local/zroot<": ok
+      }
+

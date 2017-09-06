@@ -1,0 +1,34 @@
+prod1.example.com:
+
+  connect:
+    type: ssh
+    host: backuphost.example.com
+    user: root
+    port: 22
+    identity_file: /root/.ssh/id_ed25519
+
+  schedule:
+    # we cannot infer a schedule from steps below, thus define one here
+    type: cron
+    cron: "@every 10m" # see https://godoc.org/github.com/robfig/cron
+
+  steps:
+
+    # pull datasets from remote to local
+    - type: pull
+      mapping: {
+        "zroot<":"storage/backups/zrepl/prod1.example.com/zroot"
+        "zroot/tmp": "!"
+      }
+
+    # prune the snaphots we pulled
+    - type: prune
+      policy: grid
+      grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
+      dataset_filter: {
+        "storage/backups/zrepl/prod1.example.com/zroot<": ok
+      }
+      snapshot_filter: {
+        snapshot_prefix: zrepl_
+      }
+
