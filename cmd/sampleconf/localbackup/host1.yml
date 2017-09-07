@@ -1,36 +1,25 @@
-# mirror local pool to backup pool
-local:
+mirror_local:
 
-  global:
-    snapshot_prefix: zrepl_
+  type: local
 
-  schedule:
-    type: auto # infer schedule from autosnap step
+  # snapshot the filesystems matched by the left-hand-side of the mapping
+  # every 10m with zrepl_ as prefix
+  mapping: {
+    "zroot/var/db<":    "storage/backups/local/zroot/var/db",
+    "zroot/usr/home<":  "storage/backups/local/zroot/usr/home",
+  }
+  snapshot_prefix: zrepl_
+  interval: 10m
 
-  steps:
+  # keep one hour of 10m interval snapshots of filesystems matched by
+  # the left-hand-side of the mapping
+  prune_lhs:
+    policy: grid
+    grid: 1x1h(keep=all)
 
-    - type: autosnap
-      interval: 10m
-      dataset_filter: {
-        "zroot<": ok
-      }
+  # follow a grandfathering scheme for filesystems on the right-hand-side of the mapping
+  prune_rhs:
+    policy: grid
+    grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
 
-    - type: pull
-      mapping: {
-        "zroot<":"backups/local/zroot"
-      }
-
-    - type: prune
-      policy: grid
-      grid: 1x1h(keep=all)
-      dataset_filter: {
-        "zroot<": ok
-      }
-
-    - type: prune
-      policy: grid
-      grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
-      dataset_filter: {
-        "backups/local/zroot<": ok
-      }
 

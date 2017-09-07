@@ -1,11 +1,19 @@
-prod1.example.com:
+fullbackup_prod1:
 
-  global:
-    snapshot_prefix: zrepl_
-
-  # accept connections from prod1.example.com via ssh / stdinserver command
+  # expect remote to connect via ssh+stdinserver with fullbackup_prod1 as client_identity
+  type: push-sink
   serve:
-    auth: ssh
-    role: sink
-    root: storage/backups/zrepl/sink/prod1.example.com
+    type: stdinserver
+    client_identity: fullbackup_prod1
+
+  # map all pushed datasets to storage/backups/zrepl/sink/prod1.example.com
+  mapping: {
+    "<":"storage/backups/zrepl/sink/prod1.example.com"
+  }
+
+  # follow a grandfathering scheme for filesystems on the right-hand-side of the mapping
+  prune:
+    policy: grid
+    grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
+
 

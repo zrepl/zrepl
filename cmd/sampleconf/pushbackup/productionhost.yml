@@ -1,47 +1,25 @@
-# push backup to backups.example.com
-backups.example.com:
+fullbackup_prod1:
 
+  # connect to remote using ssh / stdinserver command
+  type: push
   connect:
-    type: ssh
-    host: 192.168.122.128
-    user: root
-    port: 22
-    identity_file: /root/.ssh/id_ed25519
-    connlog_read_file: /tmp/connlog_read
-    connlog_write_file: /tmp/connlog_write
+      type: ssh+stdinserver
+      host: prod1.example.com
+      user: root
+      port: 22
+      identity_file: /root/.ssh/id_ed25519
 
-  global:
-    snapshot_prefix: zrepl_
+  # snapshot these datsets every 10m with zrepl_ as prefix
+  datasets: {
+    "zroot/var/db<": ok,
+    "zroot/usr/home<": ok,
+  }
+  snapshot_prefix: zrepl_
+  interval: 10m
 
-  schedule:
-    type: auto
-
-  steps:
-
-    # take local snapshots & keep window of one day
-    - type: autosnap
-      interval: 10m
-      dataset_filter: {
-        "zroot/var/db<": ok,
-        "zroot/usr/home<": ok,
-      }
-    - type: prune
-      policy: grid
-      grid: 1x1d(keep=all)
-      dataset_filter: {
-        "zroot/var/db<":  ok,
-        "zroot/usr/home<": ok,
-      }
-
-    # push datasets to remote and prune there
-    # if these jobs fail, we have one day until we are out of sync
-    - type: push
-      dataset_filter: {
-        "zroot/var/db<":   ok,
-        "zroot/usr/home<": ok,
-      }
-    - type: prune
-      remote: true
-      policy: grid
-      grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
+  # keep a one day window 10m interval snapshots in case push doesn't work (link down, etc)
+  # (we cannot keep more than one day because this host will run out of disk space)
+  prune:
+    policy: grid
+    grid: 1x1d(keep=all)
 

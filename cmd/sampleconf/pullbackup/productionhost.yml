@@ -1,33 +1,22 @@
-backuphost.example.com:
+fullbackup_prod1:
 
-  global:
-    snapshot_prefix: zrepl_
-
-  # accept connections from backups.example.com via ssh / stdinserver command
+  # expect remote to connect via ssh+stdinserver with fullbackup_prod1 as client_identity
+  type: pull-source
   serve:
-    auth: ssh
-    role: source
-    acl: {
-      "zroot<": ok,
-      "zroot/usr/home<": omit,
-    }
+    type: stdinserver
+    client_identity: fullbackup_prod1
 
-  # periodic task list, following given schedule
-  schedule:
-    type: auto  # infer from autosnap step
-  steps:
+  # snapshot these filesystems every 10m with zrepl_ as prefix
+  datasets: {
+    "zroot/var/db<": ok,
+    "zroot/usr/home<": omit,
+  }
+  snapshot_prefix: zrepl_
+  interval: 10m
 
-    - type: autosnap
-      interval: 10m
-      dataset_filter: {
-        "zroot<": ok
-      }
-
-    - type: prune
-      policy: grid
-      grid: 1x1h(keep=all)
-      dataset_filter: {
-        "zroot<": ok
-      }
-
+  # keep a one day window 10m interval snapshots in case pull doesn't work (link down, etc)
+  # (we cannot keep more than one day because this host will run out of disk space)
+  prune:
+    policy: grid
+    grid: 1x1d(keep=all)
 
