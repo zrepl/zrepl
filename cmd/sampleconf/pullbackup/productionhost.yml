@@ -1,8 +1,13 @@
 fullbackup_prod1:
 
   # expect remote to connect via ssh+stdinserver with fullbackup_prod1 as client_identity
-  type: pull-source
+  type: source
   serve:
+    # Creates an AF_UNIX socket with name client_identity in a well-known directory
+    # private to the zrepl user (which runs both the zrepld and the stdinserver command via authorized_keys)
+    # The stdinserver command connects to that socket and sends its stdin and stdout
+    # file descriptors over that UNIX socket to the zrepld.
+    # This avoids additional memory-to-memory copies and is more portable than splice(2) on Linux.
     type: stdinserver
     client_identity: fullbackup_prod1
 
@@ -13,6 +18,7 @@ fullbackup_prod1:
   }
   snapshot_prefix: zrepl_
   interval: 10m
+
 
   # keep a one day window 10m interval snapshots in case pull doesn't work (link down, etc)
   # (we cannot keep more than one day because this host will run out of disk space)

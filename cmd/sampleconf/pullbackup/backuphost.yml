@@ -13,8 +13,10 @@ fullbackup_prod1:
   mapping: {
     "<":"storage/backups/zrepl/pull/prod1.example.com"
   }
+  initial_repl_policy: most_recent
 
   # follow a grandfathering scheme for filesystems on the right-hand-side of the mapping
+  snapshot_prefix: zrepl_
   prune:
     policy: grid
     grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
