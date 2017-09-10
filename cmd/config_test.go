@@ -9,9 +9,22 @@ import (
 	"github.com/zrepl/zrepl/zfs"
 )
 
-func TestSampleConfigFileIsParsedWithoutErrors(t *testing.T) {
-	_, err := ParseConfig("./sampleconf/zrepl.yml")
-	assert.Nil(t, err)
+func TestSampleConfigsAreParsedWithoutErrors(t *testing.T) {
+
+	paths:= []string{
+		"./sampleconf/localbackup/host1.yml",
+		"./sampleconf/pullbackup/backuphost.yml",
+		"./sampleconf/pullbackup/productionhost.yml",
+	}
+
+	for _, p := range paths {
+
+		_, err := ParseConfig(p)
+		if err != nil {
+			t.Errorf("error parsing %s:\n%+v", p, err)
+		}
+	}
+
 }
 
 func TestParseRetentionGridStringParsing(t *testing.T) {

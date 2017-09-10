@@ -3,74 +3,12 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"os"
 	"time"
 
-	"github.com/spf13/cobra"
-	"github.com/zrepl/zrepl/jobrun"
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/util"
 	"github.com/zrepl/zrepl/zfs"
 )
-
-var runArgs struct {
-	job  string
-	once bool
-}
-
-var PushCmd = &cobra.Command{
-	Use:   "push",
-	Short: "run push job (first positional argument)",
-	Run:   cmdPush,
-}
-
-var PullCmd = &cobra.Command{
-	Use:   "pull",
-	Short: "run pull job (first positional argument)",
-	Run:   cmdPull,
-}
-
-func init() {
-	RootCmd.AddCommand(PushCmd)
-	RootCmd.AddCommand(PullCmd)
-}
-
-func cmdPush(cmd *cobra.Command, args []string) {
-
-	if len(args) != 1 {
-		log.Printf("must specify exactly one job as positional argument")
-		os.Exit(1)
-	}
-	job, ok := conf.Pushs[args[0]]
-	if !ok {
-		log.Printf("could not find push job %s", args[0])
-		os.Exit(1)
-	}
-	if err := jobPush(job, log); err != nil {
-		log.Printf("error doing push: %s", err)
-		os.Exit(1)
-	}
-
-}
-
-func cmdPull(cmd *cobra.Command, args []string) {
-
-	if len(args) != 1 {
-		log.Printf("must specify exactly one job as positional argument")
-		os.Exit(1)
-	}
-	job, ok := conf.Pulls[args[0]]
-	if !ok {
-		log.Printf("could not find pull job %s", args[0])
-		os.Exit(1)
-	}
-
-	if err := jobPull(job, log); err != nil {
-		log.Printf("error doing pull: %s", err)
-		os.Exit(1)
-	}
-
-}
 
 type localPullACL struct{}
 
@@ -88,47 +26,6 @@ const (
 	InitialReplPolicyMostRecent InitialReplPolicy = "most_recent"
 	InitialReplPolicyAll        InitialReplPolicy = "all"
 )
-
-func jobPull(pull *Pull, log jobrun.Logger) (err error) {
-
-	var remote rpc.RPCClient
-
-	if remote, err = pull.From.Transport.Connect(log); err != nil {
-		return
-	}
-
-	defer closeRPCWithTimeout(log, remote, time.Second*10, "")
-
-	return doPull(PullContext{remote, log, pull.Mapping, pull.InitialReplPolicy})
-}
-
-func jobPush(push *Push, log jobrun.Logger) (err error) {
-
-	if _, ok := push.To.Transport.(LocalTransport); ok {
-		panic("no support for local pushs")
-	}
-
-	var remote rpc.RPCClient
-	if remote, err = push.To.Transport.Connect(log); err != nil {
-		return err
-	}
-
-	defer closeRPCWithTimeout(log, remote, time.Second*10, "")
-
-	log.Printf("building handler for PullMeRequest")
-	handler := Handler{
-		Logger:          log,
-		PullACL:         push.Filter,
-		SinkMappingFunc: nil, // no need for that in the handler for PullMe
-	}
-	log.Printf("handler: %#v", handler)
-
-	panic("no support for push atm")
-
-	log.Printf("push job finished")
-	return
-
-}
 
 func closeRPCWithTimeout(log Logger, remote rpc.RPCClient, timeout time.Duration, goodbye string) {
 	log.Printf("closing rpc connection")

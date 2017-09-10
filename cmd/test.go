@@ -47,24 +47,21 @@ func doTestDatasetMapFilter(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	n, i := args[0], args[1]
-	jobi, err := conf.resolveJobName(n)
-	if err != nil {
-		log.Printf("%s", err)
+
+	jobi, ok := conf.Jobs[n]
+	if !ok {
+		log.Printf("no job %s defined in config")
 		os.Exit(1)
 	}
 
-	var mf DatasetMapFilter
+	var mf *DatasetMapFilter
 	switch j := jobi.(type) {
-	case *Autosnap:
-		mf = j.DatasetFilter
-	case *Prune:
-		mf = j.DatasetFilter
-	case *Pull:
+	case *PullJob:
 		mf = j.Mapping
-	case *Push:
-		mf = j.Filter
-	case DatasetMapFilter:
-		mf = j
+	case *SourceJob:
+		mf = j.Datasets
+	case *LocalJob:
+		mf = j.Mapping
 	default:
 		panic("incomplete implementation")
 	}

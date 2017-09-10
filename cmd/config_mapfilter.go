@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/zrepl/zrepl/zfs"
+	"github.com/mitchellh/mapstructure"
 )
 
 type DatasetMapFilter struct {
@@ -23,8 +24,8 @@ type datasetMapFilterEntry struct {
 	subtreeMatch bool
 }
 
-func NewDatasetMapFilter(capacity int, filterOnly bool) DatasetMapFilter {
-	return DatasetMapFilter{
+func NewDatasetMapFilter(capacity int, filterOnly bool) *DatasetMapFilter {
+	return &DatasetMapFilter{
 		entries:    make([]datasetMapFilterEntry, 0, capacity),
 		filterOnly: filterOnly,
 	}
@@ -155,6 +156,24 @@ func parseDatasetFilterResult(result string) (pass bool, err error) {
 	default:
 		err = fmt.Errorf("'%s' is not a valid filter result", result)
 		return
+	}
+	return
+}
+
+func parseDatasetMapFilter(mi interface{}, filterOnly bool) (f *DatasetMapFilter, err error) {
+
+	var m map[string]string
+	if err = mapstructure.Decode(mi, &m); err != nil {
+		err = fmt.Errorf("maps / filters must be specified as map[string]string: %s", err)
+		return
+	}
+
+	f = NewDatasetMapFilter(len(m), filterOnly)
+	for pathPattern, mapping := range m {
+		if err = f.Add(pathPattern, mapping); err != nil {
+			err = fmt.Errorf("invalid mapping entry ['%s':'%s']: %s", pathPattern, mapping, err)
+			return
+		}
 	}
 	return
 }

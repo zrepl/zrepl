@@ -27,7 +27,7 @@ type Logger interface {
 
 // global state / facilities
 var (
-	conf     Config
+	conf     *Config
 	logFlags int = golog.LUTC | golog.Ldate | golog.Ltime
 	logOut   io.Writer
 	log      Logger
