@@ -3,10 +3,10 @@ package cmd
 import (
 	"io/ioutil"
 
+	"fmt"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	yaml "gopkg.in/yaml.v2"
-	"fmt"
 )
 
 func ParseConfig(path string) (config *Config, err error) {
@@ -30,43 +30,76 @@ func ParseConfig(path string) (config *Config, err error) {
 
 func parseConfig(i interface{}) (c *Config, err error) {
 
-	var jm map[string]map[string]interface{}
-	if err := mapstructure.Decode(i, &jm); err != nil {
-		return nil, errors.Wrap(err, "config must be a dict with job name as key and jobs as values")
+	var asMap struct {
+		Global map[string]interface{}
+		Jobs   []map[string]interface{}
+	}
+	if err := mapstructure.Decode(i, &asMap); err != nil {
+		return nil, errors.Wrap(err, "config root must be a dict")
 	}
 
-	c = &Config{
-		Jobs: make(map[string]Job, len(jm)),
+	c = &Config{}
+
+	// Parse global with defaults
+	c.Global.Serve.Stdinserver.SockDir = "/var/run/zrepl/stdinserver"
+	err = mapstructure.Decode(asMap.Global, &c.Global)
+	if err != nil {
+		err = errors.Wrap(err, "cannot parse global section: %s")
+		return
 	}
 
-	for name := range jm {
-
-		c.Jobs[name], err = parseJob(name, jm[name])
+	// Parse Jobs
+	c.Jobs = make(map[string]Job, len(asMap.Jobs))
+	for i := range asMap.Jobs {
+		job, err := parseJob(asMap.Jobs[i])
 		if err != nil {
-			err = errors.Wrapf(err, "cannot parse job '%s'", name)
+			// Try to find its name
+			namei, ok := asMap.Jobs[i]["name"]
+			if !ok {
+				namei = fmt.Sprintf("<no name, %i in list>", i)
+			}
+			err = errors.Wrapf(err, "cannot parse job '%v'", namei)
 			return nil, err
 		}
-
+		c.Jobs[job.JobName()] = job
 	}
 
 	return c, nil
 
 }
 
-func parseJob(name string, i map[string]interface{}) (j Job, err error) {
-
-	jobtype_i, ok := i["type"]
+func extractStringField(i map[string]interface{}, key string, notempty bool) (field string, err error) {
+	vi, ok := i[key]
 	if !ok {
-		err = errors.New("must have field 'type'")
-		return nil, err
+		err = errors.Errorf("must have field '%s'", key)
+		return "", err
 	}
-	jobtype_str, ok := jobtype_i.(string)
+	field, ok = vi.(string)
 	if !ok {
-		err = errors.New("'type' field must have type string")
-		return nil, err
+		err = errors.Errorf("'%s' field must have type string", key)
+		return "", err
+	}
+	if notempty && len(field) <= 0 {
+		err = errors.Errorf("'%s' field must not be empty", key)
+		return "", err
+	}
+	return
+}
+
+func parseJob(i map[string]interface{}) (j Job, err error) {
+
+	name, err := extractStringField(i, "name", true)
+	if err != nil {
+		return
 	}
 
-	switch jobtype_str {
+	jobtype, err := extractStringField(i, "type", true)
+	if err != nil {
+		return
+
+	}
+
+	switch jobtype {
 	case "pull":
 		return parsePullJob(name, i)
 	case "source":
@@ -74,7 +107,7 @@ func parseJob(name string, i map[string]interface{}) (j Job, err error) {
 	case "local":
 		return parseLocalJob(name, i)
 	default:
-		return nil, errors.Errorf("unknown job type '%s'", jobtype_str)
+		return nil, errors.Errorf("unknown job type '%s'", jobtype)
 	}
 
 	panic("implementation error")
@@ -83,22 +116,17 @@ func parseJob(name string, i map[string]interface{}) (j Job, err error) {
 }
 
 func parseConnect(i map[string]interface{}) (c RPCConnecter, err error) {
-	type_i, ok := i["type"]
-	if !ok {
-		err = errors.New("must have field 'type'")
-		return
-	}
-	type_str, ok := type_i.(string)
-	if !ok {
-		err = errors.New("'type' field must have type string")
+
+	t, err := extractStringField(i, "type", true)
+	if err != nil {
 		return nil, err
 	}
 
-	switch type_str {
+	switch t {
 	case "ssh+stdinserver":
 		return parseSSHStdinserverConnecter(i)
 	default:
-		return nil, errors.Errorf("unknown connection type '%s'", type_str)
+		return nil, errors.Errorf("unknown connection type '%s'", t)
 	}
 
 	panic("implementation error")
@@ -131,9 +159,8 @@ err:
 
 func parsePrunePolicy(v map[string]interface{}) (p PrunePolicy, err error) {
 
-	policyName, ok := v["policy"]
-	if !ok {
-		err = errors.Errorf("policy name not specified")
+	policyName, err := extractStringField(v, "policy", true)
+	if err != nil {
 		return
 	}
 
@@ -152,22 +179,16 @@ func parsePrunePolicy(v map[string]interface{}) (p PrunePolicy, err error) {
 
 func parseAuthenticatedChannelListenerFactory(v map[string]interface{}) (p AuthenticatedChannelListenerFactory, err error) {
 
-	t, ok := v["type"]
-	if !ok {
-		err = errors.Errorf("must specify 'type' field")
-		return
-	}
-	s, ok := t.(string)
-	if !ok {
-		err = errors.Errorf("'type' must be a string")
-		return
+	t, err := extractStringField(v, "type", true)
+	if err != nil {
+		return nil, err
 	}
 
-	switch s{
+	switch t {
 	case "stdinserver":
 		return parseStdinserverListenerFactory(v)
 	default:
-		err = errors.Errorf("unknown type '%s'", s)
+		err = errors.Errorf("unknown type '%s'", t)
 		return
 	}
 

@@ -8,7 +8,16 @@ import (
 )
 
 type Config struct {
-	Jobs map[string]Job
+	Global Global
+	Jobs   map[string]Job
+}
+
+type Global struct {
+	Serve struct {
+		Stdinserver struct {
+			SockDir string
+		}
+	}
 }
 
 type RPCConnecter interface {

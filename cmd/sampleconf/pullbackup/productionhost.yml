@@ -1,14 +1,30 @@
-fullbackup_prod1:
+global:
+  serve:
+    stdinserver:
+      # Directory where AF_UNIX sockets for stdinserver command are placed.
+      #
+      # `zrepl stdinserver CLIENT_IDENTITY`
+      #   * connects to the socket in $sockdir/CLIENT_IDENTITY
+      #   * sends its stdin / stdout file descriptors to the `zrepl daemon` process (see cmsg(3))
+      #   * does nothing more
+      #
+      # This enables a setup where `zrepl daemon` is not directly exposed to the internet
+      # but instead all traffic is tunnelled through SSH.
+      # The server with the source job has an authorized_keys file entry for the public key
+      # used by the corresponding pull job
+      #
+      #   command="/mnt/zrepl stdinserver CLIENT_IDENTITY" ssh-ed25519 AAAAC3NzaC1E... zrepl@pullingserver
+      #
+      # Below is the default value.
+      sockdir: /var/run/zrepl/stdinserver
 
+jobs:
+
+- name: fullbackup_prod1
   # expect remote to connect via ssh+stdinserver with fullbackup_prod1 as client_identity
   type: source
   serve:
-    # Creates an AF_UNIX socket with name client_identity in a well-known directory
-    # private to the zrepl user (which runs both the zrepld and the stdinserver command via authorized_keys)
-    # The stdinserver command connects to that socket and sends its stdin and stdout
-    # file descriptors over that UNIX socket to the zrepld.
-    # This avoids additional memory-to-memory copies and is more portable than splice(2) on Linux.
-    type: stdinserver
+    type: stdinserver # see global.serve.stdinserver for explanation
     client_identity: fullbackup_prod1
 
   # snapshot these filesystems every 10m with zrepl_ as prefix

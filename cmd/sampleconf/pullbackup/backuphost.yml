@@ -1,7 +1,7 @@
-fullbackup_prod1:
-
-  # connect to remote using ssh / stdinserver command
+jobs:
+- name: fullbackup_prod1
   type: pull
+  # connect to remote using ssh / stdinserver command
   connect:
     type: ssh+stdinserver
     host: prod1.example.com

@@ -1,5 +1,5 @@
-mirror_local:
-
+jobs:
+- name: mirror_local
   type: local
 
   # snapshot the filesystems matched by the left-hand-side of the mapping

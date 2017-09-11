@@ -1,4 +1,5 @@
-fullbackup_prod1:
+jobs:
+- name: fullbackup_prod1
 
   # connect to remote using ssh / stdinserver command
   type: push
