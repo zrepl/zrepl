@@ -104,7 +104,6 @@ outer:
 			handler := Handler{
 				Logger:  log,
 				PullACL: j.Datasets,
-				// TODO should set SinkMapping here? no, but check Handler impl
 			}
 
 			// handle connection

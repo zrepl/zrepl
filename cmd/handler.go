@@ -32,9 +32,8 @@ type IncrementalTransferRequest struct {
 }
 
 type Handler struct {
-	Logger          Logger
-	PullACL         zfs.DatasetFilter
-	SinkMappingFunc func(clientIdentity string) (mapping DatasetMapping, err error)
+	Logger  Logger
+	PullACL zfs.DatasetFilter
 }
 
 func registerEndpoints(server rpc.RPCServer, handler Handler) (err error) {
