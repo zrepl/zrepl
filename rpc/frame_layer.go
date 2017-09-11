@@ -60,6 +60,7 @@ type DataType uint8
 
 const (
 	DataTypeNone DataType = 1 + iota
+	DataTypeControl
 	DataTypeMarshaledJSON
 	DataTypeOctets
 )
@@ -83,12 +84,14 @@ func NewFrameBridgingReader(l *MessageLayer, frameType FrameType, totalLimit int
 
 func (r *frameBridgingReader) Read(b []byte) (n int, err error) {
 	if r.bytesLeftToLimit == 0 {
+		r.l.logger.Printf("limit reached, returning EOF")
 		return 0, io.EOF
 	}
 	log := r.l.logger
 	if r.f.PayloadLength == 0 {
 
 		if r.f.NoMoreFrames {
+			r.l.logger.Printf("no more frames flag set, returning EOF")
 			err = io.EOF
 			return
 		}
@@ -96,6 +99,7 @@ func (r *frameBridgingReader) Read(b []byte) (n int, err error) {
 		log.Printf("reading frame")
 		r.f, err = r.l.readFrame()
 		if err != nil {
+			log.Printf("error reading frame: %+v", err)
 			return 0, err
 		}
 		log.Printf("read frame: %#v", r.f)
@@ -197,22 +201,16 @@ func NewMessageLayer(rwc io.ReadWriteCloser) *MessageLayer {
 	return &MessageLayer{rwc, noLogger{}}
 }
 
-// Always returns an error, RST error if no error occurred while sending RST frame
-func (l *MessageLayer) HangUp() (err error) {
-	l.logger.Printf("hanging up")
+func (l *MessageLayer) Close() (err error) {
 	f := Frame{
 		Type:         FrameTypeRST,
 		NoMoreFrames: true,
 	}
-	rstFrameError := l.writeFrame(f)
-	closeErr := l.rwc.Close()
-	if rstFrameError != nil {
-		return errors.WithStack(rstFrameError)
-	} else if closeErr != nil {
-		return errors.WithStack(closeErr)
-	} else {
-		return RST
+	if err = l.writeFrame(f); err != nil {
+		l.logger.Printf("error sending RST frame: %s", err)
+		return errors.WithStack(err)
 	}
+	return nil
 }
 
 var RST error = fmt.Errorf("reset frame observed on connection")
@@ -234,6 +232,7 @@ func (l *MessageLayer) readFrame() (f Frame, err error) {
 		return
 	}
 	if f.Type == FrameTypeRST {
+		l.logger.Printf("read RST frame")
 		err = RST
 		return
 	}

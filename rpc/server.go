@@ -84,8 +84,11 @@ func (s *Server) recvRequest() (h *Header, err error) {
 }
 
 var doneServeNext error = errors.New("this should not cause a HangUp() in the server")
+var doneStopServing error = errors.New("this should cause the server to close the connection")
 
 var ProtocolError error = errors.New("protocol error, server should hang up")
+
+const ControlEndpointClose string = "Close"
 
 // Serve the connection until failure or the client hangs up
 func (s *Server) Serve() (err error) {
@@ -96,16 +99,31 @@ func (s *Server) Serve() (err error) {
 		if err == nil {
 			continue
 		}
-
 		if err == doneServeNext {
 			s.logger.Printf("subroutine returned pseudo-error indicating early-exit")
+			err = nil
 			continue
 		}
 
-		s.logger.Printf("hanging up after ServeRequest returned error: %s", err)
-		s.ml.HangUp()
-		return err
+		if err == doneStopServing {
+			s.logger.Printf("subroutine returned pseudo-error indicating close request")
+			err = nil
+			break
+		}
+
+		break
 	}
+
+	if err != nil {
+		s.logger.Printf("an error occurred that could not be handled on PRC protocol level: %+v", err)
+	}
+
+	s.logger.Printf("cloing MessageLayer")
+	if mlErr := s.ml.Close(); mlErr != nil {
+		s.logger.Printf("error closing MessageLayer: %+v", mlErr)
+	}
+
+	return err
 }
 
 // Serve a single request
@@ -127,6 +145,22 @@ func (s *Server) ServeRequest() (err error) {
 	h, err := s.recvRequest()
 	if err != nil {
 		return err
+	}
+
+	if h.DataType == DataTypeControl {
+		switch h.Endpoint {
+		case ControlEndpointClose:
+			ack := Header{Error: StatusOK, DataType: DataTypeControl}
+			err = s.writeResponse(&ack)
+			if err != nil {
+				return err
+			}
+			return doneStopServing
+		default:
+			r := NewErrorHeader(StatusRequestError, "unregistered control endpoint %s", h.Endpoint)
+			return s.writeResponse(r)
+		}
+		panic("implementation error")
 	}
 
 	ep, ok := s.endpoints[h.Endpoint]

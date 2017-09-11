@@ -28,10 +28,35 @@ func (c *Client) SetLogger(logger Logger, logMessageLayer bool) {
 }
 
 func (c *Client) Close() (err error) {
-	err = c.ml.HangUp()
-	if err == RST {
-		return nil
+
+	c.logger.Printf("sending Close request")
+	header := Header{
+		DataType: DataTypeControl,
+		Endpoint: ControlEndpointClose,
+		Accept:   DataTypeControl,
 	}
+	err = c.ml.WriteHeader(&header)
+	if err != nil {
+		return
+	}
+
+	c.logger.Printf("reading Close ACK")
+	ack, err := c.ml.ReadHeader()
+	if err != nil {
+		return err
+	}
+	c.logger.Printf("received Close ACK: %#v", ack)
+	if ack.Error != StatusOK {
+		err = errors.Errorf("error hanging up: remote error (%s) %s", ack.Error, ack.ErrorMessage)
+		return
+	}
+
+	c.logger.Printf("closing MessageLayer")
+	if err = c.ml.Close(); err != nil {
+		c.logger.Printf("error closing RWC: %+v", err)
+		return
+	}
+
 	return err
 }
 
