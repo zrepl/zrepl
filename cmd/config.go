@@ -24,11 +24,12 @@ type RPCConnecter interface {
 	Connect() (rpc.RPCClient, error)
 }
 type AuthenticatedChannelListenerFactory interface {
-	Listen() AuthenticatedChannelListener
+	Listen() (AuthenticatedChannelListener, error)
 }
 
 type AuthenticatedChannelListener interface {
 	Accept() (ch io.ReadWriteCloser, err error)
+	Close() (err error)
 }
 
 type SSHStdinServerConnectDescr struct {
@@ -37,4 +38,3 @@ type SSHStdinServerConnectDescr struct {
 type PrunePolicy interface {
 	Prune(fs zfs.DatasetPath, versions []zfs.FilesystemVersion) (keep, remote []zfs.FilesystemVersion, err error)
 }
-
