@@ -7,9 +7,7 @@ import (
 	"github.com/jinzhu/copier"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/sshbytestream"
-	"github.com/zrepl/zrepl/util"
 )
 
 type SSHStdinserverConnecter struct {
@@ -20,8 +18,6 @@ type SSHStdinserverConnecter struct {
 	TransportOpenCommand []string `mapstructure:"transport_open_command"`
 	SSHCommand           string   `mapstructure:"ssh_command"`
 	Options              []string
-	ConnLogReadFile      string `mapstructure:"connlog_read_file"`
-	ConnLogWriteFile     string `mapstructure:"connlog_write_file"`
 }
 
 func parseSSHStdinserverConnecter(i map[string]interface{}) (c *SSHStdinserverConnecter, err error) {
@@ -37,20 +33,14 @@ func parseSSHStdinserverConnecter(i map[string]interface{}) (c *SSHStdinserverCo
 
 }
 
-func (c *SSHStdinserverConnecter) Connect() (client rpc.RPCClient, err error) {
-	var stream io.ReadWriteCloser
+func (c *SSHStdinserverConnecter) Connect() (rwc io.ReadWriteCloser, err error) {
 	var rpcTransport sshbytestream.SSHTransport
 	if err = copier.Copy(&rpcTransport, c); err != nil {
 		return
 	}
-	if stream, err = sshbytestream.Outgoing(rpcTransport); err != nil {
+	if rwc, err = sshbytestream.Outgoing(rpcTransport); err != nil {
+		err = errors.WithStack(err)
 		return
 	}
-	stream, err = util.NewReadWriteCloserLogger(stream, c.ConnLogReadFile, c.ConnLogWriteFile)
-	if err != nil {
-		return
-	}
-	client = rpc.NewClient(stream)
-	return client, nil
-
+	return
 }

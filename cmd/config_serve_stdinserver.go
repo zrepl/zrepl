@@ -4,7 +4,6 @@ import (
 	"github.com/ftrvxmtrx/fd"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/util"
 	"io"
 	"net"
 	"os"
@@ -13,9 +12,7 @@ import (
 )
 
 type StdinserverListenerFactory struct {
-	ClientIdentity   string `mapstructure:"client_identity"`
-	ConnLogReadFile  string `mapstructure:"connlog_read_file"`
-	ConnLogWriteFile string `mapstructure:"connlog_write_file"`
+	ClientIdentity string `mapstructure:"client_identity"`
 }
 
 func parseStdinserverListenerFactory(i map[string]interface{}) (f *StdinserverListenerFactory, err error) {
@@ -63,15 +60,13 @@ func (f *StdinserverListenerFactory) Listen() (al AuthenticatedChannelListener, 
 		return nil, errors.Wrapf(err, "cannot listen on unix socket %s", unixaddr)
 	}
 
-	l := &StdinserverListener{ul, f.ConnLogReadFile, f.ConnLogWriteFile}
+	l := &StdinserverListener{ul}
 
 	return l, nil
 }
 
 type StdinserverListener struct {
-	l                *net.UnixListener
-	ConnLogReadFile  string `mapstructure:"connlog_read_file"`
-	ConnLogWriteFile string `mapstructure:"connlog_write_file"`
+	l *net.UnixListener
 }
 
 type fdRWC struct {
@@ -109,12 +104,7 @@ func (l *StdinserverListener) Accept() (ch io.ReadWriteCloser, err error) {
 
 	rwc := fdRWC{files[0], files[1], c.(*net.UnixConn)}
 
-	rwclog, err := util.NewReadWriteCloserLogger(rwc, l.ConnLogReadFile, l.ConnLogWriteFile)
-	if err != nil {
-		panic(err)
-	}
-
-	return rwclog, nil
+	return rwc, nil
 
 }
 

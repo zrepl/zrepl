@@ -3,7 +3,6 @@ package cmd
 import (
 	"io"
 
-	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -20,8 +19,18 @@ type Global struct {
 	}
 }
 
-type RPCConnecter interface {
-	Connect() (rpc.RPCClient, error)
+type JobDebugSettings struct {
+	Conn struct {
+		ReadDump  string `mapstructure:"read_dump"`
+		WriteDump string `mapstructure:"write_dump"`
+	}
+	RPC struct {
+		Log bool
+	}
+}
+
+type RWCConnecter interface {
+	Connect() (io.ReadWriteCloser, error)
 }
 type AuthenticatedChannelListenerFactory interface {
 	Listen() (AuthenticatedChannelListener, error)

@@ -3,30 +3,32 @@ package cmd
 import (
 	"time"
 
-	"github.com/zrepl/zrepl/rpc"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/rpc"
 )
 
 type LocalJob struct {
 	Name              string
 	Mapping           *DatasetMapFilter
-	SnapshotFilter *PrefixSnapshotFilter
+	SnapshotFilter    *PrefixSnapshotFilter
 	Interval          time.Duration
 	InitialReplPolicy InitialReplPolicy
 	PruneLHS          PrunePolicy
 	PruneRHS          PrunePolicy
+	Debug             JobDebugSettings
 }
 
 func parseLocalJob(name string, i map[string]interface{}) (j *LocalJob, err error) {
 
 	var asMap struct {
-		Mapping map[string]string
-		SnapshotPrefix string `mapstructure:"snapshot_prefix"`
-		Interval string
-		InitialReplPolicy string `mapstructure:"initial_repl_policy"`
-		PruneLHS map[string]interface{} `mapstructure:"prune_lhs"`
-		PruneRHS map[string]interface{} `mapstructure:"prune_rhs"`
+		Mapping           map[string]string
+		SnapshotPrefix    string `mapstructure:"snapshot_prefix"`
+		Interval          string
+		InitialReplPolicy string                 `mapstructure:"initial_repl_policy"`
+		PruneLHS          map[string]interface{} `mapstructure:"prune_lhs"`
+		PruneRHS          map[string]interface{} `mapstructure:"prune_rhs"`
+		Debug             map[string]interface{}
 	}
 
 	if err = mapstructure.Decode(i, &asMap); err != nil {
@@ -59,6 +61,11 @@ func parseLocalJob(name string, i map[string]interface{}) (j *LocalJob, err erro
 	}
 	if j.PruneRHS, err = parsePrunePolicy(asMap.PruneRHS); err != nil {
 		err = errors.Wrap(err, "cannot parse 'prune_rhs'")
+		return
+	}
+
+	if err = mapstructure.Decode(asMap.Debug, &j.Debug); err != nil {
+		err = errors.Wrap(err, "cannot parse 'debug'")
 		return
 	}
 

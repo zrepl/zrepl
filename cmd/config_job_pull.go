@@ -5,15 +5,18 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/rpc"
+	"github.com/zrepl/zrepl/util"
 )
 
 type PullJob struct {
 	Name              string
-	Connect           RPCConnecter
+	Connect           RWCConnecter
 	Mapping           *DatasetMapFilter
 	SnapshotFilter    *PrefixSnapshotFilter
 	InitialReplPolicy InitialReplPolicy
 	Prune             PrunePolicy
+	Debug             JobDebugSettings
 }
 
 func parsePullJob(name string, i map[string]interface{}) (j *PullJob, err error) {
@@ -24,6 +27,7 @@ func parsePullJob(name string, i map[string]interface{}) (j *PullJob, err error)
 		InitialReplPolicy string `mapstructure:"initial_repl_policy"`
 		Prune             map[string]interface{}
 		SnapshotPrefix    string `mapstructure:"snapshot_prefix"`
+		Debug             map[string]interface{}
 	}
 
 	if err = mapstructure.Decode(i, &asMap); err != nil {
@@ -60,6 +64,11 @@ func parsePullJob(name string, i map[string]interface{}) (j *PullJob, err error)
 		return
 	}
 
+	if err = mapstructure.Decode(asMap.Debug, &j.Debug); err != nil {
+		err = errors.Wrap(err, "cannot parse 'debug'")
+		return
+	}
+
 	return
 }
 
@@ -68,11 +77,23 @@ func (j *PullJob) JobName() string {
 }
 
 func (j *PullJob) JobDo(log Logger) (err error) {
-	client, err := j.Connect.Connect()
+
+	rwc, err := j.Connect.Connect()
 	if err != nil {
 		log.Printf("error connect: %s", err)
 		return err
 	}
+
+	rwc, err = util.NewReadWriteCloserLogger(rwc, j.Debug.Conn.ReadDump, j.Debug.Conn.WriteDump)
+	if err != nil {
+		return
+	}
+
+	client := rpc.NewClient(rwc)
+	if j.Debug.RPC.Log {
+		client.SetLogger(log, true)
+	}
+
 	defer closeRPCWithTimeout(log, client, time.Second*10, "")
 	return doPull(PullContext{client, log, j.Mapping, j.InitialReplPolicy})
 }

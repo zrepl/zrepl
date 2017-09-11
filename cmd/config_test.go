@@ -11,10 +11,11 @@ import (
 
 func TestSampleConfigsAreParsedWithoutErrors(t *testing.T) {
 
-	paths:= []string{
+	paths := []string{
 		"./sampleconf/localbackup/host1.yml",
 		"./sampleconf/pullbackup/backuphost.yml",
 		"./sampleconf/pullbackup/productionhost.yml",
+		"./sampleconf/random/debugging.yml",
 	}
 
 	for _, p := range paths {

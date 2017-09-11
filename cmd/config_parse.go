@@ -115,7 +115,7 @@ func parseJob(i map[string]interface{}) (j Job, err error) {
 
 }
 
-func parseConnect(i map[string]interface{}) (c RPCConnecter, err error) {
+func parseConnect(i map[string]interface{}) (c RWCConnecter, err error) {
 
 	t, err := extractStringField(i, "type", true)
 	if err != nil {

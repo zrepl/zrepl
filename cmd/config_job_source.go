@@ -1,15 +1,15 @@
 package cmd
 
 import (
-	"time"
-
 	mapstructure "github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/rpc"
+	"github.com/zrepl/zrepl/util"
 	"io"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 type SourceJob struct {
@@ -19,6 +19,7 @@ type SourceJob struct {
 	SnapshotFilter *PrefixSnapshotFilter
 	Interval       time.Duration
 	Prune          PrunePolicy
+	Debug          JobDebugSettings
 }
 
 func parseSourceJob(name string, i map[string]interface{}) (j *SourceJob, err error) {
@@ -29,6 +30,7 @@ func parseSourceJob(name string, i map[string]interface{}) (j *SourceJob, err er
 		SnapshotPrefix string `mapstructure:"snapshot_prefix"`
 		Interval       string
 		Prune          map[string]interface{}
+		Debug          map[string]interface{}
 	}
 
 	if err = mapstructure.Decode(i, &asMap); err != nil {
@@ -56,6 +58,11 @@ func parseSourceJob(name string, i map[string]interface{}) (j *SourceJob, err er
 	}
 
 	if j.Prune, err = parsePrunePolicy(asMap.Prune); err != nil {
+		return
+	}
+
+	if err = mapstructure.Decode(asMap.Debug, &j.Debug); err != nil {
+		err = errors.Wrap(err, "cannot parse 'debug'")
 		return
 	}
 
@@ -100,6 +107,11 @@ outer:
 				break outer // closed because of accept error
 			}
 
+			rwc, err := util.NewReadWriteCloserLogger(rwc, j.Debug.Conn.ReadDump, j.Debug.Conn.WriteDump)
+			if err != nil {
+				panic(err)
+			}
+
 			// construct connection handler
 			handler := Handler{
 				Logger:  log,
@@ -108,6 +120,10 @@ outer:
 
 			// handle connection
 			rpcServer := rpc.NewServer(rwc)
+			if j.Debug.RPC.Log {
+				rpclog := util.NewPrefixLogger(log, "rpc")
+				rpcServer.SetLogger(rpclog, true)
+			}
 			registerEndpoints(rpcServer, handler)
 			if err = rpcServer.Serve(); err != nil {
 				log.Printf("error serving connection: %s", err)
