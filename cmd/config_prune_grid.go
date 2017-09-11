@@ -1,22 +1,21 @@
 package cmd
 
 import (
-	"github.com/mitchellh/mapstructure"
 	"fmt"
-	"time"
-	. "github.com/zrepl/zrepl/util"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"regexp"
+	"github.com/zrepl/zrepl/util"
 	"github.com/zrepl/zrepl/zfs"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type GridPrunePolicy struct {
-	RetentionGrid *RetentionGrid
+	RetentionGrid *util.RetentionGrid
 }
-
 
 type retentionGridAdaptor struct {
 	zfs.FilesystemVersion
@@ -26,14 +25,14 @@ func (a retentionGridAdaptor) Date() time.Time {
 	return a.Creation
 }
 
-func (a retentionGridAdaptor) LessThan(b RetentionGridEntry) bool {
+func (a retentionGridAdaptor) LessThan(b util.RetentionGridEntry) bool {
 	return a.CreateTXG < b.(retentionGridAdaptor).CreateTXG
 }
 
 func (p *GridPrunePolicy) Prune(fs zfs.DatasetPath, versions []zfs.FilesystemVersion) (keep, remove []zfs.FilesystemVersion, err error) {
 
 	// Build adaptors for retention grid
-	adaptors := make([]RetentionGridEntry, len(versions))
+	adaptors := make([]util.RetentionGridEntry, len(versions))
 	for fsv := range versions {
 		adaptors[fsv] = retentionGridAdaptor{versions[fsv]}
 	}
@@ -62,7 +61,7 @@ func (p *GridPrunePolicy) Prune(fs zfs.DatasetPath, versions []zfs.FilesystemVer
 func parseGridPrunePolicy(e map[string]interface{}) (p *GridPrunePolicy, err error) {
 
 	var i struct {
-		Grid           string
+		Grid string
 	}
 
 	if err = mapstructure.Decode(e, &i); err != nil {
@@ -89,11 +88,10 @@ func parseGridPrunePolicy(e map[string]interface{}) (p *GridPrunePolicy, err err
 			lastDuration = intervals[i].Length
 		}
 	}
-	p.RetentionGrid = NewRetentionGrid(intervals)
+	p.RetentionGrid = util.NewRetentionGrid(intervals)
 
 	return
 }
-
 
 var durationStringRegex *regexp.Regexp = regexp.MustCompile(`^\s*(\d+)\s*(s|m|h|d|w)\s*$`)
 
@@ -133,7 +131,7 @@ func parseDuration(e string) (d time.Duration, err error) {
 
 var retentionStringIntervalRegex *regexp.Regexp = regexp.MustCompile(`^\s*(\d+)\s*x\s*([^\(]+)\s*(\((.*)\))?\s*$`)
 
-func parseRetentionGridIntervalString(e string) (intervals []RetentionInterval, err error) {
+func parseRetentionGridIntervalString(e string) (intervals []util.RetentionInterval, err error) {
 
 	comps := retentionStringIntervalRegex.FindStringSubmatch(e)
 	if comps == nil {
@@ -164,7 +162,7 @@ func parseRetentionGridIntervalString(e string) (intervals []RetentionInterval, 
 			return
 		}
 		if res[1] == "all" {
-			keepCount = RetentionGridKeepCountAll
+			keepCount = util.RetentionGridKeepCountAll
 		} else {
 			keepCount, err = strconv.Atoi(res[1])
 			if err != nil {
@@ -174,9 +172,9 @@ func parseRetentionGridIntervalString(e string) (intervals []RetentionInterval, 
 		}
 	}
 
-	intervals = make([]RetentionInterval, times)
+	intervals = make([]util.RetentionInterval, times)
 	for i := range intervals {
-		intervals[i] = RetentionInterval{
+		intervals[i] = util.RetentionInterval{
 			Length:    duration,
 			KeepCount: keepCount,
 		}
@@ -186,10 +184,10 @@ func parseRetentionGridIntervalString(e string) (intervals []RetentionInterval, 
 
 }
 
-func parseRetentionGridIntervalsString(s string) (intervals []RetentionInterval, err error) {
+func parseRetentionGridIntervalsString(s string) (intervals []util.RetentionInterval, err error) {
 
 	ges := strings.Split(s, "|")
-	intervals = make([]RetentionInterval, 0, 7*len(ges))
+	intervals = make([]util.RetentionInterval, 0, 7*len(ges))
 
 	for intervalIdx, e := range ges {
 		parsed, err := parseRetentionGridIntervalString(e)
