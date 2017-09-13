@@ -58,6 +58,7 @@ func parseSourceJob(name string, i map[string]interface{}) (j *SourceJob, err er
 	}
 
 	if j.Prune, err = parsePrunePolicy(asMap.Prune); err != nil {
+		err = errors.Wrap(err, "cannot parse 'prune'")
 		return
 	}
 
