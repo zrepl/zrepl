@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kr/pretty"
 	"github.com/stretchr/testify/assert"
 	"github.com/zrepl/zrepl/util"
 	"github.com/zrepl/zrepl/zfs"
@@ -133,5 +134,38 @@ func TestDatasetMapFilter(t *testing.T) {
 
 	filter2 := map[string]string{}
 	expectFilter(filter2, "foo", false) // default to omit
+
+}
+
+func TestDatasetMapFilter_InvertedFilter(t *testing.T) {
+	mapspec := map[string]string{
+		"a/b":      "1/2",
+		"a/b/c<":   "3",
+		"a/b/c/d<": "1/2/a",
+	}
+
+	m, err := parseDatasetMapFilter(mapspec, false)
+	assert.Nil(t, err)
+
+	inv, err := m.InvertedFilter()
+	assert.Nil(t, err)
+
+	t.Log(pretty.Sprint(inv))
+
+	expectMapping := func(m *DatasetMapFilter, ps string, expRes bool) {
+		p, err := zfs.NewDatasetPath(ps)
+		assert.Nil(t, err)
+		r, err := m.Filter(p)
+		assert.Nil(t, err)
+		assert.Equal(t, expRes, r)
+	}
+
+	expectMapping(inv, "4", false)
+	expectMapping(inv, "3", true)
+	expectMapping(inv, "3/x", true)
+	expectMapping(inv, "1", false)
+	expectMapping(inv, "1/2", true)
+	expectMapping(inv, "1/2/3", false)
+	expectMapping(inv, "1/2/a/b", true)
 
 }

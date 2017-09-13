@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/zrepl/zrepl/zfs"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/zfs"
 )
 
 type DatasetMapFilter struct {
@@ -144,14 +145,46 @@ func (m DatasetMapFilter) Filter(p *zfs.DatasetPath) (pass bool, err error) {
 	return
 }
 
+// Construct a new filter-only DatasetMapFilter from a mapping
+// The new filter allows excactly those paths that were not forbidden by the mapping.
+func (m DatasetMapFilter) InvertedFilter() (inv *DatasetMapFilter, err error) {
+
+	if m.filterOnly {
+		err = errors.Errorf("can only invert mappings")
+		return
+	}
+
+	inv = &DatasetMapFilter{
+		make([]datasetMapFilterEntry, len(m.entries)),
+		true,
+	}
+
+	for i, e := range m.entries {
+		inv.entries[i].path, err = zfs.NewDatasetPath(e.mapping)
+		if err != nil {
+			err = errors.Wrapf(err, "mapping cannot be inverted: '%s' is not a dataset path: %s", e.mapping)
+			return
+		}
+		inv.entries[i].mapping = MapFilterResultOk
+		inv.entries[i].subtreeMatch = e.subtreeMatch
+	}
+
+	return inv, nil
+}
+
+const (
+	MapFilterResultOk   string = "ok"
+	MapFilterResultOmit string = "omit"
+)
+
 // Parse a dataset filter result
 func parseDatasetFilterResult(result string) (pass bool, err error) {
 	l := strings.ToLower(result)
 	switch strings.ToLower(l) {
-	case "ok":
+	case MapFilterResultOk:
 		pass = true
 		return
-	case "omit":
+	case MapFilterResultOmit:
 		return
 	default:
 		err = fmt.Errorf("'%s' is not a valid filter result", result)
