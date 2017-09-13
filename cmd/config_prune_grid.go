@@ -29,7 +29,7 @@ func (a retentionGridAdaptor) LessThan(b util.RetentionGridEntry) bool {
 	return a.CreateTXG < b.(retentionGridAdaptor).CreateTXG
 }
 
-func (p *GridPrunePolicy) Prune(fs zfs.DatasetPath, versions []zfs.FilesystemVersion) (keep, remove []zfs.FilesystemVersion, err error) {
+func (p *GridPrunePolicy) Prune(_ *zfs.DatasetPath, versions []zfs.FilesystemVersion) (keep, remove []zfs.FilesystemVersion, err error) {
 
 	// Build adaptors for retention grid
 	adaptors := make([]util.RetentionGridEntry, len(versions))

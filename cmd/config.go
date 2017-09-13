@@ -45,5 +45,5 @@ type SSHStdinServerConnectDescr struct {
 }
 
 type PrunePolicy interface {
-	Prune(fs zfs.DatasetPath, versions []zfs.FilesystemVersion) (keep, remote []zfs.FilesystemVersion, err error)
+	Prune(fs *zfs.DatasetPath, versions []zfs.FilesystemVersion) (keep, remove []zfs.FilesystemVersion, err error)
 }
