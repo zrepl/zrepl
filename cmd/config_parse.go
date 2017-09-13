@@ -167,6 +167,8 @@ func parsePrunePolicy(v map[string]interface{}) (p PrunePolicy, err error) {
 	switch policyName {
 	case "grid":
 		return parseGridPrunePolicy(v)
+	case "noprune":
+		return NoPrunePolicy{}, nil
 	default:
 		err = errors.Errorf("unknown policy '%s'", policyName)
 		return
