@@ -1,9 +1,12 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
+	"context"
 	"fmt"
-	"sync"
+	"github.com/spf13/cobra"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 // daemonCmd represents the daemon command
@@ -26,32 +29,75 @@ func (l jobLogger) Printf(format string, v ...interface{}) {
 	l.MainLog.Printf(fmt.Sprintf("[%s]: %s", l.JobName, format), v...)
 }
 
-
 type Job interface {
 	JobName() string
-	JobDo(log Logger) (err error)
+	JobStart(ctxt context.Context)
 }
 
 func doDaemon(cmd *cobra.Command, args []string) {
+	d := Daemon{}
+	d.Loop()
+}
 
-	var wg sync.WaitGroup
+type contextKey string
+
+const (
+	contextKeyLog contextKey = contextKey("log")
+)
+
+type Daemon struct {
+	log Logger
+}
+
+func (d *Daemon) Loop() {
+
+	finishs := make(chan Job)
+	cancels := make([]context.CancelFunc, len(conf.Jobs))
 
 	log.Printf("starting jobs from config")
-
+	i := 0
 	for _, job := range conf.Jobs {
 		log.Printf("starting job %s", job.JobName())
+
 		logger := jobLogger{log, job.JobName()}
-		wg.Add(1)
+		ctx := context.Background()
+		ctx, cancels[i] = context.WithCancel(ctx)
+		i++
+		ctx = context.WithValue(ctx, contextKeyLog, logger)
+
 		go func(j Job) {
-			defer wg.Done()
-			err := job.JobDo(logger)
-			if err != nil {
-				logger.Printf("returned error: %+v", err)
-			}
+			job.JobStart(ctx)
+			finishs <- j
 		}(job)
 	}
 
-	log.Printf("waiting for jobs from config to finish")
-	wg.Wait()
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	finishCount := 0
+outer:
+	for {
+		select {
+		case j := <-finishs:
+			log.Printf("job finished: %s", j.JobName())
+			finishCount++
+			if finishCount == len(conf.Jobs) {
+				log.Printf("all jobs finished")
+				break outer
+			}
+
+		case sig := <-sigChan:
+			log.Printf("received signal: %s", sig)
+			log.Printf("cancelling all jobs")
+			for _, c := range cancels {
+				log.Printf("cancelling job")
+				c()
+			}
+		}
+	}
+
+	signal.Stop(sigChan)
+
+	log.Printf("exiting")
 
 }

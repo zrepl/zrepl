@@ -3,6 +3,7 @@ package cmd
 import (
 	"time"
 
+	"context"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/rpc"
@@ -10,10 +11,13 @@ import (
 )
 
 type PullJob struct {
-	Name              string
-	Connect           RWCConnecter
-	Mapping           *DatasetMapFilter
-	SnapshotFilter    *PrefixSnapshotFilter
+	Name     string
+	Connect  RWCConnecter
+	Interval time.Duration
+	Mapping  *DatasetMapFilter
+	// constructed from mapping during parsing
+	pruneFilter       *DatasetMapFilter
+	SnapshotPrefix    string
 	InitialReplPolicy InitialReplPolicy
 	Prune             PrunePolicy
 	Debug             JobDebugSettings
@@ -23,6 +27,7 @@ func parsePullJob(name string, i map[string]interface{}) (j *PullJob, err error)
 
 	var asMap struct {
 		Connect           map[string]interface{}
+		Interval          string
 		Mapping           map[string]string
 		InitialReplPolicy string `mapstructure:"initial_repl_policy"`
 		Prune             map[string]interface{}
@@ -43,9 +48,19 @@ func parsePullJob(name string, i map[string]interface{}) (j *PullJob, err error)
 		return nil, err
 	}
 
+	if j.Interval, err = time.ParseDuration(asMap.Interval); err != nil {
+		err = errors.Wrap(err, "cannot parse 'interval'")
+		return nil, err
+	}
+
 	j.Mapping, err = parseDatasetMapFilter(asMap.Mapping, false)
 	if err != nil {
 		err = errors.Wrap(err, "cannot parse 'mapping'")
+		return nil, err
+	}
+
+	if j.pruneFilter, err = j.Mapping.InvertedFilter(); err != nil {
+		err = errors.Wrap(err, "cannot automatically invert 'mapping' for prune job")
 		return nil, err
 	}
 
@@ -55,7 +70,7 @@ func parsePullJob(name string, i map[string]interface{}) (j *PullJob, err error)
 		return
 	}
 
-	if j.SnapshotFilter, err = parsePrefixSnapshotFilter(asMap.SnapshotPrefix); err != nil {
+	if j.SnapshotPrefix, err = parseSnapshotPrefix(asMap.SnapshotPrefix); err != nil {
 		return
 	}
 
@@ -76,12 +91,19 @@ func (j *PullJob) JobName() string {
 	return j.Name
 }
 
-func (j *PullJob) JobDo(log Logger) (err error) {
+func (j *PullJob) JobStart(ctx context.Context) {
 
+	ticker := time.NewTicker(j.Interval)
+
+start:
+
+	log := ctx.Value(contextKeyLog).(Logger)
+
+	log.Printf("connecting")
 	rwc, err := j.Connect.Connect()
 	if err != nil {
-		log.Printf("error connect: %s", err)
-		return err
+		log.Printf("error connecting: %s", err)
+		return
 	}
 
 	rwc, err = util.NewReadWriteCloserLogger(rwc, j.Debug.Conn.ReadDump, j.Debug.Conn.WriteDump)
@@ -94,6 +116,33 @@ func (j *PullJob) JobDo(log Logger) (err error) {
 		client.SetLogger(log, true)
 	}
 
-	defer closeRPCWithTimeout(log, client, time.Second*10, "")
-	return doPull(PullContext{client, log, j.Mapping, j.InitialReplPolicy})
+	log.Printf("starting pull")
+
+	pullLog := util.NewPrefixLogger(log, "pull")
+	err = doPull(PullContext{client, pullLog, j.Mapping, j.InitialReplPolicy})
+	if err != nil {
+		log.Printf("error doing pull: %s", err)
+	}
+
+	closeRPCWithTimeout(log, client, time.Second*10, "")
+
+	log.Printf("starting prune")
+	prunectx := context.WithValue(ctx, contextKeyLog, util.NewPrefixLogger(log, "prune"))
+	pruner := Pruner{time.Now(), false, j.pruneFilter, j.SnapshotPrefix, j.Prune}
+	pruner.Run(prunectx)
+	log.Printf("finish prune")
+
+	log.Printf("wait for next interval")
+	select {
+	case <-ctx.Done():
+		log.Printf("context: %s", ctx.Err())
+		return
+	case <-ticker.C:
+		goto start
+	}
+
+}
+
+func (j *PullJob) doRun(ctx context.Context) {
+
 }

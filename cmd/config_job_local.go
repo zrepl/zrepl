@@ -3,6 +3,7 @@ package cmd
 import (
 	"time"
 
+	"context"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/rpc"
@@ -76,7 +77,9 @@ func (j *LocalJob) JobName() string {
 	return j.Name
 }
 
-func (j *LocalJob) JobDo(log Logger) (err error) {
+func (j *LocalJob) JobStart(ctx context.Context) {
+
+	log := ctx.Value(contextKeyLog).(Logger)
 
 	local := rpc.NewLocalRPC()
 	handler := Handler{
@@ -90,5 +93,8 @@ func (j *LocalJob) JobDo(log Logger) (err error) {
 	}
 	registerEndpoints(local, handler)
 
-	return doPull(PullContext{local, log, j.Mapping, j.InitialReplPolicy})
+	err := doPull(PullContext{local, log, j.Mapping, j.InitialReplPolicy})
+	if err != nil {
+		log.Printf("error doing pull: %s", err)
+	}
 }

@@ -1,14 +1,13 @@
 package cmd
 
 import (
+	"context"
 	mapstructure "github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/util"
 	"io"
-	"os"
-	"os/signal"
-	"syscall"
+	"sync"
 	"time"
 )
 
@@ -16,10 +15,13 @@ type SourceJob struct {
 	Name           string
 	Serve          AuthenticatedChannelListenerFactory
 	Datasets       *DatasetMapFilter
-	SnapshotFilter *PrefixSnapshotFilter
+	SnapshotPrefix string
 	Interval       time.Duration
 	Prune          PrunePolicy
 	Debug          JobDebugSettings
+
+	snapCancel  context.CancelFunc
+	serveCancel context.CancelFunc
 }
 
 func parseSourceJob(name string, i map[string]interface{}) (j *SourceJob, err error) {
@@ -48,7 +50,7 @@ func parseSourceJob(name string, i map[string]interface{}) (j *SourceJob, err er
 		return
 	}
 
-	if j.SnapshotFilter, err = parsePrefixSnapshotFilter(asMap.SnapshotPrefix); err != nil {
+	if j.SnapshotPrefix, err = parseSnapshotPrefix(asMap.SnapshotPrefix); err != nil {
 		return
 	}
 
@@ -74,15 +76,45 @@ func (j *SourceJob) JobName() string {
 	return j.Name
 }
 
-func (j *SourceJob) JobDo(log Logger) (err error) {
+func (j *SourceJob) JobStart(ctx context.Context) {
+
+	var wg sync.WaitGroup
+
+	log := ctx.Value(contextKeyLog).(Logger)
+
+	log.Printf("starting autosnap")
+	var snapContext context.Context
+	snapContext, j.snapCancel = context.WithCancel(ctx)
+	snapContext = context.WithValue(snapContext, contextKeyLog, util.NewPrefixLogger(log, "autosnap"))
+	a := IntervalAutosnap{DatasetFilter: j.Datasets, Prefix: j.SnapshotPrefix, SnapshotInterval: j.Interval}
+	wg.Add(1)
+	go func() {
+		a.Run(snapContext)
+		wg.Done()
+	}()
+
+	log.Printf("starting serve")
+	var serveContext context.Context
+	serveContext, j.serveCancel = context.WithCancel(ctx)
+	serveContext = context.WithValue(serveContext, contextKeyLog, util.NewPrefixLogger(log, "serve"))
+	wg.Add(1)
+	go func() {
+		j.serve(serveContext)
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
+
+func (j *SourceJob) serve(ctx context.Context) {
+
+	log := ctx.Value(contextKeyLog).(Logger)
 
 	listener, err := j.Serve.Listen()
 	if err != nil {
-		return err
+		log.Printf("error listening: %s", err)
+		return
 	}
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	rwcChan := make(chan io.ReadWriteCloser)
 
@@ -131,17 +163,13 @@ outer:
 			}
 			rwc.Close()
 
-		case sig := <-sigChan:
-
-			log.Printf("%s received", sig)
+		case <-ctx.Done():
+			log.Printf("context: %s", ctx.Err())
 			break outer
 
 		}
 
 	}
-
-	signal.Stop(sigChan)
-	close(sigChan)
 
 	log.Printf("closing listener")
 	err = listener.Close()
@@ -149,6 +177,6 @@ outer:
 		log.Printf("error closing listener: %s", err)
 	}
 
-	return nil
+	return
 
 }

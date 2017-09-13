@@ -9,6 +9,10 @@ jobs:
     port: 22
     identity_file: /root/.ssh/id_ed25519
 
+  # pull (=ask for new snapshots) every 10m, prune afterwards
+  # this will leave us at most 10m behind production
+  interval: 10m
+
   # pull all offered filesystems to storage/backups/zrepl/pull/prod1.example.com
   mapping: {
     "<":"storage/backups/zrepl/pull/prod1.example.com"
