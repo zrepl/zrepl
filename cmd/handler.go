@@ -33,9 +33,9 @@ type IncrementalTransferRequest struct {
 }
 
 type Handler struct {
-	Logger        Logger
-	PullACL       zfs.DatasetFilter
-	VersionFilter zfs.FilesystemVersionFilter
+	logger Logger
+	dsf    zfs.DatasetFilter
+	fsvf   zfs.FilesystemVersionFilter
 }
 
 func NewHandler(logger Logger, dsfilter zfs.DatasetFilter, snapfilter zfs.FilesystemVersionFilter) (h Handler) {
@@ -64,24 +64,24 @@ func registerEndpoints(server rpc.RPCServer, handler Handler) (err error) {
 
 func (h Handler) HandleFilesystemRequest(r *FilesystemRequest, roots *[]*zfs.DatasetPath) (err error) {
 
-	h.Logger.Printf("handling fsr: %#v", r)
+	h.logger.Printf("handling fsr: %#v", r)
 
-	h.Logger.Printf("using PullACL: %#v", h.PullACL)
+	h.logger.Printf("using dsf: %#v", h.dsf)
 
-	allowed, err := zfs.ZFSListMapping(h.PullACL)
+	allowed, err := zfs.ZFSListMapping(h.dsf)
 	if err != nil {
-		h.Logger.Printf("handle fsr err: %v\n", err)
+		h.logger.Printf("handle fsr err: %v\n", err)
 		return
 	}
 
-	h.Logger.Printf("returning: %#v", allowed)
+	h.logger.Printf("returning: %#v", allowed)
 	*roots = allowed
 	return
 }
 
 func (h Handler) HandleFilesystemVersionsRequest(r *FilesystemVersionsRequest, versions *[]zfs.FilesystemVersion) (err error) {
 
-	h.Logger.Printf("handling filesystem versions request: %#v", r)
+	h.logger.Printf("handling filesystem versions request: %#v", r)
 
 	// allowed to request that?
 	if h.pullACLCheck(r.Filesystem, nil); err != nil {
@@ -89,13 +89,13 @@ func (h Handler) HandleFilesystemVersionsRequest(r *FilesystemVersionsRequest, v
 	}
 
 	// find our versions
-	vs, err := zfs.ZFSListFilesystemVersions(r.Filesystem, h.VersionFilter)
+	vs, err := zfs.ZFSListFilesystemVersions(r.Filesystem, h.fsvf)
 	if err != nil {
-		h.Logger.Printf("our versions error: %#v\n", err)
+		h.logger.Printf("our versions error: %#v\n", err)
 		return
 	}
 
-	h.Logger.Printf("our versions: %#v\n", vs)
+	h.logger.Printf("our versions: %#v\n", vs)
 
 	*versions = vs
 	return
@@ -104,16 +104,16 @@ func (h Handler) HandleFilesystemVersionsRequest(r *FilesystemVersionsRequest, v
 
 func (h Handler) HandleInitialTransferRequest(r *InitialTransferRequest, stream *io.Reader) (err error) {
 
-	h.Logger.Printf("handling initial transfer request: %#v", r)
+	h.logger.Printf("handling initial transfer request: %#v", r)
 	if err = h.pullACLCheck(r.Filesystem, &r.FilesystemVersion); err != nil {
 		return
 	}
 
-	h.Logger.Printf("invoking zfs send")
+	h.logger.Printf("invoking zfs send")
 
 	s, err := zfs.ZFSSend(r.Filesystem, &r.FilesystemVersion, nil)
 	if err != nil {
-		h.Logger.Printf("error sending filesystem: %#v", err)
+		h.logger.Printf("error sending filesystem: %#v", err)
 	}
 	*stream = s
 
@@ -123,7 +123,7 @@ func (h Handler) HandleInitialTransferRequest(r *InitialTransferRequest, stream 
 
 func (h Handler) HandleIncrementalTransferRequest(r *IncrementalTransferRequest, stream *io.Reader) (err error) {
 
-	h.Logger.Printf("handling incremental transfer request: %#v", r)
+	h.logger.Printf("handling incremental transfer request: %#v", r)
 	if err = h.pullACLCheck(r.Filesystem, &r.From); err != nil {
 		return
 	}
@@ -131,11 +131,11 @@ func (h Handler) HandleIncrementalTransferRequest(r *IncrementalTransferRequest,
 		return
 	}
 
-	h.Logger.Printf("invoking zfs send")
+	h.logger.Printf("invoking zfs send")
 
 	s, err := zfs.ZFSSend(r.Filesystem, &r.From, &r.To)
 	if err != nil {
-		h.Logger.Printf("error sending filesystem: %#v", err)
+		h.logger.Printf("error sending filesystem: %#v", err)
 	}
 
 	*stream = s
@@ -145,30 +145,30 @@ func (h Handler) HandleIncrementalTransferRequest(r *IncrementalTransferRequest,
 
 func (h Handler) pullACLCheck(p *zfs.DatasetPath, v *zfs.FilesystemVersion) (err error) {
 	var fsAllowed, vAllowed bool
-	fsAllowed, err = h.PullACL.Filter(p)
+	fsAllowed, err = h.dsf.Filter(p)
 	if err != nil {
 		err = fmt.Errorf("error evaluating ACL: %s", err)
-		h.Logger.Printf(err.Error())
+		h.logger.Printf(err.Error())
 		return
 	}
 	if !fsAllowed {
 		err = fmt.Errorf("ACL prohibits access to %s", p.ToString())
-		h.Logger.Printf(err.Error())
+		h.logger.Printf(err.Error())
 		return
 	}
 	if v == nil {
 		return
 	}
 
-	vAllowed, err = h.VersionFilter.Filter(*v)
+	vAllowed, err = h.fsvf.Filter(*v)
 	if err != nil {
 		err = errors.Wrap(err, "error evaluating version filter")
-		h.Logger.Printf(err.Error())
+		h.logger.Printf(err.Error())
 		return
 	}
 	if !vAllowed {
 		err = fmt.Errorf("ACL prohibits access to %s", v.ToAbsPath(p))
-		h.Logger.Printf(err.Error())
+		h.logger.Printf(err.Error())
 		return
 	}
 	return
