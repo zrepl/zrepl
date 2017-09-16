@@ -66,7 +66,7 @@ func (d *Daemon) Loop() {
 		ctx = context.WithValue(ctx, contextKeyLog, logger)
 
 		go func(j Job) {
-			job.JobStart(ctx)
+			j.JobStart(ctx)
 			finishs <- j
 		}(job)
 	}
