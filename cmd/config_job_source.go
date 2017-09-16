@@ -146,10 +146,7 @@ outer:
 			}
 
 			// construct connection handler
-			handler := Handler{
-				Logger:  log,
-				PullACL: j.Datasets,
-			}
+			handler := NewHandler(log, j.Datasets, &PrefixSnapshotFilter{j.SnapshotPrefix})
 
 			// handle connection
 			rpcServer := rpc.NewServer(rwc)

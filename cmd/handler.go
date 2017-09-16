@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -32,8 +33,13 @@ type IncrementalTransferRequest struct {
 }
 
 type Handler struct {
-	Logger  Logger
-	PullACL zfs.DatasetFilter
+	Logger        Logger
+	PullACL       zfs.DatasetFilter
+	VersionFilter zfs.FilesystemVersionFilter
+}
+
+func NewHandler(logger Logger, dsfilter zfs.DatasetFilter, snapfilter zfs.FilesystemVersionFilter) (h Handler) {
+	return Handler{logger, dsfilter, snapfilter}
 }
 
 func registerEndpoints(server rpc.RPCServer, handler Handler) (err error) {
@@ -78,12 +84,12 @@ func (h Handler) HandleFilesystemVersionsRequest(r *FilesystemVersionsRequest, v
 	h.Logger.Printf("handling filesystem versions request: %#v", r)
 
 	// allowed to request that?
-	if h.pullACLCheck(r.Filesystem); err != nil {
+	if h.pullACLCheck(r.Filesystem, nil); err != nil {
 		return
 	}
 
 	// find our versions
-	vs, err := zfs.ZFSListFilesystemVersions(r.Filesystem, nil)
+	vs, err := zfs.ZFSListFilesystemVersions(r.Filesystem, h.VersionFilter)
 	if err != nil {
 		h.Logger.Printf("our versions error: %#v\n", err)
 		return
@@ -99,7 +105,7 @@ func (h Handler) HandleFilesystemVersionsRequest(r *FilesystemVersionsRequest, v
 func (h Handler) HandleInitialTransferRequest(r *InitialTransferRequest, stream *io.Reader) (err error) {
 
 	h.Logger.Printf("handling initial transfer request: %#v", r)
-	if err = h.pullACLCheck(r.Filesystem); err != nil {
+	if err = h.pullACLCheck(r.Filesystem, &r.FilesystemVersion); err != nil {
 		return
 	}
 
@@ -118,7 +124,10 @@ func (h Handler) HandleInitialTransferRequest(r *InitialTransferRequest, stream 
 func (h Handler) HandleIncrementalTransferRequest(r *IncrementalTransferRequest, stream *io.Reader) (err error) {
 
 	h.Logger.Printf("handling incremental transfer request: %#v", r)
-	if err = h.pullACLCheck(r.Filesystem); err != nil {
+	if err = h.pullACLCheck(r.Filesystem, &r.From); err != nil {
+		return
+	}
+	if err = h.pullACLCheck(r.Filesystem, &r.To); err != nil {
 		return
 	}
 
@@ -134,16 +143,31 @@ func (h Handler) HandleIncrementalTransferRequest(r *IncrementalTransferRequest,
 
 }
 
-func (h Handler) pullACLCheck(p *zfs.DatasetPath) (err error) {
-	var allowed bool
-	allowed, err = h.PullACL.Filter(p)
+func (h Handler) pullACLCheck(p *zfs.DatasetPath, v *zfs.FilesystemVersion) (err error) {
+	var fsAllowed, vAllowed bool
+	fsAllowed, err = h.PullACL.Filter(p)
 	if err != nil {
 		err = fmt.Errorf("error evaluating ACL: %s", err)
 		h.Logger.Printf(err.Error())
 		return
 	}
-	if !allowed {
+	if !fsAllowed {
 		err = fmt.Errorf("ACL prohibits access to %s", p.ToString())
+		h.Logger.Printf(err.Error())
+		return
+	}
+	if v == nil {
+		return
+	}
+
+	vAllowed, err = h.VersionFilter.Filter(*v)
+	if err != nil {
+		err = errors.Wrap(err, "error evaluating version filter")
+		h.Logger.Printf(err.Error())
+		return
+	}
+	if !vAllowed {
+		err = fmt.Errorf("ACL prohibits access to %s", v.ToAbsPath(p))
 		h.Logger.Printf(err.Error())
 		return
 	}

@@ -12,7 +12,7 @@ import (
 type LocalJob struct {
 	Name              string
 	Mapping           *DatasetMapFilter
-	SnapshotFilter    *PrefixSnapshotFilter
+	SnapshotPrefix    string
 	Interval          time.Duration
 	InitialReplPolicy InitialReplPolicy
 	PruneLHS          PrunePolicy
@@ -43,7 +43,7 @@ func parseLocalJob(name string, i map[string]interface{}) (j *LocalJob, err erro
 		return
 	}
 
-	if j.SnapshotFilter, err = parsePrefixSnapshotFilter(asMap.SnapshotPrefix); err != nil {
+	if j.SnapshotPrefix, err = parseSnapshotPrefix(asMap.SnapshotPrefix); err != nil {
 		return
 	}
 
@@ -82,15 +82,13 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 	log := ctx.Value(contextKeyLog).(Logger)
 
 	local := rpc.NewLocalRPC()
-	handler := Handler{
-		Logger: log,
-		// Allow access to any dataset since we control what mapping
-		// is passed to the pull routine.
-		// All local datasets will be passed to its Map() function,
-		// but only those for which a mapping exists will actually be pulled.
-		// We can pay this small performance penalty for now.
-		PullACL: localPullACL{},
-	}
+	// Allow access to any dataset since we control what mapping
+	// is passed to the pull routine.
+	// All local datasets will be passed to its Map() function,
+	// but only those for which a mapping exists will actually be pulled.
+	// We can pay this small performance penalty for now.
+	handler := NewHandler(log, localPullACL{}, &PrefixSnapshotFilter{j.SnapshotPrefix})
+
 	registerEndpoints(local, handler)
 
 	err := doPull(PullContext{local, log, j.Mapping, j.InitialReplPolicy})
