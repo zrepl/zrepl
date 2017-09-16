@@ -14,7 +14,7 @@ type DatasetMapFilter struct {
 
 	// if set, only valid filter entries can be added using Add()
 	// and Map() will always return an error
-	filterOnly bool
+	filterMode bool
 }
 
 type datasetMapFilterEntry struct {
@@ -25,17 +25,17 @@ type datasetMapFilterEntry struct {
 	subtreeMatch bool
 }
 
-func NewDatasetMapFilter(capacity int, filterOnly bool) *DatasetMapFilter {
+func NewDatasetMapFilter(capacity int, filterMode bool) *DatasetMapFilter {
 	return &DatasetMapFilter{
 		entries:    make([]datasetMapFilterEntry, 0, capacity),
-		filterOnly: filterOnly,
+		filterMode: filterMode,
 	}
 }
 
 func (m *DatasetMapFilter) Add(pathPattern, mapping string) (err error) {
 
-	if m.filterOnly {
-		if _, err = parseDatasetFilterResult(mapping); err != nil {
+	if m.filterMode {
+		if _, err = m.parseDatasetFilterResult(mapping); err != nil {
 			return
 		}
 	}
@@ -103,7 +103,7 @@ func (m DatasetMapFilter) mostSpecificPrefixMapping(path *zfs.DatasetPath) (idx 
 
 func (m DatasetMapFilter) Map(source *zfs.DatasetPath) (target *zfs.DatasetPath, err error) {
 
-	if m.filterOnly {
+	if m.filterMode {
 		err = fmt.Errorf("using a filter for mapping simply does not work")
 		return
 	}
@@ -114,6 +114,11 @@ func (m DatasetMapFilter) Map(source *zfs.DatasetPath) (target *zfs.DatasetPath,
 		return
 	}
 	me := m.entries[mi]
+
+	if strings.HasPrefix("!", me.mapping) {
+		// reject mapping
+		return nil, nil
+	}
 
 	target, err = zfs.NewDatasetPath(me.mapping)
 	if err != nil {
@@ -135,13 +140,19 @@ func (m DatasetMapFilter) Map(source *zfs.DatasetPath) (target *zfs.DatasetPath,
 }
 
 func (m DatasetMapFilter) Filter(p *zfs.DatasetPath) (pass bool, err error) {
+
+	if !m.filterMode {
+		err = fmt.Errorf("using a mapping as a filter does not work")
+		return
+	}
+
 	mi, hasMapping := m.mostSpecificPrefixMapping(p)
 	if !hasMapping {
 		pass = false
 		return
 	}
 	me := m.entries[mi]
-	pass, err = parseDatasetFilterResult(me.mapping)
+	pass, err = m.parseDatasetFilterResult(me.mapping)
 	return
 }
 
@@ -149,7 +160,7 @@ func (m DatasetMapFilter) Filter(p *zfs.DatasetPath) (pass bool, err error) {
 // The new filter allows excactly those paths that were not forbidden by the mapping.
 func (m DatasetMapFilter) InvertedFilter() (inv *DatasetMapFilter, err error) {
 
-	if m.filterOnly {
+	if m.filterMode {
 		err = errors.Errorf("can only invert mappings")
 		return
 	}
@@ -172,28 +183,47 @@ func (m DatasetMapFilter) InvertedFilter() (inv *DatasetMapFilter, err error) {
 	return inv, nil
 }
 
+// Creates a new DatasetMapFilter in filter mode from a mapping
+// All accepting mapping results are mapped to accepting filter results
+// All rejecting mapping results are mapped to rejecting filter results
+func (m DatasetMapFilter) AsFilter() (f *DatasetMapFilter) {
+
+	f = &DatasetMapFilter{
+		make([]datasetMapFilterEntry, len(m.entries)),
+		true,
+	}
+
+	for i, e := range m.entries {
+		var newe datasetMapFilterEntry = e
+		if strings.HasPrefix(newe.mapping, "!") {
+			newe.mapping = MapFilterResultOmit
+		} else {
+			newe.mapping = MapFilterResultOk
+		}
+		f.entries[i] = newe
+	}
+
+	return f
+}
+
 const (
 	MapFilterResultOk   string = "ok"
-	MapFilterResultOmit string = "omit"
+	MapFilterResultOmit string = "!"
 )
 
 // Parse a dataset filter result
-func parseDatasetFilterResult(result string) (pass bool, err error) {
+func (m DatasetMapFilter) parseDatasetFilterResult(result string) (pass bool, err error) {
 	l := strings.ToLower(result)
-	switch strings.ToLower(l) {
-	case MapFilterResultOk:
-		pass = true
-		return
-	case MapFilterResultOmit:
-		return
-	default:
-		err = fmt.Errorf("'%s' is not a valid filter result", result)
-		return
+	if l == MapFilterResultOk {
+		return true, nil
 	}
-	return
+	if l == MapFilterResultOmit {
+		return false, nil
+	}
+	return false, fmt.Errorf("'%s' is not a valid filter result", result)
 }
 
-func parseDatasetMapFilter(mi interface{}, filterOnly bool) (f *DatasetMapFilter, err error) {
+func parseDatasetMapFilter(mi interface{}, filterMode bool) (f *DatasetMapFilter, err error) {
 
 	var m map[string]string
 	if err = mapstructure.Decode(mi, &m); err != nil {
@@ -201,7 +231,7 @@ func parseDatasetMapFilter(mi interface{}, filterOnly bool) (f *DatasetMapFilter
 		return
 	}
 
-	f = NewDatasetMapFilter(len(m), filterOnly)
+	f = NewDatasetMapFilter(len(m), filterMode)
 	for pathPattern, mapping := range m {
 		if err = f.Add(pathPattern, mapping); err != nil {
 			err = fmt.Errorf("invalid mapping entry ['%s':'%s']: %s", pathPattern, mapping, err)

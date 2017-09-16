@@ -72,7 +72,7 @@ func doTestDatasetMapFilter(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	if mf.filterOnly {
+	if mf.filterMode{
 		pass, err := mf.Filter(ip)
 		if err != nil {
 			log.Printf("error evaluating filter: %s", err)

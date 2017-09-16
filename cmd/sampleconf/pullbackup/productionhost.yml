@@ -29,8 +29,9 @@ jobs:
 
   # snapshot these filesystems every 10m with zrepl_ as prefix
   datasets: {
-    "zroot/var/db<": ok,
-    "zroot/usr/home<": omit,
+    "zroot/var/db<": "ok",
+    "zroot/usr/home<": "ok",
+    "zroot/var/tmp": "!", #don't backup /tmp
   }
   snapshot_prefix: zrepl_
   interval: 10m
