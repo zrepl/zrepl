@@ -3,6 +3,12 @@ package cmd
 import (
 	"os"
 
+	"bytes"
+	"context"
+	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
 	"github.com/zrepl/zrepl/zfs"
@@ -20,16 +26,33 @@ var testConfigSyntaxCmd = &cobra.Command{
 }
 
 var testDatasetMapFilter = &cobra.Command{
-	Use:     "pattern jobtype.name test/zfs/dataset/path",
+	Use:     "pattern jobname test/zfs/dataset/path",
 	Short:   "test dataset mapping / filter specified in config",
 	Example: ` zrepl test pattern prune.clean_backups tank/backups/legacyscript/foo`,
 	Run:     doTestDatasetMapFilter,
+}
+
+var testPrunePolicyArgs struct {
+	side        PrunePolicySide
+	showKept    bool
+	showRemoved bool
+}
+
+var testPrunePolicyCmd = &cobra.Command{
+	Use:   "prune jobname",
+	Short: "do a dry-run of the pruning part of a job",
+	Run:   doTestPrunePolicy,
 }
 
 func init() {
 	RootCmd.AddCommand(testCmd)
 	testCmd.AddCommand(testConfigSyntaxCmd)
 	testCmd.AddCommand(testDatasetMapFilter)
+
+	testPrunePolicyCmd.Flags().VarP(&testPrunePolicyArgs.side, "side", "s", "prune_lhs (left) or prune_rhs (right)")
+	testPrunePolicyCmd.Flags().BoolVar(&testPrunePolicyArgs.showKept, "kept", false, "show kept snapshots")
+	testPrunePolicyCmd.Flags().BoolVar(&testPrunePolicyArgs.showRemoved, "removed", true, "show removed snapshots")
+	testCmd.AddCommand(testPrunePolicyCmd)
 }
 
 func doTestConfig(cmd *cobra.Command, args []string) {
@@ -48,9 +71,9 @@ func doTestDatasetMapFilter(cmd *cobra.Command, args []string) {
 	}
 	n, i := args[0], args[1]
 
-	jobi, ok := conf.Jobs[n]
-	if !ok {
-		log.Printf("no job %s defined in config")
+	jobi, err := conf.LookupJob(n)
+	if err != nil {
+		log.Printf("%s", err)
 		os.Exit(1)
 	}
 
@@ -72,7 +95,7 @@ func doTestDatasetMapFilter(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	if mf.filterMode{
+	if mf.filterMode {
 		pass, err := mf.Filter(ip)
 		if err != nil {
 			log.Printf("error evaluating filter: %s", err)
@@ -92,5 +115,71 @@ func doTestDatasetMapFilter(cmd *cobra.Command, args []string) {
 		log.Printf("%s => %s", ip.ToString(), toStr)
 
 	}
+
+}
+
+func doTestPrunePolicy(cmd *cobra.Command, args []string) {
+
+	if cmd.Flags().NArg() != 1 {
+		log.Printf("specify job name as first positional argument")
+		log.Printf(cmd.UsageString())
+		os.Exit(1)
+	}
+
+	jobname := cmd.Flags().Arg(0)
+	jobi, err := conf.LookupJob(jobname)
+	if err != nil {
+		log.Printf("%s", err)
+		os.Exit(1)
+	}
+
+	jobp, ok := jobi.(PruningJob)
+	if !ok {
+		log.Printf("job doesn't do any prunes")
+		os.Exit(0)
+	}
+
+	log.Printf("job dump:\n%s", pretty.Sprint(jobp))
+
+	pruner, err := jobp.Pruner(testPrunePolicyArgs.side, true)
+	if err != nil {
+		log.Printf("cannot create test pruner: %s", err)
+		os.Exit(1)
+	}
+
+	log.Printf("start pruning")
+
+	ctx := context.WithValue(context.Background(), contextKeyLog, log)
+	result, err := pruner.Run(ctx)
+	if err != nil {
+		log.Printf("error running pruner: %s", err)
+		os.Exit(1)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return strings.Compare(result[i].Filesystem.ToString(), result[j].Filesystem.ToString()) == -1
+	})
+
+	var b bytes.Buffer
+	for _, r := range result {
+		fmt.Fprintf(&b, "%s\n", r.Filesystem.ToString())
+
+		if testPrunePolicyArgs.showKept {
+			fmt.Fprintf(&b, "\tkept:\n")
+			for _, v := range r.Keep {
+				fmt.Fprintf(&b, "\t- %s\n", v.Name)
+			}
+		}
+
+		if testPrunePolicyArgs.showRemoved {
+			fmt.Fprintf(&b, "\tremoved:\n")
+			for _, v := range r.Remove {
+				fmt.Fprintf(&b, "\t- %s\n", v.Name)
+			}
+		}
+
+	}
+
+	log.Printf("pruning result:\n%s", b.String())
 
 }

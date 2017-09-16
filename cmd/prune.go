@@ -17,7 +17,14 @@ type Pruner struct {
 	PrunePolicy    PrunePolicy
 }
 
-func (p *Pruner) Run(ctx context.Context) {
+type PruneResult struct {
+	Filesystem *zfs.DatasetPath
+	All        []zfs.FilesystemVersion
+	Keep       []zfs.FilesystemVersion
+	Remove     []zfs.FilesystemVersion
+}
+
+func (p *Pruner) Run(ctx context.Context) (r []PruneResult, err error) {
 
 	log := ctx.Value(contextKeyLog).(Logger)
 
@@ -25,18 +32,17 @@ func (p *Pruner) Run(ctx context.Context) {
 		log.Printf("doing dry run")
 	}
 
-	// ZFSListSnapsFiltered --> todo can extend fsfilter or need new? Have already something per fs
-	// Dedicated snapshot object? Adaptor object to FilesystemVersion?
-
 	filesystems, err := zfs.ZFSListMapping(p.DatasetFilter)
 	if err != nil {
 		log.Printf("error applying filesystem filter: %s", err)
-		return
+		return nil, err
 	}
 	if len(filesystems) <= 0 {
 		log.Printf("no filesystems matching filter")
-		return
+		return nil, err
 	}
+
+	r = make([]PruneResult, 0, len(filesystems))
 
 	for _, fs := range filesystems {
 
@@ -72,6 +78,8 @@ func (p *Pruner) Run(ctx context.Context) {
 
 		dbgj, err = json.Marshal(remove)
 		l.Printf("DEBUG: REMOVE=%s", dbgj)
+
+		r = append(r, PruneResult{fs, fsversions, keep, remove})
 
 		describe := func(v zfs.FilesystemVersion) string {
 			timeSince := v.Creation.Sub(p.Now)

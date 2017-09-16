@@ -93,11 +93,12 @@ func (j *PullJob) JobName() string {
 
 func (j *PullJob) JobStart(ctx context.Context) {
 
+	log := ctx.Value(contextKeyLog).(Logger)
+	defer log.Printf("exiting")
+
 	ticker := time.NewTicker(j.Interval)
 
 start:
-
-	log := ctx.Value(contextKeyLog).(Logger)
 
 	log.Printf("connecting")
 	rwc, err := j.Connect.Connect()
@@ -128,7 +129,12 @@ start:
 
 	log.Printf("starting prune")
 	prunectx := context.WithValue(ctx, contextKeyLog, util.NewPrefixLogger(log, "prune"))
-	pruner := Pruner{time.Now(), false, j.pruneFilter, j.SnapshotPrefix, j.Prune}
+	pruner, err := j.Pruner(PrunePolicySideDefault, false)
+	if err != nil {
+		log.Printf("error creating pruner: %s", err)
+		return
+	}
+
 	pruner.Run(prunectx)
 	log.Printf("finish prune")
 
@@ -141,6 +147,17 @@ start:
 		goto start
 	}
 
+}
+
+func (j *PullJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err error) {
+	p = Pruner{
+		time.Now(),
+		dryRun,
+		j.pruneFilter,
+		j.SnapshotPrefix,
+		j.Prune,
+	}
+	return
 }
 
 func (j *PullJob) doRun(ctx context.Context) {

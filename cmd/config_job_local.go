@@ -7,6 +7,9 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/rpc"
+	"github.com/zrepl/zrepl/util"
+	"github.com/zrepl/zrepl/zfs"
+	"sync"
 )
 
 type LocalJob struct {
@@ -80,6 +83,7 @@ func (j *LocalJob) JobName() string {
 func (j *LocalJob) JobStart(ctx context.Context) {
 
 	log := ctx.Value(contextKeyLog).(Logger)
+	defer log.Printf("exiting")
 
 	local := rpc.NewLocalRPC()
 	// Allow access to any dataset since we control what mapping
@@ -91,8 +95,112 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 
 	registerEndpoints(local, handler)
 
-	err := doPull(PullContext{local, log, j.Mapping, j.InitialReplPolicy})
-	if err != nil {
-		log.Printf("error doing pull: %s", err)
+	snapper := IntervalAutosnap{
+		DatasetFilter:    j.Mapping.AsFilter(),
+		Prefix:           j.SnapshotPrefix,
+		SnapshotInterval: j.Interval,
 	}
+
+	plhs, err := j.Pruner(PrunePolicySideLeft, false)
+	if err != nil {
+		log.Printf("error creating lhs pruner: %s", err)
+		return
+	}
+	prhs, err := j.Pruner(PrunePolicySideRight, false)
+	if err != nil {
+		log.Printf("error creating rhs pruner: %s", err)
+		return
+	}
+
+	makeCtx := func(parent context.Context, logPrefix string) (ctx context.Context) {
+		return context.WithValue(parent, contextKeyLog, util.NewPrefixLogger(log, logPrefix))
+	}
+	var snapCtx, plCtx, prCtx, pullCtx context.Context
+	snapCtx = makeCtx(ctx, "autosnap")
+	plCtx = makeCtx(ctx, "prune_lhs")
+	prCtx = makeCtx(ctx, "prune_rhs")
+	pullCtx = makeCtx(ctx, "repl")
+
+	didSnaps := make(chan struct{})
+	go snapper.Run(snapCtx, didSnaps)
+
+outer:
+	for {
+
+		select {
+		case <-ctx.Done():
+			break outer
+		case <-didSnaps:
+			log.Printf("finished taking snapshots")
+			log.Printf("starting replication procedure")
+		}
+
+		{
+			log := pullCtx.Value(contextKeyLog).(Logger)
+			log.Printf("replicating from lhs to rhs")
+			err := doPull(PullContext{local, log, j.Mapping, j.InitialReplPolicy})
+			if err != nil {
+				log.Printf("error replicating lhs to rhs: %s", err)
+			}
+			// use a ctx as soon as doPull gains ctx support
+			select {
+			case <-ctx.Done():
+				break outer
+			default:
+			}
+		}
+
+		var wg sync.WaitGroup
+
+		log.Printf("pruning lhs")
+		wg.Add(1)
+		go func() {
+			plhs.Run(plCtx)
+			wg.Done()
+		}()
+
+		log.Printf("pruning rhs")
+		wg.Add(1)
+		go func() {
+			prhs.Run(prCtx)
+			wg.Done()
+		}()
+
+		wg.Wait()
+
+	}
+
+	log.Printf("context: %s", ctx.Err())
+
+}
+
+func (j *LocalJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err error) {
+
+	var dsfilter zfs.DatasetFilter
+	var pp PrunePolicy
+	switch side {
+	case PrunePolicySideLeft:
+		pp = j.PruneLHS
+		dsfilter = j.Mapping.AsFilter()
+	case PrunePolicySideRight:
+		pp = j.PruneRHS
+		dsfilter, err = j.Mapping.InvertedFilter()
+		if err != nil {
+			err = errors.Wrap(err, "cannot invert mapping for prune_rhs")
+			return
+		}
+	default:
+		err = errors.Errorf("must be either left or right side")
+		return
+	}
+
+	p = Pruner{
+		time.Now(),
+		dryRun,
+		dsfilter,
+		j.SnapshotPrefix,
+		pp,
+	}
+
+	return
 }

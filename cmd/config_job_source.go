@@ -7,7 +7,6 @@ import (
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/util"
 	"io"
-	"sync"
 	"time"
 )
 
@@ -19,9 +18,6 @@ type SourceJob struct {
 	Interval       time.Duration
 	Prune          PrunePolicy
 	Debug          JobDebugSettings
-
-	snapCancel  context.CancelFunc
-	serveCancel context.CancelFunc
 }
 
 func parseSourceJob(name string, i map[string]interface{}) (j *SourceJob, err error) {
@@ -78,32 +74,48 @@ func (j *SourceJob) JobName() string {
 
 func (j *SourceJob) JobStart(ctx context.Context) {
 
-	var wg sync.WaitGroup
-
 	log := ctx.Value(contextKeyLog).(Logger)
+	defer log.Printf("exiting")
 
-	log.Printf("starting autosnap")
-	var snapContext context.Context
-	snapContext, j.snapCancel = context.WithCancel(ctx)
-	snapContext = context.WithValue(snapContext, contextKeyLog, util.NewPrefixLogger(log, "autosnap"))
 	a := IntervalAutosnap{DatasetFilter: j.Datasets, Prefix: j.SnapshotPrefix, SnapshotInterval: j.Interval}
-	wg.Add(1)
-	go func() {
-		a.Run(snapContext)
-		wg.Done()
-	}()
+	p, err := j.Pruner(PrunePolicySideDefault, false)
+	if err != nil {
+		log.Printf("error creating pruner: %s", err)
+		return
+	}
 
-	log.Printf("starting serve")
-	var serveContext context.Context
-	serveContext, j.serveCancel = context.WithCancel(ctx)
-	serveContext = context.WithValue(serveContext, contextKeyLog, util.NewPrefixLogger(log, "serve"))
-	wg.Add(1)
-	go func() {
-		j.serve(serveContext)
-		wg.Done()
-	}()
+	snapContext := context.WithValue(ctx, contextKeyLog, util.NewPrefixLogger(log, "autosnap"))
+	prunerContext := context.WithValue(ctx, contextKeyLog, util.NewPrefixLogger(log, "prune"))
+	serveContext := context.WithValue(ctx, contextKeyLog, util.NewPrefixLogger(log, "serve"))
+	didSnaps := make(chan struct{})
 
-	wg.Wait()
+	go j.serve(serveContext)
+	go a.Run(snapContext, didSnaps)
+
+outer:
+	for {
+		select {
+		case <-ctx.Done():
+			break outer
+		case <-didSnaps:
+			log.Printf("starting pruner")
+			p.Run(prunerContext)
+			log.Printf("pruner done")
+		}
+	}
+	log.Printf("context: %s", prunerContext.Err())
+
+}
+
+func (j *SourceJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err error) {
+	p = Pruner{
+		time.Now(),
+		dryRun,
+		j.Datasets,
+		j.SnapshotPrefix,
+		j.Prune,
+	}
+	return
 }
 
 func (j *SourceJob) serve(ctx context.Context) {

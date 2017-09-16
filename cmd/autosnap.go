@@ -16,7 +16,6 @@ type IntervalAutosnap struct {
 
 	log       Logger
 	snaptimes []snapTime
-	timer     time.Timer
 }
 
 type snapTime struct {
@@ -24,7 +23,7 @@ type snapTime struct {
 	time time.Time
 }
 
-func (a *IntervalAutosnap) Run(ctx context.Context) {
+func (a *IntervalAutosnap) Run(ctx context.Context, didSnaps chan struct{}) {
 
 	a.log = ctx.Value(contextKeyLog).(Logger)
 
@@ -94,7 +93,7 @@ func (a *IntervalAutosnap) Run(ctx context.Context) {
 
 	case <-time.After(syncPoint.time.Sub(now)):
 		a.log.Printf("snapshotting all filesystems to enable further snaps in lockstep")
-		a.doSnapshots()
+		a.doSnapshots(didSnaps)
 	}
 
 	ticker := time.NewTicker(a.SnapshotInterval)
@@ -107,13 +106,13 @@ func (a *IntervalAutosnap) Run(ctx context.Context) {
 			return
 
 		case <-ticker.C:
-			a.doSnapshots()
+			a.doSnapshots(didSnaps)
 		}
 	}
 
 }
 
-func (a *IntervalAutosnap) doSnapshots() {
+func (a *IntervalAutosnap) doSnapshots(didSnaps chan struct{}) {
 
 	// fetch new dataset list in case user added new dataset
 	ds, err := zfs.ZFSListMapping(a.DatasetFilter)
@@ -132,6 +131,12 @@ func (a *IntervalAutosnap) doSnapshots() {
 		if err != nil {
 			a.log.Printf("error snapshotting %s: %s", d.ToString(), err)
 		}
+	}
+
+	select {
+	case didSnaps <- struct{}{}:
+	default:
+		a.log.Printf("warning: callback channel is full, discarding")
 	}
 
 }
