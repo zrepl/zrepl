@@ -76,15 +76,21 @@ func TestDatasetMapFilter(t *testing.T) {
 			t.Logf("expect test from path to be valid: %s", err)
 			t.FailNow()
 		}
+
+		res, err := dmf.Map(fromPath)
+		if to == "" {
+			assert.Nil(t, res)
+			assert.Nil(t, err)
+			t.Logf("%s => NOT MAPPED", fromPath.ToString())
+			return
+		}
+
+		assert.Nil(t, err)
 		toPath, err := zfs.NewDatasetPath(to)
 		if err != nil {
 			t.Logf("expect test to path to be valid: %s", err)
 			t.FailNow()
 		}
-
-		res, err := dmf.Map(fromPath)
-		t.Logf("%s => %s", fromPath.ToString(), res.ToString())
-		assert.Nil(t, err)
 		assert.True(t, res.Equal(toPath))
 	}
 
@@ -105,25 +111,29 @@ func TestDatasetMapFilter(t *testing.T) {
 	}
 
 	map1 := map[string]string{
-		"a/b/c<": "root1",
-		"a/b<":   "root2",
-		"<":      "root3/b/c",
-		"q<":     "root4/1/2",
+		"a/b/c<":     "root1",
+		"a/b<":       "root2",
+		"<":          "root3/b/c",
+		"b":          "!",
+		"a/b/c/d/e<": "!",
+		"q<":         "root4/1/2",
 	}
 
 	expectMapping(map1, "a/b/c", "root1")
 	expectMapping(map1, "a/b/c/d", "root1/d")
+	expectMapping(map1, "a/b/c/d/e", "")
 	expectMapping(map1, "a/b/e", "root2/e")
 	expectMapping(map1, "a/b", "root2")
 	expectMapping(map1, "x", "root3/b/c")
 	expectMapping(map1, "x/y", "root3/b/c/y")
 	expectMapping(map1, "q", "root4/1/2")
+	expectMapping(map1, "b", "")
 	expectMapping(map1, "q/r", "root4/1/2/r")
 
 	filter1 := map[string]string{
-		"<":    "omit",
+		"<":    "!",
 		"a<":   "ok",
-		"a/b<": "omit",
+		"a/b<": "!",
 	}
 
 	expectFilter(filter1, "b", false)
@@ -137,11 +147,47 @@ func TestDatasetMapFilter(t *testing.T) {
 
 }
 
+func TestDatasetMapFilter_AsFilter(t *testing.T) {
+
+	mapspec := map[string]string{
+		"a/b/c<":     "root1",
+		"a/b<":       "root2",
+		"<":          "root3/b/c",
+		"b":          "!",
+		"a/b/c/d/e<": "!",
+		"q<":         "root4/1/2",
+	}
+
+	m, err := parseDatasetMapFilter(mapspec, false)
+	assert.Nil(t, err)
+
+	f := m.AsFilter()
+
+	t.Logf("Mapping:\n%s\nFilter:\n%s", pretty.Sprint(m), pretty.Sprint(f))
+
+	tf := func(f zfs.DatasetFilter, path string, pass bool) {
+		p, err := zfs.NewDatasetPath(path)
+		assert.Nil(t, err)
+		r, err := f.Filter(p)
+		assert.Nil(t, err)
+		assert.Equal(t, pass, r)
+	}
+
+	tf(f, "a/b/c", true)
+	tf(f, "a/b", true)
+	tf(f, "b", false)
+	tf(f, "a/b/c/d/e", false)
+	tf(f, "a/b/c/d/e/f", false)
+	tf(f, "a", true)
+
+}
+
 func TestDatasetMapFilter_InvertedFilter(t *testing.T) {
 	mapspec := map[string]string{
 		"a/b":      "1/2",
 		"a/b/c<":   "3",
 		"a/b/c/d<": "1/2/a",
+		"a/b/d":    "!",
 	}
 
 	m, err := parseDatasetMapFilter(mapspec, false)
