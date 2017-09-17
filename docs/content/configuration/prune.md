@@ -1,7 +1,7 @@
 +++
 title = "Pruning"
 description = "Automated pruning of snapshots"
-weight = 200
+weight = 40
 +++
 
 {{% alert theme="warning" %}}Under Construction{{% /alert %}}

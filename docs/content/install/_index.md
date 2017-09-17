@@ -35,30 +35,25 @@ rehash
 zrepl help
 ```
 
+## Configuration Files
 
-
-## Configuration & Runtime Directories
-
-### Main Configuration File
-
-The main configuration file lives in either
+zrepl searches for its main configuration file in the following locations (in that order):
 
 * `/etc/zrepl/zrepl.yml`
 * `/usr/local/etc/zrepl/zrepl.yml`
 
-The file locations are check in that order. Alternative locations must be specified using a command line flag.
+Copy a config from the [tutorial](/tutorial) or the `cmd/sampleconf` directory to one of these locations and customize it to your setup.
 
-### Runtime Directories
+## Runtime Directories
 
-**Source jobs** with `serve.type = stdinserver` require a private runtime directory. ([Why?]({{< relref "configuration/transports.md#stdinserver" >}}))
-
-The default is `/var/run/zrepl/stdinserver` and it must only be accessible by the user
-that runs `zrepl daemon` and `zrepl stdinserver`:
+For default settings, the following should to the trick.
+Check out the [configuration documentation]({{< relref "configuration/misc.md#runtime-directories-unix-sockets" >}}) for more information.
 
 ```bash
 mkdir -p /var/run/zrepl/stdinserver
 chmod -R 0700 /var/run/zrepl
 ```
+
 
 ## Running the Daemon
 
@@ -69,7 +64,7 @@ There are no *rc(8)* or *systemd.service(5)* service definitions yet.
 The daemon does not fork and writes all log output to stderr.
 
 ```bash
-zrepl --config /etc/zrepl/zrepl.yml daemon
+zrepl daemon
 ```
 
 FreeBSD ships with the *daemon(8)* utility which is also a good start for writing an *rc(8)* file:
@@ -82,7 +77,7 @@ daemon -o /var/log/zrepl.log \
 
 {{% notice info %}}
 Make sure to read the first lines of log output after the daemon starts: if the daemon cannot create the [stdinserver]({{< relref "configuration/transports.md#stdinserver" >}}) sockets
-in the runtime directory, it will complain but not terminate as other tasks such as taking periodic snapshots might still work.
+in the runtime directory, it will complain but not terminate as other tasks such as taking periodic snapshots might still work and are equally important.
 {{% / notice %}}
 
 ### Restarting
