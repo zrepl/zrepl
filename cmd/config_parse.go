@@ -16,6 +16,14 @@ var ConfigFileDefaultLocations []string = []string{
 	"/usr/local/etc/zrepl/zrepl.yml",
 }
 
+const (
+	JobNameControl string = "control"
+)
+
+var ReservedJobNames []string = []string{
+	JobNameControl,
+}
+
 type ConfigParsingContext struct {
 	Global *Global
 }
@@ -73,6 +81,8 @@ func parseConfig(i interface{}) (c *Config, err error) {
 
 	// Parse global with defaults
 	c.Global.Serve.Stdinserver.SockDir = "/var/run/zrepl/stdinserver"
+	c.Global.Control.Sockpath = "/var/run/zrepl/control"
+
 	err = mapstructure.Decode(asMap.Global, &c.Global)
 	if err != nil {
 		err = errors.Wrap(err, "cannot parse global section: %s")
@@ -82,7 +92,7 @@ func parseConfig(i interface{}) (c *Config, err error) {
 	cpc := ConfigParsingContext{&c.Global}
 	jpc := JobParsingContext{cpc}
 
-	// Parse Jobs
+	// Jobs
 	c.Jobs = make(map[string]Job, len(asMap.Jobs))
 	for i := range asMap.Jobs {
 		job, err := parseJob(jpc, asMap.Jobs[i])
@@ -95,8 +105,20 @@ func parseConfig(i interface{}) (c *Config, err error) {
 			err = errors.Wrapf(err, "cannot parse job '%v'", namei)
 			return nil, err
 		}
+		jn := job.JobName()
+		if _, ok := c.Jobs[jn]; ok {
+			err = errors.Errorf("duplicate job name: %s", jn)
+			return nil, err
+		}
 		c.Jobs[job.JobName()] = job
 	}
+
+	cj, err := NewControlJob(JobNameControl, jpc.Global.Control.Sockpath)
+	if err != nil {
+		err = errors.Wrap(err, "cannot create control job")
+		return
+	}
+	c.Jobs[JobNameControl] = cj
 
 	return c, nil
 
@@ -131,10 +153,16 @@ func parseJob(c JobParsingContext, i map[string]interface{}) (j Job, err error) 
 		return
 	}
 
+	for _, r := range ReservedJobNames {
+		if name == r {
+			err = errors.Errorf("job name '%s' is reserved", name)
+			return
+		}
+	}
+
 	jobtype, err := extractStringField(i, "type", true)
 	if err != nil {
 		return
-
 	}
 
 	switch jobtype {

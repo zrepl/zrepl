@@ -27,6 +27,9 @@ type Global struct {
 			SockDir string
 		}
 	}
+	Control struct {
+		Sockpath string
+	}
 }
 
 type JobDebugSettings struct {

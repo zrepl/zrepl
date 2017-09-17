@@ -12,8 +12,6 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"net/http"
-	_ "net/http/pprof"
 )
 
 type Logger interface {
@@ -33,24 +31,9 @@ var RootCmd = &cobra.Command{
 
 var rootArgs struct {
 	configFile string
-	httpPprof  string
 }
 
 func init() {
 	//cobra.OnInitialize(initConfig)
 	RootCmd.PersistentFlags().StringVar(&rootArgs.configFile, "config", "", "config file path")
-	RootCmd.PersistentFlags().StringVar(&rootArgs.httpPprof, "debug.pprof.http", "", "run pprof http server on given port")
-}
-
-func initConfig() {
-
-	// CPU profiling
-	if rootArgs.httpPprof != "" {
-		go func() {
-			http.ListenAndServe(rootArgs.httpPprof, nil)
-		}()
-	}
-
-	return
-
 }
