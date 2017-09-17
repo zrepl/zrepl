@@ -16,8 +16,9 @@ import (
 )
 
 var testCmd = &cobra.Command{
-	Use:   "test",
-	Short: "test configuration",
+	Use:              "test",
+	Short:            "test configuration",
+	PersistentPreRun: testCmdGlobalInit,
 }
 
 var testCmdGlobal struct {
@@ -51,7 +52,6 @@ var testPrunePolicyCmd = &cobra.Command{
 }
 
 func init() {
-	cobra.OnInitialize(testCmdGlobalInit)
 	RootCmd.AddCommand(testCmd)
 	testCmd.AddCommand(testConfigSyntaxCmd)
 	testCmd.AddCommand(testDatasetMapFilter)
@@ -62,7 +62,7 @@ func init() {
 	testCmd.AddCommand(testPrunePolicyCmd)
 }
 
-func testCmdGlobalInit() {
+func testCmdGlobalInit(cmd *cobra.Command, args []string) {
 
 	testCmdGlobal.log = log.New(os.Stdout, "", 0)
 
