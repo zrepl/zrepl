@@ -14,7 +14,7 @@ type Config struct {
 }
 
 func (c *Config) LookupJob(name string) (j Job, err error) {
-	j, ok := conf.Jobs[name]
+	j, ok := c.Jobs[name]
 	if !ok {
 		return nil, errors.Errorf("job '%s' is not defined", name)
 	}
