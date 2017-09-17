@@ -35,10 +35,8 @@ func ParseConfig(ctx context.Context, path string) (config *Config, err error) {
 	if path == "" {
 		// Try default locations
 		for _, l := range ConfigFileDefaultLocations {
-			log.Printf("trying config location %s", l)
 			stat, err := os.Stat(l)
 			if err != nil {
-				log.Printf("stat error: %s", err)
 				continue
 			}
 			if !stat.Mode().IsRegular() {
