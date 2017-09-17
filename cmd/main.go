@@ -11,10 +11,7 @@
 package cmd
 
 import (
-	"fmt"
 	"github.com/spf13/cobra"
-	"golang.org/x/sys/unix"
-	"io"
 	golog "log"
 	"net/http"
 	_ "net/http/pprof"
@@ -29,7 +26,6 @@ type Logger interface {
 var (
 	conf     *Config
 	logFlags int = golog.LUTC | golog.Ldate | golog.Ltime
-	logOut   io.Writer
 	log      Logger
 )
 
@@ -46,36 +42,18 @@ var RootCmd = &cobra.Command{
 
 var rootArgs struct {
 	configFile string
-	stderrFile string
 	httpPprof  string
 }
 
 func init() {
 	cobra.OnInitialize(initConfig)
 	RootCmd.PersistentFlags().StringVar(&rootArgs.configFile, "config", "", "config file path")
-	RootCmd.PersistentFlags().StringVar(&rootArgs.stderrFile, "stderrFile", "-", "redirect stderr to given path")
 	RootCmd.PersistentFlags().StringVar(&rootArgs.httpPprof, "debug.pprof.http", "", "run pprof http server on given port")
 }
 
 func initConfig() {
 
-	// Logging & stderr redirection
-	if rootArgs.stderrFile != "-" {
-		file, err := os.OpenFile(rootArgs.stderrFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
-		if err != nil {
-			return
-		}
-
-		if err = unix.Dup2(int(file.Fd()), int(os.Stderr.Fd())); err != nil {
-			file.WriteString(fmt.Sprintf("error redirecting stderr file %s: %s\n", rootArgs.stderrFile, err))
-			return
-		}
-		logOut = file
-	} else {
-		logOut = os.Stderr
-	}
-
-	log = golog.New(logOut, "", logFlags)
+	log = golog.New(os.Stderr, "", logFlags)
 
 	// CPU profiling
 	if rootArgs.httpPprof != "" {
