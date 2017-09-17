@@ -22,5 +22,14 @@ func ListenUnixPrivate(sockaddr *net.UnixAddr) (*net.UnixListener, error) {
 		return nil, errors.Errorf("%s must not be world-accessible (permissions are %#o)", p)
 	}
 
+	// Maybe things have not been cleaned up before
+	s, err := os.Stat(sockaddr.Name)
+	if err == nil {
+		if s.Mode()&os.ModeSocket != 0 {
+			// opportunistically try to remove it, but if this fails, it is not an error
+			os.Remove(sockaddr.Name)
+		}
+	}
+
 	return net.ListenUnix("unix", sockaddr)
 }
