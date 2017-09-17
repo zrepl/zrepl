@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 
+	"context"
 	"github.com/ftrvxmtrx/fd"
 	"github.com/spf13/cobra"
 	"io"
+	"log"
 	"net"
 )
 
@@ -22,21 +24,27 @@ func init() {
 
 func cmdStdinServer(cmd *cobra.Command, args []string) {
 
-	var err error
-	defer func() {
-		if err != nil {
-			log.Printf("stdinserver exiting with error: %s", err)
-			os.Exit(1)
-		}
-	}()
+	log := log.New(os.Stderr, "", log.LUTC|log.Ldate|log.Ltime)
+
+	die := func() {
+		log.Printf("stdinserver exiting after fatal error")
+		os.Exit(1)
+	}
+
+	ctx := context.WithValue(context.Background(), contextKeyLog, log)
+	conf, err := ParseConfig(ctx, rootArgs.configFile)
+	if err != nil {
+		log.Printf("error parsing config: %s", err)
+		die()
+	}
 
 	if len(args) != 1 || args[0] == "" {
 		err = fmt.Errorf("must specify client_identity as positional argument")
-		return
+		die()
 	}
 	identity := args[0]
 
-	unixaddr, err := stdinserverListenerSockpath(identity)
+	unixaddr, err := stdinserverListenerSocket(conf.Global.Serve.Stdinserver.SockDir, identity)
 	if err != nil {
 		log.Printf("%s", err)
 		os.Exit(1)
@@ -46,14 +54,14 @@ func cmdStdinServer(cmd *cobra.Command, args []string) {
 	conn, err := net.DialUnix("unix", nil, unixaddr)
 	if err != nil {
 		log.Printf("error connecting to zrepld: %s", err)
-		os.Exit(1)
+		die()
 	}
 
 	log.Printf("sending stdin and stdout fds to zrepld")
 	err = fd.Put(conn, os.Stdin, os.Stdout)
 	if err != nil {
 		log.Printf("error: %s", err)
-		os.Exit(1)
+		die()
 	}
 
 	log.Printf("waiting for zrepld to close control connection")
@@ -73,11 +81,11 @@ func cmdStdinServer(cmd *cobra.Command, args []string) {
 		neterr, ok := err.(net.Error)
 		if !ok {
 			log.Printf("received unexpected error type: %T %s", err, err)
-			os.Exit(1)
+			die()
 		}
 		if !neterr.Timeout() {
 			log.Printf("receivd unexpected net.Error (not a timeout): %s", neterr)
-			os.Exit(1)
+			die()
 		}
 		// Read timed out, as expected
 	}

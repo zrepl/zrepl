@@ -23,7 +23,7 @@ type PullJob struct {
 	Debug             JobDebugSettings
 }
 
-func parsePullJob(name string, i map[string]interface{}) (j *PullJob, err error) {
+func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j *PullJob, err error) {
 
 	var asMap struct {
 		Connect           map[string]interface{}

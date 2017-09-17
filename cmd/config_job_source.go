@@ -20,7 +20,7 @@ type SourceJob struct {
 	Debug          JobDebugSettings
 }
 
-func parseSourceJob(name string, i map[string]interface{}) (j *SourceJob, err error) {
+func parseSourceJob(c JobParsingContext, name string, i map[string]interface{}) (j *SourceJob, err error) {
 
 	var asMap struct {
 		Serve          map[string]interface{}
@@ -38,7 +38,7 @@ func parseSourceJob(name string, i map[string]interface{}) (j *SourceJob, err er
 
 	j = &SourceJob{Name: name}
 
-	if j.Serve, err = parseAuthenticatedChannelListenerFactory(asMap.Serve); err != nil {
+	if j.Serve, err = parseAuthenticatedChannelListenerFactory(c, asMap.Serve); err != nil {
 		return
 	}
 

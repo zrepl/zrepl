@@ -23,7 +23,7 @@ type LocalJob struct {
 	Debug             JobDebugSettings
 }
 
-func parseLocalJob(name string, i map[string]interface{}) (j *LocalJob, err error) {
+func parseLocalJob(c JobParsingContext, name string, i map[string]interface{}) (j *LocalJob, err error) {
 
 	var asMap struct {
 		Mapping           map[string]string

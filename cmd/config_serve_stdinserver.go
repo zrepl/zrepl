@@ -13,9 +13,10 @@ import (
 
 type StdinserverListenerFactory struct {
 	ClientIdentity string `mapstructure:"client_identity"`
+	sockaddr       *net.UnixAddr
 }
 
-func parseStdinserverListenerFactory(i map[string]interface{}) (f *StdinserverListenerFactory, err error) {
+func parseStdinserverListenerFactory(c JobParsingContext, i map[string]interface{}) (f *StdinserverListenerFactory, err error) {
 
 	f = &StdinserverListenerFactory{}
 
@@ -26,11 +27,17 @@ func parseStdinserverListenerFactory(i map[string]interface{}) (f *StdinserverLi
 		err = errors.Errorf("must specify 'client_identity'")
 		return
 	}
+
+	f.sockaddr, err = stdinserverListenerSocket(c.Global.Serve.Stdinserver.SockDir, f.ClientIdentity)
+	if err != nil {
+		return
+	}
+
 	return
 }
 
-func stdinserverListenerSockpath(clientIdentity string) (addr *net.UnixAddr, err error) {
-	sockpath := path.Join(conf.Global.Serve.Stdinserver.SockDir, clientIdentity)
+func stdinserverListenerSocket(sockdir, clientIdentity string) (addr *net.UnixAddr, err error) {
+	sockpath := path.Join(sockdir, clientIdentity)
 	addr, err = net.ResolveUnixAddr("unix", sockpath)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot resolve unix address")
@@ -40,9 +47,7 @@ func stdinserverListenerSockpath(clientIdentity string) (addr *net.UnixAddr, err
 
 func (f *StdinserverListenerFactory) Listen() (al AuthenticatedChannelListener, err error) {
 
-	unixaddr, err := stdinserverListenerSockpath(f.ClientIdentity)
-
-	sockdir := filepath.Dir(unixaddr.Name)
+	sockdir := filepath.Dir(f.sockaddr.Name)
 	sdstat, err := os.Stat(sockdir)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot stat(2) sockdir '%s'", sockdir)
@@ -55,9 +60,9 @@ func (f *StdinserverListenerFactory) Listen() (al AuthenticatedChannelListener, 
 		return nil, errors.Errorf("sockdir must not be world-accessible (permissions are %#o)", p)
 	}
 
-	ul, err := net.ListenUnix("unix", unixaddr) // TODO
+	ul, err := net.ListenUnix("unix", f.sockaddr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot listen on unix socket %s", unixaddr)
+		return nil, errors.Wrapf(err, "cannot listen on unix socket %s", f.sockaddr)
 	}
 
 	l := &StdinserverListener{ul}

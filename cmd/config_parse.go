@@ -3,13 +3,44 @@ package cmd
 import (
 	"io/ioutil"
 
+	"context"
 	"fmt"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	yaml "gopkg.in/yaml.v2"
+	"os"
 )
 
-func ParseConfig(path string) (config *Config, err error) {
+var ConfigFileDefaultLocations []string = []string{
+	"/etc/zrepl/zrepl.yml",
+	"/usr/local/etc/zrepl/zrepl.yml",
+}
+
+type ConfigParsingContext struct {
+	Global *Global
+}
+
+func ParseConfig(ctx context.Context, path string) (config *Config, err error) {
+
+	log := ctx.Value(contextKeyLog).(Logger)
+
+	if path == "" {
+		// Try default locations
+		for _, l := range ConfigFileDefaultLocations {
+			log.Printf("trying config location %s", l)
+			stat, err := os.Stat(l)
+			if err != nil {
+				log.Printf("stat error: %s", err)
+				continue
+			}
+			if !stat.Mode().IsRegular() {
+				log.Printf("warning: file at default location is not a regular file: %s", l)
+				continue
+			}
+			path = l
+			break
+		}
+	}
 
 	var i interface{}
 
@@ -48,10 +79,13 @@ func parseConfig(i interface{}) (c *Config, err error) {
 		return
 	}
 
+	cpc := ConfigParsingContext{&c.Global}
+	jpc := JobParsingContext{cpc}
+
 	// Parse Jobs
 	c.Jobs = make(map[string]Job, len(asMap.Jobs))
 	for i := range asMap.Jobs {
-		job, err := parseJob(asMap.Jobs[i])
+		job, err := parseJob(jpc, asMap.Jobs[i])
 		if err != nil {
 			// Try to find its name
 			namei, ok := asMap.Jobs[i]["name"]
@@ -86,7 +120,11 @@ func extractStringField(i map[string]interface{}, key string, notempty bool) (fi
 	return
 }
 
-func parseJob(i map[string]interface{}) (j Job, err error) {
+type JobParsingContext struct {
+	ConfigParsingContext
+}
+
+func parseJob(c JobParsingContext, i map[string]interface{}) (j Job, err error) {
 
 	name, err := extractStringField(i, "name", true)
 	if err != nil {
@@ -101,11 +139,11 @@ func parseJob(i map[string]interface{}) (j Job, err error) {
 
 	switch jobtype {
 	case "pull":
-		return parsePullJob(name, i)
+		return parsePullJob(c, name, i)
 	case "source":
-		return parseSourceJob(name, i)
+		return parseSourceJob(c, name, i)
 	case "local":
-		return parseLocalJob(name, i)
+		return parseLocalJob(c, name, i)
 	default:
 		return nil, errors.Errorf("unknown job type '%s'", jobtype)
 	}
@@ -179,7 +217,7 @@ func parsePrunePolicy(v map[string]interface{}) (p PrunePolicy, err error) {
 
 }
 
-func parseAuthenticatedChannelListenerFactory(v map[string]interface{}) (p AuthenticatedChannelListenerFactory, err error) {
+func parseAuthenticatedChannelListenerFactory(c JobParsingContext, v map[string]interface{}) (p AuthenticatedChannelListenerFactory, err error) {
 
 	t, err := extractStringField(v, "type", true)
 	if err != nil {
@@ -188,7 +226,7 @@ func parseAuthenticatedChannelListenerFactory(v map[string]interface{}) (p Authe
 
 	switch t {
 	case "stdinserver":
-		return parseStdinserverListenerFactory(v)
+		return parseStdinserverListenerFactory(c, v)
 	default:
 		err = errors.Errorf("unknown type '%s'", t)
 		return

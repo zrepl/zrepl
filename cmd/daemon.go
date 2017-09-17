@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/spf13/cobra"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -35,8 +36,21 @@ type Job interface {
 }
 
 func doDaemon(cmd *cobra.Command, args []string) {
-	d := Daemon{}
-	d.Loop()
+
+	log := log.New(os.Stderr, "", log.LUTC|log.Ldate|log.Ltime)
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, contextKeyLog, log)
+
+	conf, err := ParseConfig(ctx, rootArgs.configFile)
+	if err != nil {
+		log.Printf("error parsing config: %s", err)
+		os.Exit(1)
+	}
+
+	d := NewDaemon(conf)
+	d.Loop(ctx)
+
 }
 
 type contextKey string
@@ -46,33 +60,37 @@ const (
 )
 
 type Daemon struct {
-	log Logger
+	conf *Config
 }
 
-func (d *Daemon) Loop() {
+func NewDaemon(initialConf *Config) *Daemon {
+	return &Daemon{initialConf}
+}
 
+func (d *Daemon) Loop(ctx context.Context) {
+
+	log := ctx.Value(contextKeyLog).(Logger)
+
+	ctx, cancel := context.WithCancel(ctx)
+
+	sigChan := make(chan os.Signal, 1)
 	finishs := make(chan Job)
-	cancels := make([]context.CancelFunc, len(conf.Jobs))
+
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	log.Printf("starting jobs from config")
 	i := 0
-	for _, job := range conf.Jobs {
+	for _, job := range d.conf.Jobs {
 		log.Printf("starting job %s", job.JobName())
 
 		logger := jobLogger{log, job.JobName()}
-		ctx := context.Background()
-		ctx, cancels[i] = context.WithCancel(ctx)
 		i++
-		ctx = context.WithValue(ctx, contextKeyLog, logger)
-
+		jobCtx := context.WithValue(ctx, contextKeyLog, logger)
 		go func(j Job) {
-			j.JobStart(ctx)
+			j.JobStart(jobCtx)
 			finishs <- j
 		}(job)
 	}
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	finishCount := 0
 outer:
@@ -81,7 +99,7 @@ outer:
 		case j := <-finishs:
 			log.Printf("job finished: %s", j.JobName())
 			finishCount++
-			if finishCount == len(conf.Jobs) {
+			if finishCount == len(d.conf.Jobs) {
 				log.Printf("all jobs finished")
 				break outer
 			}
@@ -89,10 +107,7 @@ outer:
 		case sig := <-sigChan:
 			log.Printf("received signal: %s", sig)
 			log.Printf("cancelling all jobs")
-			for _, c := range cancels {
-				log.Printf("cancelling job")
-				c()
-			}
+			cancel()
 		}
 	}
 

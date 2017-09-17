@@ -12,11 +12,17 @@ import (
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
 	"github.com/zrepl/zrepl/zfs"
+	"log"
 )
 
 var testCmd = &cobra.Command{
 	Use:   "test",
 	Short: "test configuration",
+}
+
+var testCmdGlobal struct {
+	log  Logger
+	conf *Config
 }
 
 var testConfigSyntaxCmd = &cobra.Command{
@@ -45,6 +51,7 @@ var testPrunePolicyCmd = &cobra.Command{
 }
 
 func init() {
+	cobra.OnInitialize(testCmdGlobalInit)
 	RootCmd.AddCommand(testCmd)
 	testCmd.AddCommand(testConfigSyntaxCmd)
 	testCmd.AddCommand(testDatasetMapFilter)
@@ -55,15 +62,33 @@ func init() {
 	testCmd.AddCommand(testPrunePolicyCmd)
 }
 
+func testCmdGlobalInit() {
+
+	testCmdGlobal.log = log.New(os.Stdout, "", 0)
+
+	ctx := context.WithValue(context.Background(), contextKeyLog, testCmdGlobal.log)
+
+	var err error
+	if testCmdGlobal.conf, err = ParseConfig(ctx, rootArgs.configFile); err != nil {
+		testCmdGlobal.log.Printf("error parsing config file: %s", err)
+		os.Exit(1)
+	}
+
+}
+
 func doTestConfig(cmd *cobra.Command, args []string) {
+
+	log, conf := testCmdGlobal.log, testCmdGlobal.conf
+
 	log.Printf("config ok")
-
 	log.Printf("%# v", pretty.Formatter(conf))
-
 	return
 }
 
 func doTestDatasetMapFilter(cmd *cobra.Command, args []string) {
+
+	log, conf := testCmdGlobal.log, testCmdGlobal.conf
+
 	if len(args) != 2 {
 		log.Printf("specify job name as first postitional argument, test input as second")
 		log.Printf(cmd.UsageString())
@@ -119,6 +144,8 @@ func doTestDatasetMapFilter(cmd *cobra.Command, args []string) {
 }
 
 func doTestPrunePolicy(cmd *cobra.Command, args []string) {
+
+	log, conf := testCmdGlobal.log, testCmdGlobal.conf
 
 	if cmd.Flags().NArg() != 1 {
 		log.Printf("specify job name as first positional argument")

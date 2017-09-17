@@ -12,22 +12,13 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	golog "log"
 	"net/http"
 	_ "net/http/pprof"
-	"os"
 )
 
 type Logger interface {
 	Printf(format string, v ...interface{})
 }
-
-// global state / facilities
-var (
-	conf     *Config
-	logFlags int = golog.LUTC | golog.Ldate | golog.Ltime
-	log      Logger
-)
 
 var RootCmd = &cobra.Command{
 	Use:   "zrepl",
@@ -46,31 +37,18 @@ var rootArgs struct {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
+	//cobra.OnInitialize(initConfig)
 	RootCmd.PersistentFlags().StringVar(&rootArgs.configFile, "config", "", "config file path")
 	RootCmd.PersistentFlags().StringVar(&rootArgs.httpPprof, "debug.pprof.http", "", "run pprof http server on given port")
 }
 
 func initConfig() {
 
-	log = golog.New(os.Stderr, "", logFlags)
-
 	// CPU profiling
 	if rootArgs.httpPprof != "" {
 		go func() {
 			http.ListenAndServe(rootArgs.httpPprof, nil)
 		}()
-	}
-
-	// Config
-	if rootArgs.configFile == "" {
-		log.Printf("config file not set")
-		os.Exit(1)
-	}
-	var err error
-	if conf, err = ParseConfig(rootArgs.configFile); err != nil {
-		log.Printf("error parsing config: %s", err)
-		os.Exit(1)
 	}
 
 	return
