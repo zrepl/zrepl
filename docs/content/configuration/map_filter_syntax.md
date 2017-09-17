@@ -1,60 +1,10 @@
 +++
-title = "Overview"
-weight = 100
-description = "Configuration format, SSH authentication, etc."
+title = "Mapping & Filter Syntax"
+weight = 20
+description = "How to specify mappings & filters"
 +++
 
-{{% panel header="Recommendation" %}}
-Keep the [sample configuration file](https://github.com/zrepl/zrepl/blob/master/cmd/sampleconf/zrepl.yml) open on the side while reading this document!
-{{% / panel %}}
-
-All configuration is managed in a single YAML file.<br />
-It is structured by sections roughly corresponding to `zrepl` subcommands:
-
-```yaml
-# REPLICATION
-# Remote zrepl instances where pull and push jobs connect to
-remotes: 
-  name_of_remote: #...
-# Push jobs (replication from local to remote)
-pushs: 
-  name_of_push_job: #...
-  name_of_other_push_job: #...
-# pull jobs (replication from remote to local & local to local)
-pulls: 
-  name_of_pull_job: #...
-# mapping incoming pushs to local datasets
-sinks: 
-  client_identity: #...
-# access control for remote pull jobs
-pull_acls: 
-  client_identity: #...
-
-# SNAPSHOT MANAGEMENT
-# Automatic snapshotting of filesystems
-autosnap:
-  name_of_autosnap_job: #... 
-# Automatic pruning of snapshots based on creation date
-prune:
-  name_of_prune_job: #... 
-```
-
-When using `zrepl(8)`, a *subcommand* is passed the *job name* as a positional argument:
-
-```yaml
-autosnap: # subcommand
-  db: # job name
-    prefix: zrepl_ 
-    interval: 10m
-    dataset_filter: {
-      "tank/db<": ok
-    }
-```
-```bash
-$ zrepl autosnap --config zrepl.yml db
-```
-
-Run `zrepl --help` for a list of subcommands and options.
+{{% alert theme="warning" %}}Under Construction{{% /alert %}}
 
 ## Mapping & Filter Syntax
 
@@ -140,10 +90,3 @@ pull_acls:
       "tank/usr/home<": ok,
     }
 ```
-
-## Next up
-
-* [Automating snapshot creation & pruning]({{< ref "configuration/snapshots.md" >}})
-
-* [Replicating filesystems]({{< ref "configuration/replication.md" >}})
-
