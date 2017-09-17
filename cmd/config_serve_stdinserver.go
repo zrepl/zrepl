@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"path/filepath"
 )
 
 type StdinserverListenerFactory struct {
@@ -47,20 +46,7 @@ func stdinserverListenerSocket(sockdir, clientIdentity string) (addr *net.UnixAd
 
 func (f *StdinserverListenerFactory) Listen() (al AuthenticatedChannelListener, err error) {
 
-	sockdir := filepath.Dir(f.sockaddr.Name)
-	sdstat, err := os.Stat(sockdir)
-	if err != nil {
-		return nil, errors.Wrapf(err, "cannot stat(2) sockdir '%s'", sockdir)
-	}
-	if !sdstat.IsDir() {
-		return nil, errors.Errorf("sockdir is not a directory: %s", sockdir)
-	}
-	p := sdstat.Mode().Perm()
-	if p&0007 != 0 {
-		return nil, errors.Errorf("sockdir must not be world-accessible (permissions are %#o)", p)
-	}
-
-	ul, err := net.ListenUnix("unix", f.sockaddr)
+	ul, err := ListenUnixPrivate(f.sockaddr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot listen on unix socket %s", f.sockaddr)
 	}
