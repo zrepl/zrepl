@@ -7,7 +7,6 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/rpc"
-	"github.com/zrepl/zrepl/util"
 	"github.com/zrepl/zrepl/zfs"
 	"sync"
 )
@@ -91,7 +90,7 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 	// All local datasets will be passed to its Map() function,
 	// but only those for which a mapping exists will actually be pulled.
 	// We can pay this small performance penalty for now.
-	handler := NewHandler(log, localPullACL{}, &PrefixSnapshotFilter{j.SnapshotPrefix})
+	handler := NewHandler(log.WithField("task", "handler"), localPullACL{}, &PrefixSnapshotFilter{j.SnapshotPrefix})
 
 	registerEndpoints(local, handler)
 
@@ -112,8 +111,8 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 		return
 	}
 
-	makeCtx := func(parent context.Context, logPrefix string) (ctx context.Context) {
-		return context.WithValue(parent, contextKeyLog, util.NewPrefixLogger(log, logPrefix))
+	makeCtx := func(parent context.Context, taskName string) (ctx context.Context) {
+		return context.WithValue(parent, contextKeyLog, log.WithField("task", taskName))
 	}
 	var snapCtx, plCtx, prCtx, pullCtx context.Context
 	snapCtx = makeCtx(ctx, "autosnap")

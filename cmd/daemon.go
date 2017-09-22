@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/spf13/cobra"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,15 +20,6 @@ func init() {
 	RootCmd.AddCommand(daemonCmd)
 }
 
-type jobLogger struct {
-	MainLog Logger
-	JobName string
-}
-
-func (l jobLogger) Printf(format string, v ...interface{}) {
-	l.MainLog.Printf(fmt.Sprintf("[%s]: %s", l.JobName, format), v...)
-}
-
 type Job interface {
 	JobName() string
 	JobStart(ctxt context.Context)
@@ -37,15 +27,15 @@ type Job interface {
 
 func doDaemon(cmd *cobra.Command, args []string) {
 
-	log := log.New(os.Stderr, "", log.LUTC|log.Ldate|log.Ltime)
-
 	conf, err := ParseConfig(rootArgs.configFile)
 	if err != nil {
-		log.Printf("error parsing config: %s", err)
+		fmt.Fprintf(os.Stderr, "error parsing config: %s", err)
 		os.Exit(1)
 	}
 
-	ctx := context.Background()
+	log := conf.Global.logging.MakeLogrus()
+	log.Debug("starting daemon")
+	ctx := context.WithValue(context.Background(), contextKeyLog, log)
 	ctx = context.WithValue(ctx, contextKeyLog, log)
 
 	d := NewDaemon(conf)
@@ -83,7 +73,7 @@ func (d *Daemon) Loop(ctx context.Context) {
 	for _, job := range d.conf.Jobs {
 		log.Printf("starting job %s", job.JobName())
 
-		logger := jobLogger{log, job.JobName()}
+		logger := log.WithField("job", job.JobName())
 		i++
 		jobCtx := context.WithValue(ctx, contextKeyLog, logger)
 		go func(j Job) {

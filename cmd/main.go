@@ -11,12 +11,16 @@
 package cmd
 
 import (
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-type Logger interface {
-	Printf(format string, v ...interface{})
-}
+//
+//type Logger interface {
+//	Printf(format string, v ...interface{})
+//}
+
+type Logger logrus.FieldLogger
 
 var RootCmd = &cobra.Command{
 	Use:   "zrepl",

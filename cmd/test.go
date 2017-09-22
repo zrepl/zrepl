@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/kr/pretty"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/zrepl/zrepl/zfs"
-	"log"
 )
 
 var testCmd = &cobra.Command{
@@ -64,7 +64,9 @@ func init() {
 
 func testCmdGlobalInit(cmd *cobra.Command, args []string) {
 
-	testCmdGlobal.log = log.New(os.Stdout, "", 0)
+	log := logrus.New()
+	log.Formatter = CLIFormatter{}
+	testCmdGlobal.log = log
 
 	var err error
 	if testCmdGlobal.conf, err = ParseConfig(rootArgs.configFile); err != nil {

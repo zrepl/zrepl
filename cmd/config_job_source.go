@@ -84,9 +84,9 @@ func (j *SourceJob) JobStart(ctx context.Context) {
 		return
 	}
 
-	snapContext := context.WithValue(ctx, contextKeyLog, util.NewPrefixLogger(log, "autosnap"))
-	prunerContext := context.WithValue(ctx, contextKeyLog, util.NewPrefixLogger(log, "prune"))
-	serveContext := context.WithValue(ctx, contextKeyLog, util.NewPrefixLogger(log, "serve"))
+	snapContext := context.WithValue(ctx, contextKeyLog, log.WithField("task", "autosnap"))
+	prunerContext := context.WithValue(ctx, contextKeyLog, log.WithField("task", "prune"))
+	serveContext := context.WithValue(ctx, contextKeyLog, log.WithField("task", "serve"))
 	didSnaps := make(chan struct{})
 
 	go j.serve(serveContext)
@@ -163,7 +163,7 @@ outer:
 			// handle connection
 			rpcServer := rpc.NewServer(rwc)
 			if j.Debug.RPC.Log {
-				rpclog := util.NewPrefixLogger(log, "rpc")
+				rpclog := log.WithField("subsystem", "rpc")
 				rpcServer.SetLogger(rpclog, true)
 			}
 			registerEndpoints(rpcServer, handler)

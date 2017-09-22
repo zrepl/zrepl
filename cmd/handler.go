@@ -64,38 +64,42 @@ func registerEndpoints(server rpc.RPCServer, handler Handler) (err error) {
 
 func (h Handler) HandleFilesystemRequest(r *FilesystemRequest, roots *[]*zfs.DatasetPath) (err error) {
 
-	h.logger.Printf("handling fsr: %#v", r)
+	log := h.logger.WithField("endpoint", "FilesystemRequest")
 
-	h.logger.Printf("using dsf: %#v", h.dsf)
+	log.WithField("request", r).Debug("request")
+	log.WithField("dataset_filter", h.dsf).Debug("dsf")
 
 	allowed, err := zfs.ZFSListMapping(h.dsf)
 	if err != nil {
-		h.logger.Printf("handle fsr err: %v\n", err)
+		log.WithError(err).Error("error listing filesystems")
 		return
 	}
 
-	h.logger.Printf("returning: %#v", allowed)
+	log.WithField("response", allowed).Debug("response")
 	*roots = allowed
 	return
 }
 
 func (h Handler) HandleFilesystemVersionsRequest(r *FilesystemVersionsRequest, versions *[]zfs.FilesystemVersion) (err error) {
 
-	h.logger.Printf("handling filesystem versions request: %#v", r)
+	log := h.logger.WithField("endpoint", "FilesystemVersionsRequest")
+
+	log.WithField("request", r).Debug("request")
 
 	// allowed to request that?
 	if h.pullACLCheck(r.Filesystem, nil); err != nil {
+		log.WithError(err).Warn("pull ACL check failed")
 		return
 	}
 
 	// find our versions
 	vs, err := zfs.ZFSListFilesystemVersions(r.Filesystem, h.fsvf)
 	if err != nil {
-		h.logger.Printf("our versions error: %#v\n", err)
+		log.WithError(err).Error("cannot list filesystem versions")
 		return
 	}
 
-	h.logger.Printf("our versions: %#v\n", vs)
+	log.WithField("resposne", vs).Debug("response")
 
 	*versions = vs
 	return
@@ -104,16 +108,19 @@ func (h Handler) HandleFilesystemVersionsRequest(r *FilesystemVersionsRequest, v
 
 func (h Handler) HandleInitialTransferRequest(r *InitialTransferRequest, stream *io.Reader) (err error) {
 
-	h.logger.Printf("handling initial transfer request: %#v", r)
+	log := h.logger.WithField("endpoint", "InitialTransferRequest")
+
+	log.WithField("request", r).Debug("request")
 	if err = h.pullACLCheck(r.Filesystem, &r.FilesystemVersion); err != nil {
+		log.WithError(err).Warn("pull ACL check failed")
 		return
 	}
 
-	h.logger.Printf("invoking zfs send")
+	log.Debug("invoking zfs send")
 
 	s, err := zfs.ZFSSend(r.Filesystem, &r.FilesystemVersion, nil)
 	if err != nil {
-		h.logger.Printf("error sending filesystem: %#v", err)
+		log.WithError(err).Error("cannot send filesystem")
 	}
 	*stream = s
 
@@ -123,19 +130,22 @@ func (h Handler) HandleInitialTransferRequest(r *InitialTransferRequest, stream 
 
 func (h Handler) HandleIncrementalTransferRequest(r *IncrementalTransferRequest, stream *io.Reader) (err error) {
 
-	h.logger.Printf("handling incremental transfer request: %#v", r)
+	log := h.logger.WithField("endpoint", "IncrementalTransferRequest")
+	log.WithField("request", r).Debug("request")
 	if err = h.pullACLCheck(r.Filesystem, &r.From); err != nil {
+		log.WithError(err).Warn("pull ACL check failed")
 		return
 	}
 	if err = h.pullACLCheck(r.Filesystem, &r.To); err != nil {
+		log.WithError(err).Warn("pull ACL check failed")
 		return
 	}
 
-	h.logger.Printf("invoking zfs send")
+	log.Debug("invoking zfs send")
 
 	s, err := zfs.ZFSSend(r.Filesystem, &r.From, &r.To)
 	if err != nil {
-		h.logger.Printf("error sending filesystem: %#v", err)
+		log.WithError(err).Error("cannot send filesystem")
 	}
 
 	*stream = s
@@ -148,12 +158,10 @@ func (h Handler) pullACLCheck(p *zfs.DatasetPath, v *zfs.FilesystemVersion) (err
 	fsAllowed, err = h.dsf.Filter(p)
 	if err != nil {
 		err = fmt.Errorf("error evaluating ACL: %s", err)
-		h.logger.Printf(err.Error())
 		return
 	}
 	if !fsAllowed {
 		err = fmt.Errorf("ACL prohibits access to %s", p.ToString())
-		h.logger.Printf(err.Error())
 		return
 	}
 	if v == nil {
@@ -163,12 +171,10 @@ func (h Handler) pullACLCheck(p *zfs.DatasetPath, v *zfs.FilesystemVersion) (err
 	vAllowed, err = h.fsvf.Filter(*v)
 	if err != nil {
 		err = errors.Wrap(err, "error evaluating version filter")
-		h.logger.Printf(err.Error())
 		return
 	}
 	if !vAllowed {
 		err = fmt.Errorf("ACL prohibits access to %s", v.ToAbsPath(p))
-		h.logger.Printf(err.Error())
 		return
 	}
 	return

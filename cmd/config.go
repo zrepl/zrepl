@@ -30,6 +30,7 @@ type Global struct {
 	Control struct {
 		Sockpath string
 	}
+	logging *LoggingConfig
 }
 
 type JobDebugSettings struct {

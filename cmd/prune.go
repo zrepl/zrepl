@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/zrepl/zrepl/util"
 	"github.com/zrepl/zrepl/zfs"
 	"time"
 )
@@ -29,16 +28,16 @@ func (p *Pruner) Run(ctx context.Context) (r []PruneResult, err error) {
 	log := ctx.Value(contextKeyLog).(Logger)
 
 	if p.DryRun {
-		log.Printf("doing dry run")
+		log.Info("doing dry run")
 	}
 
 	filesystems, err := zfs.ZFSListMapping(p.DatasetFilter)
 	if err != nil {
-		log.Printf("error applying filesystem filter: %s", err)
+		log.WithError(err).Error("error applying filesystem filter")
 		return nil, err
 	}
 	if len(filesystems) <= 0 {
-		log.Printf("no filesystems matching filter")
+		log.Info("no filesystems matching filter")
 		return nil, err
 	}
 
@@ -46,27 +45,27 @@ func (p *Pruner) Run(ctx context.Context) (r []PruneResult, err error) {
 
 	for _, fs := range filesystems {
 
+		log := log.WithField("filesystem", fs.ToString())
+
 		fsversions, err := zfs.ZFSListFilesystemVersions(fs, &PrefixSnapshotFilter{p.SnapshotPrefix})
 		if err != nil {
-			log.Printf("error listing filesytem versions of %s: %s", fs, err)
+			log.WithError(err).Error("error listing filesytem versions")
 			continue
 		}
 		if len(fsversions) == 0 {
-			log.Printf("no filesystem versions matching prefix '%s'", p.SnapshotPrefix)
+			log.WithField("prefix", p.SnapshotPrefix).Info("no filesystem versions matching prefix")
 			continue
 		}
-
-		l := util.NewPrefixLogger(log, fs.ToString())
 
 		dbgj, err := json.Marshal(fsversions)
 		if err != nil {
 			panic(err)
 		}
-		l.Printf("DEBUG: FSVERSIONS=%s", dbgj)
+		log.WithField("fsversions", string(dbgj)).Debug()
 
 		keep, remove, err := p.PrunePolicy.Prune(fs, fsversions)
 		if err != nil {
-			l.Printf("error evaluating prune policy: %s", err)
+			log.WithError(err).Error("error evaluating prune policy")
 			continue
 		}
 
@@ -74,23 +73,28 @@ func (p *Pruner) Run(ctx context.Context) (r []PruneResult, err error) {
 		if err != nil {
 			panic(err)
 		}
-		l.Printf("DEBUG: KEEP=%s", dbgj)
+		log.WithField("keep", string(dbgj)).Debug()
 
 		dbgj, err = json.Marshal(remove)
-		l.Printf("DEBUG: REMOVE=%s", dbgj)
+		log.WithField("remove", string(dbgj)).Debug()
 
 		r = append(r, PruneResult{fs, fsversions, keep, remove})
 
-		describe := func(v zfs.FilesystemVersion) string {
+		makeFields := func(v zfs.FilesystemVersion) (fields map[string]interface{}) {
+			fields = make(map[string]interface{})
+			fields["version"] = v.ToAbsPath(fs)
 			timeSince := v.Creation.Sub(p.Now)
+			fields["age_ns"] = timeSince
 			const day time.Duration = 24 * time.Hour
 			days := timeSince / day
 			remainder := timeSince % day
-			return fmt.Sprintf("%s@%dd%s from now", v.ToAbsPath(fs), days, remainder)
+			fields["age_str"] = fmt.Sprintf("%dd%s", days, remainder)
+			return
 		}
 
 		for _, v := range remove {
-			l.Printf("remove %s", describe(v))
+			fields := makeFields(v)
+			log.WithFields(fields).Info("destroying version")
 			// echo what we'll do and exec zfs destroy if not dry run
 			// TODO special handling for EBUSY (zfs hold)
 			// TODO error handling for clones? just echo to cli, skip over, and exit with non-zero status code (we're idempotent)
@@ -98,7 +102,7 @@ func (p *Pruner) Run(ctx context.Context) (r []PruneResult, err error) {
 				err := zfs.ZFSDestroyFilesystemVersion(fs, v)
 				if err != nil {
 					// handle
-					l.Printf("error: %s", err)
+					log.WithFields(fields).WithError(err).Error("error destroying version")
 				}
 			}
 		}

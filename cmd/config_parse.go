@@ -80,8 +80,12 @@ func parseConfig(i interface{}) (c *Config, err error) {
 
 	err = mapstructure.Decode(asMap.Global, &c.Global)
 	if err != nil {
-		err = errors.Wrap(err, "cannot parse global section: %s")
+		err = errors.Wrap(err, "mapstructure error on 'global' section: %s")
 		return
+	}
+
+	if c.Global.logging, err = parseLogging(asMap.Global["logging"]); err != nil {
+		return nil, errors.Wrap(err, "cannot parse logging section")
 	}
 
 	cpc := ConfigParsingContext{&c.Global}

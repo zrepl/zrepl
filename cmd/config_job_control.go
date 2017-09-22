@@ -2,9 +2,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/util"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -61,12 +59,12 @@ outer:
 
 		select {
 		case <-ctx.Done():
-			log.Printf("context: %s", ctx.Err())
+			log.WithError(err).Info("contex done")
 			server.Shutdown(context.Background())
 			break outer
 		case err = <-served:
 			if err != nil {
-				log.Printf("error serving: %s", err)
+				log.WithError(err).Error("error serving")
 				break outer
 			}
 		}
@@ -81,7 +79,7 @@ type requestLogger struct {
 }
 
 func (l requestLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log := util.NewPrefixLogger(l.log, fmt.Sprintf("%s %s", r.Method, r.URL))
+	log := l.log.WithField("method", r.Method).WithField("url", r.URL)
 	log.Printf("start")
 	l.handlerFunc(w, r)
 	log.Printf("finish")

@@ -119,7 +119,7 @@ start:
 
 	log.Printf("starting pull")
 
-	pullLog := util.NewPrefixLogger(log, "pull")
+	pullLog := log.WithField("task", "pull")
 	err = doPull(PullContext{client, pullLog, j.Mapping, j.InitialReplPolicy})
 	if err != nil {
 		log.Printf("error doing pull: %s", err)
@@ -128,7 +128,7 @@ start:
 	closeRPCWithTimeout(log, client, time.Second*10, "")
 
 	log.Printf("starting prune")
-	prunectx := context.WithValue(ctx, contextKeyLog, util.NewPrefixLogger(log, "prune"))
+	prunectx := context.WithValue(ctx, contextKeyLog, log.WithField("task", "prune"))
 	pruner, err := j.Pruner(PrunePolicySideDefault, false)
 	if err != nil {
 		log.Printf("error creating pruner: %s", err)

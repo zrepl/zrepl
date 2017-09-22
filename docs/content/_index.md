@@ -4,10 +4,8 @@ title = "zrepl - ZFS replication"
 
 # zrepl - ZFS replication
 
-zrepl is a tool for replicating ZFS filesystems.
-
 {{% notice info %}}
-`zrepl` as well as this documentation is still under active development.
+zrepl as well as this documentation is still under active development.
 Use & test at your own risk ;)
 {{% /notice %}}
 
