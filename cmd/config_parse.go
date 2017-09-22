@@ -3,7 +3,6 @@ package cmd
 import (
 	"io/ioutil"
 
-	"context"
 	"fmt"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -28,9 +27,7 @@ type ConfigParsingContext struct {
 	Global *Global
 }
 
-func ParseConfig(ctx context.Context, path string) (config *Config, err error) {
-
-	log := ctx.Value(contextKeyLog).(Logger)
+func ParseConfig(path string) (config *Config, err error) {
 
 	if path == "" {
 		// Try default locations
@@ -40,7 +37,7 @@ func ParseConfig(ctx context.Context, path string) (config *Config, err error) {
 				continue
 			}
 			if !stat.Mode().IsRegular() {
-				log.Printf("warning: file at default location is not a regular file: %s", l)
+				err = errors.Errorf("file at default location is not a regular file: %s", l)
 				continue
 			}
 			path = l

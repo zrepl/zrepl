@@ -39,14 +39,14 @@ func doDaemon(cmd *cobra.Command, args []string) {
 
 	log := log.New(os.Stderr, "", log.LUTC|log.Ldate|log.Ltime)
 
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, contextKeyLog, log)
-
-	conf, err := ParseConfig(ctx, rootArgs.configFile)
+	conf, err := ParseConfig(rootArgs.configFile)
 	if err != nil {
 		log.Printf("error parsing config: %s", err)
 		os.Exit(1)
 	}
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, contextKeyLog, log)
 
 	d := NewDaemon(conf)
 	d.Loop(ctx)

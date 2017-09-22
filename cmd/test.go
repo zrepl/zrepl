@@ -66,10 +66,8 @@ func testCmdGlobalInit(cmd *cobra.Command, args []string) {
 
 	testCmdGlobal.log = log.New(os.Stdout, "", 0)
 
-	ctx := context.WithValue(context.Background(), contextKeyLog, testCmdGlobal.log)
-
 	var err error
-	if testCmdGlobal.conf, err = ParseConfig(ctx, rootArgs.configFile); err != nil {
+	if testCmdGlobal.conf, err = ParseConfig(rootArgs.configFile); err != nil {
 		testCmdGlobal.log.Printf("error parsing config file: %s", err)
 		os.Exit(1)
 	}

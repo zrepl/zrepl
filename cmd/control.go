@@ -41,8 +41,7 @@ func doControlPProf(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	ctx := context.WithValue(context.Background(), contextKeyLog, log)
-	conf, err := ParseConfig(ctx, rootArgs.configFile)
+	conf, err := ParseConfig(rootArgs.configFile)
 	if err != nil {
 		log.Printf("error parsing config: %s", err)
 		die()
