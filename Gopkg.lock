@@ -20,6 +20,12 @@
   revision = "c6d800382fff6dc1412f34269f71b7f83bd059ad"
 
 [[projects]]
+  branch = "v2"
+  name = "github.com/go-yaml/yaml"
+  packages = ["."]
+  revision = "eb3733d160e74a9c7e442f435eb3bea458e1d19f"
+
+[[projects]]
   branch = "master"
   name = "github.com/hashicorp/hcl"
   packages = [".","hcl/ast","hcl/parser","hcl/scanner","hcl/strconv","hcl/token","json/parser","json/scanner","json/token"]
@@ -137,7 +143,7 @@
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "2320a9c15898af1b1b24f99700d5c1e957f9d8cf"
+  revision = "429f518978ab01db8bb6f44b66785088e7fba58b"
 
 [[projects]]
   branch = "master"
@@ -154,6 +160,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "196c737e0eb39f54d4566bd78e761f874f47b7024b6d694c131d4986664cc272"
+  inputs-digest = "bee0c80e0ddaadd7725a31b203d080be9e360fb17514e972ff2023c0b40cb004"
   solver-name = "gps-cdcl"
   solver-version = 1

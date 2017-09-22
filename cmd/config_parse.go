@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	yaml "gopkg.in/yaml.v2"
+	yaml "github.com/go-yaml/yaml"
 	"os"
 )
 
