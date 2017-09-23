@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"net"
 	"strings"
 	"time"
 )
@@ -119,6 +120,50 @@ func (f JSONFormatter) Format(e *logrus.Entry) ([]byte, error) {
 
 	return json.Marshal(data)
 
+}
+
+type TCPHook struct {
+	Formatter     logrus.Formatter
+	MinLevel      logrus.Level
+	Net, Address  string
+	RetryInterval time.Duration
+	conn          net.Conn
+	retry         time.Time
+}
+
+func (h *TCPHook) Levels() []logrus.Level {
+	for i := range logrus.AllLevels { // assume it's ordered
+		if logrus.AllLevels[i] == h.MinLevel {
+			return logrus.AllLevels[:i]
+		}
+	}
+	return logrus.AllLevels
+}
+
+func (h *TCPHook) Fire(e *logrus.Entry) error {
+	b, err := h.Formatter.Format(e)
+	if err != nil {
+		return err
+	}
+
+	if h.conn == nil {
+		if time.Now().Sub(h.retry) < h.RetryInterval {
+			return errors.New("TCP hook reconnect prohibited by retry interval")
+		}
+		h.conn, err = net.Dial(h.Net, h.Address)
+		if err != nil {
+			h.retry = time.Now()
+			return errors.Wrap(err, "cannot dial")
+		}
+	}
+
+	_, err = h.conn.Write(b)
+	if err != nil {
+		h.conn.Close()
+		h.conn = nil
+	}
+
+	return nil
 }
 
 type nopWriter int

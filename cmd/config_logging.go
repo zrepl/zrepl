@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"os"
+	"time"
 )
 
 type LoggingConfig struct {
@@ -12,6 +13,15 @@ type LoggingConfig struct {
 		Level  logrus.Level
 		Format LogFormat
 	}
+	TCP *TCPLoggingConfig
+}
+
+type TCPLoggingConfig struct {
+	Level         logrus.Level
+	Format        LogFormat
+	Net           string
+	Address       string
+	RetryInterval time.Duration
 }
 
 func parseLogging(i interface{}) (c *LoggingConfig, err error) {
@@ -27,6 +37,13 @@ func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 		Stdout struct {
 			Level  string
 			Format string
+		}
+		TCP struct {
+			Level         string
+			Format        string
+			Net           string
+			Address       string
+			RetryInterval string `mapstructure:"retry_interval"`
 		}
 	}
 	if err = mapstructure.Decode(i, &asMap); err != nil {
@@ -46,6 +63,20 @@ func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 			return nil, errors.Wrap(err, "cannot parse log format")
 		}
 		c.Stdout.Format = format
+	}
+
+	if asMap.TCP.Address != "" {
+		c.TCP = &TCPLoggingConfig{}
+		c.TCP.Format, err = parseLogFormat(asMap.TCP.Format)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse log format")
+		}
+		c.TCP.Level, err = logrus.ParseLevel(asMap.TCP.Level)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse level")
+		}
+		c.TCP.RetryInterval, err = time.ParseDuration(asMap.TCP.RetryInterval)
+		c.TCP.Net, c.TCP.Address = asMap.TCP.Net, asMap.TCP.Address
 	}
 
 	return c, nil
@@ -96,8 +127,11 @@ func (c *LoggingConfig) MakeLogrus() (l logrus.FieldLogger) {
 
 	log := logrus.New()
 	log.Out = os.Stdout
-	log.Level = c.Stdout.Level
+	log.Level = logrus.DebugLevel // FIXTHIS IN LOGRUS
 	log.Formatter = c.Stdout.Format.Formatter()
+
+	th := &TCPHook{Formatter: JSONFormatter{}, MinLevel: c.TCP.Level, Net: c.TCP.Net, Address: c.TCP.Address, RetryInterval: c.TCP.RetryInterval}
+	log.Hooks.Add(th)
 
 	return log
 
