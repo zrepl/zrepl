@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/zrepl/zrepl/logger"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 // daemonCmd represents the daemon command
@@ -33,7 +35,8 @@ func doDaemon(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	log := conf.Global.logging.MakeLogrus()
+	log := logger.NewLogger(conf.Global.logging.Outlets, 1*time.Second)
+
 	log.Debug("starting daemon")
 	ctx := context.WithValue(context.Background(), contextKeyLog, log)
 	ctx = context.WithValue(ctx, contextKeyLog, log)

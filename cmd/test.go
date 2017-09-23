@@ -10,9 +10,10 @@ import (
 	"strings"
 
 	"github.com/kr/pretty"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/zfs"
+	"time"
 )
 
 var testCmd = &cobra.Command{
@@ -64,8 +65,9 @@ func init() {
 
 func testCmdGlobalInit(cmd *cobra.Command, args []string) {
 
-	log := logrus.New()
-	log.Formatter = NoFormatter{}
+	out := logger.NewOutlets()
+	out.Add(WriterOutlet{NoFormatter{}, os.Stdout}, logger.Info)
+	log := logger.NewLogger(out, 1*time.Second)
 	testCmdGlobal.log = log
 
 	var err error

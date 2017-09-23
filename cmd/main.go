@@ -11,8 +11,8 @@
 package cmd
 
 import (
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/zrepl/zrepl/logger"
 )
 
 //
@@ -20,7 +20,7 @@ import (
 //	Printf(format string, v ...interface{})
 //}
 
-type Logger logrus.FieldLogger
+type Logger = *logger.Logger
 
 var RootCmd = &cobra.Command{
 	Use:   "zrepl",
