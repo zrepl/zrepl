@@ -65,7 +65,7 @@ func init() {
 func testCmdGlobalInit(cmd *cobra.Command, args []string) {
 
 	log := logrus.New()
-	log.Formatter = CLIFormatter{}
+	log.Formatter = NoFormatter{}
 	testCmdGlobal.log = log
 
 	var err error

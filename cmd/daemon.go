@@ -73,7 +73,7 @@ func (d *Daemon) Loop(ctx context.Context) {
 	for _, job := range d.conf.Jobs {
 		log.Printf("starting job %s", job.JobName())
 
-		logger := log.WithField("job", job.JobName())
+		logger := log.WithField(logJobField, job.JobName())
 		i++
 		jobCtx := context.WithValue(ctx, contextKeyLog, logger)
 		go func(j Job) {

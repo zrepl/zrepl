@@ -84,9 +84,9 @@ func (j *SourceJob) JobStart(ctx context.Context) {
 		return
 	}
 
-	snapContext := context.WithValue(ctx, contextKeyLog, log.WithField("task", "autosnap"))
-	prunerContext := context.WithValue(ctx, contextKeyLog, log.WithField("task", "prune"))
-	serveContext := context.WithValue(ctx, contextKeyLog, log.WithField("task", "serve"))
+	snapContext := context.WithValue(ctx, contextKeyLog, log.WithField(logTaskField, "autosnap"))
+	prunerContext := context.WithValue(ctx, contextKeyLog, log.WithField(logTaskField, "prune"))
+	serveContext := context.WithValue(ctx, contextKeyLog, log.WithField(logTaskField, "serve"))
 	didSnaps := make(chan struct{})
 
 	go j.serve(serveContext)

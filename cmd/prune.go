@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/zrepl/zrepl/zfs"
 	"time"
@@ -45,7 +44,7 @@ func (p *Pruner) Run(ctx context.Context) (r []PruneResult, err error) {
 
 	for _, fs := range filesystems {
 
-		log := log.WithField("filesystem", fs.ToString())
+		log := log.WithField(logFSField, fs.ToString())
 
 		fsversions, err := zfs.ZFSListFilesystemVersions(fs, &PrefixSnapshotFilter{p.SnapshotPrefix})
 		if err != nil {
@@ -57,26 +56,16 @@ func (p *Pruner) Run(ctx context.Context) (r []PruneResult, err error) {
 			continue
 		}
 
-		dbgj, err := json.Marshal(fsversions)
-		if err != nil {
-			panic(err)
-		}
-		log.WithField("fsversions", string(dbgj)).Debug()
-
 		keep, remove, err := p.PrunePolicy.Prune(fs, fsversions)
 		if err != nil {
 			log.WithError(err).Error("error evaluating prune policy")
 			continue
 		}
 
-		dbgj, err = json.Marshal(keep)
-		if err != nil {
-			panic(err)
-		}
-		log.WithField("keep", string(dbgj)).Debug()
-
-		dbgj, err = json.Marshal(remove)
-		log.WithField("remove", string(dbgj)).Debug()
+		log.WithField("fsversions", fsversions).
+			WithField("keep", keep).
+			WithField("remove", remove).
+			Debug("prune policy debug dump")
 
 		r = append(r, PruneResult{fs, fsversions, keep, remove})
 

@@ -45,7 +45,7 @@ func (a *IntervalAutosnap) Run(ctx context.Context, didSnaps chan struct{}) {
 	a.log.Debug("examine filesystem state")
 	for i, d := range ds {
 
-		l := a.log.WithField("filesystem", d.ToString())
+		l := a.log.WithField(logFSField, d.ToString())
 
 		fsvs, err := zfs.ZFSListFilesystemVersions(d, &PrefixSnapshotFilter{a.Prefix})
 		if err != nil {
@@ -129,7 +129,7 @@ func (a *IntervalAutosnap) doSnapshots(didSnaps chan struct{}) {
 		suffix := time.Now().In(time.UTC).Format("20060102_150405_000")
 		snapname := fmt.Sprintf("%s%s", a.Prefix, suffix)
 
-		a.log.WithField("filesystem", d.ToString()).
+		a.log.WithField(logFSField, d.ToString()).
 			WithField("snapname", snapname).
 			Info("create snapshot")
 

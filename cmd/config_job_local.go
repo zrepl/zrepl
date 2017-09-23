@@ -90,7 +90,7 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 	// All local datasets will be passed to its Map() function,
 	// but only those for which a mapping exists will actually be pulled.
 	// We can pay this small performance penalty for now.
-	handler := NewHandler(log.WithField("task", "handler"), localPullACL{}, &PrefixSnapshotFilter{j.SnapshotPrefix})
+	handler := NewHandler(log.WithField(logTaskField, "handler"), localPullACL{}, &PrefixSnapshotFilter{j.SnapshotPrefix})
 
 	registerEndpoints(local, handler)
 
@@ -112,7 +112,7 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 	}
 
 	makeCtx := func(parent context.Context, taskName string) (ctx context.Context) {
-		return context.WithValue(parent, contextKeyLog, log.WithField("task", taskName))
+		return context.WithValue(parent, contextKeyLog, log.WithField(logTaskField, taskName))
 	}
 	var snapCtx, plCtx, prCtx, pullCtx context.Context
 	snapCtx = makeCtx(ctx, "autosnap")

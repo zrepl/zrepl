@@ -3,75 +3,101 @@ package cmd
 import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	//"github.com/rifflock/lfshook"
 	"github.com/sirupsen/logrus"
+	"os"
 )
 
 type LoggingConfig struct {
 	Stdout struct {
-		Level logrus.Level
+		Level  logrus.Level
+		Format LogFormat
 	}
-	//LFS lfshook.PathMap
 }
 
 func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 
 	c = &LoggingConfig{}
 	c.Stdout.Level = logrus.WarnLevel
+	c.Stdout.Format = LogFormatHuman
 	if i == nil {
 		return c, nil
 	}
 
 	var asMap struct {
-		Mate   string
-		Stdout map[string]string
-		LFS    map[string]string
+		Stdout struct {
+			Level  string
+			Format string
+		}
 	}
 	if err = mapstructure.Decode(i, &asMap); err != nil {
 		return nil, errors.Wrap(err, "mapstructure error")
 	}
 
-	//if asMap.LFS != nil {
-	//	c.LFS = make(map[logrus.Level]string, len(asMap.LFS))
-	//	for level_str, path := range asMap.LFS {
-	//		level, err := logrus.ParseLevel(level_str)
-	//		if err != nil {
-	//			return nil, errors.Wrapf(err, "cannot parse level '%s'", level_str)
-	//		}
-	//		if len(path) <= 0 {
-	//			return nil, errors.Errorf("path must be longer than 0")
-	//		}
-	//		c.LFS[level] = path
-	//	}
-	//}
-
-	if asMap.Stdout != nil {
-		lvl, err := logrus.ParseLevel(asMap.Stdout["level"])
+	if asMap.Stdout.Level != "" {
+		lvl, err := logrus.ParseLevel(asMap.Stdout.Level)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot parse stdout log level")
 		}
 		c.Stdout.Level = lvl
+	}
+	if asMap.Stdout.Format != "" {
+		format, err := parseLogFormat(asMap.Stdout.Format)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot parse log format")
+		}
+		c.Stdout.Format = format
 	}
 
 	return c, nil
 
 }
 
+type LogFormat string
+
+const (
+	LogFormatHuman  LogFormat = "human"
+	LogFormatLogfmt LogFormat = "logfmt"
+	LogFormatJSON   LogFormat = "json"
+)
+
+func (f LogFormat) Formatter() logrus.Formatter {
+	switch f {
+	case LogFormatHuman:
+		return HumanFormatter{}
+	case LogFormatLogfmt:
+		return &logrus.TextFormatter{}
+	case LogFormatJSON:
+		return &logrus.JSONFormatter{}
+	default:
+		panic("incomplete implementation")
+	}
+}
+
+var LogFormats []LogFormat = []LogFormat{LogFormatHuman, LogFormatLogfmt, LogFormatJSON}
+
+func parseLogFormat(i interface{}) (f LogFormat, err error) {
+	var is string
+	switch j := i.(type) {
+	case string:
+		is = j
+	default:
+		return "", errors.Errorf("invalid log format: wrong type: %T", i)
+	}
+
+	for _, f := range LogFormats {
+		if string(f) == is {
+			return f, nil
+		}
+	}
+	return "", errors.Errorf("invalid log format: '%s'", is)
+}
+
 func (c *LoggingConfig) MakeLogrus() (l logrus.FieldLogger) {
 
 	log := logrus.New()
-	log.Out = nopWriter(0)
-	log.Level = logrus.DebugLevel
-
-	//log.Level = logrus.DebugLevel
-	//
-	//if len(c.LFS) > 0 {
-	//	lfshook := lfshook.NewHook(c.LFS)
-	//	log.Hooks.Add(lfshook)
-	//}
-
-	stdhook := NewStdHook()
-	log.Hooks.Add(stdhook)
+	log.Out = os.Stdout
+	log.Level = c.Stdout.Level
+	log.Formatter = c.Stdout.Format.Formatter()
 
 	return log
 

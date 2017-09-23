@@ -90,8 +90,8 @@ func doPull(pull PullContext) (err error) {
 		if localFs == nil {
 			continue
 		}
-		log.WithField("map_remote", remoteFilesystems[fs].ToString()).
-			WithField("map_local", localFs.ToString()).Debug()
+		log.WithField(logMapFromField, remoteFilesystems[fs].ToString()).
+			WithField(logMapToField, localFs.ToString()).Debug()
 		m := RemoteLocalMapping{remoteFilesystems[fs], localFs}
 		replMapping[m.Local.ToString()] = m
 		localTraversal.Add(m.Local)
@@ -107,7 +107,7 @@ func doPull(pull PullContext) (err error) {
 	log.Info("start per-filesystem sync")
 	localTraversal.WalkTopDown(func(v zfs.DatasetPathVisit) bool {
 
-		log := log.WithField("filesystem", v.Path.ToString())
+		log := log.WithField(logFSField, v.Path.ToString())
 
 		if v.FilledIn {
 			if _, exists := localFilesystemState[v.Path.ToString()]; exists {
@@ -129,8 +129,8 @@ func doPull(pull PullContext) (err error) {
 			panic("internal inconsistency: replMapping should contain mapping for any path that was not filled in by WalkTopDown()")
 		}
 
-		log = log.WithField("map_remote", m.Remote.ToString()).
-			WithField("map_local", m.Local.ToString())
+		log = log.WithField(logMapToField, m.Remote.ToString()).
+			WithField(logMapFromField, m.Local.ToString())
 
 		log.Debug("examing local filesystem state")
 		localState, localExists := localFilesystemState[m.Local.ToString()]
@@ -245,7 +245,7 @@ func doPull(pull PullContext) (err error) {
 
 				from, to := diff.IncrementalPath[i], diff.IncrementalPath[i+1]
 
-				log, _ := log.WithField("inc_from", from.Name).WithField("inc_to", to.Name), 0
+				log, _ := log.WithField(logIncFromField, from.Name).WithField(logIncToField, to.Name), 0
 
 				log.Debug("requesting incremental snapshot stream")
 				r := IncrementalTransferRequest{
