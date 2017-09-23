@@ -68,12 +68,11 @@ func (d *Daemon) Loop(ctx context.Context) {
 
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	log.Printf("starting jobs from config")
+	log.Info("starting jobs from config")
 	i := 0
 	for _, job := range d.conf.Jobs {
-		log.Printf("starting job %s", job.JobName())
-
 		logger := log.WithField(logJobField, job.JobName())
+		logger.Info("starting")
 		i++
 		jobCtx := context.WithValue(ctx, contextKeyLog, logger)
 		go func(j Job) {
@@ -86,23 +85,22 @@ func (d *Daemon) Loop(ctx context.Context) {
 outer:
 	for {
 		select {
-		case j := <-finishs:
-			log.Printf("job finished: %s", j.JobName())
+		case <-finishs:
 			finishCount++
 			if finishCount == len(d.conf.Jobs) {
-				log.Printf("all jobs finished")
+				log.Info("all jobs finished")
 				break outer
 			}
 
 		case sig := <-sigChan:
-			log.Printf("received signal: %s", sig)
-			log.Printf("cancelling all jobs")
+			log.WithField("signal", sig).Info("received signal")
+			log.Info("cancelling all jobs")
 			cancel()
 		}
 	}
 
 	signal.Stop(sigChan)
 
-	log.Printf("exiting")
+	log.Info("exiting")
 
 }

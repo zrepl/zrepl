@@ -142,7 +142,7 @@ func (a *IntervalAutosnap) doSnapshots(didSnaps chan struct{}) {
 	select {
 	case didSnaps <- struct{}{}:
 	default:
-		a.log.Warn("warning: callback channel is full, discarding")
+		a.log.Error("warning: callback channel is full, discarding")
 	}
 
 }

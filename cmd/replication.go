@@ -30,7 +30,7 @@ const (
 )
 
 func closeRPCWithTimeout(log Logger, remote rpc.RPCClient, timeout time.Duration, goodbye string) {
-	log.Printf("closing rpc connection")
+	log.Info("closing rpc connection")
 
 	ch := make(chan error)
 	go func() {
@@ -47,7 +47,7 @@ func closeRPCWithTimeout(log Logger, remote rpc.RPCClient, timeout time.Duration
 	}
 
 	if err != nil {
-		log.Printf("error closing connection: %s", err)
+		log.WithError(err).Error("error closing connection")
 	}
 	return
 }
@@ -84,14 +84,14 @@ func doPull(pull PullContext) (err error) {
 		localFs, err = pull.Mapping.Map(remoteFilesystems[fs])
 		if err != nil {
 			err := fmt.Errorf("error mapping %s: %s", remoteFilesystems[fs], err)
-			log.WithError(err).Error()
+			log.WithError(err).WithField(logMapFromField, remoteFilesystems[fs]).Error("cannot map")
 			return err
 		}
 		if localFs == nil {
 			continue
 		}
 		log.WithField(logMapFromField, remoteFilesystems[fs].ToString()).
-			WithField(logMapToField, localFs.ToString()).Debug()
+			WithField(logMapToField, localFs.ToString()).Debug("mapping")
 		m := RemoteLocalMapping{remoteFilesystems[fs], localFs}
 		replMapping[m.Local.ToString()] = m
 		localTraversal.Add(m.Local)
@@ -194,7 +194,7 @@ func doPull(pull PullContext) (err error) {
 				FilesystemVersion: snapsOnly[len(snapsOnly)-1],
 			}
 
-			log.Debug("requesting snapshot stream for %s", r.FilesystemVersion)
+			log.WithField("version", r.FilesystemVersion).Debug("requesting snapshot stream")
 
 			var stream io.Reader
 

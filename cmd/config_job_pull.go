@@ -94,16 +94,16 @@ func (j *PullJob) JobName() string {
 func (j *PullJob) JobStart(ctx context.Context) {
 
 	log := ctx.Value(contextKeyLog).(Logger)
-	defer log.Printf("exiting")
+	defer log.Info("exiting")
 
 	ticker := time.NewTicker(j.Interval)
 
 start:
 
-	log.Printf("connecting")
+	log.Info("connecting")
 	rwc, err := j.Connect.Connect()
 	if err != nil {
-		log.Printf("error connecting: %s", err)
+		log.WithError(err).Error("error connecting")
 		return
 	}
 
@@ -117,31 +117,31 @@ start:
 		client.SetLogger(log, true)
 	}
 
-	log.Printf("starting pull")
+	log.Info("starting pull")
 
 	pullLog := log.WithField(logTaskField, "pull")
 	err = doPull(PullContext{client, pullLog, j.Mapping, j.InitialReplPolicy})
 	if err != nil {
-		log.Printf("error doing pull: %s", err)
+		log.WithError(err).Error("error doing pull")
 	}
 
 	closeRPCWithTimeout(log, client, time.Second*10, "")
 
-	log.Printf("starting prune")
+	log.Info("starting prune")
 	prunectx := context.WithValue(ctx, contextKeyLog, log.WithField(logTaskField, "prune"))
 	pruner, err := j.Pruner(PrunePolicySideDefault, false)
 	if err != nil {
-		log.Printf("error creating pruner: %s", err)
+		log.WithError(err).Error("error creating pruner")
 		return
 	}
 
 	pruner.Run(prunectx)
-	log.Printf("finish prune")
+	log.Info("finish prune")
 
-	log.Printf("wait for next interval")
+	log.Info("wait for next interval")
 	select {
 	case <-ctx.Done():
-		log.Printf("context: %s", ctx.Err())
+		log.WithError(ctx.Err()).Info("context")
 		return
 	case <-ticker.C:
 		goto start

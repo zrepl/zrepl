@@ -75,12 +75,12 @@ func (j *SourceJob) JobName() string {
 func (j *SourceJob) JobStart(ctx context.Context) {
 
 	log := ctx.Value(contextKeyLog).(Logger)
-	defer log.Printf("exiting")
+	defer log.Info("exiting")
 
 	a := IntervalAutosnap{DatasetFilter: j.Datasets, Prefix: j.SnapshotPrefix, SnapshotInterval: j.Interval}
 	p, err := j.Pruner(PrunePolicySideDefault, false)
 	if err != nil {
-		log.Printf("error creating pruner: %s", err)
+		log.WithError(err).Error("error creating pruner")
 		return
 	}
 
@@ -98,12 +98,12 @@ outer:
 		case <-ctx.Done():
 			break outer
 		case <-didSnaps:
-			log.Printf("starting pruner")
+			log.Info("starting pruner")
 			p.Run(prunerContext)
-			log.Printf("pruner done")
+			log.Info("pruner done")
 		}
 	}
-	log.Printf("context: %s", prunerContext.Err())
+	log.WithError(prunerContext.Err()).Info("context")
 
 }
 
@@ -124,7 +124,7 @@ func (j *SourceJob) serve(ctx context.Context) {
 
 	listener, err := j.Serve.Listen()
 	if err != nil {
-		log.Printf("error listening: %s", err)
+		log.WithError(err).Error("error listening")
 		return
 	}
 
@@ -137,7 +137,7 @@ outer:
 		go func() {
 			rwc, err := listener.Accept()
 			if err != nil {
-				log.Printf("error accepting connection: %s", err)
+				log.WithError(err).Error("error accepting connection")
 				close(rwcChan)
 				return
 			}
@@ -168,22 +168,22 @@ outer:
 			}
 			registerEndpoints(rpcServer, handler)
 			if err = rpcServer.Serve(); err != nil {
-				log.Printf("error serving connection: %s", err)
+				log.WithError(err).Error("error serving connection")
 			}
 			rwc.Close()
 
 		case <-ctx.Done():
-			log.Printf("context: %s", ctx.Err())
+			log.WithError(ctx.Err()).Info("context")
 			break outer
 
 		}
 
 	}
 
-	log.Printf("closing listener")
+	log.Info("closing listener")
 	err = listener.Close()
 	if err != nil {
-		log.Printf("error closing listener: %s", err)
+		log.WithError(err).Error("error closing listener")
 	}
 
 	return

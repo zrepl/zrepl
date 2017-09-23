@@ -82,7 +82,7 @@ func (j *LocalJob) JobName() string {
 func (j *LocalJob) JobStart(ctx context.Context) {
 
 	log := ctx.Value(contextKeyLog).(Logger)
-	defer log.Printf("exiting")
+	defer log.Info("exiting")
 
 	local := rpc.NewLocalRPC()
 	// Allow access to any dataset since we control what mapping
@@ -102,12 +102,12 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 
 	plhs, err := j.Pruner(PrunePolicySideLeft, false)
 	if err != nil {
-		log.Printf("error creating lhs pruner: %s", err)
+		log.WithError(err).Error("error creating lhs pruner")
 		return
 	}
 	prhs, err := j.Pruner(PrunePolicySideRight, false)
 	if err != nil {
-		log.Printf("error creating rhs pruner: %s", err)
+		log.WithError(err).Error("error creating rhs pruner")
 		return
 	}
 
@@ -130,16 +130,16 @@ outer:
 		case <-ctx.Done():
 			break outer
 		case <-didSnaps:
-			log.Printf("finished taking snapshots")
-			log.Printf("starting replication procedure")
+			log.Debug("finished taking snapshots")
+			log.Info("starting replication procedure")
 		}
 
 		{
 			log := pullCtx.Value(contextKeyLog).(Logger)
-			log.Printf("replicating from lhs to rhs")
+			log.Debug("replicating from lhs to rhs")
 			err := doPull(PullContext{local, log, j.Mapping, j.InitialReplPolicy})
 			if err != nil {
-				log.Printf("error replicating lhs to rhs: %s", err)
+				log.WithError(err).Error("error replicating lhs to rhs")
 			}
 			// use a ctx as soon as doPull gains ctx support
 			select {
@@ -151,14 +151,14 @@ outer:
 
 		var wg sync.WaitGroup
 
-		log.Printf("pruning lhs")
+		log.Info("pruning lhs")
 		wg.Add(1)
 		go func() {
 			plhs.Run(plCtx)
 			wg.Done()
 		}()
 
-		log.Printf("pruning rhs")
+		log.Info("pruning rhs")
 		wg.Add(1)
 		go func() {
 			prhs.Run(prCtx)
@@ -169,7 +169,7 @@ outer:
 
 	}
 
-	log.Printf("context: %s", ctx.Err())
+	log.WithError(ctx.Err()).Info("context")
 
 }
 
