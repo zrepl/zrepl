@@ -36,11 +36,11 @@ const (
 func (j *ControlJob) JobStart(ctx context.Context) {
 
 	log := ctx.Value(contextKeyLog).(Logger)
-	defer log.Printf("control job finished")
+	defer log.Info("control job finished")
 
 	l, err := ListenUnixPrivate(j.sockaddr)
 	if err != nil {
-		log.Printf("error listening: %s", err)
+		log.WithError(err).Error("error listening")
 		return
 	}
 
@@ -80,7 +80,7 @@ type requestLogger struct {
 
 func (l requestLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log := l.log.WithField("method", r.Method).WithField("url", r.URL)
-	log.Printf("start")
+	log.Info("start")
 	l.handlerFunc(w, r)
-	log.Printf("finish")
+	log.Info("finish")
 }
