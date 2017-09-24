@@ -17,6 +17,7 @@ func TestSampleConfigsAreParsedWithoutErrors(t *testing.T) {
 		"./sampleconf/pullbackup/backuphost.yml",
 		"./sampleconf/pullbackup/productionhost.yml",
 		"./sampleconf/random/debugging.yml",
+		"./sampleconf/random/logging.yml",
 	}
 
 	for _, p := range paths {

@@ -1,0 +1,16 @@
+global:
+  logging:
+    stdout:
+      level: warn
+      format: human
+    tcp:
+      level: debug
+      format: json
+      net: tcp
+      address: 127.0.0.1:8080
+      retry_interval: 1s
+    syslog:
+      enable: true
+      format: logfmt
+
+jobs: []
