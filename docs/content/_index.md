@@ -21,7 +21,7 @@ The [5 minute tutorial setup](/tutorial/) gives you a first impression.
     * [ ] Push mode
     * [x] Access control checks when pulling datasets
     * [x] [Flexible mapping]({{< ref "configuration/map_filter_syntax.md" >}}) rules
-    * [ ] Bookmarks support
+    * [x] Bookmarks support
     * [ ] Feature-negotiation for
         * Resumable `send & receive`
         * Compressed `send & receive`
