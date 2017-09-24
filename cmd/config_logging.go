@@ -129,6 +129,8 @@ func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 				Certificates: []tls.Certificate{cert},
 				RootCAs:      rootCAs,
 			}
+
+			out.TLS.BuildNameToCertificate()
 		}
 
 		c.Outlets.Add(out, lvl)
