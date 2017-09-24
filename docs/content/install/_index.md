@@ -20,7 +20,7 @@ However, until we get around documenting those setups, you will have to run zrep
 
 zrepl is currently not packaged on any operating system. Signed & versioned releases are planned but not available yet.
 
-Check out the sources yourself, compile and install to the zrepl user's `$PATH`.<br />
+Check out the sources yourself, fetch dependencies using dep, compile and install to the zrepl user's `$PATH`.<br />
 **Note**: if the zrepl binary is not in `$PATH`, you will have to adjust the examples in the [tutorial]({{< relref "tutorial/_index.md" >}}).
 
 ```bash
@@ -28,6 +28,7 @@ Check out the sources yourself, compile and install to the zrepl user's `$PATH`.
 cd /root
 git clone https://github.com/zrepl/zrepl.git
 cd zrepl
+dep ensure
 go build -o zrepl
 cp zrepl /usr/local/bin/zrepl
 rehash
