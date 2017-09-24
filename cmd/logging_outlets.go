@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/logger"
 	"io"
+	"log/syslog"
 	"net"
 	"time"
 )
@@ -60,4 +61,48 @@ func (h *TCPOutlet) WriteEntry(ctx context.Context, e logger.Entry) error {
 	}
 
 	return nil
+}
+
+type SyslogOutlet struct {
+	Formatter          EntryFormatter
+	RetryInterval      time.Duration
+	writer             *syslog.Writer
+	lastConnectAttempt time.Time
+}
+
+func (o *SyslogOutlet) WriteEntry(ctx context.Context, entry logger.Entry) error {
+
+	bytes, err := o.Formatter.Format(&entry)
+	if err != nil {
+		return err
+	}
+
+	s := string(bytes)
+
+	if o.writer == nil {
+		now := time.Now()
+		if now.Sub(o.lastConnectAttempt) < o.RetryInterval {
+			return nil // not an error toward logger
+		}
+		o.writer, err = syslog.New(syslog.LOG_LOCAL0, "zrepl")
+		o.lastConnectAttempt = time.Now()
+		if err != nil {
+			o.writer = nil
+			return err
+		}
+	}
+
+	switch entry.Level {
+	case logger.Debug:
+		return o.writer.Debug(s)
+	case logger.Info:
+		return o.writer.Info(s)
+	case logger.Warn:
+		return o.writer.Warning(s)
+	case logger.Error:
+		return o.writer.Err(s)
+	default:
+		return o.writer.Err(s) // write as error as reaching this case is in fact an error
+	}
+
 }

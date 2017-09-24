@@ -12,6 +12,10 @@ type LoggingConfig struct {
 	Outlets logger.Outlets
 }
 
+type SetNoMetadataFormatter interface {
+	SetNoMetadata(noMetadata bool)
+}
+
 func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 
 	c = &LoggingConfig{}
@@ -31,6 +35,11 @@ func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 			Address       string
 			RetryInterval string `mapstructure:"retry_interval"`
 		}
+		Syslog struct {
+			Enable        bool
+			Format        string
+			RetryInterval string `mapstructure:"retry_interval"`
+		}
 	}
 	if err = mapstructure.Decode(i, &asMap); err != nil {
 		return nil, errors.Wrap(err, "mapstructure error")
@@ -41,19 +50,19 @@ func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 	if asMap.Stdout.Level != "" {
 
 		out := WriterOutlet{
-			HumanFormatter{},
+			&HumanFormatter{},
 			os.Stdout,
 		}
 
 		level, err := logger.ParseLevel(asMap.Stdout.Level)
 		if err != nil {
-			return nil, errors.Wrap(err, "cannot parse stdout log level")
+			return nil, errors.Wrap(err, "cannot parse 'level'")
 		}
 
 		if asMap.Stdout.Format != "" {
 			out.Formatter, err = parseLogFormat(asMap.Stdout.Format)
 			if err != nil {
-				return nil, errors.Wrap(err, "cannot parse log format")
+				return nil, errors.Wrap(err, "cannot parse 'format'")
 			}
 		}
 
@@ -67,7 +76,7 @@ func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 
 		out.Formatter, err = parseLogFormat(asMap.TCP.Format)
 		if err != nil {
-			return nil, errors.Wrap(err, "cannot parse log 'format'")
+			return nil, errors.Wrap(err, "cannot parse 'format'")
 		}
 
 		lvl, err := logger.ParseLevel(asMap.TCP.Level)
@@ -85,6 +94,34 @@ func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 		c.Outlets.Add(out, lvl)
 	}
 
+	if asMap.Syslog.Enable {
+
+		out := &SyslogOutlet{}
+
+		out.Formatter = &HumanFormatter{}
+		if asMap.Syslog.Format != "" {
+			out.Formatter, err = parseLogFormat(asMap.Syslog.Format)
+			if err != nil {
+				return nil, errors.Wrap(err, "cannot parse 'format'")
+			}
+		}
+
+		if f, ok := out.Formatter.(SetNoMetadataFormatter); ok {
+			f.SetNoMetadata(true)
+		}
+
+		out.RetryInterval = 0 // default to 0 as we assume local syslog will just work
+		if asMap.Syslog.RetryInterval != "" {
+			out.RetryInterval, err = time.ParseDuration(asMap.Syslog.RetryInterval)
+			if err != nil {
+				return nil, errors.Wrap(err, "cannot parse 'retry_interval'")
+			}
+		}
+
+		c.Outlets.Add(out, logger.Debug)
+
+	}
+
 	return c, nil
 
 }
@@ -100,7 +137,7 @@ func parseLogFormat(i interface{}) (f EntryFormatter, err error) {
 
 	switch is {
 	case "human":
-		return HumanFormatter{}, nil
+		return &HumanFormatter{}, nil
 	case "json":
 		return &JSONFormatter{}, nil
 	default:

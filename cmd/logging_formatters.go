@@ -36,13 +36,23 @@ func (f NoFormatter) Format(e *logger.Entry) ([]byte, error) {
 	return []byte(e.Message), nil
 }
 
-type HumanFormatter struct{}
+type HumanFormatter struct {
+	NoMetadata bool
+}
 
-func (f HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
+var _ SetNoMetadataFormatter = &HumanFormatter{}
+
+func (f *HumanFormatter) SetNoMetadata(noMetadata bool) {
+	f.NoMetadata = noMetadata
+}
+
+func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 
 	var line bytes.Buffer
 
-	fmt.Fprintf(&line, "[%s]", e.Level.Short())
+	if !f.NoMetadata {
+		fmt.Fprintf(&line, "[%s]", e.Level.Short())
+	}
 
 	prefixFields := []string{logJobField, logTaskField, logFSField}
 	prefixed := make(map[string]bool, len(prefixFields)+2)
@@ -69,7 +79,10 @@ func (f HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 		prefixed[logIncFromField], prefixed[logIncToField] = true, true
 	}
 
-	fmt.Fprintf(&line, ": %s", e.Message)
+	if line.Len() > 0 {
+		fmt.Fprint(&line, ": ")
+	}
+	fmt.Fprint(&line, e.Message)
 
 	for field, value := range e.Fields {
 
@@ -88,7 +101,7 @@ func (f HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 
 type JSONFormatter struct{}
 
-func (f JSONFormatter) Format(e *logger.Entry) ([]byte, error) {
+func (f *JSONFormatter) Format(e *logger.Entry) ([]byte, error) {
 	data := make(logger.Fields, len(e.Fields)+3)
 	for k, v := range e.Fields {
 		switch v := v.(type) {
