@@ -138,6 +138,8 @@ func parseLogFormat(i interface{}) (f EntryFormatter, err error) {
 	switch is {
 	case "human":
 		return &HumanFormatter{}, nil
+	case "logfmt":
+		return &LogfmtFormatter{}, nil
 	case "json":
 		return &JSONFormatter{}, nil
 	default:

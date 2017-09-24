@@ -20,6 +20,12 @@
   revision = "c6d800382fff6dc1412f34269f71b7f83bd059ad"
 
 [[projects]]
+  name = "github.com/go-logfmt/logfmt"
+  packages = ["."]
+  revision = "390ab7935ee28ec6b286364bba9b4dd6410cb3d5"
+  version = "v0.3.0"
+
+[[projects]]
   branch = "v2"
   name = "github.com/go-yaml/yaml"
   packages = ["."]
@@ -42,6 +48,12 @@
   name = "github.com/jinzhu/copier"
   packages = ["."]
   revision = "db4671f3a9b8df855e993f7c94ec5ef1ffb0a23b"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/kr/logfmt"
+  packages = ["."]
+  revision = "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
 
 [[projects]]
   branch = "master"
@@ -160,6 +172,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "bee0c80e0ddaadd7725a31b203d080be9e360fb17514e972ff2023c0b40cb004"
+  inputs-digest = "7ce2ead5225e4bb72a34132538171a649b26de574596e909730658ddbc904cd5"
   solver-name = "gps-cdcl"
   solver-version = 1

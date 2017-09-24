@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/go-logfmt/logfmt"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/logger"
 	"strings"
@@ -124,4 +125,50 @@ func (f *JSONFormatter) Format(e *logger.Entry) ([]byte, error) {
 
 	return json.Marshal(data)
 
+}
+
+type LogfmtFormatter struct {
+	NoMetadata bool
+}
+
+var _ SetNoMetadataFormatter = &LogfmtFormatter{}
+
+func (f *LogfmtFormatter) SetNoMetadata(noMetadata bool) {
+	f.NoMetadata = noMetadata
+}
+
+func (f *LogfmtFormatter) Format(e *logger.Entry) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := logfmt.NewEncoder(&buf)
+
+	if !f.NoMetadata {
+		enc.EncodeKeyval(FieldTime, e.Time)
+		enc.EncodeKeyval(FieldLevel, e.Level)
+	}
+
+	// at least try and put job and task in front
+	prefixed := make(map[string]bool, 2)
+	prefix := []string{logJobField, logTaskField}
+	for _, pf := range prefix {
+		v, ok := e.Fields[pf]
+		if !ok {
+			break
+		}
+		enc.EncodeKeyval(pf, v)
+		prefixed[pf] = true
+	}
+
+	enc.EncodeKeyval(FieldMessage, e.Message)
+
+	for k, v := range e.Fields {
+		if !prefixed[k] {
+			enc.EncodeKeyval(k, v)
+		}
+	}
+
+	if err := enc.EndRecord(); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
