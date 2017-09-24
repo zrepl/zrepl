@@ -43,12 +43,14 @@ zrepl searches for its main configuration file in the following locations (in th
 * `/etc/zrepl/zrepl.yml`
 * `/usr/local/etc/zrepl/zrepl.yml`
 
+Alternatively, use CLI flags to specify a config location.
+
 Copy a config from the [tutorial](/tutorial) or the `cmd/sampleconf` directory to one of these locations and customize it to your setup.
 
 ## Runtime Directories
 
+Check the the [configuration documentation]({{< relref "configuration/misc.md#runtime-directories-unix-sockets" >}}) for more information.
 For default settings, the following should to the trick.
-Check out the [configuration documentation]({{< relref "configuration/misc.md#runtime-directories-unix-sockets" >}}) for more information.
 
 ```bash
 mkdir -p /var/run/zrepl/stdinserver
@@ -58,27 +60,20 @@ chmod -R 0700 /var/run/zrepl
 
 ## Running the Daemon
 
-All work zrepl done is performed by a daemon process.
+All actual work zrepl does is performed by a daemon process.
 
-There are no *rc(8)* or *systemd.service(5)* service definitions yet.
-
-The daemon does not fork and writes all log output to stderr.
+Logging is configurable via the config file. Please refer to the [logging documentation]({{< relref "configuration/logging.md" >}}).
 
 ```bash
 zrepl daemon
 ```
 
-FreeBSD ships with the *daemon(8)* utility which is also a good start for writing an *rc(8)* file:
-
-```bash
-daemon -o /var/log/zrepl.log \
-       -p /var/run/zrepl/daemon.pid \
-       zrepl --config /usr/local/etc/zrepl/zrepl.yml daemon
-```
+There are no *rc(8)* or *systemd.service(5)* service definitions yet. Note the *daemon(8)* utility on FreeBSD.
 
 {{% notice info %}}
-Make sure to read the first lines of log output after the daemon starts: if the daemon cannot create the [stdinserver]({{< relref "configuration/transports.md#stdinserver" >}}) sockets
-in the runtime directory, it will complain but not terminate as other tasks such as taking periodic snapshots might still work and are equally important.
+Make sure to actually monitor the error level output of zrepl: some configuration errors will not make the daemon exit.<br />
+Example: if the daemon cannot create the [stdinserver]({{< relref "configuration/transports.md#stdinserver" >}}) sockets
+in the runtime directory, it will emit an error message but not exit because other tasks such as periodic snapshots & pruning are of equal importance.
 {{% / notice %}}
 
 ### Restarting
