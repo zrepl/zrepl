@@ -2,12 +2,17 @@ package logger
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
 	"time"
 )
 
 type Level int
+
+func (l Level) MarshalJSON() ([]byte, error) {
+	return json.Marshal(l.String())
+}
 
 const (
 	Debug Level = iota
