@@ -139,7 +139,7 @@ This is [OS-specific](/install/#restarting).
 
 ## Watch it Work
 
-A common setup is to watch the log output and zfs list of snapshots on both machines.
+A common setup is to `watch` the log output and `zfs list` of snapshots on both machines.
 
 If you like tmux, here is a handy script that works on FreeBSD:
 
