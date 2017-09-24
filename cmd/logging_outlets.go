@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"crypto/tls"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/logger"
 	"io"
@@ -29,6 +30,7 @@ type TCPOutlet struct {
 	Formatter     EntryFormatter
 	Net, Address  string
 	Dialer        net.Dialer
+	TLS           *tls.Config
 	RetryInterval time.Duration
 	conn          net.Conn
 	retry         time.Time
@@ -46,8 +48,14 @@ func (h *TCPOutlet) WriteEntry(ctx context.Context, e logger.Entry) error {
 			return nil // this is not an error toward the logger
 			//return errors.New("TCP hook reconnect prohibited by retry interval")
 		}
-		h.conn, err = h.Dialer.DialContext(ctx, h.Net, h.Address)
+
+		if h.TLS != nil {
+			h.conn, err = tls.DialWithDialer(&h.Dialer, h.Net, h.Address, h.TLS)
+		} else {
+			h.conn, err = h.Dialer.DialContext(ctx, h.Net, h.Address)
+		}
 		if err != nil {
+			h.conn = nil
 			h.retry = time.Now()
 			return errors.Wrap(err, "cannot dial")
 		}
@@ -55,6 +63,7 @@ func (h *TCPOutlet) WriteEntry(ctx context.Context, e logger.Entry) error {
 
 	_, err = h.conn.Write(b)
 	if err != nil {
+		return errors.Wrap(err, "cannot write")
 		h.conn.Close()
 		h.conn = nil
 		return err

@@ -22,10 +22,14 @@ func TestSampleConfigsAreParsedWithoutErrors(t *testing.T) {
 
 	for _, p := range paths {
 
-		_, err := ParseConfig(p)
+		c, err := ParseConfig(p)
 		if err != nil {
 			t.Errorf("error parsing %s:\n%+v", p, err)
 		}
+
+		t.Logf("file: %s", p)
+		t.Log(pretty.Sprint(c))
+
 	}
 
 }

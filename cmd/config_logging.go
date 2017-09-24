@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/logger"
+	"io/ioutil"
 	"os"
 	"time"
 )
@@ -34,6 +37,11 @@ func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 			Net           string
 			Address       string
 			RetryInterval string `mapstructure:"retry_interval"`
+			TLS           *struct {
+				CA   string
+				Cert string
+				Key  string
+			}
 		}
 		Syslog struct {
 			Enable        bool
@@ -90,6 +98,38 @@ func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 		}
 
 		out.Net, out.Address = asMap.TCP.Net, asMap.TCP.Address
+
+		if asMap.TCP.TLS != nil {
+
+			cert, err := tls.LoadX509KeyPair(asMap.TCP.TLS.Cert, asMap.TCP.TLS.Key)
+			if err != nil {
+				return nil, errors.Wrap(err, "cannot load client cert")
+			}
+
+			var rootCAs *x509.CertPool
+			if asMap.TCP.TLS.CA == "" {
+				if rootCAs, err = x509.SystemCertPool(); err != nil {
+					return nil, errors.Wrap(err, "cannot open system cert pool")
+				}
+			} else {
+				rootCAs = x509.NewCertPool()
+				rootCAPEM, err := ioutil.ReadFile(asMap.TCP.TLS.CA)
+				if err != nil {
+					return nil, errors.Wrap(err, "cannot load CA cert")
+				}
+				if !rootCAs.AppendCertsFromPEM(rootCAPEM) {
+					return nil, errors.New("cannot parse CA cert")
+				}
+			}
+			if err != nil && asMap.TCP.TLS.CA == "" {
+				return nil, errors.Wrap(err, "cannot load root ca pool")
+			}
+
+			out.TLS = &tls.Config{
+				Certificates: []tls.Certificate{cert},
+				RootCAs:      rootCAs,
+			}
+		}
 
 		c.Outlets.Add(out, lvl)
 	}

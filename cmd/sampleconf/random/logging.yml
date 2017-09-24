@@ -9,6 +9,10 @@ global:
       net: tcp
       address: 127.0.0.1:8080
       retry_interval: 1s
+      tls: # if not specified, use plain TCP
+        ca: sampleconf/random/logging/logserver.crt
+        cert: sampleconf/random/logging/client.crt
+        key: sampleconf/random/logging/client.key
     syslog:
       enable: true
       format: logfmt
