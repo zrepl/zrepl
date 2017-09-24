@@ -62,6 +62,9 @@ func (h *TCPOutlet) WriteEntry(ctx context.Context, e logger.Entry) error {
 	}
 
 	_, err = h.conn.Write(b)
+	if err == nil {
+		_, err = h.conn.Write([]byte("\n"))
+	}
 	if err != nil {
 		return errors.Wrap(err, "cannot write")
 		h.conn.Close()
