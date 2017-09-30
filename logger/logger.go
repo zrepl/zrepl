@@ -41,7 +41,7 @@ func (l *Logger) log(level Level, msg string) {
 
 	entry := Entry{level, msg, time.Now(), l.fields}
 
-	ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(l.outletTimeout))
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(l.outletTimeout))
 	ech := make(chan error)
 
 	louts := l.outlets[level]
@@ -63,6 +63,8 @@ func (l *Logger) log(level Level, msg string) {
 			}
 		}
 	}
+
+	cancel() // make go vet happy
 
 }
 

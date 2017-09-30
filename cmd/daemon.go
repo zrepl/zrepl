@@ -103,6 +103,7 @@ outer:
 	}
 
 	signal.Stop(sigChan)
+	cancel() // make go vet happy
 
 	log.Info("exiting")
 
