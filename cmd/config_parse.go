@@ -4,9 +4,9 @@ import (
 	"io/ioutil"
 
 	"fmt"
+	yaml "github.com/go-yaml/yaml"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	yaml "github.com/go-yaml/yaml"
 	"os"
 )
 
@@ -99,7 +99,7 @@ func parseConfig(i interface{}) (c *Config, err error) {
 			// Try to find its name
 			namei, ok := asMap.Jobs[i]["name"]
 			if !ok {
-				namei = fmt.Sprintf("<no name, %i in list>", i)
+				namei = fmt.Sprintf("<no name, entry #%d in list>", i)
 			}
 			err = errors.Wrapf(err, "cannot parse job '%v'", namei)
 			return nil, err
@@ -175,9 +175,6 @@ func parseJob(c JobParsingContext, i map[string]interface{}) (j Job, err error) 
 		return nil, errors.Errorf("unknown job type '%s'", jobtype)
 	}
 
-	panic("implementation error")
-	return nil, nil
-
 }
 
 func parseConnect(i map[string]interface{}) (c RWCConnecter, err error) {
@@ -194,8 +191,6 @@ func parseConnect(i map[string]interface{}) (c RWCConnecter, err error) {
 		return nil, errors.Errorf("unknown connection type '%s'", t)
 	}
 
-	panic("implementation error")
-	return
 }
 
 func parseInitialReplPolicy(v interface{}, defaultPolicy InitialReplPolicy) (p InitialReplPolicy, err error) {
@@ -239,9 +234,6 @@ func parsePrunePolicy(v map[string]interface{}) (p PrunePolicy, err error) {
 		return
 	}
 
-	panic("implementation error")
-	return
-
 }
 
 func parseAuthenticatedChannelListenerFactory(c JobParsingContext, v map[string]interface{}) (p AuthenticatedChannelListenerFactory, err error) {
@@ -258,8 +250,5 @@ func parseAuthenticatedChannelListenerFactory(c JobParsingContext, v map[string]
 		err = errors.Errorf("unknown type '%s'", t)
 		return
 	}
-
-	panic("implementation error")
-	return
 
 }

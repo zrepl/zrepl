@@ -72,7 +72,7 @@ func (l *Logger) WithField(field string, val interface{}) *Logger {
 	defer l.mtx.Unlock()
 
 	if _, ok := l.fields[field]; ok {
-		fmt.Fprintf(os.Stderr, "%s caller overwrites field '%s'. Stack:\n%s\n", InternalErrorPrefix, string(debug.Stack()))
+		fmt.Fprintf(os.Stderr, "%s caller overwrites field '%s'. Stack:\n%s\n", InternalErrorPrefix, field, string(debug.Stack()))
 	}
 
 	child := &Logger{

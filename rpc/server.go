@@ -160,7 +160,6 @@ func (s *Server) ServeRequest() (err error) {
 			r := NewErrorHeader(StatusRequestError, "unregistered control endpoint %s", h.Endpoint)
 			return s.writeResponse(r)
 		}
-		panic("implementation error")
 	}
 
 	ep, ok := s.endpoints[h.Endpoint]

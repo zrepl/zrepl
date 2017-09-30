@@ -111,7 +111,6 @@ func (m DatasetMapFilter) Map(source *zfs.DatasetPath) (target *zfs.DatasetPath,
 	mi, hasMapping := m.mostSpecificPrefixMapping(source)
 	if !hasMapping {
 		return nil, nil
-		return
 	}
 	me := m.entries[mi]
 

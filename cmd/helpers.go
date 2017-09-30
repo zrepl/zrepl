@@ -15,11 +15,11 @@ func ListenUnixPrivate(sockaddr *net.UnixAddr) (*net.UnixListener, error) {
 		return nil, errors.Wrapf(err, "cannot stat(2) '%s'", sockdir)
 	}
 	if !sdstat.IsDir() {
-		return nil, errors.Errorf("%s is not a directory: %s", sockdir)
+		return nil, errors.Errorf("not a directory: %s", sockdir)
 	}
 	p := sdstat.Mode().Perm()
 	if p&0007 != 0 {
-		return nil, errors.Errorf("%s must not be world-accessible (permissions are %#o)", p)
+		return nil, errors.Errorf("socket directory not be world-accessible: %s (permissions are %#o)", sockdir, p)
 	}
 
 	// Maybe things have not been cleaned up before

@@ -47,7 +47,7 @@ func (l Level) String() string {
 	case Error:
 		return "error"
 	default:
-		return fmt.Sprintf("%s", l)
+		return fmt.Sprintf("%s", string(l))
 	}
 }
 

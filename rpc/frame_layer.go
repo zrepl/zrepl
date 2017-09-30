@@ -26,6 +26,7 @@ const (
 	FrameTypeRST     FrameType = 0xff
 )
 
+//go:generate stringer -type=Status
 type Status uint64
 
 const (
@@ -154,7 +155,7 @@ func (w *frameBridgingWriter) writeUntilFrameFull(b []byte) (n int, err error) {
 		return
 	}
 	if w.bytesLeftToLimit == 0 {
-		err = errors.Errorf("exceeded limit of total %v bytes for this message")
+		err = errors.Errorf("message exceeds max number of allowed bytes")
 		return
 	}
 	maxwrite := len(b)

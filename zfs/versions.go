@@ -25,7 +25,6 @@ func (t VersionType) DelimiterChar() string {
 	default:
 		panic(fmt.Sprintf("unexpected VersionType %#v", t))
 	}
-	return ""
 }
 
 type FilesystemVersion struct {

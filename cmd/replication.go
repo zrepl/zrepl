@@ -310,8 +310,7 @@ func doPull(pull PullContext) (err error) {
 
 		}
 
-		panic("implementation error: this should not be reached")
-		return false
+		panic("should not be reached")
 
 	})
 

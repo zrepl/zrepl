@@ -28,7 +28,6 @@ func (s *LocalRPC) RegisterEndpoint(name string, handler interface{}) (err error
 
 func (s *LocalRPC) Serve() (err error) {
 	panic("local cannot serve")
-	return nil
 }
 
 func (c *LocalRPC) Call(endpoint string, in, out interface{}) (err error) {
