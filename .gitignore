@@ -1,4 +1,9 @@
+# Golang
 vendor/
+
+# IDEs
+.idea/
+.vscode/
 
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
