@@ -27,13 +27,17 @@ func (h WriterOutlet) WriteEntry(ctx context.Context, entry logger.Entry) error 
 }
 
 type TCPOutlet struct {
-	Formatter     EntryFormatter
-	Net, Address  string
-	Dialer        net.Dialer
-	TLS           *tls.Config
+	Formatter    EntryFormatter
+	Net, Address string
+	Dialer       net.Dialer
+	TLS          *tls.Config
+	// Specifies how much time must pass between a connection error and a reconnection attempt
+	// Log entries written to the outlet during this time interval are silently dropped.
 	RetryInterval time.Duration
-	conn          net.Conn
-	retry         time.Time
+	// nil if there was an error sending / connecting to remote server
+	conn net.Conn
+	// Last time an error occurred when sending / connecting to remote server
+	retry time.Time
 }
 
 func (h *TCPOutlet) WriteEntry(ctx context.Context, e logger.Entry) error {
@@ -45,8 +49,8 @@ func (h *TCPOutlet) WriteEntry(ctx context.Context, e logger.Entry) error {
 
 	if h.conn == nil {
 		if time.Now().Sub(h.retry) < h.RetryInterval {
-			return nil // this is not an error toward the logger
-			//return errors.New("TCP hook reconnect prohibited by retry interval")
+			// cool-down phase, drop the log entry
+			return nil
 		}
 
 		if h.TLS != nil {
@@ -66,10 +70,10 @@ func (h *TCPOutlet) WriteEntry(ctx context.Context, e logger.Entry) error {
 		_, err = h.conn.Write([]byte("\n"))
 	}
 	if err != nil {
-		return errors.Wrap(err, "cannot write")
 		h.conn.Close()
 		h.conn = nil
-		return err
+		h.retry = time.Now()
+		return errors.Wrap(err, "cannot write")
 	}
 
 	return nil
