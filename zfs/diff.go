@@ -205,7 +205,7 @@ func ZFSListFilesystemState() (localState map[string]FilesystemState, err error)
 	for _, e := range actual {
 		dp, err := NewDatasetPath(e[0])
 		if err != nil {
-			fmt.Errorf("ZFS does not return parseable dataset path: %s", e[0])
+			return nil, fmt.Errorf("ZFS does not return parseable dataset path: %s", e[0])
 		}
 		placeholder, _ := IsPlaceholder(dp, e[1])
 		localState[e[0]] = FilesystemState{
