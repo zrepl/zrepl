@@ -11,7 +11,7 @@ Use & test at your own risk ;)
 
 ## Getting started
 
-The [5 minute tutorial setup](/tutorial/) gives you a first impression.
+The [5 minute tutorial setup]({{< relref "tutorial/_index.md" >}}) gives you a first impression.
 
 ## Main Features
 

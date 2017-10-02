@@ -45,7 +45,7 @@ zrepl searches for its main configuration file in the following locations (in th
 
 Alternatively, use CLI flags to specify a config location.
 
-Copy a config from the [tutorial](/tutorial) or the `cmd/sampleconf` directory to one of these locations and customize it to your setup.
+Copy a config from the [tutorial]({{< relref "tutorial/_index.md" >}}) or the `cmd/sampleconf` directory to one of these locations and customize it to your setup.
 
 ## Runtime Directories
 

@@ -44,11 +44,11 @@ a gap in our backup history.
 
 ## Install zrepl
 
-Follow the [OS-specific installation instructions](/install/) and come back here.
+Follow the [OS-specific installation instructions]({{< relref "install/_index.md" >}}) and come back here.
 
 ## Configure `backups`
 
-We define a **pull job** named `pull_prod1` in the [main configuration file](/install/#main-configuration-file):
+We define a **pull job** named `pull_prod1` in the [main configuration file]({{< relref "install/_index.md#configuration-files" >}} ):
 
 ```yaml
 jobs:
@@ -88,7 +88,7 @@ You can learn more about the [**pull job** format here]({{< relref "configuratio
 
 ## Configure `prod1`
 
-We define a corresponding **source job** named `pull_backup` in the [main configuration file](/install/#main-configuration-file)
+We define a corresponding **source job** named `pull_backup` in the [main configuration file]({{< relref "install/_index.md#configuration-files" >}})
 `zrepl.yml`:
 
 ```yaml
@@ -129,13 +129,13 @@ command="zrepl stdinserver backups.example.com",no-port-forwarding,no-X11-forwar
 
 {{% alert theme="info" %}}The entries **must** be on a single line, including the replaced BACKUPS_SSH_PUBKEY{{% /alert %}}
 
-Again, you can learn more about the [**source job** format here]({{< ref "configuration/jobs.md#source" >}}).
+Again, you can learn more about the [**source job** format here]({{< relref "configuration/jobs.md#source" >}}).
 
 ## Apply Configuration Changes
 
 We need to restart the zrepl daemon on **both** `prod1` and `backups`.
 
-This is [OS-specific](/install/#restarting).
+This is [OS-specific]({{< relref "install/_index.md#restarting" >}}).
 
 ## Watch it Work
 
@@ -165,8 +165,8 @@ tmux select-layout tiled
 
 Congratulations, you have a working pull backup. Where to go next?
 
-* Read more about [configuration format, options & job types](/configuration/)
-* Learn about [implementation details](/impl/) of zrepl.
+* Read more about [configuration format, options & job types]({{< relref "configuration/_index.md" >}})
+* Learn about [implementation details]({{<relref "impl/_index.md" >}}) of zrepl.
 
 
 
