@@ -7,7 +7,8 @@ jobs:
   mapping: {
     "zroot/var/db<":    "storage/backups/local/zroot/var/db",
     "zroot/usr/home<":  "storage/backups/local/zroot/usr/home",
-    "zroot/var/tmp": "!", #don't backup /tmp
+    "zroot/usr/home/paranoid":  "!", #don't backup paranoid user
+    "zroot/poudriere/ports<": "!", #don't backup the ports trees
   }
   snapshot_prefix: zrepl_
   interval: 10m

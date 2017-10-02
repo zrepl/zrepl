@@ -4,19 +4,15 @@ weight = 20
 description = "How to specify mappings & filters"
 +++
 
-{{% alert theme="warning" %}}Under Construction{{% /alert %}}
-
 ## Mapping & Filter Syntax
 
 For various job types, a filesystem `mapping` or `filter` needs to be
 specified.
 
-Both have in common that they return a result for a given filesystem path (in
-the ZFS filesystem hierarchy): mappings return a *target filesystem*, filters
-return a *filter result* (`omit`, `ok`).
+Both have in common that they take a filesystem path (in the ZFS filesystem hierarchy)as parameters and return something.
+Mappings return a *target filesystem* and filters return a *filter result*.
 
-The pattern syntax is the same for mappings and filters and is documented in
-the following section.
+The pattern syntax is the same for mappings and filters and is documented in the following section.
 
 #### Pattern Syntax
 
@@ -49,44 +45,59 @@ tank/var/log     => 1
 
 #### Mappings
 
-The example below shows a pull job that would pull remote datasets to the given local paths.<br />
-If there exists no mapping (`NO MATCH`), the filesystem will not be pulled.
+Mappings map a *filesystem path* to a *target filesystem*.
+Per pattern, either a target filesystem path or `"!"` is specified as a result.
+
+* If no pattern matches, there exists no target filesystem (`NO MATCH`).
+* If the result is a `"!"`, there exists no target filesystem (`NO MATCH`).
+* If the pattern is a non-wildcard pattern, the filesystem specified on the left is mapped to the target filesystem on the right.
+* If the pattern is a *subtree wildcard* pattern, the root of the subtree specified in the pattern is mapped to the target filesystem on the right and all children are mapped bewlow it.
+
+Note that paths are never appended - a mapping represents a correspondence between a path on the left and a path on the right.
+
+The example is from the {{< sampleconflink "localbackup/host1.yml" >}} example config.
 
 ```yaml
-pull:
-  app01.example.com: # client identity
-    from: app01.example.com
-    mapping: { 
-      "tank/var/db<":    "zroot/backups/app01/tank/var/db",
-      "tank/var/www<":   "zroot/backups/app01/tank/var/www",
-      "tank/var/log":    "zroot/logbackup/app01",
-    }
+jobs:
+- name: mirror_local
+  type: local
+  mapping: {
+    "zroot/var/db<":    "storage/backups/local/zroot/var/db",
+    "zroot/usr/home<":  "storage/backups/local/zroot/usr/home",
+    "zroot/usr/home/paranoid":  "!", #don't backup paranoid user
+    "zroot/poudriere/ports<": "!", #don't backup the ports trees
+  }
+  ...
 ```
 
 ```
-tank/var/db`          => zroot/backups/app01/tank/var/db
-tank/var/db/a/child   => zroot/backups/app01/tank/var/db/a/child
-...
-tank/var/www          => zroot/backups/app01/tank/var/www
-tank/var/www/a/child  => zroot/backups/app01/tank/var/www/a/child
-...
-tank/var/log          => zroot/logbackup/app01
-tank/var/log/foo      => NOT MAPPED
+zroot/var/db                        => storage/backups/local/zroot/var/db
+zroot/var/db/a/child                => storage/backups/local/zroot/var/db/a/child
+zroot/usr/home                      => storage/backups/local/zroot/usr/home
+zroot/usr/home/paranoid             => NOT MAPPED
+zroot/usr/home/bob                  => storage/backups/local/zroot/usr/home/bob
+zroot/usr/src                       => NOT MAPPED
+zroot/poudriere/ports/2017Q3        => NOT MAPPED
+zroot/poudriere/ports/HEAD          => NOT MAPPED
 ```
 
 #### Filters
 
-Valid filter results: `ok` or `omit`.
+Valid filter results: `ok` or `!`.
 
-The example below shows a pull ACL that allows access to the user homes but not
-to the rest of the system's datasets.
+The example below show the source job from the [tutorial]({{< relref "tutorial/_index.md#configure-app-srv" >}}):
 
-```
-# Example for filter syntax
-pull_acls:
-  backups.example.com: # client identity
-    filter: {
-      "<":              omit,
-      "tank/usr/home<": ok,
-    }
+The client is allowed access to `zroot/var/db`, `zroot/usr/home` + children except `zroot/usr/home/paranoid`.
+
+```yaml
+jobs:
+- name: pull_backup
+  type: source
+  ...
+  datasets: {
+    "zroot/var/db": "ok",
+    "zroot/usr/home<": "ok",
+    "zroot/usr/home/paranoid": "!",
+  }
+  ...
 ```
