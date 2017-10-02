@@ -60,7 +60,7 @@ jobs:
     host: app-srv.example.com
     user: root
     port: 22
-    identity_file: /etc/zrepl/ssh/app-srv
+    identity_file: /etc/zrepl/ssh/identity
   interval: 10m
   mapping: {
     "<":"storage/zrepl/pull/app-srv"
@@ -72,20 +72,22 @@ jobs:
     grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
 ```
 
-The `connect` section instructs zrepl to use the `stdinserver` transport: instead of directly exposing zrepl on `app-srv`
-to the internet, `backup-srv` starts the `zrepl stdinserver` subcommand on `app-srv` via SSH.
-(You can learn more about what happens [here]({{< relref "configuration/transports.md#stdinserver" >}}), or just continue following this tutorial.)
+The `connect` section instructs the zrepl daemon to use the `stdinserver` transport:
+`backup-srv` will connect to the specified SSH server and expect `zrepl stdinserver CLIENT_IDENTITY` instead of the shell on the other side.
 
-Thus, we need to create the SSH key pair `/etc/zrepl/ssh/app-srv{,.pub}` which identifies `backup-srv` toward `app-srv`.
-Execute the following commands on `backup-srv` as the root user:
+It uses the private key specified at `connect.identity_file` which we still need to create:
 
 ```bash
 cd /etc/zrepl
 mkdir -p ssh
 chmod 0700 ssh
-ssh-keygen -t ed25519 -N '' -f /etc/zrepl/ssh/app-srv
+ssh-keygen -t ed25519 -N '' -f /etc/zrepl/ssh/identity
 ```
-You can learn more about the [**pull job** format here]({{< relref "configuration/jobs.md#pull" >}}) but for now we are good to go.
+
+Note that most use cases do not benefit from separate keypairs per remote endpoint.
+Thus, it is sufficient to create one keypair and use it for all `connect` directives on one host.
+
+Learn more about [stdinserver]({{< relref "configuration/transports.md#ssh-stdinserver" >}}) and the [**pull job** format]({{< relref "configuration/jobs.md#pull" >}}).
 
 ## Configure `app-srv`
 
@@ -115,24 +117,27 @@ jobs:
 
 The `serve` section corresponds to the `connect` section in the configuration of `backup-srv`.
 
-As mentioned before, the SSH key `app-srv.pub` created in the section before identifies `backup-srv` toward `app-srv`.
-We enforce that by limiting `backup-srv` to execute exactly `zrepl stdinserver CLIENT_IDENTITY` when connecting to `app-srv`.
+We now want to authenticate `backup-srv` before allowing it to pull data.
+This is done by limiting SSH connections from `backup-srv` to execute the `stdinserver` subcommand.
 
 Open `/root/.ssh/authorized_keys` and add either of the the following lines.<br />
 
 ```
 # for OpenSSH >= 7.2
-command="zrepl stdinserver backup-srv.example.com",restrict PULLING_SSH_KEY
+command="zrepl stdinserver backup-srv.example.com",restrict CLIENT_SSH_KEY
 # for older OpenSSH versions
-command="zrepl stdinserver backup-srv.example.com",no-port-forwarding,no-X11-forwarding,no-pty,no-agent-forwarding,no-user-rc  PULLING_SSH_KEY
+command="zrepl stdinserver backup-srv.example.com",no-port-forwarding,no-X11-forwarding,no-pty,no-agent-forwarding,no-user-rc  CLIENT_SSH_KEY
 ```
 
 {{% notice info %}}
-Replace PULLING_SSH_KEY with the contents of `app-srv.pub`.<br/>
-The entries **must** be on a single line, including the replaced PULLING_SSH_KEY.
+Replace CLIENT_SSH_KEY with the contents of `/etc/zrepl/ssh/identity.pub` from `app-srv`.<br/>
+Mind the trailing `.pub` in the filename.<br />
+The entries **must** be on a single line, including the replaced CLIENT_SSH_KEY.
 {{% /notice %}}
 
-Again, you can learn more about the [**source job** format here]({{< relref "configuration/jobs.md#source" >}}).
+The argument `backup-srv.example.com` is the client identity of `backup-srv` as defined in `jobs.serve.client_identity`.
+
+Again, you both [stdinserver]({{< relref "configuration/transports.md#ssh-stdinserver" >}}) and the [**source job** format]({{< relref "configuration/jobs.md#source" >}}) are documented.
 
 ## Apply Configuration Changes
 
