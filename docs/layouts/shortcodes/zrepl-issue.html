@@ -1,0 +1,5 @@
+{{if .Get 0 }}
+<a href="https://github.com/zrepl/zrepl/issues/{{.Get 0}}" target="_new" >(Issue #{{.Get 0}})</a>
+{{else}}
+{{.missingParameter}}
+{{end}}

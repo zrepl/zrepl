@@ -33,6 +33,7 @@ The [5 minute tutorial setup]({{< relref "tutorial/_index.md" >}}) gives you a f
 * Maintainable implementation in Go
     * [x] Cross platform
     * [x] Type safe & testable code
+* Flexible, detailed & structured [logging]({{< ref "configuration/logging.md" >}})
 
 ## Contributing
 
