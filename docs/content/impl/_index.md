@@ -2,17 +2,17 @@
 title = "Implementation Overview"
 +++
 
-{{% alert theme="warning" %}}Under Construction{{% /alert %}}
+{{% alert theme="warning" %}}Incomplete{{% /alert %}}
 
 The following design aspects may convince you that `zrepl` is superior to a hacked-together shell script solution.
 
-## Language
+## Testability & Performance
 
-`zrepl` is written in Go, a real programming language with type safety,
+zrepl is written in Go, a real programming language with type safety,
 reasonable performance, testing infrastructure and an (opinionated) idea of
 software engineering.
 
-* key parts & algorithms of `zrepl` are covered by unit tests
+* key parts & algorithms of zrepl are covered by unit tests (work in progress)
 * zrepl is noticably faster than comparable shell scripts
 
 
@@ -26,21 +26,28 @@ While it is tempting to just issue a few `ssh remote 'zfs send ...' | zfs recv`,
     * or issue additional `ssh` commands in advance to figure out what features are supported on the other side.
 * Advanced logic in shell scripts is ugly to read, poorly testable and a pain to maintain.
 
-`zrepl` takes a different approach:
+zrepl takes a different approach:
 
 * Define an RPC protocol.
 * Establish an encrypted, authenticated, bidirectional communication channel...
-* ... with `zrepl` running at both ends of it.
+* ... with zrepl running at both ends of it.
 
  This has several obvious benefits:
 
 * No blank root shell access is given to the other side.
-* Instead, access control lists (ACLs) are used to grant permissions to *authenticated* peers. 
-* The transport mechanism is decoupled from the remaining logic, keeping it extensible (e.g. TCP+TLS)
+* Instead, an *authenticated* peer can *request* filesystem lists, snapshot streams, etc.
+* Requests are then checked against job-specific ACLs, limiting a client to the filesystems it is actually allowed to replicate.
+* The {{< zrepl-transport "transport mechanism" >}} is decoupled from the remaining logic, keeping it extensible.
 
-{{% panel %}}
-Currently, the bidirectional communication channel is multiplexed on top of a single SSH connection.
-Local replication is of course handled efficiently via simple method calls
-See TODO for details.
-{{% / panel %}}
+### Protocol Implementation
 
+zrepl implements its own RPC protocol.
+This is mostly due to the fact that existing solutions do not provide efficient means to transport large amounts of data.
+
+Package [`github.com/zrepl/zrepl/rpc`](https://github.com/zrepl/zrepl/tree/master/rpc) builds a special-case handling around returning an `io.Reader` as part of a unary RPC call.
+
+Measurements show only a single memory-to-memory copy of a snapshot stream is made using `github.com/zrepl/zrepl/rpc`, and there is still potential for further optimizations.
+
+## Logging & Transparency
+
+zrepl comes with [rich, structured and configurable logging]({{< relref "configuration/logging.md" >}}), allowing administators to understand what the software is actually doing.
