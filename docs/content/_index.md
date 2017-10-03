@@ -6,6 +6,7 @@ title = "zrepl - ZFS replication"
 
 {{% notice info %}}
 zrepl as well as this documentation is still under active development.
+It is neither feature complete nor is there a stability guarantee on the configuration format.
 Use & test at your own risk ;)
 {{% /notice %}}
 
@@ -28,24 +29,26 @@ The [5 minute tutorial setup]({{< relref "tutorial/_index.md" >}}) gives you a f
         * Raw encrypted `send & receive` (as soon as it is available)
 * Automatic snapshot creation
     * [x] Ensure fixed time interval between snapshots
-* Automatic snapshot pruning
-    * [x] <i class="fa fa-arrow-right" aria-hidden="true"></i> [Retention Grid]({{< ref "configuration/prune.md#retention-grid" >}})
+* Automatic snapshot [pruning]({{< ref "configuration/prune.md" >}})
+    * [x] Age-based fading (grandfathering scheme)
+* Flexible, detailed & structured [logging]({{< ref "configuration/logging.md" >}})
+    * [x] `human`, `logfmt` and `json` formatting
+    * [x] stdout, syslog and TCP (+TLS client auth) outlets
 * Maintainable implementation in Go
     * [x] Cross platform
     * [x] Type safe & testable code
-* Flexible, detailed & structured [logging]({{< ref "configuration/logging.md" >}})
 
 ## Contributing
 
-zrepl is usable but nowhere near a stable release right now -  we are happy about contributors!
+We are happy about any help we can get!
 
 * Explore the codebase
     * These docs live in the `docs/` subdirectory
 * Document any non-obvious / confusing / plain broken behavior you encounter when setting up zrepl for the first time
 * Check the *Issues* and *Projects* sections for things to do
 
-{{% panel header="<i class='fa fa-github'></i> Getting your code merged"%}}
-[The <i class='fa fa-github'></i> GitHub repository](https://github.com/zrepl/zrepl) is where all development happens.
-Open your issue / PR there.
+{{% panel header="<i class='fa fa-github'></i> Development Workflow"%}}
+[The <i class='fa fa-github'></i> GitHub repository](https://github.com/zrepl/zrepl) is where all development happens.<br />
+Make sure to read the [Developer Documentation section](https://github.com/zrepl/zrepl) and open new issues or pull requests there.
 {{% /panel %}}
 
