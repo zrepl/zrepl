@@ -34,7 +34,7 @@ func (a *IntervalAutosnap) Run(ctx context.Context, didSnaps chan struct{}) {
 		return
 	}
 	if len(ds) == 0 {
-		a.log.WithError(err).Error("no datasets matching dataset filter")
+		a.log.Warn("no filesystem matching filesystem filter")
 		return
 	}
 
