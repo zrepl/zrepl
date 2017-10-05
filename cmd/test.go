@@ -109,7 +109,7 @@ func doTestDatasetMapFilter(cmd *cobra.Command, args []string) {
 	case *PullJob:
 		mf = j.Mapping
 	case *SourceJob:
-		mf = j.Datasets
+		mf = j.Filesystems
 	case *LocalJob:
 		mf = j.Mapping
 	default:

@@ -102,7 +102,7 @@ jobs:
   serve:
     type: stdinserver
     client_identity: backup-srv.example.com
-  datasets: {
+  filesystems: {
     "zroot/var/db": "ok",
     "zroot/usr/home<": "ok",
     "zroot/usr/home/paranoid": "!",

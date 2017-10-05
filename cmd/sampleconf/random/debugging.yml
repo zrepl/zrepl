@@ -22,7 +22,7 @@ jobs:
   serve:
     type: stdinserver
     client_identity: debian2
-  datasets: {
+  filesystems: {
     "pool1/db<": ok
   }
   snapshot_prefix: zrepl_

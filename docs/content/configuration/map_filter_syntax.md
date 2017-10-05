@@ -94,7 +94,7 @@ jobs:
 - name: pull_backup
   type: source
   ...
-  datasets: {
+  filesystems: {
     "zroot/var/db": "ok",
     "zroot/usr/home<": "ok",
     "zroot/usr/home/paranoid": "!",

@@ -13,7 +13,7 @@ import (
 type SourceJob struct {
 	Name           string
 	Serve          AuthenticatedChannelListenerFactory
-	Datasets       *DatasetMapFilter
+	Filesystems    *DatasetMapFilter
 	SnapshotPrefix string
 	Interval       time.Duration
 	Prune          PrunePolicy
@@ -24,7 +24,7 @@ func parseSourceJob(c JobParsingContext, name string, i map[string]interface{}) 
 
 	var asMap struct {
 		Serve          map[string]interface{}
-		Datasets       map[string]string
+		Filesystems    map[string]string
 		SnapshotPrefix string `mapstructure:"snapshot_prefix"`
 		Interval       string
 		Prune          map[string]interface{}
@@ -42,7 +42,7 @@ func parseSourceJob(c JobParsingContext, name string, i map[string]interface{}) 
 		return
 	}
 
-	if j.Datasets, err = parseDatasetMapFilter(asMap.Datasets, true); err != nil {
+	if j.Filesystems, err = parseDatasetMapFilter(asMap.Filesystems, true); err != nil {
 		return
 	}
 
@@ -77,7 +77,7 @@ func (j *SourceJob) JobStart(ctx context.Context) {
 	log := ctx.Value(contextKeyLog).(Logger)
 	defer log.Info("exiting")
 
-	a := IntervalAutosnap{DatasetFilter: j.Datasets, Prefix: j.SnapshotPrefix, SnapshotInterval: j.Interval}
+	a := IntervalAutosnap{DatasetFilter: j.Filesystems, Prefix: j.SnapshotPrefix, SnapshotInterval: j.Interval}
 	p, err := j.Pruner(PrunePolicySideDefault, false)
 	if err != nil {
 		log.WithError(err).Error("error creating pruner")
@@ -111,7 +111,7 @@ func (j *SourceJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err err
 	p = Pruner{
 		time.Now(),
 		dryRun,
-		j.Datasets,
+		j.Filesystems,
 		j.SnapshotPrefix,
 		j.Prune,
 	}
@@ -158,7 +158,7 @@ outer:
 			}
 
 			// construct connection handler
-			handler := NewHandler(log, j.Datasets, &PrefixSnapshotFilter{j.SnapshotPrefix})
+			handler := NewHandler(log, j.Filesystems, &PrefixSnapshotFilter{j.SnapshotPrefix})
 
 			// handle connection
 			rpcServer := rpc.NewServer(rwc)

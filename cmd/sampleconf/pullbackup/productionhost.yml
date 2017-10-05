@@ -28,7 +28,7 @@ jobs:
     client_identity: fullbackup_prod1
 
   # snapshot these filesystems every 10m with zrepl_ as prefix
-  datasets: {
+  filesystems: {
     "zroot/var/db<": "ok",
     "zroot/usr/home<": "ok",
     "zroot/var/tmp": "!", #don't backup /tmp

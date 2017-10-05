@@ -11,7 +11,7 @@ jobs:
       identity_file: /root/.ssh/id_ed25519
 
   # snapshot these datsets every 10m with zrepl_ as prefix
-  datasets: {
+  filesystems: {
     "zroot/var/db<": "ok",
     "zroot/usr/home<": "!",
   }
