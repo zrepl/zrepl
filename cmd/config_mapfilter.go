@@ -124,7 +124,7 @@ func (m DatasetMapFilter) Map(source *zfs.DatasetPath) (target *zfs.DatasetPath,
 		err = fmt.Errorf("mapping target is not a dataset path: %s", err)
 		return
 	}
-	if m.entries[mi].subtreeMatch {
+	if me.subtreeMatch {
 		// strip common prefix
 		extendComps := source.Copy()
 		if me.path.Empty() {
