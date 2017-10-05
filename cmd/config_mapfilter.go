@@ -125,14 +125,9 @@ func (m DatasetMapFilter) Map(source *zfs.DatasetPath) (target *zfs.DatasetPath,
 		return
 	}
 	if me.subtreeMatch {
-		// strip common prefix
+		// strip common prefix ('<' wildcards are no special case here)
 		extendComps := source.Copy()
-		if me.path.Empty() {
-			// special case: trying to map the root => strip first component
-			extendComps.TrimNPrefixComps(1)
-		} else {
-			extendComps.TrimPrefix(me.path)
-		}
+		extendComps.TrimPrefix(me.path)
 		target.Extend(extendComps)
 	}
 	return

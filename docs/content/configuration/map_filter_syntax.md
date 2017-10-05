@@ -45,15 +45,14 @@ tank/var/log     => 1
 
 #### Mappings
 
-Mappings map a *filesystem path* to a *target filesystem*.
+Mappings map a *source filesystem path* to a *target filesystem path*.
 Per pattern, either a target filesystem path or `"!"` is specified as a result.
 
 * If no pattern matches, there exists no target filesystem (`NO MATCH`).
 * If the result is a `"!"`, there exists no target filesystem (`NO MATCH`).
-* If the pattern is a non-wildcard pattern, the filesystem specified on the left is mapped to the target filesystem on the right.
-* If the pattern is a *subtree wildcard* pattern, the root of the subtree specified in the pattern is mapped to the target filesystem on the right and all children are mapped bewlow it.
-
-Note that paths are never appended - a mapping represents a correspondence between a path on the left and a path on the right.
+* If the pattern is a non-wildcard pattern, the source path is mapped to the target path on the right.
+* If the pattern ends with a *subtree wildcard* (`<`), the source path is **prefix-trimmed** with the path specified left of `<`.
+  * Note: this means that only for *wildcard-only* patterns (pattern=`<`) is the source path simply appended to the target path.
 
 The example is from the {{< sampleconflink "localbackup/host1.yml" >}} example config.
 
