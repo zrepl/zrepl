@@ -77,7 +77,7 @@ func Outgoing(remote SSHTransport) (s OutgoingSSHByteStream, err error) {
 
 	var sshCommand = SSHCommand
 	if len(remote.SSHCommand) > 0 {
-		sshCommand = SSHCommand
+		sshCommand = remote.SSHCommand
 	}
 
 	if s.c, err = util.NewIOCommand(sshCommand, sshArgs, util.IOCommandStderrBufSize); err != nil {
