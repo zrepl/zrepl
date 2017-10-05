@@ -1,9 +1,11 @@
 global:
   logging:
-    stdout:
+
+    - outlet: stdout
       level: warn
       format: human
-    tcp:
+
+    - outlet: tcp
       level: debug
       format: json
       net: tcp
@@ -13,8 +15,10 @@ global:
         ca: sampleconf/random/logging/logserver.crt
         cert: sampleconf/random/logging/client.crt
         key: sampleconf/random/logging/client.key
-    syslog:
-      enable: true
+
+    - outlet: syslog
+      level: debug
       format: logfmt
+
 
 jobs: []

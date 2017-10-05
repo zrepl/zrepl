@@ -7,20 +7,39 @@ zrepl uses structured logging to provide users with easily processable log messa
 
 ## Configuration
 
-Logging is configured in the `global` section of the [configuration file]({{< relref "install/_index.md#configuration-files" >}}).<br/>
+Logging outlets are configured in the `global` section of the [configuration file]({{< relref "install/_index.md#configuration-files" >}}).<br />
 Check out {{< sampleconflink "random/logging.yml" >}} for an example on how to configure multiple outlets:
+
 ```yaml
 global:
   logging:
-    OUTLET_TYPE:
-      PARAM: VAUE
-      ...
-    OUTLET_TYPE:
-      ...
-jobs:
-  ...
+
+    - outlet: OUTLET_TYPE
+      level: MINIMUM_LEVEL
+      format: FORMAT
+
+    - outlet: OUTLET_TYPE
+      level: MINIMUM_LEVEL
+      format: FORMAT
+
+    ...
+
+jobs: ...
+
 ```
-**Note**: Currently, only one instance of an outlet type can be instantiated {{< zrepl-issue 20 >}}
+
+### Default Configuration
+
+By default, the following logging configuration is used
+
+```yaml
+global:
+  logging:
+
+    - outlet: "stdout"
+      level:  "warn"
+      format: "human"
+```
 
 {{% notice info %}}
 Output to **stderr** should always be considered a **critical error**.<br />
@@ -56,30 +75,37 @@ Outlets are ... well ... outlets for log entries into the world.
 
 #### **`stdout`**
 
-| Parameter | Default   | Description |
+| Parameter | Default   | Comment |
 |-----------| --------- | ----------- |
-|`level`    | *none*    | minimum [log level](#levels) |
-|`format`   | `human`   | [format](#formats) |
+|`outlet`   | *none*    | required |
+|`level`    | *none*    | minimum [log level](#levels), required |
+|`format`   | *none*    | output [format](#formats), required |
 
 Writes all log entries with minimum level `level` formatted by `format` to stdout.
 
+Can only be specified once.
+
 #### **`syslog`**
 
-| Parameter | Default   | Description |
+| Parameter | Default   | Comment |
 |-----------| --------- | ----------- |
-|`enable`   | false     | boolean     |
-|`format`   | `human`   | [format](#formats) |
+|`outlet`   | *none*    | required |
+|`level`    | *none*    | minimum [log level](#levels), required, usually `debug` |
+|`format`   | *none*    | output [format](#formats), required|
 |`retry_interval`| 0 | Interval between reconnection attempts to syslog  |
 
 Writes all log entries formatted by `format` to syslog.
 On normal setups, you should not need to change the `retry_interval`.
 
+Can only be specified once.
+
 #### **`tcp`**
 
-| Parameter | Default   | Description |
+| Parameter | Default   | Comment |
 |-----------| --------- | ----------- |
-|`level`    | *none*    | minimum [log level](#levels) |
-|`format`   | *none*   | [format](#formats) |
+|`outlet`   | *none*    | required |
+|`level`    | *none*    | minimum [log level](#levels), required |
+|`format`   | *none*    | output [format](#formats), required |
 |`net`|*none*|`tcp` in most cases|
 |`address`|*none*|remote network, e.g. `logs.example.com:10202`|
 |`retry_interval`|*none*|Interval between reconnection attempts to `address`|
