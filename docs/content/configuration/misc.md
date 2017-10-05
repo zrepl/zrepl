@@ -26,6 +26,13 @@ global:
       sockdir: /var/run/zrepl/stdinserver
 ```
 
+## Durations & Intervals
+
+Interval & duration fields in job definitions, pruning configurations, etc. must match the following regex:
+```go
+var durationStringRegex *regexp.Regexp = regexp.MustCompile(`^\s*(\d+)\s*(s|m|h|d|w)\s*$`)
+// s = second, m = minute, h = hour, d = day, w = week (7 days)
+```
 
 ## Super-Verbose Job Debugging
 

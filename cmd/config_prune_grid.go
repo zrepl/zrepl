@@ -93,42 +93,6 @@ func parseGridPrunePolicy(e map[string]interface{}) (p *GridPrunePolicy, err err
 	return
 }
 
-var durationStringRegex *regexp.Regexp = regexp.MustCompile(`^\s*(\d+)\s*(s|m|h|d|w)\s*$`)
-
-func parseDuration(e string) (d time.Duration, err error) {
-	comps := durationStringRegex.FindStringSubmatch(e)
-	if len(comps) != 3 {
-		err = fmt.Errorf("does not match regex: %s %#v", e, comps)
-		return
-	}
-
-	durationFactor, err := strconv.ParseInt(comps[1], 10, 64)
-	if err != nil {
-		return
-	}
-
-	var durationUnit time.Duration
-	switch comps[2] {
-	case "s":
-		durationUnit = time.Second
-	case "m":
-		durationUnit = time.Minute
-	case "h":
-		durationUnit = time.Hour
-	case "d":
-		durationUnit = 24 * time.Hour
-	case "w":
-		durationUnit = 24 * 7 * time.Hour
-	default:
-		err = fmt.Errorf("contains unknown time unit '%s'", comps[2])
-		return
-	}
-
-	d = time.Duration(durationFactor) * durationUnit
-	return
-
-}
-
 var retentionStringIntervalRegex *regexp.Regexp = regexp.MustCompile(`^\s*(\d+)\s*x\s*([^\(]+)\s*(\((.*)\))?\s*$`)
 
 func parseRetentionGridIntervalString(e string) (intervals []util.RetentionInterval, err error) {
@@ -146,7 +110,7 @@ func parseRetentionGridIntervalString(e string) (intervals []util.RetentionInter
 		return nil, fmt.Errorf("contains factor <= 0")
 	}
 
-	duration, err := parseDuration(comps[2])
+	duration, err := parsePostitiveDuration(comps[2])
 	if err != nil {
 		return nil, err
 	}

@@ -49,7 +49,7 @@ func parseLocalJob(c JobParsingContext, name string, i map[string]interface{}) (
 		return
 	}
 
-	if j.Interval, err = time.ParseDuration(asMap.Interval); err != nil {
+	if j.Interval, err = parsePostitiveDuration(asMap.Interval); err != nil {
 		err = errors.Wrap(err, "cannot parse interval")
 		return
 	}

@@ -48,7 +48,7 @@ func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j
 		return nil, err
 	}
 
-	if j.Interval, err = time.ParseDuration(asMap.Interval); err != nil {
+	if j.Interval, err = parsePostitiveDuration(asMap.Interval); err != nil {
 		err = errors.Wrap(err, "cannot parse 'interval'")
 		return nil, err
 	}
