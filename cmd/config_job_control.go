@@ -59,7 +59,7 @@ outer:
 
 		select {
 		case <-ctx.Done():
-			log.WithError(err).Info("contex done")
+			log.WithError(ctx.Err()).Info("context done")
 			server.Shutdown(context.Background())
 			break outer
 		case err = <-served:
