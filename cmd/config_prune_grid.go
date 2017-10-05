@@ -80,13 +80,22 @@ func parseGridPrunePolicy(e map[string]interface{}) (p *GridPrunePolicy, err err
 	// Assert intervals are of increasing length (not necessarily required, but indicates config mistake)
 	lastDuration := time.Duration(0)
 	for i := range intervals {
+
 		if intervals[i].Length < lastDuration {
-			err = fmt.Errorf("retention grid interval length must be monotonically increasing:"+
-				"interval %d is shorter than %d", i+1, i)
+			// If all intervals before were keep=all, this is ok
+			allPrevKeepCountAll := true
+			for j := i - 1; allPrevKeepCountAll && j >= 0; j-- {
+				allPrevKeepCountAll = intervals[j].KeepCount == util.RetentionGridKeepCountAll
+			}
+			if allPrevKeepCountAll {
+				goto isMonotonicIncrease
+			}
+			err = errors.New("retention grid interval length must be monotonically increasing")
 			return
-		} else {
-			lastDuration = intervals[i].Length
 		}
+	isMonotonicIncrease:
+		lastDuration = intervals[i].Length
+
 	}
 	p.RetentionGrid = util.NewRetentionGrid(intervals)
 
