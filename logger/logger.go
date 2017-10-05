@@ -102,7 +102,11 @@ func (l *Logger) WithFields(fields Fields) (ret *Logger) {
 }
 
 func (l *Logger) WithError(err error) *Logger {
-	return l.WithField(FieldError, err.Error())
+	val := interface{}(nil)
+	if err != nil {
+		val = err.Error()
+	}
+	return l.WithField(FieldError, val)
 }
 
 func (l *Logger) Debug(msg string) {
