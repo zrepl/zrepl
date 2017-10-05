@@ -52,3 +52,20 @@ Make sure to develop an understanding how zrepl is typically used by studying th
 * Open an issue when starting to hack on a new feature
 * Commits should reference the issue they are related to
 * Docs improvements not documenting new features do not require an issue.
+
+### Glossary & Naming Inconsistencies
+
+In ZFS, *dataset* refers to the objects *filesystem*, *ZVOL* and *snapshot*. <br />
+However, we need a word for *filesystem* & *ZVOL* but not a snapshot, bookmark, etc.
+
+Toward the user, the following terminology is used:
+
+* **filesystem**: a ZFS filesystem or a ZVOL
+* **filesystem version**: a ZFS snapshot or a bookmark
+
+Sadly, the zrepl implementation is inconsistent in its use of these words:
+variables and types are often named *dataset* when they in fact refer to a *filesystem*.
+
+There will not be a big refactoring (an attempt was made, but it's destroying too much history without much gain).
+
+However, new contributions & patches should fix naming without further notice in the commit message.
