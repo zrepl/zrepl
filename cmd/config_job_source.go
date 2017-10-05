@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"context"
+	"io"
+	"time"
+
 	mapstructure "github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/util"
-	"io"
-	"time"
 )
 
 type SourceJob struct {
@@ -128,7 +129,11 @@ func (j *SourceJob) serve(ctx context.Context) {
 		return
 	}
 
-	rwcChan := make(chan io.ReadWriteCloser)
+	type rwcChanMsg struct {
+		rwc io.ReadWriteCloser
+		err error
+	}
+	rwcChan := make(chan rwcChanMsg)
 
 	// Serve connections until interrupted or error
 outer:
@@ -137,22 +142,23 @@ outer:
 		go func() {
 			rwc, err := listener.Accept()
 			if err != nil {
-				log.WithError(err).Error("error accepting connection")
+				rwcChan <- rwcChanMsg{rwc, err}
 				close(rwcChan)
 				return
 			}
-			rwcChan <- rwc
+			rwcChan <- rwcChanMsg{rwc, err}
 		}()
 
 		select {
 
-		case rwc, notClosed := <-rwcChan:
+		case rwcMsg := <-rwcChan:
 
-			if !notClosed {
-				break outer // closed because of accept error
+			if rwcMsg.err != nil {
+				log.WithError(err).Error("error accepting connection")
+				break outer
 			}
 
-			rwc, err := util.NewReadWriteCloserLogger(rwc, j.Debug.Conn.ReadDump, j.Debug.Conn.WriteDump)
+			rwc, err := util.NewReadWriteCloserLogger(rwcMsg.rwc, j.Debug.Conn.ReadDump, j.Debug.Conn.WriteDump)
 			if err != nil {
 				panic(err)
 			}
