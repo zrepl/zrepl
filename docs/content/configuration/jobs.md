@@ -11,6 +11,12 @@ Check out the [tutorial]({{< relref "tutorial/_index.md" >}}) and {{< sampleconf
 
 ## Job Types
 
+{{% notice info %}}
+Currently, zrepl does not replicate filesystem properties.
+Whe receiving a filesystem, it is never mounted (`-u` flag)  and `mountpoint=none` is set.
+This is temporary and being worked on {{< zrepl-issue 24 >}}.
+{{% / notice %}}
+
 ### Source
 
 |Parameter|Default|Description / Example|
