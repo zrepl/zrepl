@@ -135,6 +135,11 @@ Mind the trailing `.pub` in the filename.<br />
 The entries **must** be on a single line, including the replaced CLIENT_SSH_KEY.
 {{% /notice %}}
 
+{{% notice note %}}
+You may need to adjust the `PermitRootLogin` option in `/etc/ssh/sshd_config` to `forced-commands-only` or higher for this to work.
+Refer to sshd_config(5) for details.
+{{% / notice %}}
+
 The argument `backup-srv.example.com` is the client identity of `backup-srv` as defined in `jobs.serve.client_identity`.
 
 Again, you both [stdinserver]({{< relref "configuration/transports.md#ssh-stdinserver" >}}) and the [**source job** format]({{< relref "configuration/jobs.md#source" >}}) are documented.

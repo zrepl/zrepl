@@ -43,11 +43,16 @@ This can be achieved with an entry in the `authorized_keys` file of the serving 
 # for OpenSSH >= 7.2
 command="zrepl stdinserver CLIENT_IDENTITY",restrict CLIENT_SSH_KEY
 # for older OpenSSH versions
-command="zrepl stdinserver CLIENT_IDENTITY",no-port-forwarding,no-X11-forwarding,no-pty,no-agent-forwarding,no-user-rc  CLIENT_SSH_KEY
+command="zrepl stdinserver CLIENT_IDENTITY",no-port-forwarding,no-X11-forwarding,no-pty,no-agent-forwarding,no-user-rc CLIENT_SSH_KEY
 ```
 
-* CLIENT_IDENTITY is substituted with `backup-srv.example.com`
+* CLIENT_IDENTITY is substituted with `backup-srv.example.com` in our example
 * CLIENT_SSH_KEY is substituted with the public part of the SSH keypair specified in the `connect` directive on the connecting host.
+
+{{% notice note %}}
+You may need to adjust the `PermitRootLogin` option in `/etc/ssh/sshd_config` to `forced-commands-only` or higher for this to work.
+Refer to sshd_config(5) for details.
+{{% / notice %}}
 
 To recap, this is of how client authentication works with the `ssh+stdinserver` transport:
 
