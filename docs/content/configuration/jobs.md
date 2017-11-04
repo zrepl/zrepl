@@ -37,6 +37,11 @@ This is temporary and being worked on {{< zrepl-issue 24 >}}.
 
 A source job is the counterpart to a [pull job]({{< relref "#pull" >}}).
 
+Note that the prune policy determines the maximum replication lag:
+a pull job may stop replication due to link failure, misconfiguration or administrative action.
+The source prune policy will eventually destroy the last common snapshot between source and pull job, requiring full replication.
+Make sure you read the [prune policy documentation]({{< relref "configuration/prune.md" >}}).
+
 Example: {{< sampleconflink "pullbackup/productionhost.yml" >}}
 
 ### Pull

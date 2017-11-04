@@ -48,3 +48,13 @@ The following procedure happens during pruning:
     1. the contained snapshot list is sorted by creation.
     1. snapshots from the list, oldest first, are destroyed until the specified `keep` count is reached.
     1. all remaining snapshots on the list are kept.
+
+{{% notice info %}}
+The configuration of the first interval (`1x1h(keep=all)` in the example) determines the **maximum allowable replication lag** between source and destination.
+After the first interval, source and destination likely have different retention settings.
+This means source and destination may prune different snapshots, prohibiting incremental replication froms snapshots that are not in the first interval.
+
+**Always** configure the first interval to **`1x?(keep=all)`**, substituting `?` with the maximum time replication may fail due to downtimes, maintenance, connectivity issues, etc.
+After outages longer than `?` you may be required to perform **full replication** again.
+{{% / notice %}}
+
