@@ -1,6 +1,0 @@
-{{ $this := .}}
-{{with .Site.GetPage "page" "configuration" "transports.md" }}
-<a href="{{.URL}}">{{default "transport" ($this.Get 0) }}</a>
-{{else}}
-{{.PageDoesNotExistError}}
-{{end}}

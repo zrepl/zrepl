@@ -1,6 +1,0 @@
-{{ $this := .}}
-{{with .Site.GetPage "page" "configuration" "prune.md" }}
-<a href="{{.URL}}">{{default "prune policy" ($this.Get 0) }}</a>
-{{else}}
-{{.PageDoesNotExistError}}
-{{end}}

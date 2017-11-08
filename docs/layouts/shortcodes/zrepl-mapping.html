@@ -1,6 +1,0 @@
-{{ $this := .}}
-{{with .Site.GetPage "page" "configuration" "map_filter_syntax.md" }}
-<a href="{{.URL}}#mappings">{{default "mapping" ($this.Get 0) }}</a>
-{{else}}
-{{.PageDoesNotExistError}}
-{{end}}
