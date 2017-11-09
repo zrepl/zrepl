@@ -11,10 +11,8 @@ User Privileges
 ---------------
 
 It is possible to run zrepl as an unprivileged user in combination with
-[ZFS delegation](https://www.freebsd.org/doc/handbook/zfs-zfs-allow.html).
-
+`ZFS delegation <https://www.freebsd.org/doc/handbook/zfs-zfs-allow.html>`_.
 Also, there is the possibility to run it in a jail on FreeBSD by delegating a dataset to the jail.
-
 However, until we get around documenting those setups, you will have to run zrepl as root or experiment yourself :)
 
 Installation
@@ -23,7 +21,7 @@ Installation
 zrepl is currently not packaged on any operating system. Signed & versioned releases are planned but not available yet.
 
 Check out the sources yourself, fetch dependencies using dep, compile and install to the zrepl user's `$PATH`.<br />
-**Note**: if the zrepl binary is not in `$PATH`, you will have to adjust the examples in the [tutorial]({{< relref "tutorial/_index.md" >}}).
+**Note**: if the zrepl binary is not in `$PATH`, you will have to adjust the examples in the :ref:`tutorial`.
 
 ::
 
@@ -50,17 +48,17 @@ zrepl searches for its main configuration file in the following locations (in th
 
 Alternatively, use CLI flags to specify a config location.
 
-Copy a config from the [tutorial]({{< relref "tutorial/_index.md" >}}) or the `cmd/sampleconf` directory to one of these locations and customize it to your setup.
+Copy a config from the :ref:`tutorial` or the `cmd/sampleconf` directory to one of these locations and customize it to your setup.
 
 ## Runtime Directories
 
-Check the the [configuration documentation]({{< relref "configuration/misc.md#runtime-directories-unix-sockets" >}}) for more information.
+Check the the :ref:`configuration documentation <conf-runtime-directories>` for more information.
 For default settings, the following should to the trick.
 
-```bash
-mkdir -p /var/run/zrepl/stdinserver
-chmod -R 0700 /var/run/zrepl
-```
+::
+
+    mkdir -p /var/run/zrepl/stdinserver
+    chmod -R 0700 /var/run/zrepl
 
 
 Running the Daemon
@@ -68,7 +66,7 @@ Running the Daemon
 
 All actual work zrepl does is performed by a daemon process.
 
-Logging is configurable via the config file. Please refer to the [logging documentation]({{< relref "configuration/logging.md" >}}).
+Logging is configurable via the config file. Please refer to the :ref:`logging documention <conf-logging>`.
 
 ::
 

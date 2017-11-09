@@ -1,6 +1,8 @@
 Miscellaneous
 =============
 
+.. _conf-runtime-directories:
+
 Runtime Directories & UNIX Sockets
 ----------------------------------
 
