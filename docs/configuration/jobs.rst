@@ -13,6 +13,8 @@ Check out the [tutorial]({{< relref "tutorial/_index.md" >}}) and {{< sampleconf
     Whe receiving a filesystem, it is never mounted (`-u` flag)  and `mountpoint=none` is set.
     This is temporary and being worked on {{< zrepl-issue 24 >}}.
 
+.. _job-source:
+
 Source Job
 ----------
 
@@ -47,6 +49,8 @@ Make sure you read the [prune policy documentation]({{< relref "configuration/pr
 
 Example: {{< sampleconflink "pullbackup/productionhost.yml" >}}
 
+.. _job-pull:
+
 Pull Job
 --------
 
@@ -76,6 +80,8 @@ Pull Job
 A pull job is the counterpart to a [source job]({{< relref "#source" >}}).
 
 Example: {{< sampleconflink "pullbackup/backuphost.yml" >}}
+
+.. _job-local:
 
 Local Job
 ---------

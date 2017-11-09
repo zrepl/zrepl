@@ -1,3 +1,5 @@
+.. _installation:
+
 Installation
 ============
 
@@ -35,6 +37,8 @@ Check out the sources yourself, fetch dependencies using dep, compile and instal
     rehash
     # see if it worked
     zrepl help
+
+.. _mainconfigfile:
 
 Configuration Files
 -------------------
@@ -77,6 +81,8 @@ There are no *rc(8)* or *systemd.service(5)* service definitions yet. Note the *
     Make sure to actually monitor the error level output of zrepl: some configuration errors will not make the daemon exit.<br />
     Example: if the daemon cannot create the [stdinserver]({{< relref "configuration/transports.md#stdinserver" >}}) sockets
     in the runtime directory, it will emit an error message but not exit because other tasks such as periodic snapshots & pruning are of equal importance.
+
+.. _install-restarting:
 
 Restarting
 ~~~~~~~~~~

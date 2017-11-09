@@ -14,32 +14,42 @@ zrepl - ZFS replication
 Getting started
 ~~~~~~~~~~~~~~~
 
-The [5 minute tutorial setup]({{< relref "tutorial/_index.md" >}}) gives you a first impression.
+The :ref:`5 minute tutorial setup <tutorial>` gives you a first impression.
 
 Main Features
 ~~~~~~~~~~~~~
 
 * Filesystem Replication
-    * [x] Local & Remote
-    * [x] Pull mode
-    * [ ] Push mode
-    * [x] Access control checks when pulling datasets
-    * [x] [Flexible mapping]({{< ref "configuration/map_filter_syntax.md" >}}) rules
-    * [x] Bookmarks support
-    * [ ] Feature-negotiation for
-        * Resumable `send & receive`
-        * Compressed `send & receive`
-        * Raw encrypted `send & receive` (as soon as it is available)
+
+  * [x] Local & Remote
+  * [x] Pull mode
+  * [ ] Push mode
+  * [x] Access control checks when pulling datasets
+  * [x] [Flexible mapping]({{< ref "configuration/map_filter_syntax.md" >}}) rules
+  * [x] Bookmarks support
+  * [ ] Feature-negotiation for
+
+    * Resumable `send & receive`
+    * Compressed `send & receive`
+    * Raw encrypted `send & receive` (as soon as it is available)
+
 * Automatic snapshot creation
-    * [x] Ensure fixed time interval between snapshots
+
+  * [x] Ensure fixed time interval between snapshots
+
 * Automatic snapshot [pruning]({{< ref "configuration/prune.md" >}})
-    * [x] Age-based fading (grandfathering scheme)
+
+  * [x] Age-based fading (grandfathering scheme)
+
 * Flexible, detailed & structured [logging]({{< ref "configuration/logging.md" >}})
-    * [x] `human`, `logfmt` and `json` formatting
-    * [x] stdout, syslog and TCP (+TLS client auth) outlets
+
+  * [x] `human`, `logfmt` and `json` formatting
+  * [x] stdout, syslog and TCP (+TLS client auth) outlets
+
 * Maintainable implementation in Go
-    * [x] Cross platform
-    * [x] Type safe & testable code
+
+  * [x] Cross platform
+  * [x] Type safe & testable code
 
 Contributing
 ~~~~~~~~~~~~

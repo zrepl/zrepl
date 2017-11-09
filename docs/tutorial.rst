@@ -1,3 +1,7 @@
+.. |mainconfig| replace:: :ref:`main configuration file <mainconfigfile>`
+
+.. _tutorial:
+
 Tutorial
 ========
 
@@ -5,58 +9,58 @@ Tutorial
 This tutorial shows how zrepl can be used to implement a ZFS-based pull backup.
 We assume the following scenario:
 
-* Production server `app-srv` with filesystems to back up:
+* Production server ``app-srv`` with filesystems to back up:
 
-   * `zroot/var/db`
-   * `zroot/usr/home` and all its child filesystems
-   * **except** `zroot/usr/home/paranoid` belonging to a user doing backups themselves
+  * ``zroot/var/db``
+  * ``zroot/usr/home`` and all its child filesystems
+  * **except** ``zroot/usr/home/paranoid`` belonging to a user doing backups themselves
 
-* Backup server `backup-srv` with
+* Backup server ``backup-srv`` with
 
-  * Filesystem `storage/zrepl/pull/app-srv` + children dedicated to backups of `app-srv`
+  * Filesystem ``storage/zrepl/pull/app-srv`` + children dedicated to backups of ``app-srv``
 
 Our backup solution should fulfill the following requirements:
 
-* Periodically snapshot the filesystems on `app-srv` *every 10 minutes*
-* Incrementally replicate these snapshots to `storage/zrepl/pull/app-srv/*` on `backup-srv`
-* Keep only very few snapshots on `app-srv` to save disk space
-* Keep a fading history (24 hourly, 30 daily, 6 monthly) of snapshots on `backup-srv`
+* Periodically snapshot the filesystems on ``app-srv`` *every 10 minutes*
+* Incrementally replicate these snapshots to ``storage/zrepl/pull/app-srv/*`` on ``backup-srv``
+* Keep only very few snapshots on ``app-srv`` to save disk space
+* Keep a fading history (24 hourly, 30 daily, 6 monthly) of snapshots on ``backup-srv``
 
 Analysis
 --------
 
 We can model this situation as two jobs:
 
-* A **source job** on `app-srv`
+* A **source job** on ``app-srv``
 
   * Creates the snapshots
-  * Keeps a short history of snapshots to enable incremental replication to `backup-srv`
-  * Accepts connections from `backup-srv`
+  * Keeps a short history of snapshots to enable incremental replication to ``backup-srv``
+  * Accepts connections from ``backup-srv``
 
-* A **pull job** on `backup-srv`
+* A **pull job** on ``backup-srv``
 
-  * Connects to the `zrepl daemon` process on `app-srv`
-  * Pulls the snapshots to `storage/zrepl/pull/app-srv/*`
-  * Fades out snapshots in `storage/zrepl/pull/app-srv/*` as they age
+  * Connects to the ``zrepl daemon`` process on ``app-srv``
+  * Pulls the snapshots to ``storage/zrepl/pull/app-srv/*``
+  * Fades out snapshots in ``storage/zrepl/pull/app-srv/*`` as they age
 
 
 Why doesn't the **pull job** create the snapshots before pulling?
 
-As is the case with all distributed systems, the link between `app-srv` and `backup-srv` might be down for an hour or two.
+As is the case with all distributed systems, the link between ``app-srv`` and ``backup-srv`` might be down for an hour or two.
 We do not want to sacrifice our required backup resolution of 10 minute intervals for a temporary connection outage.
 
-When the link comes up again, `backup-srv` will happily catch up the 12 snapshots taken by `app-srv` in the meantime, without
+When the link comes up again, ``backup-srv`` will happily catch up the 12 snapshots taken by ``app-srv`` in the meantime, without
 a gap in our backup history.
 
 Install zrepl
 -------------
 
-Follow the [OS-specific installation instructions]({{< relref "install/_index.md" >}}) and come back here.
+Follow the :ref:`OS-specific installation instructions <installation>` and come back here.
 
-Configure `backup-srv`
-----------------------
+Configure ``backup-srv``
+------------------------
 
-We define a **pull job** named `pull_app-srv` in the [main configuration file]({{< relref "install/_index.md#configuration-files" >}} ):::
+We define a **pull job** named ``pull_app-srv`` in the |mainconfig|: ::
 
     jobs:
     - name: pull_app-srv
@@ -77,10 +81,10 @@ We define a **pull job** named `pull_app-srv` in the [main configuration file]({
         policy: grid
         grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
 
-The `connect` section instructs the zrepl daemon to use the `stdinserver` transport:
-`backup-srv` will connect to the specified SSH server and expect `zrepl stdinserver CLIENT_IDENTITY` instead of the shell on the other side.
+The ``connect`` section instructs the zrepl daemon to use the ``stdinserver`` transport:
+``backup-srv`` will connect to the specified SSH server and expect ``zrepl stdinserver CLIENT_IDENTITY`` instead of the shell on the other side.
 
-It uses the private key specified at `connect.identity_file` which we still need to create:::
+It uses the private key specified at ``connect.identity_file`` which we still need to create:::
 
     cd /etc/zrepl
     mkdir -p ssh
@@ -88,15 +92,14 @@ It uses the private key specified at `connect.identity_file` which we still need
     ssh-keygen -t ed25519 -N '' -f /etc/zrepl/ssh/identity
 
 Note that most use cases do not benefit from separate keypairs per remote endpoint.
-Thus, it is sufficient to create one keypair and use it for all `connect` directives on one host.
+Thus, it is sufficient to create one keypair and use it for all ``connect`` directives on one host.
 
-Learn more about [stdinserver]({{< relref "configuration/transports.md#ssh-stdinserver" >}}) and the [**pull job** format]({{< relref "configuration/jobs.md#pull" >}}).
+Learn more about :ref:`transport-ssh+stdinserver` transport and the :ref:`pull job <job-pull>` format.
 
-Configure `app-srv`
--------------------
+Configure ``app-srv``
+---------------------
 
-We define a corresponding **source job** named `pull_backup` in the [main configuration file]({{< relref "install/_index.md#configuration-files" >}})
-`zrepl.yml`:::
+We define a corresponding **source job** named ``pull_backup`` in the |mainconfig|:::
 
     jobs:
     - name: pull_backup
@@ -116,12 +119,12 @@ We define a corresponding **source job** named `pull_backup` in the [main config
         grid: 1x1d(keep=all)
 
 
-The `serve` section corresponds to the `connect` section in the configuration of `backup-srv`.
+The ``serve`` section corresponds to the ``connect`` section in the configuration of ``backup-srv``.
 
-We now want to authenticate `backup-srv` before allowing it to pull data.
-This is done by limiting SSH connections from `backup-srv` to execute the `stdinserver` subcommand.
+We now want to authenticate ``backup-srv`` before allowing it to pull data.
+This is done by limiting SSH connections from ``backup-srv`` to execute the ``stdinserver`` subcommand.
 
-Open `/root/.ssh/authorized_keys` and add either of the the following lines.::
+Open ``/root/.ssh/authorized_keys`` and add either of the the following lines.::
 
     # for OpenSSH >= 7.2
     command="zrepl stdinserver backup-srv.example.com",restrict CLIENT_SSH_KEY
@@ -130,31 +133,30 @@ Open `/root/.ssh/authorized_keys` and add either of the the following lines.::
 
 .. ATTENTION::
 
-    Replace CLIENT_SSH_KEY with the contents of `/etc/zrepl/ssh/identity.pub` from `app-srv`.
-    Mind the trailing `.pub` in the filename.
+    Replace CLIENT_SSH_KEY with the contents of ``/etc/zrepl/ssh/identity.pub`` from ``app-srv``.
+    Mind the trailing ``.pub`` in the filename.
     The entries **must** be on a single line, including the replaced CLIENT_SSH_KEY.
 
 
 .. HINT::
 
-    You may need to adjust the `PermitRootLogin` option in `/etc/ssh/sshd_config` to `forced-commands-only` or higher for this to work.
+    You may need to adjust the ``PermitRootLogin`` option in ``/etc/ssh/sshd_config`` to ``forced-commands-only`` or higher for this to work.
     Refer to sshd_config(5) for details.
 
-The argument `backup-srv.example.com` is the client identity of `backup-srv` as defined in `jobs.serve.client_identity`.
+The argument ``backup-srv.example.com`` is the client identity of ``backup-srv`` as defined in ``jobs.serve.client_identity``.
 
-Again, you both [stdinserver]({{< relref "configuration/transports.md#ssh-stdinserver" >}}) and the [**source job** format]({{< relref "configuration/jobs.md#source" >}}) are documented.
+Again, both :ref:`transport-ssh+stdinserver` transport and the :ref:`job-source` format are documented.
 
 Apply Configuration Changes
 ---------------------------
 
-We need to restart the zrepl daemon on **both** `app-srv` and `backup-srv`.
-
-This is [OS-specific]({{< relref "install/_index.md#restarting" >}}).
+We need to restart the zrepl daemon on **both** ``app-srv`` and ``backup-srv``.
+This is :ref:`OS-specific <install-restarting>`.
 
 Watch it Work
 -------------
 
-A common setup is to `watch` the log output and `zfs list` of snapshots on both machines.
+A common setup is to ``watch`` the log output and ``zfs list`` of snapshots on both machines.
 
 If you like tmux, here is a handy script that works on FreeBSD:::
 
@@ -177,7 +179,7 @@ Summary
 
 Congratulations, you have a working pull backup. Where to go next?
 
-* Read more about [configuration format, options & job types]({{< relref "configuration/_index.md" >}})
-* Learn about [implementation details]({{<relref "impl/_index.md" >}}) of zrepl.
+* Read more about :ref:`configuration format, options & job types <configuration_toc>`
+* Learn about :ref:`implementation details <implementation_toc>` of zrepl.
 
 

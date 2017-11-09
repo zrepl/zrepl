@@ -8,6 +8,8 @@ A transport provides an authenticated [`io.ReadWriteCloser`](https://golang.org/
 
 Currently, only the `ssh+stdinserver` transport is supported.
 
+.. _transport-ssh+stdinserver:
+
 `ssh+stdinserver`
 -----------------
 
