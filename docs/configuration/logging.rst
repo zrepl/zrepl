@@ -1,5 +1,6 @@
 .. include:: ../global.rst.inc
-.. _conf-logging:
+
+.. _logging:
 
 Logging
 =======

@@ -66,7 +66,7 @@ Running the Daemon
 
 All actual work zrepl does is performed by a daemon process.
 
-Logging is configurable via the config file. Please refer to the :ref:`logging documention <conf-logging>`.
+Logging is configurable via the config file. Please refer to the :ref:`logging documention <logging>`.
 
 ::
 
