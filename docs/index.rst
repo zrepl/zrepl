@@ -3,6 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+.. include:: global.rst.inc
+
 zrepl - ZFS replication
 -----------------------
 
@@ -25,7 +27,7 @@ Main Features
   * [x] Pull mode
   * [ ] Push mode
   * [x] Access control checks when pulling datasets
-  * [x] [Flexible mapping]({{< ref "configuration/map_filter_syntax.md" >}}) rules
+  * [x] :ref:`Flexible mapping <pattern-mapping>` rules
   * [x] Bookmarks support
   * [ ] Feature-negotiation for
 
@@ -37,13 +39,13 @@ Main Features
 
   * [x] Ensure fixed time interval between snapshots
 
-* Automatic snapshot [pruning]({{< ref "configuration/prune.md" >}})
+* Automatic snapshot :ref:`pruning <prune>`
 
   * [x] Age-based fading (grandfathering scheme)
 
-* Flexible, detailed & structured [logging]({{< ref "configuration/logging.md" >}})
+* Flexible, detailed & structured :ref:`logging <logging>`
 
-  * [x] `human`, `logfmt` and `json` formatting
+  * [x] ``human``, ``logfmt`` and ``json`` formatting
   * [x] stdout, syslog and TCP (+TLS client auth) outlets
 
 * Maintainable implementation in Go
@@ -57,14 +59,18 @@ Contributing
 We are happy about any help we can get!
 
 * Explore the codebase
-    * These docs live in the `docs/` subdirectory
+
+  * These docs live in the ``docs/`` subdirectory
+
 * Document any non-obvious / confusing / plain broken behavior you encounter when setting up zrepl for the first time
 * Check the *Issues* and *Projects* sections for things to do
 
-{{% panel header="<i class='fa fa-github'></i> Development Workflow"%}}
-[The <i class='fa fa-github'></i> GitHub repository](https://github.com/zrepl/zrepl) is where all development happens.<br />
-Make sure to read the [Developer Documentation section](https://github.com/zrepl/zrepl) and open new issues or pull requests there.
-{{% /panel %}}
+.. admonition:: Development Workflow
+    :class: note
+
+    The `GitHub repository <https://github.com/zrepl/zrepl>`_ is where all development happens.
+    Make sure to read the `Developer Documentation section <https://github.com/zrepl/zrepl>`_ and open new issues or pull requests there.
+
 
 Table of Contents
 ~~~~~~~~~~~~~~~~~
