@@ -160,7 +160,7 @@ Watch it Work
 
 A common setup is to ``watch`` the log output and ``zfs list`` of snapshots on both machines.
 
-If you like tmux, here is a handy script that works on FreeBSD:::
+If you like tmux, here is a handy script that works on FreeBSD: ::
 
     pkg install gnu-watch tmux
     tmux new-window
@@ -168,7 +168,7 @@ If you like tmux, here is a handy script that works on FreeBSD:::
     tmux split-window "gnu-watch 'zfs list -t snapshot -o name,creation -s creation | grep zrepl_pull_backup_'"
     tmux select-layout tiled
 
-The Linux equivalent might look like this::
+The Linux equivalent might look like this: ::
 
     # make sure tmux is installed & let's assume you use systemd + journald
     tmux new-window

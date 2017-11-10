@@ -98,7 +98,7 @@ Formats
         ``encoding/json.Marshal()``, which is particularly useful for processing in
         log aggregation or when processing state dumps.
 
-Outlets are ... well ... outlets for log entries into the world.
+.. _logging-outlet-stdout:
 
 ``stdout`` Outlet
 -----------------
