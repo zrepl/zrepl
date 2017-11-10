@@ -7,6 +7,8 @@
 .. |filter| replace:: :ref:`filter <pattern-filter>`
 .. |prune| replace:: :ref:`prune <prune>`
 
+.. _job:
+
 Job Types
 =========
 
