@@ -17,6 +17,8 @@ The way the `ssh+stdinserver` transport works is inspired by [git shell](https:/
 It is implemented in the Go package `github.com/zrepl/zrepl/sshbytestream`.
 The config excerpts are taken from the [tutorial]({{< relref "tutorial/_index.md" >}}) which you should complete before reading further.
 
+.. _transport-ssh+stdinserver-serve:
+
 `serve`
 ~~~~~~~
 
@@ -63,6 +65,8 @@ To recap, this is of how client authentication works with the `ssh+stdinserver` 
 * Thus, the runtime directory must be private to the zrepl user (checked by zrepl daemon)
 * The admin of the host with the serving zrepl daemon controls the `authorized_keys` file.
 * Thus, the administrator controls the mapping `PUBKEY -> CLIENT_IDENTITY`.
+
+.. _transport-ssh+stdinserver-connect:
 
 `connect`
 ~~~~~~~~~

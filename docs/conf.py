@@ -32,7 +32,8 @@
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = ['sphinx.ext.todo',
-    'sphinx.ext.githubpages']
+    'sphinx.ext.githubpages',
+    'sphinx.ext.extlinks']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -155,4 +156,10 @@ texinfo_documents = [
 ]
 
 
+# -- Options for the extlinks extension -----------------------------------
+# http://www.sphinx-doc.org/en/stable/ext/extlinks.html
+extlinks = {
+    'issue':('https://github.com/zrepl/zrepl/issues/%s', 'issue #'),
+    'sampleconf':('https://github.com/zrepl/zrepl/blob/master/cmd/sampleconf/%s', 'cmd/sampleconf')
+        }
 

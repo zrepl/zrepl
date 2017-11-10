@@ -1,3 +1,5 @@
+.. _prune:
+
 Snapshot Pruning
 ================
 

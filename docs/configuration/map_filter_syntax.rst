@@ -37,6 +37,7 @@ Example
     zroot            => NO MATCH
     tank/var/log     => 1
 
+.. _pattern-mapping:
 
 Mappings
 --------
@@ -77,6 +78,8 @@ Results in the following mappings
     zroot/usr/src                       => NOT MAPPED
     zroot/poudriere/ports/2017Q3        => NOT MAPPED
     zroot/poudriere/ports/HEAD          => NOT MAPPED
+
+.. _pattern-filter:
 
 Filters
 -------

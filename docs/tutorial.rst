@@ -1,4 +1,4 @@
-.. |mainconfig| replace:: :ref:`main configuration file <mainconfigfile>`
+.. include:: global.rst.inc
 
 .. _tutorial:
 
