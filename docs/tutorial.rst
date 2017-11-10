@@ -96,6 +96,8 @@ Thus, it is sufficient to create one keypair and use it for all ``connect`` dire
 
 Learn more about :ref:`transport-ssh+stdinserver` transport and the :ref:`pull job <job-pull>` format.
 
+.. _tutorial-configure-app-srv:
+
 Configure ``app-srv``
 ---------------------
 
