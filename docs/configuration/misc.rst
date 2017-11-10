@@ -8,13 +8,13 @@ Runtime Directories & UNIX Sockets
 
 zrepl daemon creates various UNIX sockets to allow communicating with it:
 
-* the `stdinserver` transport connects to a socket named after `client_identity` parameter
-* the `control` subcommand connects to a defined control socket
+* the :ref:`transport-ssh+stdinserver` transport connects to a socket named after ``client_identity`` parameter
+* the ``control`` CLI subcommand connects to a defined control socket
 
 There is no further authentication on these sockets.
-Therefore we have to make sure they can only be created and accessed by `zrepl daemon`.
+Therefore we have to make sure they can only be created and accessed by ``zrepl daemon``.
 
-In fact, `zrepl daemon` will not bind a socket to a path in a directory that is world-accessible.
+In fact, ``zrepl daemon`` will not bind a socket to a path in a directory that is world-accessible.
 
 The directories can be configured in the main configuration file:
 
