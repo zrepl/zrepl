@@ -21,7 +21,7 @@ The following rules determine which result is chosen for a given filesystem path
 * More specific path patterns win over less specific ones
 * Non-wildcard patterns (full path patterns) win over *subtree wildcards* (`<` at end of pattern)
 
-The **subtree wildcard** ``<`` means "*the dataset left of ``<`` and all its children*".
+The **subtree wildcard** ``<`` means "the dataset left of ``<`` and all its children".
 
 Example
 ~~~~~~~
@@ -53,7 +53,7 @@ Per pattern, either a target filesystem path or ``"!"`` is specified as a result
 * If the pattern is a non-wildcard pattern, the source path is mapped to the target path on the right.
 * If the pattern ends with a *subtree wildcard* (``<``), the source path is **prefix-trimmed** with the path specified left of ``<``.
 
-  * Note: this means that only for *wildcard-only* patterns (pattern=``<`` ) is the source path simply appended to the target path.
+  * Note: this means that only for *wildcard-only* patterns (pattern= ``<`` ) is the source path simply appended to the target path.
 
 The example is from the :sampleconf:`localbackup/host1.yml` example config.
 

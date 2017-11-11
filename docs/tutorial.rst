@@ -84,7 +84,7 @@ We define a **pull job** named ``pull_app-srv`` in the |mainconfig|: ::
 The ``connect`` section instructs the zrepl daemon to use the ``stdinserver`` transport:
 ``backup-srv`` will connect to the specified SSH server and expect ``zrepl stdinserver CLIENT_IDENTITY`` instead of the shell on the other side.
 
-It uses the private key specified at ``connect.identity_file`` which we still need to create:::
+It uses the private key specified at ``connect.identity_file`` which we still need to create: ::
 
     cd /etc/zrepl
     mkdir -p ssh
@@ -101,7 +101,7 @@ Learn more about :ref:`transport-ssh+stdinserver` transport and the :ref:`pull j
 Configure ``app-srv``
 ---------------------
 
-We define a corresponding **source job** named ``pull_backup`` in the |mainconfig|:::
+We define a corresponding **source job** named ``pull_backup`` in the |mainconfig|: ::
 
     jobs:
     - name: pull_backup
