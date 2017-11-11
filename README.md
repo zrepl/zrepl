@@ -68,3 +68,12 @@ variables and types are often named *dataset* when they in fact refer to a *file
 There will not be a big refactoring (an attempt was made, but it's destroying too much history without much gain).
 
 However, new contributions & patches should fix naming without further notice in the commit message.
+
+### Building `docs`
+
+```
+cd docs
+pip install sphinx sphinx-rtd-theme
+make clean html
+xdg-open _build/html/index.html
+```
