@@ -32,12 +32,11 @@ Make sure to develop an understanding how zrepl is typically used by studying th
 ```
 ├── cmd
 │   ├── sampleconf          # example configuration
-├── docs
-│   ├── content             # hugo-based documentation -> sources for ./public_git
-│   ├── deploy.sh           # shell script for automated rendering & deploy to zrepl.github.io repo
-│   ├── public_git          # used by above shell script
-│   └── themes
-│       └── docdock         # submodule of our docdock theme fork
+├── docs                    # sphinx-based documentation
+│   ├── **/*.rst            # documentation in reStructuredText
+│   ├── conf.py             # sphinx configuration
+│   ├── publish.sh          # shell script for automated rendering & deploy to zrepl.github.io repo
+│   ├── public_git          # checkout of zrepl.github.io used by above shell script
 ├── jobrun                  # OBSOLETE
 ├── logger                  # logger package used by zrepl
 ├── rpc                     # rpc protocol implementation
