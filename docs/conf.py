@@ -99,6 +99,8 @@ html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 
 
+html_logo = '_static/zrepl.svg'
+
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
