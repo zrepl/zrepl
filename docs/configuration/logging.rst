@@ -110,7 +110,7 @@ Formats
     * - Parameter
       - Comment
     * - ``outlet``
-      -
+      - ``stdout``
     * - ``level``
       -  minimum  :ref:`log level <logging-levels>`
     * - ``format``
@@ -129,7 +129,7 @@ Can only be specified once.
     * - Parameter
       - Comment
     * - ``outlet``
-      -
+      - ``syslog``
     * - ``level``
       -  minimum  :ref:`log level <logging-levels>`
     * - ``format``
@@ -152,7 +152,7 @@ Can only be specified once.
     * - Parameter
       - Comment
     * - ``outlet``
-      -
+      - ``tcp``
     * - ``level``
       -  minimum  :ref:`log level <logging-levels>`
     * - ``format``
