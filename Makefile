@@ -1,4 +1,5 @@
 .PHONY: generate build test vet cover release clean
+.DEFAULT_GOAL := build
 
 ROOT := github.com/zrepl/zrepl
 SUBPKGS := cmd logger rpc sshbytestream util
