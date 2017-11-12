@@ -46,6 +46,7 @@ func (p *Pruner) Run(ctx context.Context) (r []PruneResult, err error) {
 
 		log := log.WithField(logFSField, fs.ToString())
 
+		// only prune snapshots, bookmarks are kept forever
 		snapshotFilter := NewTypedPrefixFilter(p.SnapshotPrefix, zfs.Snapshot)
 		fsversions, err := zfs.ZFSListFilesystemVersions(fs, snapshotFilter)
 		if err != nil {

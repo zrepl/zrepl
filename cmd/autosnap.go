@@ -129,14 +129,21 @@ func (a *IntervalAutosnap) doSnapshots(didSnaps chan struct{}) {
 		suffix := time.Now().In(time.UTC).Format("20060102_150405_000")
 		snapname := fmt.Sprintf("%s%s", a.Prefix, suffix)
 
-		a.log.WithField(logFSField, d.ToString()).
-			WithField("snapname", snapname).
-			Info("create snapshot")
+		l := a.log.WithField(logFSField, d.ToString()).
+			WithField("snapname", snapname)
 
+		l.Info("create snapshot")
 		err := zfs.ZFSSnapshot(d, snapname, false)
 		if err != nil {
 			a.log.WithError(err).Error("cannot create snapshot")
 		}
+
+		l.Info("create corresponding bookmark")
+		err = zfs.ZFSBookmark(d, snapname, snapname)
+		if err != nil {
+			a.log.WithError(err).Error("cannot create bookmark")
+		}
+
 	}
 
 	select {

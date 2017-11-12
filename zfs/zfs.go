@@ -286,10 +286,43 @@ func ZFSDestroy(dataset string) (err error) {
 
 }
 
+func zfsBuildSnapName(fs *DatasetPath, name string) string { // TODO defensive
+	return fmt.Sprintf("%s@%s", fs.ToString(), name)
+}
+
+func zfsBuildBookmarkName(fs *DatasetPath, name string) string { // TODO defensive
+	return fmt.Sprintf("%s#%s", fs.ToString(), name)
+}
+
 func ZFSSnapshot(fs *DatasetPath, name string, recursive bool) (err error) {
 
-	snapname := fmt.Sprintf("%s@%s", fs.ToString(), name)
+	snapname := zfsBuildSnapName(fs, name)
 	cmd := exec.Command(ZFS_BINARY, "snapshot", snapname)
+
+	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
+	cmd.Stderr = stderr
+
+	if err = cmd.Start(); err != nil {
+		return err
+	}
+
+	if err = cmd.Wait(); err != nil {
+		err = ZFSError{
+			Stderr:  stderr.Bytes(),
+			WaitErr: err,
+		}
+	}
+
+	return
+
+}
+
+func ZFSBookmark(fs *DatasetPath, snapshot, bookmark string) (err error) {
+
+	snapname := zfsBuildSnapName(fs, snapshot)
+	bookmarkname := zfsBuildBookmarkName(fs, bookmark)
+
+	cmd := exec.Command(ZFS_BINARY, "bookmark", snapname, bookmarkname)
 
 	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
 	cmd.Stderr = stderr
