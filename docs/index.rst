@@ -84,4 +84,5 @@ Table of Contents
    configuration
    implementation
    changelog
+   GitHub Repository & Issue Tracker <https://github.com/zrepl/zrepl>
    pr
