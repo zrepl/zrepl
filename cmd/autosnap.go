@@ -47,7 +47,7 @@ func (a *IntervalAutosnap) Run(ctx context.Context, didSnaps chan struct{}) {
 
 		l := a.log.WithField(logFSField, d.ToString())
 
-		fsvs, err := zfs.ZFSListFilesystemVersions(d, &PrefixSnapshotFilter{a.Prefix})
+		fsvs, err := zfs.ZFSListFilesystemVersions(d, NewTypedPrefixFilter(a.Prefix, zfs.Snapshot))
 		if err != nil {
 			l.WithError(err).Error("cannot list filesystem versions")
 			continue

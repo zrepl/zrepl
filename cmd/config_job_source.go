@@ -164,7 +164,7 @@ outer:
 			}
 
 			// construct connection handler
-			handler := NewHandler(log, j.Filesystems, &PrefixSnapshotFilter{j.SnapshotPrefix})
+			handler := NewHandler(log, j.Filesystems, NewPrefixFilter(j.SnapshotPrefix))
 
 			// handle connection
 			rpcServer := rpc.NewServer(rwc)

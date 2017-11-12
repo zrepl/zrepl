@@ -46,7 +46,8 @@ func (p *Pruner) Run(ctx context.Context) (r []PruneResult, err error) {
 
 		log := log.WithField(logFSField, fs.ToString())
 
-		fsversions, err := zfs.ZFSListFilesystemVersions(fs, &PrefixSnapshotFilter{p.SnapshotPrefix})
+		snapshotFilter := NewTypedPrefixFilter(p.SnapshotPrefix, zfs.Snapshot)
+		fsversions, err := zfs.ZFSListFilesystemVersions(fs, snapshotFilter)
 		if err != nil {
 			log.WithError(err).Error("error listing filesytem versions")
 			continue

@@ -6,8 +6,18 @@ import (
 	"strings"
 )
 
-type PrefixSnapshotFilter struct {
-	Prefix string
+type PrefixFilter struct {
+	prefix    string
+	fstype    zfs.VersionType
+	fstypeSet bool // optionals anyone?
+}
+
+func NewPrefixFilter(prefix string) *PrefixFilter {
+	return &PrefixFilter{prefix: prefix}
+}
+
+func NewTypedPrefixFilter(prefix string, versionType zfs.VersionType) *PrefixFilter {
+	return &PrefixFilter{prefix, versionType, true}
 }
 
 func parseSnapshotPrefix(i string) (p string, err error) {
@@ -19,15 +29,8 @@ func parseSnapshotPrefix(i string) (p string, err error) {
 	return
 }
 
-func parsePrefixSnapshotFilter(i string) (f *PrefixSnapshotFilter, err error) {
-	if !(len(i) > 0) {
-		err = errors.Errorf("snapshot prefix must be longer than 0 characters")
-		return
-	}
-	f = &PrefixSnapshotFilter{i}
-	return
-}
-
-func (f *PrefixSnapshotFilter) Filter(fsv zfs.FilesystemVersion) (accept bool, err error) {
-	return fsv.Type == zfs.Snapshot && strings.HasPrefix(fsv.Name, f.Prefix), nil
+func (f *PrefixFilter) Filter(fsv zfs.FilesystemVersion) (accept bool, err error) {
+	fstypeMatches := (!f.fstypeSet || fsv.Type == f.fstype)
+	prefixMatches := strings.HasPrefix(fsv.Name, f.prefix)
+	return fstypeMatches && prefixMatches, nil
 }

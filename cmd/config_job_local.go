@@ -90,7 +90,7 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 	// All local datasets will be passed to its Map() function,
 	// but only those for which a mapping exists will actually be pulled.
 	// We can pay this small performance penalty for now.
-	handler := NewHandler(log.WithField(logTaskField, "handler"), localPullACL{}, &PrefixSnapshotFilter{j.SnapshotPrefix})
+	handler := NewHandler(log.WithField(logTaskField, "handler"), localPullACL{}, NewPrefixFilter(j.SnapshotPrefix))
 
 	registerEndpoints(local, handler)
 
