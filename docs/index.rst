@@ -83,4 +83,5 @@ Table of Contents
    installation
    configuration
    implementation
+   changelog
    pr
