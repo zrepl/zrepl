@@ -64,5 +64,5 @@ pushd "$PUBLICDIR"
 echo "adding and commiting all changes in GitHub pages repo"
 git add -A
 git commit -m "$COMMIT_MSG"
-#git push origin master
+git push origin master
 
