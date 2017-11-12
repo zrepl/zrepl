@@ -52,6 +52,13 @@ Make sure to develop an understanding how zrepl is typically used by studying th
 * Commits should reference the issue they are related to
 * Docs improvements not documenting new features do not require an issue.
 
+### Breaking Changes
+
+Backward-incompatible changes must be documented in the git commit message and are listed in `docs/changelog.rst`.
+
+* Config-breaking changes must contain a line `BREAK CONFIG` in the commit message
+* Other breaking changes must contain a line `BREAK` in the commit message
+
 ### Glossary & Naming Inconsistencies
 
 In ZFS, *dataset* refers to the objects *filesystem*, *ZVOL* and *snapshot*. <br />
