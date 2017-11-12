@@ -145,6 +145,12 @@ Can only be specified once.
 ``tcp`` Outlet
 --------------
 
+.. WARNING::
+
+    The TCP outlet is not fully asynchronous and blocks the calling goroutine when it cannot connect.
+    Currently it should only be used for local connections that are guaranteed to not fail / be slow.
+    This issue is tracked in :issue:`26`
+
 .. list-table::
     :widths: 10 90
     :header-rows: 1
