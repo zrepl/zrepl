@@ -41,20 +41,20 @@ Example: :sampleconf:`pullbackup/productionhost.yml`.
       - unique name of the job
     * - ``serve``
       - |serve-transport|
-    * - ``datasets``
-      - |filter| for datasets to expose to client
+    * - ``filesystems``
+      - |filter| for filesystems to expose to client
     * - ``snapshot_prefix``
       - prefix for ZFS snapshots taken by this job
     * - ``interval``
       - snapshotting interval
     * - ``prune``
-      - |prune| policy for datasets in ``datasets`` with prefix ``snapshot_prefix``
+      - |prune| policy for filesytems in ``filesystems`` with prefix ``snapshot_prefix``
 
 
 - Snapshotting Task (every ``interval``, |patient|)
 
-  - A snapshot of filesystems matched by ``datasets`` is taken every ``interval`` with prefix ``snapshot_prefix``.
-  - The ``prune`` policy is triggered on datasets matched by ``datasets`` with snapshots matched by ``snapshot_prefix``.
+  - A snapshot of filesystems matched by ``filesystems`` is taken every ``interval`` with prefix ``snapshot_prefix``.
+  - The ``prune`` policy is triggered on filesystems matched by ``filesystems`` with snapshots matched by ``snapshot_prefix``.
 
 - Serve Task
 
