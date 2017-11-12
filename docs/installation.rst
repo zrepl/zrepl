@@ -38,22 +38,40 @@ The following list may be incomplete, feel free to submit a PR with an update:
 Compile From Source
 ~~~~~~~~~~~~~~~~~~~
 
-Check out the sources yourself, fetch dependencies using ``dep``, compile and install to the zrepl user's ``$PATH``.
-You may want to switch to a tagged commit (we use `semver <http://semver.org>`_) although a checkout of ``master`` branch should generally work.
-**Note**: if the zrepl binary is not in ``$PATH``, the examples in the :ref:`tutorial` may need to be adjusted.
+Go 1.9 or newer and a configured ``$GOPATH`` environment variable and a few build dependencies are required to build zrepl.
+A tutorial is available over at `golang.org <https://golang.org/doc/install>`_.
+If Go 1.9 is not available on your distro consider build in Docker (see below).
+
+The following shell script checks out the zrepl project into your ``$GOPATH``,
+installs the build dependencies, installs dependencies using ``dep ensure`` and does a ``make release``.
+Build artifacts are placed into ``$GOPATH/github.com/zrepl/zrepl/artifacts/``.
+
+When doing builds afterwards, it should be sufficient to checkout the new revision, run ``dep ensure`` and ``make release``.
+You may want to switch to a tagged commit (we use `semver <http://semver.org>`_) but master should generally be considered stable.
+
+**Note**: it is your job to install the apropriate binary in the zrepl users's ``$PATH``, e.g. ``/usr/local/bin/zrepl``.
+Otherwise, the examples in the :ref:`tutorial` may need to be adjusted.
+
+**You are encouraged to understand what happens by auditing the script.**
 
 ::
 
-    # NOTE: you may want to checkout & build as an unprivileged user
-    cd /root
+    curl 'https://raw.githubusercontent.com/zrepl/zrepl/master/clone_and_build.sh' | sh
+
+You can also build in a Docker container if you want an isolated build environment or don't have a compatible Go version.
+
+::
+
     git clone https://github.com/zrepl/zrepl.git
     cd zrepl
-    dep ensure
-    go build -o zrepl
-    cp zrepl /usr/local/bin/zrepl
-    rehash
-    # see if it worked
-    zrepl help
+    sudo docker run -it --rm \
+        -v "${PWD}:/zrepl" \
+        --user "$(id -u):$(id -g)" \
+        golang:latest bash -c 'export CLONEPATH=/go/src/github.com/zrepl; mkdir -p "$CLONEPATH" && ln -s /zrepl $CLONEPATH/zrepl && ${CLONEPATH}/zrepl/clone_and_build.sh'
+
+.. literalinclude:: ../clone_and_build.sh
+    :language: sh
+
 
 .. _mainconfigfile:
 

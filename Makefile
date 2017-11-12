@@ -7,13 +7,13 @@ _TESTPKGS := $(ROOT) $(foreach p,$(SUBPKGS),$(ROOT)/$(p))
 
 ARTIFACTDIR := artifacts
 
-build: generate
-		go build -o $(ARTIFACTDIR)/zrepl
-
-generate:
+generate: #not part of the build, must do that manually
 	@for pkg in $(_TESTPKGS); do\
 		go generate "$$pkg" || exit 1; \
 	done;
+
+build:
+		go build -o $(ARTIFACTDIR)/zrepl
 
 test:
 	@for pkg in $(_TESTPKGS); do \
@@ -39,7 +39,7 @@ cover: artifacts
 artifacts:
 	mkdir artifacts
 
-release: generate artifacts vet test
+release: artifacts vet test
 	GOOS=linux GOARCH=amd64   go build -o "$(ARTIFACTDIR)/zrepl-linux-amd64"
 	GOOS=freebsd GOARCH=amd64 go build -o "$(ARTIFACTDIR)/zrepl-freebsd-amd64"
 
