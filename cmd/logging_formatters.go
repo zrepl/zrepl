@@ -7,7 +7,6 @@ import (
 	"github.com/go-logfmt/logfmt"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/logger"
-	"strings"
 	"time"
 )
 
@@ -85,16 +84,17 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 	}
 	fmt.Fprint(&line, e.Message)
 
-	for field, value := range e.Fields {
-
-		if prefixed[field] {
-			continue
+	if len(e.Fields)-len(prefixed) > 0 {
+		fmt.Fprint(&line, " ")
+		enc := logfmt.NewEncoder(&line)
+		for field, value := range e.Fields {
+			if prefixed[field] {
+				continue
+			}
+			if err := logfmtTryEncodeKeyval(enc, field, value); err != nil {
+				return nil, err
+			}
 		}
-
-		if strings.ContainsAny(field, " \t") {
-			return nil, errors.Errorf("field must not contain whitespace: '%s'", field)
-		}
-		fmt.Fprintf(&line, " %s=\"%s\"", field, value)
 	}
 
 	return line.Bytes(), nil
@@ -154,7 +154,9 @@ func (f *LogfmtFormatter) Format(e *logger.Entry) ([]byte, error) {
 		if !ok {
 			break
 		}
-		enc.EncodeKeyval(pf, v)
+		if err := logfmtTryEncodeKeyval(enc, pf, v); err != nil {
+			return nil, err // unlikely
+		}
 		prefixed[pf] = true
 	}
 
@@ -162,13 +164,25 @@ func (f *LogfmtFormatter) Format(e *logger.Entry) ([]byte, error) {
 
 	for k, v := range e.Fields {
 		if !prefixed[k] {
-			enc.EncodeKeyval(k, v)
+			if err := logfmtTryEncodeKeyval(enc, k, v); err != nil {
+				return nil, err
+			}
 		}
 	}
 
-	if err := enc.EndRecord(); err != nil {
-		return nil, err
-	}
-
 	return buf.Bytes(), nil
+}
+
+func logfmtTryEncodeKeyval(enc *logfmt.Encoder, field, value interface{}) error {
+
+	err := enc.EncodeKeyval(field, value)
+	switch err {
+	case nil: // ok
+		return nil
+	case logfmt.ErrUnsupportedValueType:
+		enc.EncodeKeyval(field, fmt.Sprintf("<%T>", value))
+		return nil
+	}
+	return errors.Wrapf(err, "cannot encode field '%s'", field)
+
 }
