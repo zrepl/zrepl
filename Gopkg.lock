@@ -56,6 +56,12 @@
   revision = "7cafcd837844e784b526369c9bce262804aebc60"
 
 [[projects]]
+  name = "github.com/mattn/go-isatty"
+  packages = ["."]
+  revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
+  version = "v0.0.3"
+
+[[projects]]
   branch = "master"
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
@@ -91,9 +97,15 @@
   revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
   version = "v1.1.4"
 
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/sys"
+  packages = ["unix"]
+  revision = "bf42f188b9bc6f2cf5b8ee5a912ef1aedd0eba4c"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d654c5e91ee04baf1a373bb241b94ab41d3838fb69a56e91fe54cc8b962eab56"
+  inputs-digest = "b2174984fa0452d4469597063f891904b70081586b239262690cf1b6477a3116"
   solver-name = "gps-cdcl"
   solver-version = 1

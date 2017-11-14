@@ -3,6 +3,7 @@ package cmd
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"github.com/mattn/go-isatty"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/logger"
@@ -15,14 +16,15 @@ type LoggingConfig struct {
 	Outlets logger.Outlets
 }
 
-type SetNoMetadataFormatter interface {
-	SetNoMetadata(noMetadata bool)
-}
+type MetadataFlags int64
 
-type OutletCommon struct {
-	MinLevel  logger.Level
-	Formatter EntryFormatter
-}
+const (
+	MetadataTime MetadataFlags = 1 << iota
+	MetadataLevel
+
+	MetadataNone MetadataFlags = 0
+	MetadataAll  MetadataFlags = ^0
+)
 
 func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 
@@ -109,13 +111,12 @@ func parseOutlet(i interface{}) (o logger.Outlet, level logger.Level, err error)
 		return
 	}
 
-	common := &OutletCommon{}
-	common.MinLevel, err = logger.ParseLevel(in.Level)
+	minLevel, err := logger.ParseLevel(in.Level)
 	if err != nil {
 		err = errors.Wrap(err, "cannot parse 'level' field")
 		return
 	}
-	common.Formatter, err = parseLogFormat(in.Format)
+	formatter, err := parseLogFormat(in.Format)
 	if err != nil {
 		err = errors.Wrap(err, "cannot parse")
 		return
@@ -123,29 +124,45 @@ func parseOutlet(i interface{}) (o logger.Outlet, level logger.Level, err error)
 
 	switch in.Outlet {
 	case "stdout":
-		o, err = parseStdoutOutlet(i, common)
+		o, err = parseStdoutOutlet(i, formatter)
 	case "tcp":
-		o, err = parseTCPOutlet(i, common)
+		o, err = parseTCPOutlet(i, formatter)
 	case "syslog":
-		o, err = parseSyslogOutlet(i, common)
+		o, err = parseSyslogOutlet(i, formatter)
 	default:
 		err = errors.Errorf("unknown outlet type '%s'", in.Outlet)
 	}
-	return o, common.MinLevel, err
+	return o, minLevel, err
 
 }
 
-func parseStdoutOutlet(i interface{}, common *OutletCommon) (WriterOutlet, error) {
+func parseStdoutOutlet(i interface{}, formatter EntryFormatter) (WriterOutlet, error) {
+
+	var in struct {
+		Date bool
+	}
+	if err := mapstructure.Decode(i, &in); err != nil {
+		return WriterOutlet{}, errors.Wrap(err, "invalid structure for stdout outlet")
+	}
+
+	flags := MetadataAll
+	writer := os.Stdout
+	if !isatty.IsTerminal(writer.Fd()) && !in.Date {
+		flags &= ^MetadataTime
+	}
+
+	formatter.SetMetadataFlags(flags)
 	return WriterOutlet{
-		common.Formatter,
+		formatter,
 		os.Stdout,
 	}, nil
 }
 
-func parseTCPOutlet(i interface{}, common *OutletCommon) (out *TCPOutlet, err error) {
+func parseTCPOutlet(i interface{}, formatter EntryFormatter) (out *TCPOutlet, err error) {
 
 	out = &TCPOutlet{}
-	out.Formatter = common.Formatter
+	out.Formatter = formatter
+	out.Formatter.SetMetadataFlags(MetadataAll)
 
 	var in struct {
 		Net           string
@@ -206,7 +223,7 @@ func parseTCPOutlet(i interface{}, common *OutletCommon) (out *TCPOutlet, err er
 
 }
 
-func parseSyslogOutlet(i interface{}, common *OutletCommon) (out *SyslogOutlet, err error) {
+func parseSyslogOutlet(i interface{}, formatter EntryFormatter) (out *SyslogOutlet, err error) {
 
 	var in struct {
 		RetryInterval string `mapstructure:"retry_interval"`
@@ -216,10 +233,8 @@ func parseSyslogOutlet(i interface{}, common *OutletCommon) (out *SyslogOutlet, 
 	}
 
 	out = &SyslogOutlet{}
-	out.Formatter = common.Formatter
-	if f, ok := out.Formatter.(SetNoMetadataFormatter); ok {
-		f.SetNoMetadata(true)
-	}
+	out.Formatter = formatter
+	out.Formatter.SetMetadataFlags(MetadataNone)
 
 	out.RetryInterval = 0 // default to 0 as we assume local syslog will just work
 	if in.RetryInterval != "" {

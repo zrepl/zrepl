@@ -11,6 +11,7 @@ import (
 )
 
 type EntryFormatter interface {
+	SetMetadataFlags(flags MetadataFlags)
 	Format(e *logger.Entry) ([]byte, error)
 }
 
@@ -32,25 +33,28 @@ const (
 
 type NoFormatter struct{}
 
+func (f NoFormatter) SetMetadataFlags(flags MetadataFlags) {}
+
 func (f NoFormatter) Format(e *logger.Entry) ([]byte, error) {
 	return []byte(e.Message), nil
 }
 
 type HumanFormatter struct {
-	NoMetadata bool
+	metadataFlags MetadataFlags
 }
 
-var _ SetNoMetadataFormatter = &HumanFormatter{}
-
-func (f *HumanFormatter) SetNoMetadata(noMetadata bool) {
-	f.NoMetadata = noMetadata
+func (f *HumanFormatter) SetMetadataFlags(flags MetadataFlags) {
+	f.metadataFlags = flags
 }
 
 func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 
 	var line bytes.Buffer
 
-	if !f.NoMetadata {
+	if f.metadataFlags&MetadataTime != 0 {
+		fmt.Fprintf(&line, "%s ", e.Time.Format(time.RFC3339))
+	}
+	if f.metadataFlags&MetadataLevel != 0 {
 		fmt.Fprintf(&line, "[%s]", e.Level.Short())
 	}
 
@@ -100,7 +104,13 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 	return line.Bytes(), nil
 }
 
-type JSONFormatter struct{}
+type JSONFormatter struct {
+	metadataFlags MetadataFlags
+}
+
+func (f *JSONFormatter) SetMetadataFlags(flags MetadataFlags) {
+	f.metadataFlags = flags
+}
 
 func (f *JSONFormatter) Format(e *logger.Entry) ([]byte, error) {
 	data := make(logger.Fields, len(e.Fields)+3)
@@ -128,21 +138,21 @@ func (f *JSONFormatter) Format(e *logger.Entry) ([]byte, error) {
 }
 
 type LogfmtFormatter struct {
-	NoMetadata bool
+	metadataFlags MetadataFlags
 }
 
-var _ SetNoMetadataFormatter = &LogfmtFormatter{}
-
-func (f *LogfmtFormatter) SetNoMetadata(noMetadata bool) {
-	f.NoMetadata = noMetadata
+func (f *LogfmtFormatter) SetMetadataFlags(flags MetadataFlags) {
+	f.metadataFlags = flags
 }
 
 func (f *LogfmtFormatter) Format(e *logger.Entry) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := logfmt.NewEncoder(&buf)
 
-	if !f.NoMetadata {
+	if f.metadataFlags&MetadataTime != 0 {
 		enc.EncodeKeyval(FieldTime, e.Time)
+	}
+	if f.metadataFlags&MetadataLevel != 0 {
 		enc.EncodeKeyval(FieldLevel, e.Level)
 	}
 

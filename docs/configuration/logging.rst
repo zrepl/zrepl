@@ -115,8 +115,11 @@ Formats
       -  minimum  :ref:`log level <logging-levels>`
     * - ``format``
       - output :ref:`format <logging-formats>`
+    * - ``time``
+      - always include time in output (``true`` or ``false``)
 
 Writes all log entries with minimum level ``level`` formatted by ``format`` to stdout.
+If stdout is a tty, interactive usage is assumed and the current time is included in the output.
 
 Can only be specified once.
 
