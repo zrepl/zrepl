@@ -139,7 +139,7 @@ func parseOutlet(i interface{}) (o logger.Outlet, level logger.Level, err error)
 func parseStdoutOutlet(i interface{}, formatter EntryFormatter) (WriterOutlet, error) {
 
 	var in struct {
-		Date bool
+		Time bool
 	}
 	if err := mapstructure.Decode(i, &in); err != nil {
 		return WriterOutlet{}, errors.Wrap(err, "invalid structure for stdout outlet")
@@ -147,7 +147,7 @@ func parseStdoutOutlet(i interface{}, formatter EntryFormatter) (WriterOutlet, e
 
 	flags := MetadataAll
 	writer := os.Stdout
-	if !isatty.IsTerminal(writer.Fd()) && !in.Date {
+	if !isatty.IsTerminal(writer.Fd()) && !in.Time {
 		flags &= ^MetadataTime
 	}
 
