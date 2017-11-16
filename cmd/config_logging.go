@@ -26,15 +26,6 @@ const (
 	MetadataAll  MetadataFlags = ^0
 )
 
-func StdoutOutlet() logger.Outlet {
-	formatter := &HumanFormatter{}
-	writer := os.Stdout
-	formatter.SetMetadataFlags(MetadataAll)
-	return WriterOutlet{
-		formatter, writer,
-	}
-}
-
 func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 
 	c = &LoggingConfig{}
