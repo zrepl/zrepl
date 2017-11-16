@@ -64,22 +64,22 @@ We define a **pull job** named ``pull_app-srv`` in the |mainconfig|: ::
 
     jobs:
     - name: pull_app-srv
-    type: pull
-    connect:
-        type: ssh+stdinserver
-        host: app-srv.example.com
-        user: root
-        port: 22
-        identity_file: /etc/zrepl/ssh/identity
-    interval: 10m
-    mapping: {
-        "<":"storage/zrepl/pull/app-srv"
-    }
-    initial_repl_policy: most_recent
-    snapshot_prefix: zrepl_pull_backup_
-    prune:
-        policy: grid
-        grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
+      type: pull
+      connect:
+          type: ssh+stdinserver
+          host: app-srv.example.com
+          user: root
+          port: 22
+          identity_file: /etc/zrepl/ssh/identity
+      interval: 10m
+      mapping: {
+          "<":"storage/zrepl/pull/app-srv"
+      }
+      initial_repl_policy: most_recent
+      snapshot_prefix: zrepl_pull_backup_
+      prune:
+          policy: grid
+          grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
 
 The ``connect`` section instructs the zrepl daemon to use the ``stdinserver`` transport:
 ``backup-srv`` will connect to the specified SSH server and expect ``zrepl stdinserver CLIENT_IDENTITY`` instead of the shell on the other side.
@@ -105,20 +105,20 @@ We define a corresponding **source job** named ``pull_backup`` in the |mainconfi
 
     jobs:
     - name: pull_backup
-    type: source
-    serve:
-        type: stdinserver
-        client_identity: backup-srv.example.com
-    filesystems: {
-        "zroot/var/db": "ok",
-        "zroot/usr/home<": "ok",
-        "zroot/usr/home/paranoid": "!",
-    }
-    snapshot_prefix: zrepl_pull_backup_
-    interval: 10m
-    prune:
-        policy: grid
-        grid: 1x1d(keep=all)
+      type: source
+      serve:
+          type: stdinserver
+          client_identity: backup-srv.example.com
+      filesystems: {
+          "zroot/var/db": "ok",
+          "zroot/usr/home<": "ok",
+          "zroot/usr/home/paranoid": "!",
+      }
+      snapshot_prefix: zrepl_pull_backup_
+      interval: 10m
+      prune:
+          policy: grid
+          grid: 1x1d(keep=all)
 
 
 The ``serve`` section corresponds to the ``connect`` section in the configuration of ``backup-srv``.
