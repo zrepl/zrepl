@@ -78,28 +78,32 @@ type Outlet interface {
 	WriteEntry(ctx context.Context, entry Entry) error
 }
 
-type Outlets struct {
-	reg map[Level][]Outlet
-	e   Outlet
+type Outlets map[Level][]Outlet
+
+func NewOutlets() Outlets {
+	return make(map[Level][]Outlet, len(AllLevels))
 }
 
-func NewOutlets(loggerErrorOutlet Outlet) *Outlets {
-	return &Outlets{
-		make(map[Level][]Outlet, len(AllLevels)),
-		loggerErrorOutlet,
-	}
-}
-
-func (os *Outlets) Add(outlet Outlet, minLevel Level) {
+func (os Outlets) Add(outlet Outlet, minLevel Level) {
 	for _, l := range AllLevels[minLevel:] {
-		os.reg[l] = append(os.reg[l], outlet)
+		os[l] = append(os[l], outlet)
 	}
 }
 
-func (os *Outlets) Get(level Level) []Outlet {
-	return os.reg[level]
+func (os Outlets) Get(level Level) []Outlet {
+	return os[level]
 }
 
-func (os *Outlets) GetLoggerErrorOutlet() Outlet {
-	return os.e
+// Return the first outlet added to this Outlets list using Add()
+// with minLevel <= Error.
+// If no such outlet is in this Outlets list, a discarding outlet is returned.
+func (os Outlets) GetLoggerErrorOutlet() Outlet {
+	if len(os[Error]) < 1 {
+		return nullOutlet{}
+	}
+	return os[Error][0]
 }
+
+type nullOutlet struct{}
+
+func (nullOutlet) WriteEntry(ctx context.Context, entry Entry) error { return nil }

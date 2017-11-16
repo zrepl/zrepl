@@ -17,13 +17,13 @@ const DefaultUserFieldCapacity = 5
 
 type Logger struct {
 	fields        Fields
-	outlets       *Outlets
+	outlets       Outlets
 	outletTimeout time.Duration
 
 	mtx *sync.Mutex
 }
 
-func NewLogger(outlets *Outlets, outletTimeout time.Duration) *Logger {
+func NewLogger(outlets Outlets, outletTimeout time.Duration) *Logger {
 	return &Logger{
 		make(Fields, DefaultUserFieldCapacity),
 		outlets,

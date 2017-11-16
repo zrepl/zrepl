@@ -13,7 +13,7 @@ import (
 )
 
 type LoggingConfig struct {
-	Outlets *logger.Outlets
+	Outlets logger.Outlets
 }
 
 type MetadataFlags int64
@@ -26,10 +26,9 @@ const (
 	MetadataAll  MetadataFlags = ^0
 )
 
-func LoggerErrorOutlet() logger.Outlet {
-
+func StdoutOutlet() logger.Outlet {
 	formatter := &HumanFormatter{}
-	writer := os.Stderr
+	writer := os.Stdout
 	formatter.SetMetadataFlags(MetadataAll)
 	return WriterOutlet{
 		formatter, writer,
@@ -39,8 +38,7 @@ func LoggerErrorOutlet() logger.Outlet {
 func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 
 	c = &LoggingConfig{}
-
-	c.Outlets = logger.NewOutlets(LoggerErrorOutlet())
+	c.Outlets = logger.NewOutlets()
 
 	var asList []interface{}
 	if err = mapstructure.Decode(i, &asList); err != nil {
