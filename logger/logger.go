@@ -3,7 +3,6 @@ package logger
 import (
 	"context"
 	"fmt"
-	"os"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -15,23 +14,45 @@ const (
 )
 
 const DefaultUserFieldCapacity = 5
-const InternalErrorPrefix = "github.com/zrepl/zrepl/logger: "
 
 type Logger struct {
 	fields        Fields
-	outlets       Outlets
+	outlets       *Outlets
 	outletTimeout time.Duration
 
 	mtx *sync.Mutex
 }
 
-func NewLogger(outlets Outlets, outletTimeout time.Duration) *Logger {
+func NewLogger(outlets *Outlets, outletTimeout time.Duration) *Logger {
 	return &Logger{
 		make(Fields, DefaultUserFieldCapacity),
 		outlets,
 		outletTimeout,
 		&sync.Mutex{},
 	}
+}
+
+type outletResult struct {
+	Outlet Outlet
+	Error  error
+}
+
+func (l *Logger) logInternalError(outlet Outlet, err string) {
+	fields := Fields{}
+	if outlet != nil {
+		if _, ok := outlet.(fmt.Stringer); ok {
+			fields["outlet"] = fmt.Sprintf("%s", outlet)
+		}
+		fields["outlet_type"] = fmt.Sprintf("%T", outlet)
+	}
+	fields[FieldError] = err
+	entry := Entry{
+		Error,
+		"outlet error",
+		time.Now(),
+		fields,
+	}
+	l.outlets.GetLoggerErrorOutlet().WriteEntry(context.Background(), entry)
 }
 
 func (l *Logger) log(level Level, msg string) {
@@ -42,24 +63,24 @@ func (l *Logger) log(level Level, msg string) {
 	entry := Entry{level, msg, time.Now(), l.fields}
 
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(l.outletTimeout))
-	ech := make(chan error)
+	ech := make(chan outletResult)
 
-	louts := l.outlets[level]
+	louts := l.outlets.Get(level)
 	for i := range louts {
 		go func(ctx context.Context, outlet Outlet, entry Entry) {
-			ech <- outlet.WriteEntry(ctx, entry)
+			ech <- outletResult{outlet, outlet.WriteEntry(ctx, entry)}
 		}(ctx, louts[i], entry)
 	}
 
 	for fin := 0; fin < len(louts); fin++ {
 		select {
-		case err := <-ech:
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s outlet error: %s\n", InternalErrorPrefix, err)
+		case res := <-ech:
+			if res.Error != nil {
+				l.logInternalError(res.Outlet, res.Error.Error())
 			}
 		case <-ctx.Done():
 			if ctx.Err() == context.DeadlineExceeded {
-				fmt.Fprintf(os.Stderr, "%s outlets exceeded deadline, keep waiting anyways", InternalErrorPrefix)
+				l.logInternalError(nil, "one or more outlets exceeded timeout but will keep waiting anyways")
 			}
 		}
 	}
@@ -74,7 +95,8 @@ func (l *Logger) WithField(field string, val interface{}) *Logger {
 	defer l.mtx.Unlock()
 
 	if _, ok := l.fields[field]; ok {
-		fmt.Fprintf(os.Stderr, "%s caller overwrites field '%s'. Stack:\n%s\n", InternalErrorPrefix, field, string(debug.Stack()))
+		l.logInternalError(nil,
+			fmt.Sprintf("caller overwrites field '%s'. Stack: %s", field, string(debug.Stack())))
 	}
 
 	child := &Logger{

@@ -65,7 +65,7 @@ func init() {
 
 func testCmdGlobalInit(cmd *cobra.Command, args []string) {
 
-	out := logger.NewOutlets()
+	out := logger.NewOutlets(WriterOutlet{&NoFormatter{}, os.Stderr})
 	out.Add(WriterOutlet{&NoFormatter{}, os.Stdout}, logger.Info)
 	log := logger.NewLogger(out, 1*time.Second)
 	testCmdGlobal.log = log
