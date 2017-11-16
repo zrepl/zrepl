@@ -3,7 +3,7 @@ zrepl is a ZFS filesystem backup & replication solution written in Go.
 
 ## User Documentation
 
-**User Documentation** cab be found at [zrepl.github.io](https://zrepl.github.io).
+**User Documentation** can be found at [zrepl.github.io](https://zrepl.github.io).
 
 ## Bug Reports
 
