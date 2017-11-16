@@ -37,10 +37,8 @@ Make sure to develop an understanding how zrepl is typically used by studying th
 │   ├── conf.py             # sphinx configuration
 │   ├── publish.sh          # shell script for automated rendering & deploy to zrepl.github.io repo
 │   ├── public_git          # checkout of zrepl.github.io used by above shell script
-├── jobrun                  # OBSOLETE
 ├── logger                  # logger package used by zrepl
 ├── rpc                     # rpc protocol implementation
-├── scratchpad              # small example programs demoing some internal packages. probably OBSOLETE
 ├── sshbytestream           # io.ReadWriteCloser over SSH
 ├── util
 └── zfs                     # ZFS wrappers, filesystemm diffing
