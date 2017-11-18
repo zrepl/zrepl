@@ -37,6 +37,7 @@ func doDaemon(cmd *cobra.Command, args []string) {
 
 	log := logger.NewLogger(conf.Global.logging.Outlets, 1*time.Second)
 
+	log.Info(NewZreplVersionInformation().String())
 	log.Debug("starting daemon")
 	ctx := context.WithValue(context.Background(), contextKeyLog, log)
 	ctx = context.WithValue(ctx, contextKeyLog, log)

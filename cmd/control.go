@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/spf13/cobra"
 	"io"
@@ -26,10 +28,33 @@ var pprofCmdArgs struct {
 	seconds int64
 }
 
+var controlVersionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "print version of running zrepl daemon",
+	Run:   doControLVersionCmd,
+}
+
 func init() {
 	RootCmd.AddCommand(controlCmd)
 	controlCmd.AddCommand(pprofCmd)
 	pprofCmd.Flags().Int64Var(&pprofCmdArgs.seconds, "seconds", 30, "seconds to profile")
+	controlCmd.AddCommand(controlVersionCmd)
+}
+
+func controlHttpClient() (client http.Client, err error) {
+
+	conf, err := ParseConfig(rootArgs.configFile)
+	if err != nil {
+		return http.Client{}, err
+	}
+
+	return http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", conf.Global.Control.Sockpath)
+			},
+		},
+	}, nil
 }
 
 func doControlPProf(cmd *cobra.Command, args []string) {
@@ -39,12 +64,6 @@ func doControlPProf(cmd *cobra.Command, args []string) {
 	die := func() {
 		log.Printf("exiting after error")
 		os.Exit(1)
-	}
-
-	conf, err := ParseConfig(rootArgs.configFile)
-	if err != nil {
-		log.Printf("error parsing config: %s", err)
-		die()
 	}
 
 	if cmd.Flags().Arg(0) != "cpu" {
@@ -60,6 +79,7 @@ func doControlPProf(cmd *cobra.Command, args []string) {
 		die()
 	}
 	var out io.Writer
+	var err error
 	if outfn == "-" {
 		out = os.Stdout
 	} else {
@@ -71,12 +91,10 @@ func doControlPProf(cmd *cobra.Command, args []string) {
 	}
 
 	log.Printf("connecting to daemon")
-	httpc := http.Client{
-		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", conf.Global.Control.Sockpath)
-			},
-		},
+	httpc, err := controlHttpClient()
+	if err != nil {
+		log.Printf("error parsing config: %s", err)
+		die()
 	}
 
 	log.Printf("profiling...")
@@ -96,5 +114,42 @@ func doControlPProf(cmd *cobra.Command, args []string) {
 	}
 
 	log.Printf("finished")
+
+}
+
+func doControLVersionCmd(cmd *cobra.Command, args []string) {
+
+	log := golog.New(os.Stderr, "", 0)
+
+	die := func() {
+		log.Printf("exiting after error")
+		os.Exit(1)
+	}
+
+	httpc, err := controlHttpClient()
+	if err != nil {
+		log.Printf("could not connect to daemon: %s", err)
+		die()
+	}
+
+	resp, err := httpc.Get("http://unix" + ControlJobEndpointVersion)
+	if err != nil {
+		log.Printf("error: %s", err)
+		die()
+	} else if resp.StatusCode != http.StatusOK {
+		var msg bytes.Buffer
+		io.CopyN(&msg, resp.Body, 4096)
+		log.Printf("error: %s", msg.String())
+		die()
+	}
+
+	var info ZreplVersionInformation
+	err = json.NewDecoder(resp.Body).Decode(&info)
+	if err != nil {
+		log.Printf("error unmarshaling response: %s", err)
+		die()
+	}
+
+	fmt.Println(info.String())
 
 }

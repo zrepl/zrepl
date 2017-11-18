@@ -8,13 +8,23 @@ _TESTPKGS := $(ROOT) $(foreach p,$(SUBPKGS),$(ROOT)/$(p))
 
 ARTIFACTDIR := artifacts
 
+ifndef ZREPL_VERSION
+    ZREPL_VERSION := $(shell git describe --dirty 2>/dev/null || echo "ZREPL_BUILD_INVALID_VERSION" )
+    ifeq ($(ZREPL_VERSION),ZREPL_BUILD_INVALID_VERSION) # can't use .SHELLSTATUS because Debian Stretch is still on gmake 4.1
+        $(error cannot infer variable ZREPL_VERSION using git and variable is not overriden by make invocation)
+    endif
+endif
+GO_LDFLAGS := "-X github.com/zrepl/zrepl/cmd.zreplVersion=$(ZREPL_VERSION)"
+
+GO_BUILD := go build -ldflags $(GO_LDFLAGS)
+
 generate: #not part of the build, must do that manually
 	@for pkg in $(_TESTPKGS); do\
 		go generate "$$pkg" || exit 1; \
 	done;
 
 build:
-		go build -o $(ARTIFACTDIR)/zrepl
+		$(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl"
 
 test:
 	@for pkg in $(_TESTPKGS); do \
@@ -54,10 +64,11 @@ docs-clean:
 		BUILDDIR=../artifacts/docs
 
 release-bins: $(ARTIFACTDIR) vet test
-	GOOS=linux GOARCH=amd64   go build -o "$(ARTIFACTDIR)/zrepl-linux-amd64"
-	GOOS=freebsd GOARCH=amd64 go build -o "$(ARTIFACTDIR)/zrepl-freebsd-amd64"
+	GOOS=linux GOARCH=amd64   $(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-linux-amd64"
+	GOOS=freebsd GOARCH=amd64 $(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-freebsd-amd64"
 
 release: release-bins docs
+
 
 clean: docs-clean
 	rm -rf "$(ARTIFACTDIR)"

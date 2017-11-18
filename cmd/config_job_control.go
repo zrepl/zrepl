@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"github.com/pkg/errors"
+	"io"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -29,8 +32,20 @@ func (j *ControlJob) JobName() string {
 	return j.Name
 }
 
+func (j *ControlJob) EndpointVersion(w http.ResponseWriter, r *http.Request) {
+	var buf bytes.Buffer
+	err := json.NewEncoder(&buf).Encode(NewZreplVersionInformation())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, err.Error())
+	} else {
+		io.Copy(w, &buf)
+	}
+}
+
 const (
 	ControlJobEndpointProfile string = "/debug/pprof/profile"
+	ControlJobEndpointVersion string = "/version"
 )
 
 func (j *ControlJob) JobStart(ctx context.Context) {
@@ -46,6 +61,7 @@ func (j *ControlJob) JobStart(ctx context.Context) {
 
 	mux := http.NewServeMux()
 	mux.Handle(ControlJobEndpointProfile, requestLogger{log, pprof.Profile})
+	mux.Handle(ControlJobEndpointVersion, requestLogger{log, j.EndpointVersion})
 	server := http.Server{Handler: mux}
 
 outer:
