@@ -56,7 +56,7 @@ Otherwise, the examples in the :ref:`tutorial` may need to be adjusted.
 
 ::
 
-    curl 'https://raw.githubusercontent.com/zrepl/zrepl/master/clone_and_build.sh' | sh
+    curl 'https://raw.githubusercontent.com/zrepl/zrepl/master/lazy.sh' | sh
 
 You can also build in a Docker container if you want an isolated build environment or don't have a compatible Go version.
 
@@ -67,9 +67,9 @@ You can also build in a Docker container if you want an isolated build environme
     sudo docker run -it --rm \
         -v "${PWD}:/zrepl" \
         --user "$(id -u):$(id -g)" \
-        golang:latest bash -c 'export CLONEPATH=/go/src/github.com/zrepl; mkdir -p "$CLONEPATH" && ln -s /zrepl $CLONEPATH/zrepl && ${CLONEPATH}/zrepl/clone_and_build.sh'
+        golang:latest bash -c 'export CLONEPATH=/go/src/github.com/zrepl; mkdir -p "$CLONEPATH" && ln -s /zrepl $CLONEPATH/zrepl && ${CLONEPATH}/zrepl/lazy.sh'
 
-.. literalinclude:: ../clone_and_build.sh
+.. literalinclude:: ../lazy.sh
     :language: sh
 
 
