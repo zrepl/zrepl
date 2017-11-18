@@ -22,6 +22,8 @@ Check out the *Coding Workflow* section below for details.
 
 ## Developer Documentation
 
+First, use `./lazy.sh devesetup` to install build dependencies and read `docs/installation.rst -> Compiling from Source`.
+
 ### Overall Architecture
 
 The application architecture is documented as part of the user docs in the *Implementation* section (`docs/content/impl`).
@@ -34,9 +36,11 @@ Make sure to develop an understanding how zrepl is typically used by studying th
 │   ├── sampleconf          # example configuration
 ├── docs                    # sphinx-based documentation
 │   ├── **/*.rst            # documentation in reStructuredText
-│   ├── conf.py             # sphinx configuration
+│   ├── sphinxconf
+│   │   └── conf.py         # sphinx config (see commit 445a280 why its not in docs/)
+│   ├── requirements.txt    # pip3 requirements to build documentation
 │   ├── publish.sh          # shell script for automated rendering & deploy to zrepl.github.io repo
-│   ├── public_git          # checkout of zrepl.github.io used by above shell script
+│   ├── public_git          # checkout of zrepl.github.io managed by above shell script
 ├── logger                  # logger package used by zrepl
 ├── rpc                     # rpc protocol implementation
 ├── sshbytestream           # io.ReadWriteCloser over SSH
@@ -74,11 +78,3 @@ There will not be a big refactoring (an attempt was made, but it's destroying to
 
 However, new contributions & patches should fix naming without further notice in the commit message.
 
-### Building `docs`
-
-```
-cd docs
-pip install sphinx sphinx-rtd-theme
-make clean html
-xdg-open _build/html/index.html
-```
