@@ -1,8 +1,13 @@
 #!/bin/sh
 set -e
 
-bold=$(tput bold)
-normal=$(tput sgr0)
+if [ ! -z "$TERM" ]; then
+    bold=$(tput bold)
+    normal=$(tput sgr0)
+else
+    bold=""
+    normal=""
+fi
 
 step() {
     echo "${bold}$1${normal}"
