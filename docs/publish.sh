@@ -16,6 +16,11 @@ exit_msg() {
 }
 trap exit_msg EXIT
 
+if ! type sphinx-versioning >/dev/null; then
+    echo "install sphinx-versioning and come back"
+    exit 1
+fi
+
 cd "$SCRIPTDIR"
 
 if [ ! -d "$PUBLICDIR" ]; then
