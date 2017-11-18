@@ -37,10 +37,10 @@ cover: artifacts
 		fi; \
 	done;
 
-artifacts:
-	mkdir artifacts
+$(ARTIFACTDIR):
+	mkdir -p "$@"
 
-release: artifacts vet test
+release: $(ARTIFACTDIR) vet test docs
 	GOOS=linux GOARCH=amd64   go build -o "$(ARTIFACTDIR)/zrepl-linux-amd64"
 	GOOS=freebsd GOARCH=amd64 go build -o "$(ARTIFACTDIR)/zrepl-freebsd-amd64"
 
