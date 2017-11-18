@@ -1,3 +1,5 @@
+.. _binary releases: https://github.com/zrepl/zrepl/releases
+
 .. _installation:
 
 Installation
@@ -18,8 +20,9 @@ However, until we get around documenting those setups, you will have to run zrep
 Packages
 --------
 
-zrepl releases are signed & tagged by the author in the git repository.
+zrepl source releases are signed & tagged by the author in the git repository.
 Your OS vendor may provide binary packages of zrepl through the package manager.
+Additionally, `binary releases`_ are provided on GitHub.
 The following list may be incomplete, feel free to submit a PR with an update:
 
 .. list-table::
@@ -33,45 +36,45 @@ The following list may be incomplete, feel free to submit a PR with an update:
       - `<https://www.freshports.org/sysutils/zrepl/>`_
     * - Others
       -
-      - Install from source, see below
+      - Use `binary releases`_ or build from source.
 
 Compile From Source
 ~~~~~~~~~~~~~~~~~~~
 
-Go 1.9 or newer and a configured ``$GOPATH`` environment variable and a few build dependencies are required to build zrepl.
-A tutorial is available over at `golang.org <https://golang.org/doc/install>`_.
-If Go 1.9 is not available on your distro consider build in Docker (see below).
+Producing a release requires **Go 1.9** or newer and **Python 3** + **pip3** + ``docs/requirements.txt`` for the Sphinx documentation.
+A tutorial to install Go is available over at `golang.org <https://golang.org/doc/install>`_.
+Python and pip3 should probably be installed via your distro's package manager.
 
-The following shell script checks out the zrepl project into your ``$GOPATH``,
-installs the build dependencies, installs dependencies using ``dep ensure`` and does a ``make release``.
-Build artifacts are placed into ``$GOPATH/github.com/zrepl/zrepl/artifacts/``.
-
-When doing builds afterwards, it should be sufficient to checkout the new revision, run ``dep ensure`` and ``make release``.
-You may want to switch to a tagged commit (we use `semver <http://semver.org>`_) but master should generally be considered stable.
-
-**Note**: it is your job to install the apropriate binary in the zrepl users's ``$PATH``, e.g. ``/usr/local/bin/zrepl``.
-Otherwise, the examples in the :ref:`tutorial` may need to be adjusted.
-
-**You are encouraged to understand what happens by auditing the script.**
-
-::
-
-    curl 'https://raw.githubusercontent.com/zrepl/zrepl/master/lazy.sh' | sh
-
-You can also build in a Docker container if you want an isolated build environment or don't have a compatible Go version.
+Alternatively, you can use the Docker build process:
+it is used to produce the official zrepl `binary releases`_
+and serves as a reference for build dependencies and procedure:
 
 ::
 
     git clone https://github.com/zrepl/zrepl.git
     cd zrepl
+    sudo docker build -t zrepl_build -f build.Dockerfile .
     sudo docker run -it --rm \
         -v "${PWD}:/zrepl" \
         --user "$(id -u):$(id -g)" \
-        golang:latest bash -c 'export CLONEPATH=/go/src/github.com/zrepl; mkdir -p "$CLONEPATH" && ln -s /zrepl $CLONEPATH/zrepl && ${CLONEPATH}/zrepl/lazy.sh'
+        zrepl_build make release
 
-.. literalinclude:: ../lazy.sh
-    :language: sh
+Alternatively, you can install build dependencies on your local system and then build in your ``$GOPATH``:
 
+::
+
+    mkdir -p "${GOPATH}/src/github.com/zrepl/zrepl"
+    git clone https://github.com/zrepl/zrepl.git "${GOPATH}/src/github.com/zrepl/zrepl"
+    cd "${GOPATH}/src/github.com/zrepl/zrepl"
+    ./lazy.sh devsetup
+    make release
+
+Build results are located in the ``artifacts/`` directory.
+
+.. NOTE::
+
+    It is your job to install the apropriate binary in the zrepl users's ``$PATH``, e.g. ``/usr/local/bin/zrepl``.
+    Otherwise, the examples in the :ref:`tutorial` may need to be adjusted.
 
 .. _mainconfigfile:
 
