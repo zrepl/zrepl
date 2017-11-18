@@ -41,6 +41,6 @@ step "Fetching dependencies using 'dep ensure'"
 dep ensure
 
 step "Making release"
-make release
+make release-bins
 
 step "Release artifacts are available in $(pwd)/artifacts"

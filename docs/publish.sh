@@ -23,7 +23,7 @@ if [ ! -d "$PUBLICDIR" ]; then
     exit 1
 fi
 
-echo -n "PRESS ENTER to confirm you commited the docs changes to the zrepl repo"
+echo -n "PRESS ENTER to confirm you commited and pushed docs changes and tags to the zrepl repo"
 read
 
 pushd "$PUBLICDIR" 
@@ -47,9 +47,12 @@ popd
 
 echo "building site"
 set -e
-make clean
-make html
-rsync -a _build/html/ public_git/
+sphinx-versioning build \
+   --show-banner \
+   docs ./public_git \
+   -- -c sphinxconf # older conf.py throw errors because they used
+                    # version = subprocess.show_output(["git", "describe"])
+                    # which fails when building with sphinxcontrib-versioning
 set +e
 
 CURRENT_COMMIT=$(git rev-parse HEAD)
@@ -57,7 +60,7 @@ git status --porcelain
 if [[ "$(git status --porcelain)" != "" ]]; then
     CURRENT_COMMIT="${CURRENT_COMMIT}(dirty)" 
 fi
-COMMIT_MSG="sphinx render from publish.sh - `date -u` - ${CURRENT_COMMIT}"
+COMMIT_MSG="sphinx-versioning render from publish.sh - `date -u` - ${CURRENT_COMMIT}"
 
 pushd "$PUBLICDIR"
 

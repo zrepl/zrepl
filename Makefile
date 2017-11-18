@@ -1,4 +1,4 @@
-.PHONY: generate build test vet cover release clean
+.PHONY: generate build test vet cover release docs docs-clean clean release-bins
 .DEFAULT_GOAL := build
 
 ROOT := github.com/zrepl/zrepl
@@ -40,9 +40,24 @@ cover: artifacts
 $(ARTIFACTDIR):
 	mkdir -p "$@"
 
-release: $(ARTIFACTDIR) vet test docs
+$(ARTIFACTDIR)/docs: $(ARTIFACTDIR)
+	mkdir -p "$@"
+
+docs: $(ARTIFACTDIR)/docs
+	make -C docs \
+		html \
+		BUILDDIR=../artifacts/docs \
+
+docs-clean:
+	make -C docs \
+		clean \
+		BUILDDIR=../artifacts/docs
+
+release-bins: $(ARTIFACTDIR) vet test
 	GOOS=linux GOARCH=amd64   go build -o "$(ARTIFACTDIR)/zrepl-linux-amd64"
 	GOOS=freebsd GOARCH=amd64 go build -o "$(ARTIFACTDIR)/zrepl-freebsd-amd64"
 
-clean:
+release: release-bins docs
+
+clean: docs-clean
 	rm -rf "$(ARTIFACTDIR)"
