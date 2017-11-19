@@ -1,4 +1,4 @@
-.PHONY: generate build test vet cover release docs docs-clean clean release-bins
+.PHONY: generate build test vet cover release docs docs-clean clean release-bins vendordeps
 .DEFAULT_GOAL := build
 
 ROOT := github.com/zrepl/zrepl
@@ -18,13 +18,17 @@ GO_LDFLAGS := "-X github.com/zrepl/zrepl/cmd.zreplVersion=$(ZREPL_VERSION)"
 
 GO_BUILD := go build -ldflags $(GO_LDFLAGS)
 
+vendordeps:
+	dep ensure -v -vendor-only
+
 generate: #not part of the build, must do that manually
 	@for pkg in $(_TESTPKGS); do\
 		go generate "$$pkg" || exit 1; \
 	done;
 
 build:
-		$(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl"
+	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"
+	$(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl"
 
 test:
 	@for pkg in $(_TESTPKGS); do \
@@ -64,6 +68,7 @@ docs-clean:
 		BUILDDIR=../artifacts/docs
 
 release-bins: $(ARTIFACTDIR) vet test
+	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"
 	GOOS=linux GOARCH=amd64   $(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-linux-amd64"
 	GOOS=freebsd GOARCH=amd64 $(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-freebsd-amd64"
 

@@ -27,12 +27,12 @@ Check out the *Coding Workflow* section below for details.
 * Ship a default config that adheres to your distro's `hier` and logging system.
 * Ship a service manager file and _please_ try to upstream it to this repository.
 * Use `make release ZREPL_VERSION='mydistro-1.2.3_1'`
-    * Your distro's name and any versioning supplemental to zrepl's (e.g. package revesion) should be in this string
+    * Your distro's name and any versioning supplemental to zrepl's (e.g. package revision) should be in this string
 * Make sure you are informed about new zrepl versions, e.g. by subscribing to GitHub's release RSS feed.
 
 ## Developer Documentation
 
-First, use `./lazy.sh devesetup` to install build dependencies and read `docs/installation.rst -> Compiling from Source`.
+First, use `./lazy.sh devsetup` to install build dependencies and read `docs/installation.rst -> Compiling from Source`.
 
 ### Overall Architecture
 

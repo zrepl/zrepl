@@ -13,7 +13,7 @@ step() {
     echo "${bold}$1${normal}"
 }
 
-if ! type go; then
+if ! type go >/dev/null; then
     step "go binary not installed or not in \$PATH" 1>&2
     exit 1
 fi
@@ -24,23 +24,6 @@ if [ -z "$GOPATH" ]; then
 fi
 
 CHECKOUTPATH="${GOPATH}/src/github.com/zrepl/zrepl"
-
-clone() {
-    step "Checkout sources to \$GOPATH/github.com/zrepl/zrepl"
-    if [ -e "$CHECKOUTPATH" ]; then
-        echo "${CHECKOUTPATH} already exists"
-        if [ ! -d "$CHECKOUTPATH" ]; then
-            echo "${CHECKOUTPATH} is not a directory, aborting" 1>&2
-        else
-            cd "$CHECKOUTPATH"
-        fi
-    else
-        mkdir -p "$GOPATH/src/github.com/zrepl"
-        cd "$GOPATH/src/github.com/zrepl"
-        git clone https://github.com/zrepl/zrepl.git
-        cd zrepl
-    fi
-}
 
 builddep() {
     step "Install build depdencies using 'go get' to \$GOPATH/bin"
@@ -75,16 +58,15 @@ release() {
     make release
 }
 
-# precheck
 for cmd in "$@"; do
     case "$cmd" in
-        clone|builddep|godep|docdep|release_bins|docs)
+        builddep|godep|docdep|release_bins|docs)
+            eval $cmd
             continue
             ;;
         devsetup)
             step "Installing development dependencies"
             builddep
-            godep
             docdep
             step "Development dependencies installed"
             continue
@@ -94,10 +76,5 @@ for cmd in "$@"; do
             exit 1
             ;;
     esac
-done
-
-for cmd in "$@"; do
-    step "Step ${cmd}"
-    eval $cmd
 done
 

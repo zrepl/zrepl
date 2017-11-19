@@ -57,7 +57,7 @@ and serves as a reference for build dependencies and procedure:
     sudo docker run -it --rm \
         -v "${PWD}:/zrepl" \
         --user "$(id -u):$(id -g)" \
-        zrepl_build make release
+        zrepl_build make vendordeps release
 
 Alternatively, you can install build dependencies on your local system and then build in your ``$GOPATH``:
 
@@ -67,7 +67,7 @@ Alternatively, you can install build dependencies on your local system and then 
     git clone https://github.com/zrepl/zrepl.git "${GOPATH}/src/github.com/zrepl/zrepl"
     cd "${GOPATH}/src/github.com/zrepl/zrepl"
     ./lazy.sh devsetup
-    make release
+    make vendordeps release
 
 Build results are located in the ``artifacts/`` directory.
 
