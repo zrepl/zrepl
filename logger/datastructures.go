@@ -15,6 +15,15 @@ func (l Level) MarshalJSON() ([]byte, error) {
 	return json.Marshal(l.String())
 }
 
+func (l *Level) UnmarshalJSON(input []byte) (err error) {
+	var s string
+	if err = json.Unmarshal(input, &s); err != nil {
+		return err
+	}
+	*l, err = ParseLevel(s)
+	return err
+}
+
 const (
 	Debug Level = iota
 	Info
