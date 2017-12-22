@@ -13,7 +13,7 @@ import (
 )
 
 type LoggingConfig struct {
-	Outlets logger.Outlets
+	Outlets *logger.Outlets
 }
 
 type MetadataFlags int64

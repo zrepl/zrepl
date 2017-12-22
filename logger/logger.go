@@ -17,13 +17,13 @@ const DefaultUserFieldCapacity = 5
 
 type Logger struct {
 	fields        Fields
-	outlets       Outlets
+	outlets       *Outlets
 	outletTimeout time.Duration
 
 	mtx *sync.Mutex
 }
 
-func NewLogger(outlets Outlets, outletTimeout time.Duration) *Logger {
+func NewLogger(outlets *Outlets, outletTimeout time.Duration) *Logger {
 	return &Logger{
 		make(Fields, DefaultUserFieldCapacity),
 		outlets,
@@ -89,6 +89,20 @@ func (l *Logger) log(level Level, msg string) {
 
 }
 
+func (l *Logger) WithOutlet(outlet Outlet, level Level) *Logger {
+	l.mtx.Lock()
+	defer l.mtx.Unlock()
+	newOutlets := l.outlets.DeepCopy()
+	newOutlets.Add(outlet, level)
+	child := &Logger{
+		fields:        l.fields,
+		outlets:       newOutlets,
+		outletTimeout: l.outletTimeout,
+		mtx:           l.mtx,
+	}
+	return child
+}
+
 func (l *Logger) WithField(field string, val interface{}) *Logger {
 
 	l.mtx.Lock()
@@ -101,7 +115,7 @@ func (l *Logger) WithField(field string, val interface{}) *Logger {
 
 	child := &Logger{
 		fields:        make(Fields, len(l.fields)+1),
-		outlets:       l.outlets, // cannot be changed after logger initialized
+		outlets:       l.outlets,
 		outletTimeout: l.outletTimeout,
 		mtx:           l.mtx,
 	}

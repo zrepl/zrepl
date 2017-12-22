@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"sync"
 	"time"
 )
 
@@ -78,30 +79,52 @@ type Outlet interface {
 	WriteEntry(ctx context.Context, entry Entry) error
 }
 
-type Outlets map[Level][]Outlet
-
-func NewOutlets() Outlets {
-	return make(map[Level][]Outlet, len(AllLevels))
+type Outlets struct {
+	mtx  sync.RWMutex
+	outs map[Level][]Outlet
 }
 
-func (os Outlets) Add(outlet Outlet, minLevel Level) {
-	for _, l := range AllLevels[minLevel:] {
-		os[l] = append(os[l], outlet)
+func NewOutlets() *Outlets {
+	return &Outlets{
+		mtx:  sync.RWMutex{},
+		outs: make(map[Level][]Outlet, len(AllLevels)),
 	}
 }
 
-func (os Outlets) Get(level Level) []Outlet {
-	return os[level]
+func (os *Outlets) DeepCopy() (copy *Outlets) {
+	copy = NewOutlets()
+	for level := range os.outs {
+		for i := range os.outs[level] {
+			copy.outs[level] = append(copy.outs[level], os.outs[level][i])
+		}
+	}
+	return copy
+}
+
+func (os *Outlets) Add(outlet Outlet, minLevel Level) {
+	os.mtx.Lock()
+	defer os.mtx.Unlock()
+	for _, l := range AllLevels[minLevel:] {
+		os.outs[l] = append(os.outs[l], outlet)
+	}
+}
+
+func (os *Outlets) Get(level Level) []Outlet {
+	os.mtx.RLock()
+	defer os.mtx.RUnlock()
+	return os.outs[level]
 }
 
 // Return the first outlet added to this Outlets list using Add()
 // with minLevel <= Error.
 // If no such outlet is in this Outlets list, a discarding outlet is returned.
-func (os Outlets) GetLoggerErrorOutlet() Outlet {
-	if len(os[Error]) < 1 {
+func (os *Outlets) GetLoggerErrorOutlet() Outlet {
+	os.mtx.RLock()
+	defer os.mtx.RUnlock()
+	if len(os.outs[Error]) < 1 {
 		return nullOutlet{}
 	}
-	return os[Error][0]
+	return os.outs[Error][0]
 }
 
 type nullOutlet struct{}
