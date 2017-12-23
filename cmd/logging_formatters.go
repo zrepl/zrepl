@@ -41,10 +41,27 @@ func (f NoFormatter) Format(e *logger.Entry) ([]byte, error) {
 
 type HumanFormatter struct {
 	metadataFlags MetadataFlags
+	ignoreFields  map[string]bool
 }
 
 func (f *HumanFormatter) SetMetadataFlags(flags MetadataFlags) {
 	f.metadataFlags = flags
+}
+
+func (f *HumanFormatter) SetIgnoreFields(ignore []string) {
+	if ignore == nil {
+		f.ignoreFields = nil
+		return
+	}
+	f.ignoreFields = make(map[string]bool, len(ignore))
+
+	for _, field := range ignore {
+		f.ignoreFields[field] = true
+	}
+}
+
+func (f *HumanFormatter) ignored(field string) bool {
+	return f.ignoreFields != nil && f.ignoreFields[field]
 }
 
 func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
@@ -63,8 +80,10 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 	for _, field := range prefixFields {
 		val, ok := e.Fields[field].(string)
 		if ok {
-			fmt.Fprintf(&line, "[%s]", val)
-			prefixed[field] = true
+			if !f.ignored(field) {
+				fmt.Fprintf(&line, "[%s]", val)
+				prefixed[field] = true
+			}
 		} else {
 			break
 		}
@@ -72,13 +91,13 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 	// even more prefix fields
 	mapFrom, mapFromOk := e.Fields[logMapFromField].(string)
 	mapTo, mapToOk := e.Fields[logMapToField].(string)
-	if mapFromOk && mapToOk {
+	if mapFromOk && mapToOk && !f.ignored(logMapFromField) && !f.ignored(logMapToField) {
 		fmt.Fprintf(&line, "[%s => %s]", mapFrom, mapTo)
 		prefixed[logMapFromField], prefixed[logMapToField] = true, true
 	}
 	incFrom, incFromOk := e.Fields[logIncFromField].(string)
 	incTo, incToOk := e.Fields[logIncToField].(string)
-	if incFromOk && incToOk {
+	if incFromOk && incToOk && !f.ignored(logIncFromField) && !f.ignored(logMapToField) {
 		fmt.Fprintf(&line, "[%s => %s]", incFrom, incTo)
 		prefixed[logIncFromField], prefixed[logIncToField] = true, true
 	}
@@ -92,7 +111,7 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 		fmt.Fprint(&line, " ")
 		enc := logfmt.NewEncoder(&line)
 		for field, value := range e.Fields {
-			if prefixed[field] {
+			if prefixed[field] || f.ignored(field) {
 				continue
 			}
 			if err := logfmtTryEncodeKeyval(enc, field, value); err != nil {
