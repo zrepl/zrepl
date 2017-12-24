@@ -108,6 +108,10 @@ outer:
 
 }
 
+func (j *SourceJob) JobStatus(ctxt context.Context) (*JobStatus, error) {
+	return &JobStatus{}, nil
+}
+
 func (j *SourceJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err error) {
 	p = Pruner{
 		time.Now(),

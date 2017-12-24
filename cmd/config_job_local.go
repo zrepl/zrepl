@@ -173,6 +173,10 @@ outer:
 
 }
 
+func (j *LocalJob) JobStatus(ctxt context.Context) (*JobStatus, error) {
+	return &JobStatus{}, nil
+}
+
 func (j *LocalJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err error) {
 
 	var dsfilter zfs.DatasetFilter

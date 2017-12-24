@@ -32,6 +32,10 @@ func (j *ControlJob) JobName() string {
 	return j.Name
 }
 
+func (j *ControlJob) JobStatus(ctx context.Context) (*JobStatus, error) {
+	return &JobStatus{}, nil
+}
+
 const (
 	ControlJobEndpointProfile string = "/debug/pprof/profile"
 	ControlJobEndpointVersion string = "/version"

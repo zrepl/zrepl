@@ -29,6 +29,7 @@ func init() {
 type Job interface {
 	JobName() string
 	JobStart(ctxt context.Context)
+	JobStatus(ctxt context.Context) (*JobStatus, error)
 }
 
 func doDaemon(cmd *cobra.Command, args []string) {
@@ -58,14 +59,17 @@ const (
 )
 
 type Daemon struct {
-	conf *Config
+	conf      *Config
+	startedAt time.Time
 }
 
 func NewDaemon(initialConf *Config) *Daemon {
-	return &Daemon{initialConf}
+	return &Daemon{conf: initialConf}
 }
 
 func (d *Daemon) Loop(ctx context.Context) {
+
+	d.startedAt = time.Now()
 
 	log := ctx.Value(contextKeyLog).(Logger)
 
@@ -112,6 +116,39 @@ outer:
 
 	log.Info("exiting")
 
+}
+
+// Representation of a Job's status that is composed of Tasks
+type JobStatus struct {
+	// Statuses of all tasks of this job
+	Tasks []*TaskStatus
+	// Error != "" if JobStatus() returned an error
+	JobStatusError string
+}
+
+// Representation of a Daemon's status that is composed of Jobs
+type DaemonStatus struct {
+	StartedAt time.Time
+	Jobs      map[string]*JobStatus
+}
+
+func (d *Daemon) Status() (s *DaemonStatus) {
+
+	s = &DaemonStatus{}
+	s.StartedAt = d.startedAt
+
+	s.Jobs = make(map[string]*JobStatus, len(d.conf.Jobs))
+
+	for name, j := range d.conf.Jobs {
+		status, err := j.JobStatus(context.TODO())
+		if err != nil {
+			s.Jobs[name] = &JobStatus{nil, err.Error()}
+			continue
+		}
+		s.Jobs[name] = status
+	}
+
+	return
 }
 
 // Representation of a Task's status
@@ -337,4 +374,5 @@ func (u *IOProgressUpdater) Read(p []byte) (n int, err error) {
 	n, err = u.r.Read(p)
 	u.p.UpdateIO(int64(n), 0)
 	return
+
 }

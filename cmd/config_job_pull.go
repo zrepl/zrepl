@@ -149,6 +149,10 @@ start:
 
 }
 
+func (j *PullJob) JobStatus(ctxt context.Context) (*JobStatus, error) {
+	return &JobStatus{}, nil
+}
+
 func (j *PullJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err error) {
 	p = Pruner{
 		time.Now(),
