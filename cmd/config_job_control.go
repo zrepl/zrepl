@@ -32,17 +32,6 @@ func (j *ControlJob) JobName() string {
 	return j.Name
 }
 
-func (j *ControlJob) EndpointVersion(w http.ResponseWriter, r *http.Request) {
-	var buf bytes.Buffer
-	err := json.NewEncoder(&buf).Encode(NewZreplVersionInformation())
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, err.Error())
-	} else {
-		io.Copy(w, &buf)
-	}
-}
-
 const (
 	ControlJobEndpointProfile string = "/debug/pprof/profile"
 	ControlJobEndpointVersion string = "/version"
@@ -60,8 +49,11 @@ func (j *ControlJob) JobStart(ctx context.Context) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle(ControlJobEndpointProfile, requestLogger{log, pprof.Profile})
-	mux.Handle(ControlJobEndpointVersion, requestLogger{log, j.EndpointVersion})
+	mux.Handle(ControlJobEndpointProfile, requestLogger{log: log, handlerFunc: pprof.Profile})
+	mux.Handle(ControlJobEndpointVersion,
+		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {
+			return NewZreplVersionInformation(), nil
+		}}})
 	server := http.Server{Handler: mux}
 
 outer:
@@ -89,14 +81,42 @@ outer:
 
 }
 
+type jsonResponder struct {
+	producer func() (interface{}, error)
+}
+
+func (j jsonResponder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	res, err := j.producer()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, err.Error())
+		return
+	}
+	var buf bytes.Buffer
+	err = json.NewEncoder(&buf).Encode(res)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, err.Error())
+	} else {
+		io.Copy(w, &buf)
+	}
+}
+
 type requestLogger struct {
 	log         Logger
-	handlerFunc func(w http.ResponseWriter, r *http.Request)
+	handler     http.Handler
+	handlerFunc http.HandlerFunc
 }
 
 func (l requestLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log := l.log.WithField("method", r.Method).WithField("url", r.URL)
 	log.Info("start")
-	l.handlerFunc(w, r)
+	if l.handlerFunc != nil {
+		l.handlerFunc(w, r)
+	} else if l.handler != nil {
+		l.handler.ServeHTTP(w, r)
+	} else {
+		log.Error("no handler or handlerFunc configured")
+	}
 	log.Info("finish")
 }

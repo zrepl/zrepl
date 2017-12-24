@@ -137,8 +137,8 @@ outer:
 		{
 			log := pullCtx.Value(contextKeyLog).(Logger)
 			log.Debug("replicating from lhs to rhs")
-			err := doPull(PullContext{local, log, j.Mapping, j.InitialReplPolicy})
-			if err != nil {
+			puller := Puller{local, log, j.Mapping, j.InitialReplPolicy}
+			if err := puller.doPull(); err != nil {
 				log.WithError(err).Error("error replicating lhs to rhs")
 			}
 			// use a ctx as soon as doPull gains ctx support

@@ -52,14 +52,14 @@ func closeRPCWithTimeout(log Logger, remote rpc.RPCClient, timeout time.Duration
 	return
 }
 
-type PullContext struct {
+type Puller struct {
 	Remote            rpc.RPCClient
 	Log               Logger
 	Mapping           DatasetMapping
 	InitialReplPolicy InitialReplPolicy
 }
 
-func doPull(pull PullContext) (err error) {
+func (pull *Puller) doPull() (err error) {
 
 	remote := pull.Remote
 	log := pull.Log

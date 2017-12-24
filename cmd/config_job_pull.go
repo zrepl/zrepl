@@ -120,8 +120,8 @@ start:
 	log.Info("starting pull")
 
 	pullLog := log.WithField(logTaskField, "pull")
-	err = doPull(PullContext{client, pullLog, j.Mapping, j.InitialReplPolicy})
-	if err != nil {
+	puller := Puller{client, pullLog, j.Mapping, j.InitialReplPolicy}
+	if err = puller.doPull(); err != nil {
 		log.WithError(err).Error("error doing pull")
 	}
 
