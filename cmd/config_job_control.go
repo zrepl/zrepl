@@ -39,12 +39,15 @@ func (j *ControlJob) JobStatus(ctx context.Context) (*JobStatus, error) {
 const (
 	ControlJobEndpointProfile string = "/debug/pprof/profile"
 	ControlJobEndpointVersion string = "/version"
+	ControlJobEndpointStatus  string = "/status"
 )
 
 func (j *ControlJob) JobStart(ctx context.Context) {
 
 	log := ctx.Value(contextKeyLog).(Logger)
 	defer log.Info("control job finished")
+
+	daemon := ctx.Value(contextKeyDaemon).(*Daemon)
 
 	l, err := ListenUnixPrivate(j.sockaddr)
 	if err != nil {
@@ -57,6 +60,10 @@ func (j *ControlJob) JobStart(ctx context.Context) {
 	mux.Handle(ControlJobEndpointVersion,
 		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {
 			return NewZreplVersionInformation(), nil
+		}}})
+	mux.Handle(ControlJobEndpointStatus,
+		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {
+			return daemon.Status(), nil
 		}}})
 	server := http.Server{Handler: mux}
 

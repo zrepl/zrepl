@@ -5,13 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
+	"github.com/zrepl/zrepl/logger"
 	"io"
 	golog "log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
+	"strings"
 )
 
 var controlCmd = &cobra.Command{
@@ -34,11 +38,23 @@ var controlVersionCmd = &cobra.Command{
 	Run:   doControLVersionCmd,
 }
 
+var controlStatusCmdArgs struct {
+	format string
+}
+
+var controlStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "get current status",
+	Run:   doControlStatusCmd,
+}
+
 func init() {
 	RootCmd.AddCommand(controlCmd)
 	controlCmd.AddCommand(pprofCmd)
 	pprofCmd.Flags().Int64Var(&pprofCmdArgs.seconds, "seconds", 30, "seconds to profile")
 	controlCmd.AddCommand(controlVersionCmd)
+	controlCmd.AddCommand(controlStatusCmd)
+	controlStatusCmd.Flags().StringVar(&controlStatusCmdArgs.format, "format", "human", "output format (human|json)")
 }
 
 func controlHttpClient() (client http.Client, err error) {
@@ -151,5 +167,109 @@ func doControLVersionCmd(cmd *cobra.Command, args []string) {
 	}
 
 	fmt.Println(info.String())
+
+}
+
+func doControlStatusCmd(cmd *cobra.Command, args []string) {
+
+	log := golog.New(os.Stderr, "", 0)
+
+	die := func() {
+		log.Print("exiting after error")
+		os.Exit(1)
+	}
+
+	httpc, err := controlHttpClient()
+	if err != nil {
+		log.Printf("could not connect to daemon: %s", err)
+		die()
+	}
+
+	resp, err := httpc.Get("http://unix" + ControlJobEndpointStatus)
+	if err != nil {
+		log.Printf("error: %s", err)
+		die()
+	} else if resp.StatusCode != http.StatusOK {
+		var msg bytes.Buffer
+		io.CopyN(&msg, resp.Body, 4096)
+		log.Printf("error: %s", msg.String())
+		die()
+	}
+
+	var status DaemonStatus
+	err = json.NewDecoder(resp.Body).Decode(&status)
+	if err != nil {
+		log.Printf("error unmarshaling response: %s", err)
+		die()
+	}
+
+	switch controlStatusCmdArgs.format {
+	case "json":
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(status); err != nil {
+			log.Panic(err)
+		}
+	case "human":
+		formatter := HumanFormatter{}
+		formatter.SetMetadataFlags(MetadataAll)
+		formatter.SetIgnoreFields([]string{
+			logJobField, logTaskField,
+		})
+		jobNames := make([]string, 0, len(status.Jobs))
+		for name, _ := range status.Jobs {
+			jobNames = append(jobNames, name)
+		}
+		sort.Slice(jobNames, func(i, j int) bool {
+			return strings.Compare(jobNames[i], jobNames[j]) == -1
+		})
+		for _, name := range jobNames {
+			job := status.Jobs[name]
+			fmt.Printf("Job '%s':\n", name)
+			for _, task := range job.Tasks {
+
+				var header bytes.Buffer
+				fmt.Fprintf(&header, "  Task '%s': ", task.Name)
+				if !task.Idle {
+					fmt.Fprint(&header, strings.Join(task.ActivityStack, "."))
+				} else {
+					fmt.Fprint(&header, "<idle>")
+				}
+				fmt.Fprint(&header, " ")
+				if !task.Idle || task.ProgressRx != 0 || task.ProgressTx != 0 {
+
+					fmt.Fprintf(&header, "(%s / %s , Rx/Tx",
+						humanize.Bytes(uint64(task.ProgressRx)),
+						humanize.Bytes(uint64(task.ProgressTx)))
+					if task.Idle {
+						fmt.Fprint(&header, ", values from last run")
+					}
+					fmt.Fprint(&header, ")")
+				}
+				fmt.Fprint(&header, "\n")
+				io.Copy(os.Stdout, &header)
+
+				var logBuf bytes.Buffer
+				fmt.Fprint(&logBuf, "\n")
+				for _, e := range task.LogEntries {
+					formatted, err := formatter.Format(&e)
+					if err != nil {
+						panic(err)
+					}
+					fmt.Fprintf(&logBuf, "      %s\n", string(formatted))
+				}
+				fmt.Fprint(&logBuf, "\n")
+
+				if task.MaxLogLevel > logger.Info {
+					fmt.Println("    WARNING: This task encountered problems since the last time it left idle state:")
+					fmt.Println("             check the logs below or your log file for more information.")
+					io.Copy(os.Stdout, &logBuf)
+				}
+			}
+		}
+	default:
+		log.Printf("invalid output format '%s'", controlStatusCmdArgs.format)
+		die()
+	}
 
 }

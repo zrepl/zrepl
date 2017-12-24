@@ -9,6 +9,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/dustin/go-humanize"
+  packages = ["."]
+  revision = "bb3d318650d48840a39aa21a027c6630e198e626"
+
+[[projects]]
+  branch = "master"
   name = "github.com/ftrvxmtrx/fd"
   packages = ["."]
   revision = "c6d800382fff6dc1412f34269f71b7f83bd059ad"
@@ -106,6 +112,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b2174984fa0452d4469597063f891904b70081586b239262690cf1b6477a3116"
+  inputs-digest = "94133f88486f1d0e1eff6b87c7bb2f0b0f87e981f91d89865ec48ad74671473a"
   solver-name = "gps-cdcl"
   solver-version = 1

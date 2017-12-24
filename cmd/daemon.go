@@ -55,7 +55,8 @@ func doDaemon(cmd *cobra.Command, args []string) {
 type contextKey string
 
 const (
-	contextKeyLog contextKey = contextKey("log")
+	contextKeyLog    contextKey = contextKey("log")
+	contextKeyDaemon contextKey = contextKey("daemon")
 )
 
 type Daemon struct {
@@ -74,6 +75,7 @@ func (d *Daemon) Loop(ctx context.Context) {
 	log := ctx.Value(contextKeyLog).(Logger)
 
 	ctx, cancel := context.WithCancel(ctx)
+	ctx = context.WithValue(ctx, contextKeyDaemon, d)
 
 	sigChan := make(chan os.Signal, 1)
 	finishs := make(chan Job)
