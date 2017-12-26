@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"time"
 
 	"bytes"
 	"encoding/json"
@@ -25,29 +24,6 @@ const (
 	InitialReplPolicyMostRecent InitialReplPolicy = "most_recent"
 	InitialReplPolicyAll        InitialReplPolicy = "all"
 )
-
-func closeRPCWithTimeout(log Logger, remote rpc.RPCClient, timeout time.Duration, goodbye string) {
-	log.Info("closing rpc connection")
-
-	ch := make(chan error)
-	go func() {
-		ch <- remote.Close()
-		close(ch)
-	}()
-
-	var err error
-	select {
-	case <-time.After(timeout):
-		err = fmt.Errorf("timeout exceeded (%s)", timeout)
-	case closeRequestErr := <-ch:
-		err = closeRequestErr
-	}
-
-	if err != nil {
-		log.WithError(err).Error("error closing connection")
-	}
-	return
-}
 
 type Puller struct {
 	task              *Task
