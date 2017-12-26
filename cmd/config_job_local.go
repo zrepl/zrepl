@@ -21,7 +21,8 @@ type LocalJob struct {
 	PruneRHS          PrunePolicy
 	Debug             JobDebugSettings
 	snapperTask       *Task
-	replTask          *Task
+	mainTask          *Task
+	handlerTask       *Task
 	pruneRHSTask      *Task
 	pruneLHSTask      *Task
 }
@@ -85,13 +86,13 @@ func (j *LocalJob) JobName() string {
 
 func (j *LocalJob) JobStart(ctx context.Context) {
 
-	log := ctx.Value(contextKeyLog).(Logger)
-	defer log.Info("exiting")
+	rootLog := ctx.Value(contextKeyLog).(Logger)
 
-	j.snapperTask = NewTask("snapshot", log)
-	j.replTask = NewTask("repl", log)
-	j.pruneRHSTask = NewTask("prune_rhs", log)
-	j.pruneLHSTask = NewTask("prune_lhs", log)
+	j.snapperTask = NewTask("snapshot", rootLog)
+	j.mainTask = NewTask("main", rootLog)
+	j.handlerTask = NewTask("handler", rootLog)
+	j.pruneRHSTask = NewTask("prune_rhs", rootLog)
+	j.pruneLHSTask = NewTask("prune_lhs", rootLog)
 
 	local := rpc.NewLocalRPC()
 	// Allow access to any dataset since we control what mapping
@@ -99,7 +100,7 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 	// All local datasets will be passed to its Map() function,
 	// but only those for which a mapping exists will actually be pulled.
 	// We can pay this small performance penalty for now.
-	handler := NewHandler(log.WithField(logTaskField, "handler"), localPullACL{}, NewPrefixFilter(j.SnapshotPrefix))
+	handler := NewHandler(j.handlerTask.Log(), localPullACL{}, NewPrefixFilter(j.SnapshotPrefix))
 
 	registerEndpoints(local, handler)
 
@@ -112,73 +113,62 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 
 	plhs, err := j.Pruner(j.pruneLHSTask, PrunePolicySideLeft, false)
 	if err != nil {
-		log.WithError(err).Error("error creating lhs pruner")
+		rootLog.WithError(err).Error("error creating lhs pruner")
 		return
 	}
 	prhs, err := j.Pruner(j.pruneRHSTask, PrunePolicySideRight, false)
 	if err != nil {
-		log.WithError(err).Error("error creating rhs pruner")
+		rootLog.WithError(err).Error("error creating rhs pruner")
 		return
 	}
 
-	makeCtx := func(parent context.Context, taskName string) (ctx context.Context) {
-		return context.WithValue(parent, contextKeyLog, log.WithField(logTaskField, taskName))
-	}
-	var snapCtx, plCtx, prCtx, pullCtx context.Context
-	snapCtx = makeCtx(ctx, "autosnap")
-	plCtx = makeCtx(ctx, "prune_lhs")
-	prCtx = makeCtx(ctx, "prune_rhs")
-	pullCtx = makeCtx(ctx, "repl")
-
 	didSnaps := make(chan struct{})
-	go snapper.Run(snapCtx, didSnaps)
+	go snapper.Run(ctx, didSnaps)
 
 outer:
 	for {
 
 		select {
 		case <-ctx.Done():
+			j.mainTask.Log().WithError(ctx.Err()).Info("context")
 			break outer
 		case <-didSnaps:
-			log.Debug("finished taking snapshots")
-			log.Info("starting replication procedure")
+			j.mainTask.Log().Debug("finished taking snapshots")
+			j.mainTask.Log().Info("starting replication procedure")
 		}
 
-		{
-			log := pullCtx.Value(contextKeyLog).(Logger)
-			log.Debug("replicating from lhs to rhs")
-			puller := Puller{j.replTask, local, j.Mapping, j.InitialReplPolicy}
-			puller.Pull()
+		j.mainTask.Log().Debug("replicating from lhs to rhs")
+		j.mainTask.Enter("replicate")
+		puller := Puller{j.mainTask, local, j.Mapping, j.InitialReplPolicy}
+		puller.Pull()
+		j.mainTask.Finish()
 
-			// use a ctx as soon as Pull gains ctx support
-			select {
-			case <-ctx.Done():
-				break outer
-			default:
-			}
+		// use a ctx as soon as Pull gains ctx support
+		select {
+		case <-ctx.Done():
+			break outer
+		default:
 		}
 
 		var wg sync.WaitGroup
 
-		log.Info("pruning lhs")
+		j.mainTask.Log().Info("pruning lhs")
 		wg.Add(1)
 		go func() {
-			plhs.Run(plCtx)
+			plhs.Run(ctx)
 			wg.Done()
 		}()
 
-		log.Info("pruning rhs")
+		j.mainTask.Log().Info("pruning rhs")
 		wg.Add(1)
 		go func() {
-			prhs.Run(prCtx)
+			prhs.Run(ctx)
 			wg.Done()
 		}()
 
 		wg.Wait()
 
 	}
-
-	log.WithError(ctx.Err()).Info("context")
 
 }
 
@@ -187,7 +177,7 @@ func (j *LocalJob) JobStatus(ctxt context.Context) (*JobStatus, error) {
 		j.snapperTask.Status(),
 		j.pruneLHSTask.Status(),
 		j.pruneRHSTask.Status(),
-		j.replTask.Status(),
+		j.mainTask.Status(),
 	}}, nil
 }
 
