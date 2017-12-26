@@ -147,10 +147,9 @@ outer:
 		{
 			log := pullCtx.Value(contextKeyLog).(Logger)
 			log.Debug("replicating from lhs to rhs")
-			puller := Puller{j.replTask, local, log, j.Mapping, j.InitialReplPolicy}
-			if err := puller.Pull(); err != nil {
-				log.WithError(err).Error("error replicating lhs to rhs")
-			}
+			puller := Puller{j.replTask, local, j.Mapping, j.InitialReplPolicy}
+			puller.Pull()
+
 			// use a ctx as soon as Pull gains ctx support
 			select {
 			case <-ctx.Done():

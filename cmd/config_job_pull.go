@@ -123,11 +123,10 @@ start:
 
 	log.Info("starting pull")
 
-	pullLog := log.WithField(logTaskField, "pull")
-	puller := Puller{j.task, client, pullLog, j.Mapping, j.InitialReplPolicy}
-	if err = puller.Pull(); err != nil {
-		log.WithError(err).Error("error doing pull")
-	}
+	j.task.Enter("pull")
+	puller := Puller{j.task, client, j.Mapping, j.InitialReplPolicy}
+	puller.Pull()
+	j.task.Finish()
 
 	closeRPCWithTimeout(log, client, time.Second*10, "")
 
