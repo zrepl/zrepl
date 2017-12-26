@@ -60,7 +60,7 @@ type Puller struct {
 	InitialReplPolicy InitialReplPolicy
 }
 
-func (pull *Puller) doPull() (err error) {
+func (pull *Puller) Pull() (err error) {
 
 	remote := pull.Remote
 	log := pull.Log
