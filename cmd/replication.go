@@ -53,6 +53,7 @@ func closeRPCWithTimeout(log Logger, remote rpc.RPCClient, timeout time.Duration
 }
 
 type Puller struct {
+	task              *Task
 	Remote            rpc.RPCClient
 	Log               Logger
 	Mapping           DatasetMapping

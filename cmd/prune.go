@@ -8,6 +8,7 @@ import (
 )
 
 type Pruner struct {
+	task           *Task
 	Now            time.Time
 	DryRun         bool
 	DatasetFilter  zfs.DatasetFilter

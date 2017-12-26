@@ -21,6 +21,8 @@ type PullJob struct {
 	InitialReplPolicy InitialReplPolicy
 	Prune             PrunePolicy
 	Debug             JobDebugSettings
+
+	task *Task
 }
 
 func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j *PullJob, err error) {
@@ -95,6 +97,8 @@ func (j *PullJob) JobStart(ctx context.Context) {
 
 	log := ctx.Value(contextKeyLog).(Logger)
 	defer log.Info("exiting")
+	j.task = NewTask("main", log)
+	log = j.task.Log()
 
 	ticker := time.NewTicker(j.Interval)
 
@@ -120,7 +124,7 @@ start:
 	log.Info("starting pull")
 
 	pullLog := log.WithField(logTaskField, "pull")
-	puller := Puller{client, pullLog, j.Mapping, j.InitialReplPolicy}
+	puller := Puller{j.task, client, pullLog, j.Mapping, j.InitialReplPolicy}
 	if err = puller.doPull(); err != nil {
 		log.WithError(err).Error("error doing pull")
 	}
@@ -129,7 +133,7 @@ start:
 
 	log.Info("starting prune")
 	prunectx := context.WithValue(ctx, contextKeyLog, log.WithField(logTaskField, "prune"))
-	pruner, err := j.Pruner(PrunePolicySideDefault, false)
+	pruner, err := j.Pruner(j.task, PrunePolicySideDefault, false)
 	if err != nil {
 		log.WithError(err).Error("error creating pruner")
 		return
@@ -150,11 +154,12 @@ start:
 }
 
 func (j *PullJob) JobStatus(ctxt context.Context) (*JobStatus, error) {
-	return &JobStatus{}, nil
+	return &JobStatus{Tasks: []*TaskStatus{j.task.Status()}}, nil
 }
 
-func (j *PullJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err error) {
+func (j *PullJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Pruner, err error) {
 	p = Pruner{
+		task,
 		time.Now(),
 		dryRun,
 		j.pruneFilter,

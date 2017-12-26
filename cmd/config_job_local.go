@@ -20,6 +20,10 @@ type LocalJob struct {
 	PruneLHS          PrunePolicy
 	PruneRHS          PrunePolicy
 	Debug             JobDebugSettings
+	snapperTask       *Task
+	replTask          *Task
+	pruneRHSTask      *Task
+	pruneLHSTask      *Task
 }
 
 func parseLocalJob(c JobParsingContext, name string, i map[string]interface{}) (j *LocalJob, err error) {
@@ -84,6 +88,11 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 	log := ctx.Value(contextKeyLog).(Logger)
 	defer log.Info("exiting")
 
+	j.snapperTask = NewTask("snapshot", log)
+	j.replTask = NewTask("repl", log)
+	j.pruneRHSTask = NewTask("prune_rhs", log)
+	j.pruneLHSTask = NewTask("prune_lhs", log)
+
 	local := rpc.NewLocalRPC()
 	// Allow access to any dataset since we control what mapping
 	// is passed to the pull routine.
@@ -95,17 +104,18 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 	registerEndpoints(local, handler)
 
 	snapper := IntervalAutosnap{
+		task:             j.snapperTask,
 		DatasetFilter:    j.Mapping.AsFilter(),
 		Prefix:           j.SnapshotPrefix,
 		SnapshotInterval: j.Interval,
 	}
 
-	plhs, err := j.Pruner(PrunePolicySideLeft, false)
+	plhs, err := j.Pruner(j.pruneLHSTask, PrunePolicySideLeft, false)
 	if err != nil {
 		log.WithError(err).Error("error creating lhs pruner")
 		return
 	}
-	prhs, err := j.Pruner(PrunePolicySideRight, false)
+	prhs, err := j.Pruner(j.pruneRHSTask, PrunePolicySideRight, false)
 	if err != nil {
 		log.WithError(err).Error("error creating rhs pruner")
 		return
@@ -137,7 +147,7 @@ outer:
 		{
 			log := pullCtx.Value(contextKeyLog).(Logger)
 			log.Debug("replicating from lhs to rhs")
-			puller := Puller{local, log, j.Mapping, j.InitialReplPolicy}
+			puller := Puller{j.replTask, local, log, j.Mapping, j.InitialReplPolicy}
 			if err := puller.doPull(); err != nil {
 				log.WithError(err).Error("error replicating lhs to rhs")
 			}
@@ -174,10 +184,15 @@ outer:
 }
 
 func (j *LocalJob) JobStatus(ctxt context.Context) (*JobStatus, error) {
-	return &JobStatus{}, nil
+	return &JobStatus{Tasks: []*TaskStatus{
+		j.snapperTask.Status(),
+		j.pruneLHSTask.Status(),
+		j.pruneRHSTask.Status(),
+		j.replTask.Status(),
+	}}, nil
 }
 
-func (j *LocalJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err error) {
+func (j *LocalJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Pruner, err error) {
 
 	var dsfilter zfs.DatasetFilter
 	var pp PrunePolicy
@@ -198,6 +213,7 @@ func (j *LocalJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err erro
 	}
 
 	p = Pruner{
+		task,
 		time.Now(),
 		dryRun,
 		dsfilter,

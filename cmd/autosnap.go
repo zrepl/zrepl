@@ -9,6 +9,7 @@ import (
 )
 
 type IntervalAutosnap struct {
+	task             *Task
 	DatasetFilter    zfs.DatasetFilter
 	Prefix           string
 	SnapshotInterval time.Duration

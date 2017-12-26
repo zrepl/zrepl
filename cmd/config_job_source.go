@@ -19,6 +19,9 @@ type SourceJob struct {
 	Interval       time.Duration
 	Prune          PrunePolicy
 	Debug          JobDebugSettings
+	serveTask      *Task
+	autosnapTask   *Task
+	pruneTask      *Task
 }
 
 func parseSourceJob(c JobParsingContext, name string, i map[string]interface{}) (j *SourceJob, err error) {
@@ -78,8 +81,13 @@ func (j *SourceJob) JobStart(ctx context.Context) {
 	log := ctx.Value(contextKeyLog).(Logger)
 	defer log.Info("exiting")
 
-	a := IntervalAutosnap{DatasetFilter: j.Filesystems, Prefix: j.SnapshotPrefix, SnapshotInterval: j.Interval}
-	p, err := j.Pruner(PrunePolicySideDefault, false)
+	j.autosnapTask = NewTask("autosnap", log)
+	j.pruneTask = NewTask("prune", log)
+	j.serveTask = NewTask("serve", log)
+
+	a := IntervalAutosnap{j.autosnapTask, j.Filesystems, j.SnapshotPrefix, j.Interval}
+	p, err := j.Pruner(j.pruneTask, PrunePolicySideDefault, false)
+
 	if err != nil {
 		log.WithError(err).Error("error creating pruner")
 		return
@@ -109,11 +117,17 @@ outer:
 }
 
 func (j *SourceJob) JobStatus(ctxt context.Context) (*JobStatus, error) {
-	return &JobStatus{}, nil
+	return &JobStatus{
+		Tasks: []*TaskStatus{
+			j.autosnapTask.Status(),
+			j.pruneTask.Status(),
+			j.serveTask.Status(),
+		}}, nil
 }
 
-func (j *SourceJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err error) {
+func (j *SourceJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Pruner, err error) {
 	p = Pruner{
+		task,
 		time.Now(),
 		dryRun,
 		j.Filesystems,
