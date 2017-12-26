@@ -33,7 +33,7 @@ func (j *ControlJob) JobName() string {
 }
 
 func (j *ControlJob) JobStatus(ctx context.Context) (*JobStatus, error) {
-	return &JobStatus{}, nil
+	return &JobStatus{Tasks: nil}, nil
 }
 
 const (
