@@ -16,6 +16,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 )
 
 var controlCmd = &cobra.Command{
@@ -39,11 +40,13 @@ var controlVersionCmd = &cobra.Command{
 }
 
 var controlStatusCmdArgs struct {
-	format string
+	format         string
+	alwaysShowLogs bool
+	onlyShowJob    string
 }
 
 var controlStatusCmd = &cobra.Command{
-	Use:   "status",
+	Use:   "status [JOB_NAAME]",
 	Short: "get current status",
 	Run:   doControlStatusCmd,
 }
@@ -54,7 +57,8 @@ func init() {
 	pprofCmd.Flags().Int64Var(&pprofCmdArgs.seconds, "seconds", 30, "seconds to profile")
 	controlCmd.AddCommand(controlVersionCmd)
 	controlCmd.AddCommand(controlStatusCmd)
-	controlStatusCmd.Flags().StringVar(&controlStatusCmdArgs.format, "format", "human", "output format (human|json)")
+	controlStatusCmd.Flags().StringVar(&controlStatusCmdArgs.format, "format", "human", "output format (human|raw)")
+	controlStatusCmd.Flags().BoolVar(&controlStatusCmdArgs.alwaysShowLogs, "always-show-logs", false, "always show logs, even if no error occured")
 }
 
 func controlHttpClient() (client http.Client, err error) {
@@ -179,6 +183,14 @@ func doControlStatusCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	if len(args) == 1 {
+		controlStatusCmdArgs.onlyShowJob = args[0]
+	} else if len(args) > 1 {
+		log.Print("can only specify one job as positional argument")
+		cmd.Usage()
+		die()
+	}
+
 	httpc, err := controlHttpClient()
 	if err != nil {
 		log.Printf("could not connect to daemon: %s", err)
@@ -204,17 +216,18 @@ func doControlStatusCmd(cmd *cobra.Command, args []string) {
 	}
 
 	switch controlStatusCmdArgs.format {
-	case "json":
+	case "raw":
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(status); err != nil {
 			log.Panic(err)
 		}
 	case "human":
+
 		formatter := HumanFormatter{}
 		formatter.SetMetadataFlags(MetadataAll)
 		formatter.SetIgnoreFields([]string{
-			logJobField, logTaskField,
+			logJobField,
 		})
 		jobNames := make([]string, 0, len(status.Jobs))
 		for name, _ := range status.Jobs {
@@ -223,8 +236,17 @@ func doControlStatusCmd(cmd *cobra.Command, args []string) {
 		sort.Slice(jobNames, func(i, j int) bool {
 			return strings.Compare(jobNames[i], jobNames[j]) == -1
 		})
+		now := time.Now()
 		for _, name := range jobNames {
+
+			if controlStatusCmdArgs.onlyShowJob != "" && name != controlStatusCmdArgs.onlyShowJob {
+				continue
+			}
+
 			job := status.Jobs[name]
+			jobLogEntries := make([]logger.Entry, 0)
+			informAboutError := false
+
 			fmt.Printf("Job '%s':\n", name)
 			for _, task := range job.Tasks {
 
@@ -249,6 +271,7 @@ func doControlStatusCmd(cmd *cobra.Command, args []string) {
 				}
 				fmt.Fprint(&header, "\n")
 				if !task.Idle && !task.LastUpdate.IsZero() && sinceLastUpdate >= TASK_STALLED_HOLDOFF_DURATION {
+					informAboutError = true
 					fmt.Fprintf(&header, "    WARNING: last update %s ago at %s)",
 						sinceLastUpdate.String(),
 						task.LastUpdate.Format(HumanFormatterDateFormat))
@@ -256,23 +279,30 @@ func doControlStatusCmd(cmd *cobra.Command, args []string) {
 				}
 				io.Copy(os.Stdout, &header)
 
-				var logBuf bytes.Buffer
-				fmt.Fprint(&logBuf, "\n")
-				for _, e := range task.LogEntries {
+				jobLogEntries = append(jobLogEntries, task.LogEntries...)
+				informAboutError = informAboutError || task.MaxLogLevel >= logger.Warn
+			}
+
+			showLog := informAboutError || controlStatusCmdArgs.alwaysShowLogs
+
+			if showLog {
+				sort.Slice(jobLogEntries, func(i, j int) bool {
+					return jobLogEntries[i].Time.Before(jobLogEntries[j].Time)
+				})
+				if informAboutError {
+					fmt.Println("    WARNING: Some tasks encountered problems since the last time they left idle state:")
+					fmt.Println("             check the logs below or your log file for more information.")
+				}
+				for _, e := range jobLogEntries {
 					formatted, err := formatter.Format(&e)
 					if err != nil {
 						panic(err)
 					}
-					fmt.Fprintf(&logBuf, "      %s\n", string(formatted))
+					fmt.Printf("      %s\n", string(formatted))
 				}
-				fmt.Fprint(&logBuf, "\n")
-
-				if task.MaxLogLevel > logger.Info {
-					fmt.Println("    WARNING: This task encountered problems since the last time it left idle state:")
-					fmt.Println("             check the logs below or your log file for more information.")
-					io.Copy(os.Stdout, &logBuf)
-				}
+				fmt.Println()
 			}
+
 		}
 	default:
 		log.Printf("invalid output format '%s'", controlStatusCmdArgs.format)
