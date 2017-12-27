@@ -82,6 +82,7 @@ Table of Contents
    tutorial
    installation
    configuration
+   usage
    implementation
    changelog
    GitHub Repository & Issue Tracker <https://github.com/zrepl/zrepl>
