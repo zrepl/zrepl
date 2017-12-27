@@ -236,8 +236,9 @@ func doControlStatusCmd(cmd *cobra.Command, args []string) {
 					fmt.Fprint(&header, "<idle>")
 				}
 				fmt.Fprint(&header, " ")
+				const TASK_STALLED_HOLDOFF_DURATION = 10 * time.Second
+				sinceLastUpdate := now.Sub(task.LastUpdate)
 				if !task.Idle || task.ProgressRx != 0 || task.ProgressTx != 0 {
-
 					fmt.Fprintf(&header, "(%s / %s , Rx/Tx",
 						humanize.Bytes(uint64(task.ProgressRx)),
 						humanize.Bytes(uint64(task.ProgressTx)))
@@ -247,6 +248,12 @@ func doControlStatusCmd(cmd *cobra.Command, args []string) {
 					fmt.Fprint(&header, ")")
 				}
 				fmt.Fprint(&header, "\n")
+				if !task.Idle && !task.LastUpdate.IsZero() && sinceLastUpdate >= TASK_STALLED_HOLDOFF_DURATION {
+					fmt.Fprintf(&header, "    WARNING: last update %s ago at %s)",
+						sinceLastUpdate.String(),
+						task.LastUpdate.Format(HumanFormatterDateFormat))
+					fmt.Fprint(&header, "\n")
+				}
 				io.Copy(os.Stdout, &header)
 
 				var logBuf bytes.Buffer

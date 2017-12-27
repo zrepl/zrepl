@@ -44,6 +44,8 @@ type HumanFormatter struct {
 	ignoreFields  map[string]bool
 }
 
+const HumanFormatterDateFormat = time.RFC3339
+
 func (f *HumanFormatter) SetMetadataFlags(flags MetadataFlags) {
 	f.metadataFlags = flags
 }
@@ -69,7 +71,7 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 	var line bytes.Buffer
 
 	if f.metadataFlags&MetadataTime != 0 {
-		fmt.Fprintf(&line, "%s ", e.Time.Format(time.RFC3339))
+		fmt.Fprintf(&line, "%s ", e.Time.Format(HumanFormatterDateFormat))
 	}
 	if f.metadataFlags&MetadataLevel != 0 {
 		fmt.Fprintf(&line, "[%s]", e.Level.Short())
