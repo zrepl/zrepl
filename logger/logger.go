@@ -103,12 +103,17 @@ func (l *Logger) WithOutlet(outlet Outlet, level Level) *Logger {
 	return child
 }
 
+func (l *Logger) ReplaceField(field string, val interface{}) *Logger {
+	l.fields[field] = nil
+	return l.WithField(field, val)
+}
+
 func (l *Logger) WithField(field string, val interface{}) *Logger {
 
 	l.mtx.Lock()
 	defer l.mtx.Unlock()
 
-	if _, ok := l.fields[field]; ok {
+	if val, ok := l.fields[field]; ok && val != nil {
 		l.logInternalError(nil,
 			fmt.Sprintf("caller overwrites field '%s'. Stack: %s", field, string(debug.Stack())))
 	}
