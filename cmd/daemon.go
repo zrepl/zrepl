@@ -172,6 +172,8 @@ type TaskStatus struct {
 	// The maximum log level of LogEntries.
 	// Only valid if len(LogEntries) > 0.
 	MaxLogLevel logger.Level
+	// Last time something about the Task changed
+	LastUpdate time.Time
 }
 
 // An instance of Task tracks  a single thread of activity that is part of a Job.
@@ -179,6 +181,8 @@ type Task struct {
 	// Stack of activities the task is currently in
 	// Members are instances of taskActivity
 	activities *list.List
+	// Last time activities was changed (not the activities inside, the list)
+	activitiesLastUpdate time.Time
 	// Protects Task members from modification
 	rwl sync.RWMutex
 }
@@ -291,6 +295,7 @@ func (t *Task) Enter(activity string) {
 	activityField := strings.Join(stack, ".")
 	act.logger = prev.logger.ReplaceField(logTaskField, activityField)
 
+	t.activitiesLastUpdate = time.Now()
 }
 
 func (t *Task) UpdateProgress(dtx, drx int64) {
@@ -325,6 +330,11 @@ func (t *Task) Status() *TaskStatus {
 		}
 	}
 
+	lastUpdate := prog.lastUpdate
+	if lastUpdate.Before(t.activitiesLastUpdate) {
+		lastUpdate = t.activitiesLastUpdate
+	}
+
 	s := &TaskStatus{
 		Name:          stack[0],
 		ActivityStack: stack,
@@ -333,6 +343,7 @@ func (t *Task) Status() *TaskStatus {
 		ProgressTx:    prog.tx,
 		LogEntries:    prog.logEntries,
 		MaxLogLevel:   maxLevel,
+		LastUpdate:    lastUpdate,
 	}
 
 	return s
@@ -348,6 +359,7 @@ func (t *Task) Finish() {
 		return // cannot remove root activity
 	}
 	t.activities.Remove(top)
+	t.activitiesLastUpdate = time.Now()
 
 }
 
@@ -356,6 +368,7 @@ func (t *Task) Finish() {
 func (t *Task) Log() *logger.Logger {
 	t.rwl.RLock()
 	defer t.rwl.RUnlock()
+	// FIXME should influence TaskStatus's LastUpdate field
 	return t.cur().logger
 }
 
