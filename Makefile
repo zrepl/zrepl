@@ -18,6 +18,8 @@ GO_LDFLAGS := "-X github.com/zrepl/zrepl/cmd.zreplVersion=$(ZREPL_VERSION)"
 
 GO_BUILD := go build -ldflags $(GO_LDFLAGS)
 
+THIS_PLATFORM_RELEASE_BIN := $(shell bash -c 'source <(go env) && echo "zrepl-$${GOOS}-$${GOARCH}"' )
+
 vendordeps:
 	dep ensure -v -vendor-only
 
@@ -57,6 +59,9 @@ $(ARTIFACTDIR):
 $(ARTIFACTDIR)/docs: $(ARTIFACTDIR)
 	mkdir -p "$@"
 
+$(ARTIFACTDIR)/bash_completion: release-bins
+	artifacts/$(THIS_PLATFORM_RELEASE_BIN) bashcomp "$@"
+
 docs: $(ARTIFACTDIR)/docs
 	make -C docs \
 		html \
@@ -72,7 +77,7 @@ release-bins: $(ARTIFACTDIR) vet test
 	GOOS=linux GOARCH=amd64   $(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-linux-amd64"
 	GOOS=freebsd GOARCH=amd64 $(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-freebsd-amd64"
 
-release: release-bins docs
+release: release-bins docs $(ARTIFACTDIR)/bash_completion
 
 
 clean: docs-clean
