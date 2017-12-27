@@ -78,56 +78,11 @@ Build results are located in the ``artifacts/`` directory.
 
 .. _mainconfigfile:
 
-Configuration Files
--------------------
+What next?
+----------
 
-zrepl searches for its main configuration file in the following locations (in that order):
+Read the :ref:`configuration chapter<configuration_toc>` and optionally create the :ref:`runtime directories <configuration_preface>`.
+Afterwards, continue with the :ref:`usage chapter<usage>`.
 
-* ``/etc/zrepl/zrepl.yml``
-* ``/usr/local/etc/zrepl/zrepl.yml``
+**Reminder**: If you want a quick introduction, please read the :ref:`tutorial`.
 
-Alternatively, use CLI flags to specify a config location.
-Copy a config from the :ref:`tutorial` or the ``cmd/sampleconf`` directory to one of these locations and customize it to your setup.
-
-Runtime Directories
--------------------
-
-zrepl requires ephemeral runtime directories where control sockets, etc are placed.
-Refer to the :ref:`configuration documentation <conf-runtime-directories>` for more information.
-
-When installing from a package, the package maintainer should have taken care of setting them up through the init system.
-Alternatively, for default settings, the following should to the trick.
-
-::
-
-    mkdir -p /var/run/zrepl/stdinserver
-    chmod -R 0700 /var/run/zrepl
-
-
-Running the Daemon
-------------------
-
-All actual work zrepl does is performed by a daemon process.
-Logging is configurable via the config file. Please refer to the :ref:`logging documention <logging>`.
-
-When installating from a package, the package maintainer should have provided an init script / systemd.service file.
-You should thus be able to start zrepl daemon using your init system.
-
-Alternatively, or for running zrepl in the foreground, simply execute ``zrepl daemon``.
-Note that you won't see any output unless you configure :ref:`stdout logging outlet <logging-outlet-stdout>`.
-
-.. ATTENTION::
-
-    Make sure to actually monitor the error level output of zrepl: some configuration errors will not make the daemon exit.
-
-    Example: if the daemon cannot create the :ref:`transport-ssh+stdinserver` sockets in the runtime directory,
-    it will emit an error message but not exit because other tasks such as periodic snapshots & pruning are of equal importance.
-
-.. _install-restarting:
-
-Restarting
-~~~~~~~~~~
-
-The daemon handles SIGINT and SIGTERM for graceful shutdown.
-Graceful shutdown means at worst that a job will not be rescheduled for the next interval.
-The daemon exits as soon as all jobs have reported shut down.

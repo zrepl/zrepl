@@ -31,6 +31,8 @@ Check out :sampleconf:`random/logging.yml` for an example on how to configure mu
     The **first outlet is special**: if an error writing to any outlet occurs, the first outlet receives the error and can print it.
     Thus, the first outlet must be the one that always works and does not block, e.g. ``stdout``, which is the default.
 
+.. _logging-default-config:
+
 Default Configuration
 ---------------------
 

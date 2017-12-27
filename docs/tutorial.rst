@@ -153,7 +153,7 @@ Apply Configuration Changes
 ---------------------------
 
 We need to restart the zrepl daemon on **both** ``app-srv`` and ``backup-srv``.
-This is :ref:`OS-specific <install-restarting>`.
+This is :ref:`OS-specific <usage-zrepl-daemon-restarting>`.
 
 Watch it Work
 -------------

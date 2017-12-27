@@ -13,10 +13,9 @@ zrepl daemon creates various UNIX sockets to allow communicating with it:
 
 There is no further authentication on these sockets.
 Therefore we have to make sure they can only be created and accessed by ``zrepl daemon``.
-
 In fact, ``zrepl daemon`` will not bind a socket to a path in a directory that is world-accessible.
 
-The directories can be configured in the main configuration file:
+The directories can be configured in the main configuration file, the defaults are provided below:
 
 ::
 

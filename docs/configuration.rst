@@ -7,6 +7,7 @@ Configuration
 
 .. toctree::
 
+    configuration/preface
     configuration/jobs
     configuration/transports
     configuration/map_filter_syntax
