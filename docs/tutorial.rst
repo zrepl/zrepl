@@ -158,7 +158,10 @@ This is :ref:`OS-specific <install-restarting>`.
 Watch it Work
 -------------
 
-A common setup is to ``watch`` the log output and ``zfs list`` of snapshots on both machines.
+Run ``zrepl control status`` to view the current activity of the configured jobs.
+If a job encountered problems since it last left idle state, the output contains useful debug log.
+
+Additionally, you can check the detailed structured logs of the `zrepl daemon` process and use GNU *watch* to view the snapshots present on both machines.
 
 If you like tmux, here is a handy script that works on FreeBSD: ::
 
