@@ -54,6 +54,7 @@ Example: :sampleconf:`pullbackup/productionhost.yml`.
 - Snapshotting Task (every ``interval``, |patient|)
 
   - A snapshot of filesystems matched by ``filesystems`` is taken every ``interval`` with prefix ``snapshot_prefix``.
+  - A bookmark of that snapshot is created with the same name.
   - The ``prune`` policy is triggered on filesystems matched by ``filesystems`` with snapshots matched by ``snapshot_prefix``.
 
 - Serve Task
@@ -62,11 +63,13 @@ Example: :sampleconf:`pullbackup/productionhost.yml`.
 
 A source job is the counterpart to a :ref:`job-pull`.
 
-Note that the prune policy determines the maximum replication lag:
-a pull job may stop replication due to link failure, misconfiguration or administrative action.
-The source prune policy will eventually destroy the last common snapshot between source and pull job, requiring full replication.
 Make sure you read the |prune| policy documentation.
 
+Note that zrepl does not prune bookmarks due to the following reason:
+a pull job may stop replication due to link failure, misconfiguration or administrative action.
+The source prune policy will eventually destroy the last common snapshot between source and pull job.
+Without bookmarks, the prune policy would need to perform full replication again.
+With bookmarks, we can resume incremental replication, only losing the snapshots pruned since the outage.
 
 .. _job-pull:
 
@@ -148,6 +151,7 @@ Example: :sampleconf:`localbackup/host1.yml`
 
   #. Evaluate ``mapping`` for local filesystems, those with a *target filesystem* are called *mapped filesystems*.
   #. Snapshot *mapped filesystems* with ``snapshot_prefix``.
+  #. Bookmark the snapshot created above.
   #. Replicate *mapped filesystems* to their respective *target filesystems*:
 
      #. Only snapshots with prefix ``snapshot_prefix`` are replicated.
@@ -159,6 +163,8 @@ Example: :sampleconf:`localbackup/host1.yml`
   #. The ``prune_rhs`` policy is triggered for all *target filesystems*
 
 A local job is combination of source & pull job executed on the same machine.
+Note that while snapshots are pruned, bookmarks are not pruned and kept around forever.
+Refer to the comments on :ref:`source job <job-source>` for the reasoning behind this.
 
 Terminology
 -----------

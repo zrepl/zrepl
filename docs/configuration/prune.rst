@@ -53,12 +53,11 @@ The following procedure happens during pruning:
 
 .. ATTENTION::
 
-    .. TODO this is obsolete as soon as bookmarks are created during snapshotting
+   The configuration of the first interval (``1x1h(keep=all)`` in the example) determines the **maximum allowable replication lag** because the source and destination pruning policies do not coordinate:
+   if replication does not work for whatever reason, source will continue to execute the prune policy.
+   Eventually, source destroys a snapshot that has never been replicated to destination, degrading the temporal resolution of your backup.
 
-    The configuration of the first interval (``1x1h(keep=all)`` in the example) determines the **maximum allowable replication lag** between source and destination.
-    After the first interval, source and destination likely have different retention settings.
-    This means source and destination may prune different snapshots, prohibiting incremental replication froms snapshots that are not in the first interval.
+   Thus, **always** configure the first interval to ``1x?(keep=all)``, substituting ``?`` with the maximum time replication may fail due to downtimes, maintenance, connectivity issues, etc.
 
-    **Always** configure the first interval to ``1x?(keep=all)``, substituting ``?`` with the maximum time replication may fail due to downtimes, maintenance, connectivity issues, etc.
-    After outages longer than ``?`` you may be required to perform **full replication** again.
+.. We intentionally do not mention that bookmarks are used to bridge the gap between source and dest that are out of sync snapshot-wise. This is an implementation detail.
 
