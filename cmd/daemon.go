@@ -222,6 +222,7 @@ func (p *taskProgress) DeepCopy() (out taskProgress) {
 	p.mtx.RLock()
 	defer p.mtx.RUnlock()
 	out.rx, out.tx = p.rx, p.tx
+	out.lastUpdate = p.lastUpdate
 	out.logEntries = make([]logger.Entry, len(p.logEntries))
 	for i := range p.logEntries {
 		out.logEntries[i] = p.logEntries[i]
