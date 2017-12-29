@@ -55,7 +55,7 @@ and serves as a reference for build dependencies and procedure:
     cd zrepl
     sudo docker build -t zrepl_build -f build.Dockerfile .
     sudo docker run -it --rm \
-        -v "${PWD}:/zrepl" \
+        -v "${PWD}:/go/src/github.com/zrepl/zrepl" \
         --user "$(id -u):$(id -g)" \
         zrepl_build make vendordeps release
 
