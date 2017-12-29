@@ -1,7 +1,6 @@
 package logger_test
 
 import (
-	"context"
 	"fmt"
 	"github.com/kr/pretty"
 	"github.com/zrepl/zrepl/logger"
@@ -13,7 +12,7 @@ type TestOutlet struct {
 	Record []logger.Entry
 }
 
-func (o *TestOutlet) WriteEntry(ctx context.Context, entry logger.Entry) error {
+func (o *TestOutlet) WriteEntry(entry logger.Entry) error {
 	o.Record = append(o.Record, entry)
 	return nil
 }
