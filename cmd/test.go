@@ -36,7 +36,7 @@ var testConfigSyntaxCmd = &cobra.Command{
 var testDatasetMapFilter = &cobra.Command{
 	Use:     "pattern jobname test/zfs/dataset/path",
 	Short:   "test dataset mapping / filter specified in config",
-	Example: ` zrepl test pattern prune.clean_backups tank/backups/legacyscript/foo`,
+	Example: ` zrepl test pattern my_pull_job tank/tmp`,
 	Run:     doTestDatasetMapFilter,
 }
 
