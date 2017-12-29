@@ -12,6 +12,10 @@ Check the respective :ref:`job definition <job>` for details.
 
 Currently, the :ref:`prune-retention-grid` is the only supported pruning policy.
 
+.. TIP::
+
+    You can perform a dry-run of a job's pruning policy using the ``zrepl test`` subcommand.
+
 .. _prune-retention-grid:
 
 Retention Grid

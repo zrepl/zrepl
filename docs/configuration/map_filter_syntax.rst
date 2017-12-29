@@ -82,6 +82,10 @@ The example is from the :sampleconf:`localbackup/host1.yml` example config.
     zroot/poudriere/ports/2017Q3        => NOT MAPPED
     zroot/poudriere/ports/HEAD          => NOT MAPPED
 
+.. TIP::
+
+   You can try out patterns for a configured job using the ``zrepl test`` subcommand.
+
 .. _pattern-filter:
 
 Filters

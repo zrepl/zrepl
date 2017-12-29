@@ -31,3 +31,9 @@ Alternatively, for default settings, the following should to the trick.
     chmod -R 0700 /var/run/zrepl
 
 
+----------
+Validating
+----------
+
+The config can be validated using the ``zrepl test`` subcommand.
+

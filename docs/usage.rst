@@ -25,6 +25,8 @@ CLI Overview
       - control / query the daemon
     * - ``zrepl control status``
       - show job activity / monitoring (``--format raw``)
+    * - ``zrepl test``
+      - test configuration, try pattern syntax, dry run pruning policy, etc.
     * - ``zrepl stdinserver``
       - see :ref:`transport-ssh+stdinserver`
 
