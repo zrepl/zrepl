@@ -72,13 +72,16 @@ docs-clean:
 		clean \
 		BUILDDIR=../artifacts/docs
 
-release-bins: $(ARTIFACTDIR) vet test
+release-bins: generate $(ARTIFACTDIR) vet test
 	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"
 	GOOS=linux GOARCH=amd64   $(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-linux-amd64"
 	GOOS=freebsd GOARCH=amd64 $(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-freebsd-amd64"
 
 release: release-bins docs $(ARTIFACTDIR)/bash_completion
-
+	@if echo "$(ZREPL_VERSION)" | grep dirty > /dev/null; then\
+		echo '[WARN] Do not publish the artifacts, make variable ZREPL_VERSION=$(ZREPL_VERSION) indicates they are dirty!'; \
+		exit 1; \
+	fi
 
 clean: docs-clean
 	rm -rf "$(ARTIFACTDIR)"
