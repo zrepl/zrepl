@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"github.com/pkg/errors"
@@ -16,7 +17,7 @@ type WriterOutlet struct {
 	Writer    io.Writer
 }
 
-func (h WriterOutlet) WriteEntry(ctx context.Context, entry logger.Entry) error {
+func (h WriterOutlet) WriteEntry(entry logger.Entry) error {
 	bytes, err := h.Formatter.Format(&entry)
 	if err != nil {
 		return err
@@ -27,56 +28,92 @@ func (h WriterOutlet) WriteEntry(ctx context.Context, entry logger.Entry) error 
 }
 
 type TCPOutlet struct {
-	Formatter    EntryFormatter
-	Net, Address string
-	Dialer       net.Dialer
-	TLS          *tls.Config
+	formatter EntryFormatter
 	// Specifies how much time must pass between a connection error and a reconnection attempt
 	// Log entries written to the outlet during this time interval are silently dropped.
-	RetryInterval time.Duration
-	// nil if there was an error sending / connecting to remote server
-	conn net.Conn
-	// Last time an error occurred when sending / connecting to remote server
-	retry time.Time
+	connect   func(ctx context.Context) (net.Conn, error)
+	entryChan chan *bytes.Buffer
 }
 
-func (h *TCPOutlet) WriteEntry(ctx context.Context, e logger.Entry) error {
+func NewTCPOutlet(formatter EntryFormatter, network, address string, tlsConfig *tls.Config, retryInterval time.Duration) *TCPOutlet {
 
-	b, err := h.Formatter.Format(&e)
+	connect := func(ctx context.Context) (conn net.Conn, err error) {
+		deadl, ok := ctx.Deadline()
+		if !ok {
+			deadl = time.Time{}
+		}
+		dialer := net.Dialer{
+			Deadline: deadl,
+		}
+		if tlsConfig != nil {
+			conn, err = tls.DialWithDialer(&dialer, network, address, tlsConfig)
+		} else {
+			conn, err = dialer.DialContext(ctx, network, address)
+		}
+		return
+	}
+
+	entryChan := make(chan *bytes.Buffer, 1) // allow one message in flight while previos is in io.Copy()
+
+	o := &TCPOutlet{
+		formatter: formatter,
+		connect:   connect,
+		entryChan: entryChan,
+	}
+
+	go o.outLoop(retryInterval)
+
+	return o
+}
+
+// FIXME: use this method
+func (h *TCPOutlet) Close() {
+	close(h.entryChan)
+}
+
+func (h *TCPOutlet) outLoop(retryInterval time.Duration) {
+
+	var retry time.Time
+	var conn net.Conn
+	for msg := range h.entryChan {
+		var err error
+		for conn == nil {
+			time.Sleep(time.Until(retry))
+			ctx, cancel := context.WithDeadline(context.TODO(), time.Now().Add(retryInterval))
+			conn, err = h.connect(ctx)
+			cancel()
+			if err != nil {
+				retry = time.Now().Add(retryInterval)
+				conn = nil
+			}
+		}
+		conn.SetWriteDeadline(time.Now().Add(retryInterval))
+		_, err = io.Copy(conn, msg)
+		if err != nil {
+			retry = time.Now().Add(retryInterval)
+			conn.Close()
+			conn = nil
+		}
+	}
+}
+
+func (h *TCPOutlet) WriteEntry(e logger.Entry) error {
+
+	ebytes, err := h.formatter.Format(&e)
 	if err != nil {
 		return err
 	}
 
-	if h.conn == nil {
-		if time.Now().Sub(h.retry) < h.RetryInterval {
-			// cool-down phase, drop the log entry
-			return nil
-		}
+	buf := new(bytes.Buffer)
+	buf.Write(ebytes)
+	buf.WriteString("\n")
 
-		if h.TLS != nil {
-			h.conn, err = tls.DialWithDialer(&h.Dialer, h.Net, h.Address, h.TLS)
-		} else {
-			h.conn, err = h.Dialer.DialContext(ctx, h.Net, h.Address)
-		}
-		if err != nil {
-			h.conn = nil
-			h.retry = time.Now()
-			return errors.Wrap(err, "cannot dial")
-		}
+	select {
+	case h.entryChan <- buf:
+		return nil
+	default:
+		return errors.New("connection broken or not fast enough")
 	}
-
-	_, err = h.conn.Write(b)
-	if err == nil {
-		_, err = h.conn.Write([]byte("\n"))
-	}
-	if err != nil {
-		h.conn.Close()
-		h.conn = nil
-		h.retry = time.Now()
-		return errors.Wrap(err, "cannot write")
-	}
-
-	return nil
 }
 
 type SyslogOutlet struct {
@@ -86,7 +123,7 @@ type SyslogOutlet struct {
 	lastConnectAttempt time.Time
 }
 
-func (o *SyslogOutlet) WriteEntry(ctx context.Context, entry logger.Entry) error {
+func (o *SyslogOutlet) WriteEntry(entry logger.Entry) error {
 
 	bytes, err := o.Formatter.Format(&entry)
 	if err != nil {

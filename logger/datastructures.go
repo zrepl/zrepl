@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
@@ -82,10 +81,17 @@ type Entry struct {
 	Fields  Fields
 }
 
+// An outlet receives log entries produced by the Logger and writes them to some destination.
 type Outlet interface {
+	// Write the entry to the destination.
+	//
+	// Logger waits for all outlets to return from WriteEntry() before returning from the log call.
+	// An implementation of Outlet must assert that it does not block in WriteEntry.
+	// Otherwise, it will slow down the program.
+	//
 	// Note: os.Stderr is also used by logger.Logger for reporting errors returned by outlets
 	//       => you probably don't want to log there
-	WriteEntry(ctx context.Context, entry Entry) error
+	WriteEntry(entry Entry) error
 }
 
 type Outlets struct {
@@ -138,4 +144,4 @@ func (os *Outlets) GetLoggerErrorOutlet() Outlet {
 
 type nullOutlet struct{}
 
-func (nullOutlet) WriteEntry(ctx context.Context, entry Entry) error { return nil }
+func (nullOutlet) WriteEntry(entry Entry) error { return nil }

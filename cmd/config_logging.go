@@ -160,10 +160,6 @@ func parseStdoutOutlet(i interface{}, formatter EntryFormatter) (WriterOutlet, e
 
 func parseTCPOutlet(i interface{}, formatter EntryFormatter) (out *TCPOutlet, err error) {
 
-	out = &TCPOutlet{}
-	out.Formatter = formatter
-	out.Formatter.SetMetadataFlags(MetadataAll)
-
 	var in struct {
 		Net           string
 		Address       string
@@ -178,13 +174,19 @@ func parseTCPOutlet(i interface{}, formatter EntryFormatter) (out *TCPOutlet, er
 		return nil, errors.Wrap(err, "mapstructure error")
 	}
 
-	out.RetryInterval, err = time.ParseDuration(in.RetryInterval)
+	retryInterval, err := time.ParseDuration(in.RetryInterval)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot parse 'retry_interval'")
 	}
 
-	out.Net, out.Address = in.Net, in.Address
+	if len(in.Net) == 0 {
+		return nil, errors.New("field 'net' must not be empty")
+	}
+	if len(in.Address) == 0 {
+		return nil, errors.New("field 'address' must not be empty")
+	}
 
+	var tlsConfig *tls.Config
 	if in.TLS != nil {
 
 		cert, err := tls.LoadX509KeyPair(in.TLS.Cert, in.TLS.Key)
@@ -211,15 +213,16 @@ func parseTCPOutlet(i interface{}, formatter EntryFormatter) (out *TCPOutlet, er
 			return nil, errors.Wrap(err, "cannot load root ca pool")
 		}
 
-		out.TLS = &tls.Config{
+		tlsConfig = &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			RootCAs:      rootCAs,
 		}
 
-		out.TLS.BuildNameToCertificate()
+		tlsConfig.BuildNameToCertificate()
 	}
 
-	return
+	formatter.SetMetadataFlags(MetadataAll)
+	return NewTCPOutlet(formatter, in.Net, in.Address, tlsConfig, retryInterval), nil
 
 }
 

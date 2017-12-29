@@ -373,7 +373,7 @@ func (t *Task) Log() *logger.Logger {
 }
 
 // implement logger.Outlet interface
-func (t *Task) WriteEntry(ctx context.Context, entry logger.Entry) error {
+func (t *Task) WriteEntry(entry logger.Entry) error {
 	t.rwl.RLock()
 	defer t.rwl.RUnlock()
 	t.cur().progress.UpdateLogEntry(entry)

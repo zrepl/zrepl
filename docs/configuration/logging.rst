@@ -27,6 +27,8 @@ Check out :sampleconf:`random/logging.yml` for an example on how to configure mu
     
     jobs: ...
 
+.. _logging-error-outlet:
+
 .. ATTENTION::
     The **first outlet is special**: if an error writing to any outlet occurs, the first outlet receives the error and can print it.
     Thus, the first outlet must be the one that always works and does not block, e.g. ``stdout``, which is the default.
@@ -100,6 +102,11 @@ Formats
         ``encoding/json.Marshal()``, which is particularly useful for processing in
         log aggregation or when processing state dumps.
 
+Outlets
+~~~~~~~
+
+Outlets are the destination for log entries.
+
 .. _logging-outlet-stdout:
 
 ``stdout`` Outlet
@@ -150,12 +157,6 @@ Can only be specified once.
 ``tcp`` Outlet
 --------------
 
-.. WARNING::
-
-    The TCP outlet is not fully asynchronous and blocks the calling goroutine when it cannot connect.
-    Currently it should only be used for local connections that are guaranteed to not fail / be slow.
-    This issue is tracked in :issue:`26`
-
 .. list-table::
     :widths: 10 90
     :header-rows: 1
@@ -196,6 +197,15 @@ This is particularly useful in combination with log aggregation services that ru
       - PEM-encoded client certificate identifying this zrepl daemon toward the remote server
     * - ``key``
       - PEM-encoded, unencrypted client private key identifying this zrepl daemon toward the remote server
+
+.. WARNING::
+
+    zrepl drops log messages to the TCP outlet if the underlying connection is not fast enough.
+    Note that TCP buffering in the kernel must first run full becfore messages are dropped.
+
+    Make sure to always configure a ``stdout`` outlet as the special error outlet to be informed about problems
+    with the TCP outlet (see :ref:`above <logging-error-outlet>` ).
+
 
 .. NOTE::
 

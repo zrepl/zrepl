@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"context"
 	"fmt"
 	"runtime/debug"
 	"sync"
@@ -52,7 +51,7 @@ func (l *Logger) logInternalError(outlet Outlet, err string) {
 		time.Now(),
 		fields,
 	}
-	l.outlets.GetLoggerErrorOutlet().WriteEntry(context.Background(), entry)
+	l.outlets.GetLoggerErrorOutlet().WriteEntry(entry)
 }
 
 func (l *Logger) log(level Level, msg string) {
@@ -62,30 +61,20 @@ func (l *Logger) log(level Level, msg string) {
 
 	entry := Entry{level, msg, time.Now(), l.fields}
 
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(l.outletTimeout))
-	ech := make(chan outletResult)
-
 	louts := l.outlets.Get(level)
+	ech := make(chan outletResult, len(louts))
 	for i := range louts {
-		go func(ctx context.Context, outlet Outlet, entry Entry) {
-			ech <- outletResult{outlet, outlet.WriteEntry(ctx, entry)}
-		}(ctx, louts[i], entry)
+		go func(outlet Outlet, entry Entry) {
+			ech <- outletResult{outlet, outlet.WriteEntry(entry)}
+		}(louts[i], entry)
 	}
-
 	for fin := 0; fin < len(louts); fin++ {
-		select {
-		case res := <-ech:
-			if res.Error != nil {
-				l.logInternalError(res.Outlet, res.Error.Error())
-			}
-		case <-ctx.Done():
-			if ctx.Err() == context.DeadlineExceeded {
-				l.logInternalError(nil, "one or more outlets exceeded timeout but will keep waiting anyways")
-			}
+		res := <-ech
+		if res.Error != nil {
+			l.logInternalError(res.Outlet, res.Error.Error())
 		}
 	}
-
-	cancel() // make go vet happy
+	close(ech)
 
 }
 
