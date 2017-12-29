@@ -83,8 +83,8 @@ func (p *Puller) replFilesystem(m remoteLocalMapping, localFilesystemState map[s
 	remote := p.Remote
 
 	log := p.task.Log().
-		WithField(logMapToField, m.Remote.ToString()).
-		WithField(logMapFromField, m.Local.ToString())
+		WithField(logMapFromField, m.Remote.ToString()).
+		WithField(logMapToField, m.Local.ToString())
 
 	log.Debug("examining local filesystem state")
 	localState, localExists := localFilesystemState[m.Local.ToString()]
