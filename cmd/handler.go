@@ -99,7 +99,7 @@ func (h Handler) HandleFilesystemVersionsRequest(r *FilesystemVersionsRequest, v
 		return
 	}
 
-	log.WithField("resposne", vs).Debug("response")
+	log.WithField("response", vs).Debug("response")
 
 	*versions = vs
 	return
