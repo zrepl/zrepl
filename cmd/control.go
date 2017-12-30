@@ -40,9 +40,9 @@ var controlVersionCmd = &cobra.Command{
 }
 
 var controlStatusCmdArgs struct {
-	format         string
-	alwaysShowLogs bool
-	onlyShowJob    string
+	format      string
+	level       logger.Level
+	onlyShowJob string
 }
 
 var controlStatusCmd = &cobra.Command{
@@ -58,7 +58,8 @@ func init() {
 	controlCmd.AddCommand(controlVersionCmd)
 	controlCmd.AddCommand(controlStatusCmd)
 	controlStatusCmd.Flags().StringVar(&controlStatusCmdArgs.format, "format", "human", "output format (human|raw)")
-	controlStatusCmd.Flags().BoolVar(&controlStatusCmdArgs.alwaysShowLogs, "always-show-logs", false, "always show logs, even if no error occured")
+	controlStatusCmdArgs.level = logger.Warn
+	controlStatusCmd.Flags().Var(&controlStatusCmdArgs.level, "level", "minimum log level to show")
 }
 
 func controlHttpClient() (client http.Client, err error) {
@@ -283,25 +284,26 @@ func doControlStatusCmd(cmd *cobra.Command, args []string) {
 				informAboutError = informAboutError || task.MaxLogLevel >= logger.Warn
 			}
 
-			showLog := informAboutError || controlStatusCmdArgs.alwaysShowLogs
-
-			if showLog {
-				sort.Slice(jobLogEntries, func(i, j int) bool {
-					return jobLogEntries[i].Time.Before(jobLogEntries[j].Time)
-				})
-				if informAboutError {
-					fmt.Println("    WARNING: Some tasks encountered problems since the last time they left idle state:")
-					fmt.Println("             check the logs below or your log file for more information.")
-				}
-				for _, e := range jobLogEntries {
-					formatted, err := formatter.Format(&e)
-					if err != nil {
-						panic(err)
-					}
-					fmt.Printf("      %s\n", string(formatted))
-				}
+			sort.Slice(jobLogEntries, func(i, j int) bool {
+				return jobLogEntries[i].Time.Before(jobLogEntries[j].Time)
+			})
+			if informAboutError {
+				fmt.Println("    WARNING: Some tasks encountered problems since the last time they left idle state:")
+				fmt.Println("             check the logs below or your log file for more information.")
+				fmt.Println("             Use the --level flag if you need debug information.")
 				fmt.Println()
 			}
+			for _, e := range jobLogEntries {
+				if e.Level < controlStatusCmdArgs.level {
+					continue
+				}
+				formatted, err := formatter.Format(&e)
+				if err != nil {
+					panic(err)
+				}
+				fmt.Printf("      %s\n", string(formatted))
+			}
+			fmt.Println()
 
 		}
 	default:
