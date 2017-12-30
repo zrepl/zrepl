@@ -46,7 +46,7 @@ var controlStatusCmdArgs struct {
 }
 
 var controlStatusCmd = &cobra.Command{
-	Use:   "status [JOB_NAAME]",
+	Use:   "status [JOB_NAME]",
 	Short: "get current status",
 	Run:   doControlStatusCmd,
 }
