@@ -126,7 +126,7 @@ func (l *Logger) WithFields(fields Fields) (ret *Logger) {
 	// TODO optimize
 	ret = l
 	for field, value := range fields {
-		ret = l.WithField(field, value)
+		ret = ret.WithField(field, value)
 	}
 	return ret
 }
