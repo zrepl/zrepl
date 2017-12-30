@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
@@ -21,6 +22,29 @@ func (l *Level) UnmarshalJSON(input []byte) (err error) {
 	}
 	*l, err = ParseLevel(s)
 	return err
+}
+
+// implement flag.Value
+// implement github.com/spf13/pflag.Value
+func (l *Level) Set(s string) error {
+	newl, err := ParseLevel(s)
+	if err != nil {
+		return err
+	}
+	*l = newl
+	return nil
+}
+
+// implement github.com/spf13/pflag.Value
+func (l *Level) Type() string {
+	var buf bytes.Buffer
+	for i, l := range AllLevels {
+		fmt.Fprintf(&buf, "%s", l)
+		if i != len(AllLevels)-1 {
+			fmt.Fprintf(&buf, "|")
+		}
+	}
+	return fmt.Sprintf("(%s)", buf.String())
 }
 
 const (
