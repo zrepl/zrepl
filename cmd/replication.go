@@ -173,7 +173,9 @@ func (p *Puller) replFilesystem(m remoteLocalMapping, localFilesystemState map[s
 
 		// TODO unify with recv path of ConflictIncremental
 		log.Debug("configuring properties of received filesystem")
-		if err = zfs.ZFSSet(m.Local, "readonly", "on"); err != nil {
+		props := zfs.NewZFSProperties()
+		props.Set("readonly", "on")
+		if err = zfs.ZFSSet(m.Local, props); err != nil {
 			log.WithError(err).Error("cannot set readonly property")
 		}
 

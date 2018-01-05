@@ -239,13 +239,39 @@ func ZFSRecv(fs *DatasetPath, stream io.Reader, additionalArgs ...string) (err e
 	return nil
 }
 
-func ZFSSet(fs *DatasetPath, prop, val string) (err error) {
+type ZFSProperties struct {
+	m map[string]string
+}
 
-	if strings.ContainsRune(prop, '=') {
-		panic("prop contains rune '=' which is the delimiter between property name and value")
+func NewZFSProperties() *ZFSProperties {
+	return &ZFSProperties{make(map[string]string, 4)}
+}
+
+func (p *ZFSProperties) Set(key, val string) {
+	p.m[key] = val
+}
+
+func (p *ZFSProperties) appendArgs(args *[]string) (err error) {
+	for prop, val := range p.m {
+		if strings.Contains(prop, "=") {
+			return errors.New("prop contains rune '=' which is the delimiter between property name and value")
+		}
+		*args = append(*args, fmt.Sprintf("%s=%s", prop, val))
 	}
+	return nil
+}
 
-	cmd := exec.Command(ZFS_BINARY, "set", fmt.Sprintf("%s=%s", prop, val), fs.ToString())
+func ZFSSet(fs *DatasetPath, props *ZFSProperties) (err error) {
+
+	args := make([]string, 0)
+	args = append(args, "set")
+	err = props.appendArgs(&args)
+	if err != nil {
+		return err
+	}
+	args = append(args, fs.ToString())
+
+	cmd := exec.Command(ZFS_BINARY, args...)
 
 	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
 	cmd.Stderr = stderr
