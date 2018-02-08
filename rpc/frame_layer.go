@@ -57,6 +57,7 @@ func NewErrorHeader(status Status, format string, args ...interface{}) (h *Heade
 	return
 }
 
+//go:generate stringer -type=DataType
 type DataType uint8
 
 const (
