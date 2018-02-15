@@ -136,11 +136,9 @@ func (j *SourceJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Pru
 
 func (j *SourceJob) serve(ctx context.Context, task *Task) {
 
-	log := ctx.Value(contextKeyLog).(Logger)
-
 	listener, err := j.Serve.Listen()
 	if err != nil {
-		log.WithError(err).Error("error listening")
+		task.Log().WithError(err).Error("error listening")
 		return
 	}
 
@@ -169,14 +167,14 @@ outer:
 		case rwcMsg := <-rwcChan:
 
 			if rwcMsg.err != nil {
-				log.WithError(err).Error("error accepting connection")
+				task.Log().WithError(err).Error("error accepting connection")
 				break outer
 			}
 
 			j.handleConnection(rwcMsg.rwc, task)
 
 		case <-ctx.Done():
-			log.WithError(ctx.Err()).Info("context")
+			task.Log().WithError(ctx.Err()).Info("context")
 			break outer
 
 		}
@@ -187,7 +185,7 @@ outer:
 	defer task.Finish()
 	err = listener.Close()
 	if err != nil {
-		log.WithError(err).Error("error closing listener")
+		task.Log().WithError(err).Error("error closing listener")
 	}
 
 	return
