@@ -197,6 +197,8 @@ func (j *SourceJob) handleConnection(rwc io.ReadWriteCloser, task *Task) {
 	task.Enter("handle_connection")
 	defer task.Finish()
 
+	task.Log().Info("handling client connection")
+
 	rwc, err := util.NewReadWriteCloserLogger(rwc, j.Debug.Conn.ReadDump, j.Debug.Conn.WriteDump)
 	if err != nil {
 		panic(err)
@@ -215,5 +217,34 @@ func (j *SourceJob) handleConnection(rwc io.ReadWriteCloser, task *Task) {
 	if err = rpcServer.Serve(); err != nil {
 		task.Log().WithError(err).Error("error serving connection")
 	}
-	rwc.Close()
+
+	// wait for client to close connection
+	// FIXME: we cannot just close it like we would to with a TCP socket because
+	// FIXME: sshbytestream's Close() may overtake the remaining data in the pipe
+	const CLIENT_HANGUP_TIMEOUT = 1 * time.Second
+	task.Log().
+		WithField("timeout", CLIENT_HANGUP_TIMEOUT).
+		Debug("waiting for client to hang up")
+
+	wchan := make(chan error)
+	go func() {
+		var pseudo [1]byte
+		_, err := io.ReadFull(rwc, pseudo[:])
+		wchan <- err
+	}()
+	var werr error
+	select {
+	case werr = <-wchan:
+		// all right
+	case <-time.After(CLIENT_HANGUP_TIMEOUT):
+		werr = errors.New("client did not close connection within timeout")
+	}
+	if werr != nil && werr != io.EOF {
+		task.Log().WithError(werr).
+			Error("error waiting for client to hang up")
+	}
+	task.Log().Info("closing client connection")
+	if err = rwc.Close(); err != nil {
+		task.Log().WithError(err).Error("error force-closing connection")
+	}
 }

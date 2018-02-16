@@ -139,9 +139,9 @@ func (j *PullJob) doRun(ctx context.Context) {
 	j.task.Enter("pull")
 	puller := Puller{j.task, client, j.Mapping, j.InitialReplPolicy}
 	puller.Pull()
+	closeRPCWithTimeout(j.task, client, time.Second*1, "")
+	rwc.Close()
 	j.task.Finish()
-
-	closeRPCWithTimeout(j.task, client, time.Second*10, "")
 
 	j.task.Enter("prune")
 	pruner, err := j.Pruner(j.task, PrunePolicySideDefault, false)
