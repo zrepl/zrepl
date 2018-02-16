@@ -92,20 +92,8 @@ func (l *Logger) WithOutlet(outlet Outlet, level Level) *Logger {
 	return child
 }
 
-func (l *Logger) ReplaceField(field string, val interface{}) *Logger {
-	l.fields[field] = nil
-	return l.WithField(field, val)
-}
-
-func (l *Logger) WithField(field string, val interface{}) *Logger {
-
-	l.mtx.Lock()
-	defer l.mtx.Unlock()
-
-	if val, ok := l.fields[field]; ok && val != nil {
-		l.logInternalError(nil,
-			fmt.Sprintf("caller overwrites field '%s'. Stack: %s", field, string(debug.Stack())))
-	}
+// callers must hold l.mtx
+func (l *Logger) forkLogger(field string, val interface{}) *Logger {
 
 	child := &Logger{
 		fields:        make(Fields, len(l.fields)+1),
@@ -119,7 +107,22 @@ func (l *Logger) WithField(field string, val interface{}) *Logger {
 	child.fields[field] = val
 
 	return child
+}
 
+func (l *Logger) ReplaceField(field string, val interface{}) *Logger {
+	l.mtx.Lock()
+	defer l.mtx.Unlock()
+	return l.forkLogger(field, val)
+}
+
+func (l *Logger) WithField(field string, val interface{}) *Logger {
+	l.mtx.Lock()
+	defer l.mtx.Unlock()
+	if val, ok := l.fields[field]; ok && val != nil {
+		l.logInternalError(nil,
+			fmt.Sprintf("caller overwrites field '%s'. Stack: %s", field, string(debug.Stack())))
+	}
+	return l.forkLogger(field, val)
 }
 
 func (l *Logger) WithFields(fields Fields) (ret *Logger) {
