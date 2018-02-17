@@ -37,9 +37,11 @@ jobs:
   interval: 10m
 
 
-  # keep a one day window 10m interval snapshots in case pull doesn't work (link down, etc)
-  # (we cannot keep more than one day because this host will run out of disk space)
+  # keep 1 hour of snapshots (6 at 10m interval)
+  # and  one day of bookmarks in case pull doesn't work (link down, etc)
+  # => keep_bookmarks = 24h / interval = 24h / 10m = 144
   prune:
     policy: grid
-    grid: 1x1d(keep=all)
+    grid: 1x1h(keep=all)
+    keep_bookmarks: 144
 

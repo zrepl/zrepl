@@ -59,6 +59,8 @@ type SSHStdinServerConnectDescr struct {
 }
 
 type PrunePolicy interface {
+	// Prune filters versions and decide which to keep and which to remove.
+	// Prune **does not** implement the actual removal of the versions.
 	Prune(fs *zfs.DatasetPath, versions []zfs.FilesystemVersion) (keep, remove []zfs.FilesystemVersion, err error)
 }
 

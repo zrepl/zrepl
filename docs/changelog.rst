@@ -1,11 +1,23 @@
 .. |break_config| replace:: **[BREAK]**
+.. |break| replace:: **[BREAK]**
 .. |bugfix| replace:: [BUG]
+.. |feature| replace:: [FEATURE]
 
 Changelog
 =========
 
 The changelog summarized bugfixes that are deemed relevant for users.
 Developers should consult the git commit log or GitHub issue tracker.
+
+0.0.3
+-----
+
+* |break_config| |feature| :issue:`34`: automatic bookmarking of snapshots
+
+  * Snapshots are automatically bookmarked and pruning of bookmarks **must** be configured.
+  * This breaks existing configuration: ``grid`` :ref:`prune policy <prune-retention-grid>`  specifications require the new ``keep_bookmarks`` parameter.
+  * Make sure to understand the meaning bookmarks have for :ref:`maximum replication downtime <replication-downtime>`.
+  * Example: :sampleconf:`pullbackup/productionhost.yml`
 
 0.0.2
 -----

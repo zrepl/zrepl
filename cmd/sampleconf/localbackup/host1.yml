@@ -19,6 +19,7 @@ jobs:
   prune_lhs:
     policy: grid
     grid: 1x1h(keep=all)
+    keep_bookmarks: all
 
   # follow a grandfathering scheme for filesystems on the right-hand-side of the mapping
   prune_rhs:

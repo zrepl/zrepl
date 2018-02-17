@@ -119,6 +119,7 @@ We define a corresponding **source job** named ``pull_backup`` in the |mainconfi
       prune:
           policy: grid
           grid: 1x1d(keep=all)
+          keep_bookmarks: 144
 
 
 The ``serve`` section corresponds to the ``connect`` section in the configuration of ``backup-srv``.

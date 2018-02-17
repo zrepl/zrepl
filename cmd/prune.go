@@ -43,9 +43,8 @@ func (p *Pruner) filterVersions(fs *zfs.DatasetPath) (fsversions []zfs.Filesyste
 	defer p.task.Finish()
 	log := p.task.Log().WithField(logFSField, fs.ToString())
 
-	// only prune snapshots, bookmarks are kept forever
-	snapshotFilter := NewTypedPrefixFilter(p.SnapshotPrefix, zfs.Snapshot)
-	fsversions, err := zfs.ZFSListFilesystemVersions(fs, snapshotFilter)
+	filter := NewPrefixFilter(p.SnapshotPrefix)
+	fsversions, err := zfs.ZFSListFilesystemVersions(fs, filter)
 	if err != nil {
 		log.WithError(err).Error("error listing filesytem versions")
 		return nil, true

@@ -30,4 +30,4 @@ jobs:
   prune:
     policy: grid
     grid: 1x10s(keep=all)
-
+    keep_bookmarks: all

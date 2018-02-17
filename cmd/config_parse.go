@@ -220,7 +220,7 @@ err:
 	return
 }
 
-func parsePrunePolicy(v map[string]interface{}) (p PrunePolicy, err error) {
+func parsePrunePolicy(v map[string]interface{}, willSeeBookmarks bool) (p PrunePolicy, err error) {
 
 	policyName, err := extractStringField(v, "policy", true)
 	if err != nil {
@@ -229,14 +229,13 @@ func parsePrunePolicy(v map[string]interface{}) (p PrunePolicy, err error) {
 
 	switch policyName {
 	case "grid":
-		return parseGridPrunePolicy(v)
+		return parseGridPrunePolicy(v, willSeeBookmarks)
 	case "noprune":
 		return NoPrunePolicy{}, nil
 	default:
 		err = errors.Errorf("unknown policy '%s'", policyName)
 		return
 	}
-
 }
 
 func parseAuthenticatedChannelListenerFactory(c JobParsingContext, v map[string]interface{}) (p AuthenticatedChannelListenerFactory, err error) {

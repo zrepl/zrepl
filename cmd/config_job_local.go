@@ -63,11 +63,11 @@ func parseLocalJob(c JobParsingContext, name string, i map[string]interface{}) (
 		return
 	}
 
-	if j.PruneLHS, err = parsePrunePolicy(asMap.PruneLHS); err != nil {
+	if j.PruneLHS, err = parsePrunePolicy(asMap.PruneLHS, true); err != nil {
 		err = errors.Wrap(err, "cannot parse 'prune_lhs'")
 		return
 	}
-	if j.PruneRHS, err = parsePrunePolicy(asMap.PruneRHS); err != nil {
+	if j.PruneRHS, err = parsePrunePolicy(asMap.PruneRHS, false); err != nil {
 		err = errors.Wrap(err, "cannot parse 'prune_rhs'")
 		return
 	}

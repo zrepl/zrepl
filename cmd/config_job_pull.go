@@ -77,7 +77,7 @@ func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j
 		return
 	}
 
-	if j.Prune, err = parsePrunePolicy(asMap.Prune); err != nil {
+	if j.Prune, err = parsePrunePolicy(asMap.Prune, false); err != nil {
 		err = errors.Wrap(err, "cannot parse prune policy")
 		return
 	}

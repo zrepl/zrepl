@@ -48,14 +48,14 @@ Example: :sampleconf:`pullbackup/productionhost.yml`.
     * - ``interval``
       - snapshotting interval
     * - ``prune``
-      - |prune| policy for filesytems in ``filesystems`` with prefix ``snapshot_prefix``
+      - |prune| for versions of filesytems in ``filesystems``, versions prefixed with ``snapshot_prefix``
 
 
 - Snapshotting Task (every ``interval``, |patient|)
 
   - A snapshot of filesystems matched by ``filesystems`` is taken every ``interval`` with prefix ``snapshot_prefix``.
   - A bookmark of that snapshot is created with the same name.
-  - The ``prune`` policy is triggered on filesystems matched by ``filesystems`` with snapshots matched by ``snapshot_prefix``.
+  - The ``prune`` policy is evaluated for versions of filesystems matched by ``filesystems``, versions prefixed with ``snapshot_prefix``.
 
 - Serve Task
 
@@ -64,12 +64,6 @@ Example: :sampleconf:`pullbackup/productionhost.yml`.
 A source job is the counterpart to a :ref:`job-pull`.
 
 Make sure you read the |prune| policy documentation.
-
-Note that zrepl does not prune bookmarks due to the following reason:
-a pull job may stop replication due to link failure, misconfiguration or administrative action.
-The source prune policy will eventually destroy the last common snapshot between source and pull job.
-Without bookmarks, the prune policy would need to perform full replication again.
-With bookmarks, we can resume incremental replication, only losing the snapshots pruned since the outage.
 
 .. _job-pull:
 
@@ -99,7 +93,7 @@ Example: :sampleconf:`pullbackup/backuphost.yml`
     * - ``snapshot_prefix``
       - prefix snapshots must match to be considered for replication & pruning
     * - ``prune``
-      - |prune| policy for local filesystems reachable by ``mapping``
+      - |prune| policy for versions of filesystems of local filesystems reachable by ``mapping``, versions prefixed with ``snapshot_prefix``
 
 * Main Task (every ``interval``, |patient|)
  
@@ -112,10 +106,11 @@ Example: :sampleconf:`pullbackup/backuphost.yml`
      #. If the local target filesystem does not exist, ``initial_repl_policy`` is used.
      #. On conflicts, an error is logged but replication of other filesystems with mapping continues.
   
-  #. The ``prune`` policy is triggered for all *target filesystems*
+  #. The ``prune`` policy is evaluated for all *target filesystems*
 
 A pull job is the counterpart to a :ref:`job-source`.
 
+Make sure you read the |prune| policy documentation.
 
 .. _job-local:
 
@@ -163,8 +158,6 @@ Example: :sampleconf:`localbackup/host1.yml`
   #. The ``prune_rhs`` policy is triggered for all *target filesystems*
 
 A local job is combination of source & pull job executed on the same machine.
-Note that while snapshots are pruned, bookmarks are not pruned and kept around forever.
-Refer to the comments on :ref:`source job <job-source>` for the reasoning behind this.
 
 Terminology
 -----------
@@ -188,3 +181,7 @@ patient task
         * waits for the last invocation to finish
         * logs a warning with the effective task duration
         * immediately starts a new invocation of the task
+
+filesystem version
+
+    A snapshot or a bookmark.

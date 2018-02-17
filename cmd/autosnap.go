@@ -50,7 +50,7 @@ func (a *IntervalAutosnap) findSyncPoint(fss []*zfs.DatasetPath) (syncPoint time
 
 		l := a.task.Log().WithField(logFSField, d.ToString())
 
-		fsvs, err := zfs.ZFSListFilesystemVersions(d, NewTypedPrefixFilter(a.Prefix, zfs.Snapshot))
+		fsvs, err := zfs.ZFSListFilesystemVersions(d, NewPrefixFilter(a.Prefix))
 		if err != nil {
 			l.WithError(err).Error("cannot list filesystem versions")
 			continue
