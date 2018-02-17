@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/http/pprof"
 )
 
 type ControlJob struct {
@@ -37,7 +36,7 @@ func (j *ControlJob) JobStatus(ctx context.Context) (*JobStatus, error) {
 }
 
 const (
-	ControlJobEndpointProfile string = "/debug/pprof/profile"
+	ControlJobEndpointPProf   string = "/debug/pprof"
 	ControlJobEndpointVersion string = "/version"
 	ControlJobEndpointStatus  string = "/status"
 )
@@ -55,8 +54,19 @@ func (j *ControlJob) JobStart(ctx context.Context) {
 		return
 	}
 
+	pprofServer := NewPProfServer(ctx)
+
 	mux := http.NewServeMux()
-	mux.Handle(ControlJobEndpointProfile, requestLogger{log: log, handlerFunc: pprof.Profile})
+	mux.Handle(ControlJobEndpointPProf, requestLogger{log: log, handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+		var msg PprofServerControlMsg
+		err := json.NewDecoder(r.Body).Decode(&msg)
+		if err != nil {
+			log.WithError(err).Error("bad pprof request from client")
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		pprofServer.Control(msg)
+		w.WriteHeader(200)
+	}})
 	mux.Handle(ControlJobEndpointVersion,
 		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {
 			return NewZreplVersionInformation(), nil

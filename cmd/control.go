@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/dustin/go-humanize"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/zrepl/zrepl/logger"
 	"io"
 	golog "log"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -25,12 +25,34 @@ var controlCmd = &cobra.Command{
 }
 
 var pprofCmd = &cobra.Command{
-	Use:   "pprof cpu OUTFILE",
-	Short: "pprof CPU of daemon to OUTFILE (- for stdout)",
+	Use:   "pprof off | [on TCP_LISTEN_ADDRESS]",
+	Short: "start a http server exposing go-tool-compatible profiling endpoints at TCP_LISTEN_ADDRESS",
 	Run:   doControlPProf,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		if cmd.Flags().NArg() < 1 {
+			goto enargs
+		}
+		switch cmd.Flags().Arg(0) {
+		case "on":
+			pprofCmdArgs.msg.Run = true
+			if cmd.Flags().NArg() != 2 {
+				return errors.New("must specify TCP_LISTEN_ADDRESS as second positional argument")
+			}
+			pprofCmdArgs.msg.HttpListenAddress = cmd.Flags().Arg(1)
+		case "off":
+			if cmd.Flags().NArg() != 1 {
+				goto enargs
+			}
+			pprofCmdArgs.msg.Run = false
+		}
+		return nil
+	enargs:
+		return errors.New("invalid number of positional arguments")
+
+	},
 }
 var pprofCmdArgs struct {
-	seconds int64
+	msg PprofServerControlMsg
 }
 
 var controlVersionCmd = &cobra.Command{
@@ -54,7 +76,6 @@ var controlStatusCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(controlCmd)
 	controlCmd.AddCommand(pprofCmd)
-	pprofCmd.Flags().Int64Var(&pprofCmdArgs.seconds, "seconds", 30, "seconds to profile")
 	controlCmd.AddCommand(controlVersionCmd)
 	controlCmd.AddCommand(controlStatusCmd)
 	controlStatusCmd.Flags().StringVar(&controlStatusCmdArgs.format, "format", "human", "output format (human|raw)")
@@ -87,55 +108,25 @@ func doControlPProf(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	if cmd.Flags().Arg(0) != "cpu" {
-		log.Printf("only CPU profiles are supported")
-		log.Printf("%s", cmd.UsageString())
-		die()
-	}
-
-	outfn := cmd.Flags().Arg(1)
-	if outfn == "" {
-		log.Printf("must specify output filename")
-		log.Printf("%s", cmd.UsageString())
-		die()
-	}
-	var out io.Writer
-	var err error
-	if outfn == "-" {
-		out = os.Stdout
-	} else {
-		out, err = os.Create(outfn)
-		if err != nil {
-			log.Printf("error creating output file: %s", err)
-			die()
-		}
-	}
-
-	log.Printf("connecting to daemon")
+	log.Printf("connecting to zrepl daemon")
 	httpc, err := controlHttpClient()
 	if err != nil {
 		log.Printf("error parsing config: %s", err)
 		die()
 	}
 
-	log.Printf("profiling...")
-	v := url.Values{}
-	v.Set("seconds", fmt.Sprintf("%d", pprofCmdArgs.seconds))
-	v.Encode()
-	resp, err := httpc.Get("http://unix" + ControlJobEndpointProfile + "?" + v.Encode())
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(&pprofCmdArgs.msg); err != nil {
+		log.Printf("error marshaling request: %s", err)
+		die()
+	}
+	_, err = httpc.Post("http://unix"+ControlJobEndpointPProf, "application/json", &buf)
 	if err != nil {
 		log.Printf("error: %s", err)
 		die()
 	}
 
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		log.Printf("error writing profile: %s", err)
-		die()
-	}
-
 	log.Printf("finished")
-
 }
 
 func doControLVersionCmd(cmd *cobra.Command, args []string) {
