@@ -36,7 +36,7 @@ func doDaemon(cmd *cobra.Command, args []string) {
 
 	conf, err := ParseConfig(rootArgs.configFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error parsing config: %s", err)
+		fmt.Fprintf(os.Stderr, "error parsing config: %s\n", err)
 		os.Exit(1)
 	}
 
