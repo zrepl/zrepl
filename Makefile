@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := build
 
 ROOT := github.com/zrepl/zrepl
-SUBPKGS := cmd logger rpc sshbytestream util
+SUBPKGS := cmd logger rpc util
 
 _TESTPKGS := $(ROOT) $(foreach p,$(SUBPKGS),$(ROOT)/$(p))
 
