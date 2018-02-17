@@ -19,7 +19,7 @@ func (a *IntervalAutosnap) filterFilesystems() (fss []*zfs.DatasetPath, stop boo
 	a.task.Enter("filter_filesystems")
 	defer a.task.Finish()
 	fss, err := zfs.ZFSListMapping(a.DatasetFilter)
-	stop = err != nil || len(fss) == 0
+	stop = err != nil
 	if err != nil {
 		a.task.Log().WithError(err).Error("cannot list datasets")
 	}
@@ -35,6 +35,10 @@ func (a *IntervalAutosnap) findSyncPoint(fss []*zfs.DatasetPath) (syncPoint time
 	type snapTime struct {
 		ds   *zfs.DatasetPath
 		time time.Time
+	}
+
+	if len(fss) == 0 {
+		return time.Now(), nil
 	}
 
 	snaptimes := make([]snapTime, 0, len(fss))
@@ -132,6 +136,7 @@ func (a *IntervalAutosnap) syncUpRun(ctx context.Context, didSnaps chan struct{}
 func (a *IntervalAutosnap) Run(ctx context.Context, didSnaps chan struct{}) {
 
 	if a.syncUpRun(ctx, didSnaps) {
+		a.task.Log().Error("stoppping autosnap after error in sync up")
 		return
 	}
 
