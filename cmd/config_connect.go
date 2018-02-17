@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"io"
 
+	"context"
 	"github.com/jinzhu/copier"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/sshbytestream"
+	"github.com/problame/go-netssh"
 )
 
 type SSHStdinserverConnecter struct {
@@ -34,11 +35,12 @@ func parseSSHStdinserverConnecter(i map[string]interface{}) (c *SSHStdinserverCo
 }
 
 func (c *SSHStdinserverConnecter) Connect() (rwc io.ReadWriteCloser, err error) {
-	var rpcTransport sshbytestream.SSHTransport
-	if err = copier.Copy(&rpcTransport, c); err != nil {
+
+	var endpoint netssh.Endpoint
+	if err = copier.Copy(&endpoint, c); err != nil {
 		return
 	}
-	if rwc, err = sshbytestream.Outgoing(rpcTransport); err != nil {
+	if rwc, err = netssh.Dial(context.TODO(), endpoint); err != nil {
 		err = errors.WithStack(err)
 		return
 	}

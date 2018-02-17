@@ -81,6 +81,18 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/problame/go-netssh"
+  packages = ["."]
+  revision = "ffa145d2506e222977205e7666a9722d6b9959ac"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/problame/go-rwccmd"
+  packages = ["."]
+  revision = "391d2c78c8404a9683d79f75dd24ab53040f89f7"
+
+[[projects]]
+  branch = "master"
   name = "github.com/spf13/cobra"
   packages = ["."]
   revision = "b78744579491c1ceeaaa3b40205e56b0591b93a3"
@@ -106,6 +118,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "bdfcb09b88a5c4de0ea4a4fcd438b31f9feea455ebb17e4d3d4d620d704796e1"
+  inputs-digest = "3c3d8d4a2c6fdd6cff0826338b5e56ba0c95516215b40aea7e421409dc31b14f"
   solver-name = "gps-cdcl"
   solver-version = 1

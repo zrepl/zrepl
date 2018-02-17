@@ -43,3 +43,7 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
 [[constraint]]
   name = "github.com/go-logfmt/logfmt"
   version = "*"
+
+[[constraint]]
+  name = "github.com/problame/go-rwccmd"
+  branch = "master"
