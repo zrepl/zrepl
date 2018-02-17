@@ -53,7 +53,6 @@ Make sure to develop an understanding how zrepl is typically used by studying th
 │   ├── public_git          # checkout of zrepl.github.io managed by above shell script
 ├── logger                  # logger package used by zrepl
 ├── rpc                     # rpc protocol implementation
-├── sshbytestream           # io.ReadWriteCloser over SSH
 ├── util
 └── zfs                     # ZFS wrappers, filesystemm diffing
 ```

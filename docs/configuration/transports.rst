@@ -16,7 +16,7 @@ Currently, only the ``ssh+stdinserver`` transport is supported.
 -----------------------------
 
 The way the ``ssh+stdinserver`` transport works is inspired by `git shell <https://git-scm.com/docs/git-shell>`_ and `Borg Backup <https://borgbackup.readthedocs.io/en/stable/deployment.html>`_.
-It is implemented in the Go package ``github.com/zrepl/zrepl/sshbytestream``.
+It is provided by the Go package ``github.com/problame/go-netssh``.
 The config excerpts are taken from the :ref:`tutorial` which you should complete before reading further.
 
 .. _transport-ssh+stdinserver-serve:

@@ -220,7 +220,7 @@ func (j *SourceJob) handleConnection(rwc io.ReadWriteCloser, task *Task) {
 
 	// wait for client to close connection
 	// FIXME: we cannot just close it like we would to with a TCP socket because
-	// FIXME: sshbytestream's Close() may overtake the remaining data in the pipe
+	// FIXME: go-nettsh's Close() may overtake the remaining data in the pipe
 	const CLIENT_HANGUP_TIMEOUT = 1 * time.Second
 	task.Log().
 		WithField("timeout", CLIENT_HANGUP_TIMEOUT).
