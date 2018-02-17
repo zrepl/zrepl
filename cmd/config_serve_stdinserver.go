@@ -32,6 +32,10 @@ func parseStdinserverListenerFactory(c JobParsingContext, i map[string]interface
 
 func (f *StdinserverListenerFactory) Listen() (al AuthenticatedChannelListener, err error) {
 
+	if err = PreparePrivateSockpath(f.sockpath); err != nil {
+		return nil, err
+	}
+
 	l, err := netssh.Listen(f.sockpath)
 	if err != nil {
 		return nil, err
