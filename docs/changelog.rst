@@ -38,9 +38,6 @@ Developers should consult the git commit log or GitHub issue tracker.
 0.0.2
 -----
 
-Breaking
-~~~~~~~~
-
 * |break_config| :commit:`b95260f`: ``global.logging`` is no longer a dictionary but a list
 
 * |break_config| :commit:`3e647c1`: ``source`` job field ``datasets`` renamed to ``filesystems``
