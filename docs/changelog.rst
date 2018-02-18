@@ -19,7 +19,21 @@ Developers should consult the git commit log or GitHub issue tracker.
   * Make sure to understand the meaning bookmarks have for :ref:`maximum replication downtime <replication-downtime>`.
   * Example: :sampleconf:`pullbackup/productionhost.yml`
 
+* |break| :commit:`ccd062e`: both sides of a replication setup must be updated and restarted. Otherwise the connecting side will hang and not time out.
+* |break_config| :commit:`2bfcfa5`: first outlet in ``global.logging`` is now used for logging meta-errors, for example problems encountered when writing to other outlets.
+* |feature| :issue:`10`: ``zrepl control status`` subcommand
+
+  * Allows inspection of job activity per task and their log output at runtime.
+  * Supports ``--format raw`` option for JSON output, usable for monitoring from scripts.
+
+* |feature| :commit:`d7f3fb9`: subcommand bash completions
+
+  * Package maintainers should install this as appropriate.
+
 * |bugfix| :issue:`61`: fix excessive memory usage
+* |bugfix| :issue:`8` and :issue:`56`: ``ssh+stdinserver`` transport properly reaps SSH child processes
+* |bugfix| :commit:`cef63ac`: ``human`` format now prints non-string values correctly
+* |bugfix| :issue:`26`: slow TCP outlets no longer block the daemon
 
 0.0.2
 -----
