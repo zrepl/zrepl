@@ -19,6 +19,8 @@ Developers should consult the git commit log or GitHub issue tracker.
   * Make sure to understand the meaning bookmarks have for :ref:`maximum replication downtime <replication-downtime>`.
   * Example: :sampleconf:`pullbackup/productionhost.yml`
 
+* |bugfix| :issue:`61`: fix excessive memory usage
+
 0.0.2
 -----
 

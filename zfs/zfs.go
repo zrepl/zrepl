@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"context"
+	"github.com/problame/go-rwccmd"
 	"github.com/zrepl/zrepl/util"
 )
 
@@ -181,6 +183,68 @@ func ZFSList(properties []string, zfsArgs ...string) (res [][]string, err error)
 			WaitErr: waitErr,
 		}
 		return nil, err
+	}
+	return
+}
+
+type ZFSListResult struct {
+	fields []string
+	err    error
+}
+
+// ZFSListChan executes `zfs list` and sends the results to the `out` channel.
+// The `out` channel is always closed by ZFSListChan:
+// If an error occurs, it is closed after sending a result with the err field set.
+// If no error occurs, it is just closed.
+// If the operation is cancelled via context, the channel is just closed.
+//
+// However, if callers do not drain `out` or cancel via `ctx`, the process will leak either running because
+// IO is pending or as a zombie.
+func ZFSListChan(ctx context.Context, out chan ZFSListResult, properties []string, zfsArgs ...string) {
+	defer close(out)
+
+	args := make([]string, 0, 4+len(zfsArgs))
+	args = append(args,
+		"list", "-H", "-p",
+		"-o", strings.Join(properties, ","))
+	args = append(args, zfsArgs...)
+
+	sendResult := func(fields []string, err error) (done bool) {
+		select {
+		case <-ctx.Done():
+			return true
+		case out <- ZFSListResult{fields, err}:
+			return false
+		}
+	}
+
+	cmd, err := rwccmd.CommandContext(ctx, ZFS_BINARY, args, []string{})
+	if err != nil {
+		sendResult(nil, err)
+		return
+	}
+	if err = cmd.Start(); err != nil {
+		sendResult(nil, err)
+		return
+	}
+	defer cmd.Close()
+
+	s := bufio.NewScanner(cmd)
+	buf := make([]byte, 1024) // max line length
+	s.Buffer(buf, 0)
+
+	for s.Scan() {
+		fields := strings.SplitN(s.Text(), "\t", len(properties))
+		if len(fields) != len(properties) {
+			sendResult(nil, errors.New("unexpected output"))
+			return
+		}
+		if sendResult(fields, nil) {
+			return
+		}
+	}
+	if s.Err() != nil {
+		sendResult(nil, s.Err())
 	}
 	return
 }

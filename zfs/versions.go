@@ -2,6 +2,7 @@ package zfs
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -61,17 +62,23 @@ type FilesystemVersionFilter interface {
 }
 
 func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) (res []FilesystemVersion, err error) {
-	var fieldLines [][]string
-	fieldLines, err = ZFSList(
+	listResults := make(chan ZFSListResult)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go ZFSListChan(ctx, listResults,
 		[]string{"name", "guid", "createtxg", "creation"},
 		"-r", "-d", "1",
 		"-t", "bookmark,snapshot",
 		"-s", "createtxg", fs.ToString())
-	if err != nil {
-		return
-	}
-	res = make([]FilesystemVersion, 0, len(fieldLines))
-	for _, line := range fieldLines {
+
+	res = make([]FilesystemVersion, 0)
+	for listResult := range listResults {
+		if listResult.err != nil {
+			return nil, listResult.err
+		}
+
+		line := listResult.fields
 
 		if len(line[0]) < 3 {
 			err = errors.New(fmt.Sprintf("snapshot or bookmark name implausibly short: %s", line[0]))
