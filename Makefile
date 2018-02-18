@@ -1,8 +1,8 @@
-.PHONY: generate build test vet cover release docs docs-clean clean release-bins vendordeps
+.PHONY: generate build test vet cover release docs docs-clean clean vendordeps
 .DEFAULT_GOAL := build
 
 ROOT := github.com/zrepl/zrepl
-SUBPKGS := cmd logger rpc util
+SUBPKGS := cmd logger rpc util zfs
 
 _TESTPKGS := $(ROOT) $(foreach p,$(SUBPKGS),$(ROOT)/$(p))
 
@@ -18,6 +18,8 @@ GO_LDFLAGS := "-X github.com/zrepl/zrepl/cmd.zreplVersion=$(ZREPL_VERSION)"
 
 GO_BUILD := go build -ldflags $(GO_LDFLAGS)
 
+RELEASE_BINS := $(ARTIFACTDIR)/zrepl-freebsd-amd64 $(ARTIFACTDIR)/zrepl-linux-amd64
+RELEASE_NOARCH := $(ARTIFACTDIR)/zrepl-noarch.tar
 THIS_PLATFORM_RELEASE_BIN := $(shell bash -c 'source <(go env) && echo "zrepl-$${GOOS}-$${GOARCH}"' )
 
 vendordeps:
@@ -59,8 +61,11 @@ $(ARTIFACTDIR):
 $(ARTIFACTDIR)/docs: $(ARTIFACTDIR)
 	mkdir -p "$@"
 
-$(ARTIFACTDIR)/bash_completion: release-bins
+$(ARTIFACTDIR)/bash_completion: $(RELEASE_BINS)
 	artifacts/$(THIS_PLATFORM_RELEASE_BIN) bashcomp "$@"
+
+$(ARTIFACTDIR)/go_version.txt:
+	go version > $@
 
 docs: $(ARTIFACTDIR)/docs
 	make -C docs \
@@ -72,12 +77,26 @@ docs-clean:
 		clean \
 		BUILDDIR=../artifacts/docs
 
-release-bins: generate $(ARTIFACTDIR) vet test
-	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"
-	GOOS=linux GOARCH=amd64   $(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-linux-amd64"
-	GOOS=freebsd GOARCH=amd64 $(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-freebsd-amd64"
 
-release: release-bins docs $(ARTIFACTDIR)/bash_completion
+.PHONY: $(RELEASE_BINS)
+# TODO: two wildcards possible
+$(RELEASE_BINS): $(ARTIFACTDIR)/zrepl-%-amd64: generate $(ARTIFACTDIR) vet test
+	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"
+	GOOS=$* GOARCH=amd64   $(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-$*-amd64"
+
+$(RELEASE_NOARCH): docs $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/go_version.txt
+	tar --mtime='1970-01-01' --sort=name \
+		--transform 's/$(ARTIFACTDIR)/zrepl-$(ZREPL_VERSION)-noarch/' \
+		-acf $@ \
+		$(ARTIFACTDIR)/docs/html \
+		$(ARTIFACTDIR)/bash_completion \
+		$(ARTIFACTDIR)/go_version.txt
+
+release: $(RELEASE_BINS) $(RELEASE_NOARCH)
+	rm -rf "$(ARTIFACTDIR)/release"
+	mkdir -p "$(ARTIFACTDIR)/release"
+	cp $^ "$(ARTIFACTDIR)/release"
+	cd "$(ARTIFACTDIR)/release" && sha512sum $$(ls | sort) > sha512sum.txt
 	@if echo "$(ZREPL_VERSION)" | grep dirty > /dev/null; then\
 		echo '[WARN] Do not publish the artifacts, make variable ZREPL_VERSION=$(ZREPL_VERSION) indicates they are dirty!'; \
 		exit 1; \
