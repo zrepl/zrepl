@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/zrepl/zrepl/zfs"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -165,32 +166,45 @@ func (a *IntervalAutosnap) doSnapshots(didSnaps chan struct{}) {
 
 	// don't cache the result from previous run in case the user added
 	// a new dataset in the meantime
-	ds, stop := a.filterFilesystems()
+	fss, stop := a.filterFilesystems()
 	if stop {
 		return
 	}
 
+	a.task.Log().Info("beginning parallel snapshots")
+
 	// TODO channel programs -> allow a little jitter?
-	for _, d := range ds {
-		suffix := time.Now().In(time.UTC).Format("20060102_150405_000")
-		snapname := fmt.Sprintf("%s%s", a.Prefix, suffix)
+	var wg sync.WaitGroup
+	for fsi := range fss {
+		wg.Add(1)
+		go func(fs *zfs.DatasetPath) {
+			defer wg.Done()
 
-		l := a.task.Log().WithField(logFSField, d.ToString()).
-			WithField("snapname", snapname)
+			suffix := time.Now().In(time.UTC).Format("20060102_150405_000")
+			snapname := fmt.Sprintf("%s%s", a.Prefix, suffix)
 
-		l.Info("create snapshot")
-		err := zfs.ZFSSnapshot(d, snapname, false)
-		if err != nil {
-			a.task.Log().WithError(err).Error("cannot create snapshot")
-		}
+			l := a.task.Log().WithField(logFSField, fs.ToString()).
+				WithField("snapname", snapname)
 
-		l.Info("create corresponding bookmark")
-		err = zfs.ZFSBookmark(d, snapname, snapname)
-		if err != nil {
-			a.task.Log().WithError(err).Error("cannot create bookmark")
-		}
+			l.Info("create snapshot")
+			err := zfs.ZFSSnapshot(fs, snapname, false)
+			if err != nil {
+				l.WithError(err).Error("cannot create snapshot")
+				return
+			}
 
+			l.Info("create corresponding bookmark")
+			err = zfs.ZFSBookmark(fs, snapname, snapname)
+			if err != nil {
+				l.WithError(err).Error("cannot create bookmark")
+			}
+
+		}(fss[fsi])
 	}
+
+	a.task.Log().Info("waiting for parallel snapshots to finish")
+	wg.Wait()
+	a.task.Log().Info("snapshots finished")
 
 	select {
 	case didSnaps <- struct{}{}:
