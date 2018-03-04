@@ -19,7 +19,13 @@ Developers should consult the git commit log or GitHub issue tracker.
   * Make sure to understand the meaning bookmarks have for :ref:`maximum replication downtime <replication-downtime>`.
   * Example: :sampleconf:`pullbackup/productionhost.yml`
 
-* |break| :commit:`ccd062e`: both sides of a replication setup must be updated and restarted. Otherwise the connecting side will hang and not time out.
+* |break| :commit:`ccd062e`: ``ssh+stdinserver`` transport: changed protocol requires daemon restart on both sides
+
+  * The delicate procedure of talking to the serving-side zrepl daemon via the stdinserver proxy command now has better error handling.
+  * This includes handshakes between client+proxy and client + remote daemo, which is not implemented in previous versions of zrepl.
+  * The connecting side will therefore time out, with the message ``dial_timeout of 10s exceeded``.
+  * Both sides of a replication setup must be updated and restarted. Otherwise the connecting side will hang and not time out.
+
 * |break_config| :commit:`2bfcfa5`: first outlet in ``global.logging`` is now used for logging meta-errors, for example problems encountered when writing to other outlets.
 * |feature| :issue:`10`: ``zrepl control status`` subcommand
 
