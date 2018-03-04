@@ -102,7 +102,7 @@ The connecting zrepl daemon
       #. The remote user, host and port correspond to those configured.
       #. Further options can be specified using the ``options`` field, which appends each entry in the list to the command line using ``-o $entry``.
 
-1. Wraps the pipe ends in an ``io.ReadWriteCloser`` and uses it for RPC.
+#. Wraps the pipe ends in an ``io.ReadWriteCloser`` and uses it for RPC.
 
 As discussed in the section above, the connecting zrepl daemon expects that ``zrepl stdinserver $client_identity`` is  executed automatically via an ``authorized_keys`` file entry.
 
