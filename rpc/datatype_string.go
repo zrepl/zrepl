@@ -2,7 +2,7 @@
 
 package rpc
 
-import "fmt"
+import "strconv"
 
 const _DataType_name = "DataTypeNoneDataTypeControlDataTypeMarshaledJSONDataTypeOctets"
 
@@ -11,7 +11,7 @@ var _DataType_index = [...]uint8{0, 12, 27, 48, 62}
 func (i DataType) String() string {
 	i -= 1
 	if i >= DataType(len(_DataType_index)-1) {
-		return fmt.Sprintf("DataType(%d)", i+1)
+		return "DataType(" + strconv.FormatInt(int64(i+1), 10) + ")"
 	}
 	return _DataType_name[_DataType_index[i]:_DataType_index[i+1]]
 }

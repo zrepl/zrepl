@@ -2,7 +2,7 @@
 
 package rpc
 
-import "fmt"
+import "strconv"
 
 const (
 	_FrameType_name_0 = "FrameTypeHeaderFrameTypeDataFrameTypeTrailer"
@@ -11,7 +11,6 @@ const (
 
 var (
 	_FrameType_index_0 = [...]uint8{0, 15, 28, 44}
-	_FrameType_index_1 = [...]uint8{0, 12}
 )
 
 func (i FrameType) String() string {
@@ -22,6 +21,6 @@ func (i FrameType) String() string {
 	case i == 255:
 		return _FrameType_name_1
 	default:
-		return fmt.Sprintf("FrameType(%d)", i)
+		return "FrameType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 }

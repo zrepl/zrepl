@@ -2,7 +2,7 @@
 
 package zfs
 
-import "fmt"
+import "strconv"
 
 const _Conflict_name = "ConflictIncrementalConflictAllRightConflictNoCommonAncestorConflictDiverged"
 
@@ -10,7 +10,7 @@ var _Conflict_index = [...]uint8{0, 19, 35, 59, 75}
 
 func (i Conflict) String() string {
 	if i < 0 || i >= Conflict(len(_Conflict_index)-1) {
-		return fmt.Sprintf("Conflict(%d)", i)
+		return "Conflict(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _Conflict_name[_Conflict_index[i]:_Conflict_index[i+1]]
 }
