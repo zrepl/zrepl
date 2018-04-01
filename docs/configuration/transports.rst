@@ -104,7 +104,10 @@ The connecting zrepl daemon
 
 #. Wraps the pipe ends in an ``io.ReadWriteCloser`` and uses it for RPC.
 
+
 As discussed in the section above, the connecting zrepl daemon expects that ``zrepl stdinserver $client_identity`` is  executed automatically via an ``authorized_keys`` file entry.
+
+The ``known_hosts`` file used by the ssh command must contain an entry for the serving host, e.g., ``app-srv.example.com`` in the example above.
 
 .. NOTE::
 

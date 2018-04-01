@@ -94,6 +94,13 @@ It uses the private key specified at ``connect.identity_file`` which we still ne
 Note that most use cases do not benefit from separate keypairs per remote endpoint.
 Thus, it is sufficient to create one keypair and use it for all ``connect`` directives on one host.
 
+zrepl uses ssh's default ``known_hosts`` file, which must contain a host identification entry for ``app-srv.example.com``.
+If that entry does not already exist, we need to generate it.
+Run the following command, compare the host fingerprints, and confirm with yes if they match.
+You will not be able to get a shell with the identity file we just generated, which is fine. ::
+
+    ssh -i /etc/zrepl/ssh/identity root@app-srv.example.com
+
 Learn more about :ref:`transport-ssh+stdinserver` transport and the :ref:`pull job <job-pull>` format.
 
 .. _tutorial-configure-app-srv:

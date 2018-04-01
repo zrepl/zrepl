@@ -1,6 +1,7 @@
 .. |break_config| replace:: **[BREAK]**
 .. |break| replace:: **[BREAK]**
 .. |bugfix| replace:: [BUG]
+.. |docs| replace:: [DOCS]
 .. |feature| replace:: [FEATURE]
 
 Changelog
@@ -40,6 +41,7 @@ Developers should consult the git commit log or GitHub issue tracker.
 * |bugfix| :issue:`8` and :issue:`56`: ``ssh+stdinserver`` transport properly reaps SSH child processes
 * |bugfix| :commit:`cef63ac`: ``human`` format now prints non-string values correctly
 * |bugfix| :issue:`26`: slow TCP outlets no longer block the daemon
+* |docs| :issue:`64`: tutorial: document ``known_host`` file entry
 
 0.0.2
 -----
