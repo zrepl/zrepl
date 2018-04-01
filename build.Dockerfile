@@ -11,6 +11,7 @@ RUN /tmp/lazy.sh devsetup
 # prepare volume mount of git checkout to /zrepl
 RUN mkdir -p /go/src/github.com/zrepl/zrepl
 RUN chmod -R 0777 /go
+RUN mkdir -p /.cache && chmod -R 0777 /.cache
 WORKDIR /go/src/github.com/zrepl/zrepl
 
 
