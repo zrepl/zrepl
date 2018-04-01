@@ -16,7 +16,7 @@ zrepl - ZFS replication
 Getting started
 ~~~~~~~~~~~~~~~
 
-The :ref:`5 minute tutorial setup <tutorial>` gives you a first impression.
+The :ref:`10 minutes tutorial setup <tutorial>` gives you a first impression.
 
 Main Features
 ~~~~~~~~~~~~~

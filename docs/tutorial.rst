@@ -60,7 +60,7 @@ Follow the :ref:`OS-specific installation instructions <installation>` and come 
 Configure ``backup-srv``
 ------------------------
 
-We define a **pull job** named ``pull_app-srv`` in the |mainconfig|: ::
+We define a **pull job** named ``pull_app-srv`` in the |mainconfig| on host ``backup-srv``: ::
 
     jobs:
     - name: pull_app-srv
@@ -108,7 +108,7 @@ Learn more about :ref:`transport-ssh+stdinserver` transport and the :ref:`pull j
 Configure ``app-srv``
 ---------------------
 
-We define a corresponding **source job** named ``pull_backup`` in the |mainconfig|: ::
+We define a corresponding **source job** named ``pull_backup`` in the |mainconfig| on host ``app-srv``:  ::
 
     jobs:
     - name: pull_backup
