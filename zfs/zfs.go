@@ -12,6 +12,7 @@ import (
 
 	"context"
 	"github.com/problame/go-rwccmd"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/util"
 )
 
@@ -386,6 +387,9 @@ func zfsBuildBookmarkName(fs *DatasetPath, name string) string { // TODO defensi
 
 func ZFSSnapshot(fs *DatasetPath, name string, recursive bool) (err error) {
 
+	promTimer := prometheus.NewTimer(prom.ZFSSnapshotDuration.WithLabelValues(fs.ToString()))
+	defer promTimer.ObserveDuration()
+
 	snapname := zfsBuildSnapName(fs, name)
 	cmd := exec.Command(ZFS_BINARY, "snapshot", snapname)
 
@@ -408,6 +412,9 @@ func ZFSSnapshot(fs *DatasetPath, name string, recursive bool) (err error) {
 }
 
 func ZFSBookmark(fs *DatasetPath, snapshot, bookmark string) (err error) {
+
+	promTimer := prometheus.NewTimer(prom.ZFSBookmarkDuration.WithLabelValues(fs.ToString()))
+	defer promTimer.ObserveDuration()
 
 	snapname := zfsBuildSnapName(fs, snapshot)
 	bookmarkname := zfsBuildBookmarkName(fs, bookmark)

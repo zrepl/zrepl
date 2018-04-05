@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +27,10 @@ func (t VersionType) DelimiterChar() string {
 	default:
 		panic(fmt.Sprintf("unexpected VersionType %#v", t))
 	}
+}
+
+func (t VersionType) String() string {
+	return string(t)
 }
 
 type FilesystemVersion struct {
@@ -63,6 +68,9 @@ type FilesystemVersionFilter interface {
 
 func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) (res []FilesystemVersion, err error) {
 	listResults := make(chan ZFSListResult)
+
+	promTimer := prometheus.NewTimer(prom.ZFSListFilesystemVersionDuration.WithLabelValues(fs.ToString()))
+	defer promTimer.ObserveDuration()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -136,6 +144,9 @@ func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) 
 }
 
 func ZFSDestroyFilesystemVersion(filesystem *DatasetPath, version FilesystemVersion) (err error) {
+
+	promTimer := prometheus.NewTimer(prom.ZFSDestroyFilesystemVersionDuration.WithLabelValues(filesystem.ToString(), version.Type.String()))
+	defer promTimer.ObserveDuration()
 
 	datasetPath := version.ToAbsPath(filesystem)
 
