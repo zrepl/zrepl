@@ -98,7 +98,7 @@ func (j *PullJob) JobStart(ctx context.Context) {
 
 	log := ctx.Value(contextKeyLog).(Logger)
 	defer log.Info("exiting")
-	j.task = NewTask("main", log)
+	j.task = NewTask("main", j, log)
 
 	// j.task is idle here idle here
 

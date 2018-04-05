@@ -88,11 +88,11 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 
 	rootLog := ctx.Value(contextKeyLog).(Logger)
 
-	j.snapperTask = NewTask("snapshot", rootLog)
-	j.mainTask = NewTask("main", rootLog)
-	j.handlerTask = NewTask("handler", rootLog)
-	j.pruneRHSTask = NewTask("prune_rhs", rootLog)
-	j.pruneLHSTask = NewTask("prune_lhs", rootLog)
+	j.snapperTask = NewTask("snapshot", j, rootLog)
+	j.mainTask = NewTask("main", j, rootLog)
+	j.handlerTask = NewTask("handler", j, rootLog)
+	j.pruneRHSTask = NewTask("prune_rhs", j, rootLog)
+	j.pruneLHSTask = NewTask("prune_lhs", j, rootLog)
 
 	local := rpc.NewLocalRPC()
 	// Allow access to any dataset since we control what mapping

@@ -178,6 +178,8 @@ type TaskStatus struct {
 
 // An instance of Task tracks  a single thread of activity that is part of a Job.
 type Task struct {
+	parent Job    // immutable
+
 	// Stack of activities the task is currently in
 	// Members are instances of taskActivity
 	activities *list.List
@@ -250,8 +252,9 @@ type taskActivity struct {
 	progress *taskProgress
 }
 
-func NewTask(name string, lg *logger.Logger) *Task {
+func NewTask(name string, parent Job, lg *logger.Logger) *Task {
 	t := &Task{
+		parent:     parent,
 		activities: list.New(),
 	}
 	rootLogger := lg.ReplaceField(logTaskField, name).

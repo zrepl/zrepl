@@ -81,9 +81,9 @@ func (j *SourceJob) JobStart(ctx context.Context) {
 	log := ctx.Value(contextKeyLog).(Logger)
 	defer log.Info("exiting")
 
-	j.autosnapTask = NewTask("autosnap", log)
-	j.pruneTask = NewTask("prune", log)
-	j.serveTask = NewTask("serve", log)
+	j.autosnapTask = NewTask("autosnap", j, log)
+	j.pruneTask = NewTask("prune", j, log)
+	j.serveTask = NewTask("serve", j, log)
 
 	a := IntervalAutosnap{j.autosnapTask, j.Filesystems, j.SnapshotPrefix, j.Interval}
 	p, err := j.Pruner(j.pruneTask, PrunePolicySideDefault, false)
