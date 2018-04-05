@@ -162,20 +162,25 @@ func parseJob(c JobParsingContext, i map[string]interface{}) (j Job, err error) 
 		}
 	}
 
-	jobtype, err := extractStringField(i, "type", true)
+	jobtypeStr, err := extractStringField(i, "type", true)
+	if err != nil {
+		return
+	}
+
+	jobtype, err := ParseUserJobType(jobtypeStr)
 	if err != nil {
 		return
 	}
 
 	switch jobtype {
-	case "pull":
+	case JobTypePull:
 		return parsePullJob(c, name, i)
-	case "source":
+	case JobTypeSource:
 		return parseSourceJob(c, name, i)
-	case "local":
+	case JobTypeLocal:
 		return parseLocalJob(c, name, i)
 	default:
-		return nil, errors.Errorf("unknown job type '%s'", jobtype)
+		panic(fmt.Sprintf("implementation error: unknown job type %s", jobtype))
 	}
 
 }

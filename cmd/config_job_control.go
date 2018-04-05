@@ -31,6 +31,8 @@ func (j *ControlJob) JobName() string {
 	return j.Name
 }
 
+func (j *ControlJob) JobType() JobType { return JobTypeControl }
+
 func (j *ControlJob) JobStatus(ctx context.Context) (*JobStatus, error) {
 	return &JobStatus{Tasks: nil}, nil
 }

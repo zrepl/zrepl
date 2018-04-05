@@ -94,6 +94,8 @@ func (j *PullJob) JobName() string {
 	return j.Name
 }
 
+func (j *PullJob) JobType() JobType { return JobTypePull }
+
 func (j *PullJob) JobStart(ctx context.Context) {
 
 	log := ctx.Value(contextKeyLog).(Logger)

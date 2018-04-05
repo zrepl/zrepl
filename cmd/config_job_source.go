@@ -76,6 +76,8 @@ func (j *SourceJob) JobName() string {
 	return j.Name
 }
 
+func (j *SourceJob) JobType() JobType { return JobTypeSource }
+
 func (j *SourceJob) JobStart(ctx context.Context) {
 
 	log := ctx.Value(contextKeyLog).(Logger)

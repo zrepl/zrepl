@@ -84,6 +84,8 @@ func (j *LocalJob) JobName() string {
 	return j.Name
 }
 
+func (j *LocalJob) JobType() JobType { return JobTypeLocal }
+
 func (j *LocalJob) JobStart(ctx context.Context) {
 
 	rootLog := ctx.Value(contextKeyLog).(Logger)

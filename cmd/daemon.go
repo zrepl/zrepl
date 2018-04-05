@@ -28,8 +28,34 @@ func init() {
 
 type Job interface {
 	JobName() string
+	JobType() JobType
 	JobStart(ctxt context.Context)
 	JobStatus(ctxt context.Context) (*JobStatus, error)
+}
+
+type JobType string
+
+const (
+	JobTypePull       JobType = "pull"
+	JobTypeSource     JobType = "source"
+	JobTypeLocal      JobType = "local"
+	JobTypeControl    JobType = "control"
+)
+
+func ParseUserJobType(s string) (JobType, error) {
+	switch s {
+	case "pull":
+		return JobTypePull, nil
+	case "source":
+		return JobTypeSource, nil
+	case "local":
+		return JobTypeLocal, nil
+	}
+	return "", fmt.Errorf("unknown job type '%s'", s)
+}
+
+func (j JobType) String() string {
+	return string(j)
 }
 
 func doDaemon(cmd *cobra.Command, args []string) {
