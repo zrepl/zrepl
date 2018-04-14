@@ -10,6 +10,11 @@ Changelog
 The changelog summarized bugfixes that are deemed relevant for users.
 Developers should consult the git commit log or GitHub issue tracker.
 
+0.0.4 (unreleased)
+------------------
+
+* |feature| :issue:`67`: Expose `Prometheus <https://prometheus.io>`_ metrics via HTTP (:ref:`config docs <monitoring-prometheus>`)
+
 0.0.3
 -----
 

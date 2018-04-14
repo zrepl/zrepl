@@ -13,4 +13,5 @@ Configuration
     configuration/map_filter_syntax
     configuration/prune
     configuration/logging
+    configuration/monitoring
     configuration/misc

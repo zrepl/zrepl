@@ -193,6 +193,7 @@ Summary
 Congratulations, you have a working pull backup. Where to go next?
 
 * Read more about :ref:`configuration format, options & job types <configuration_toc>`
+* Configure :ref:`logging <logging>` \& :ref:`monitoring <monitoring>`.
 * Learn about :ref:`implementation details <implementation_toc>` of zrepl.
 
 

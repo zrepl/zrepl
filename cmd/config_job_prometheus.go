@@ -12,6 +12,7 @@ import (
 )
 
 type PrometheusJob struct {
+	Name   string
 	Listen string
 }
 
@@ -55,12 +56,10 @@ func parsePrometheusJob(c JobParsingContext, name string, i map[string]interface
 	if s.Listen == "" {
 		return nil, errors.New("must specify 'listen' attribute")
 	}
-	return &PrometheusJob{s.Listen}, nil
+	return &PrometheusJob{name, s.Listen}, nil
 }
 
-func (*PrometheusJob) JobName() string {
-	return "prometheus"
-}
+func (j *PrometheusJob) JobName() string { return j.Name }
 
 func (j *PrometheusJob) JobType() JobType { return JobTypePrometheus }
 

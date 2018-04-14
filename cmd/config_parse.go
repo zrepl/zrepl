@@ -93,9 +93,30 @@ func parseConfig(i interface{}) (c *Config, err error) {
 
 	cpc := ConfigParsingContext{&c.Global}
 	jpc := JobParsingContext{cpc}
-
-	// Jobs
 	c.Jobs = make(map[string]Job, len(asMap.Jobs))
+
+	// FIXME internal jobs should not be mixed with user jobs
+	// Monitoring Jobs
+	var monJobs []map[string]interface{}
+	if err := mapstructure.Decode(asMap.Global["monitoring"], &monJobs); err != nil {
+		return nil, errors.Wrap(err, "cannot parse monitoring section")
+	}
+	for i, jc := range monJobs {
+		if jc["name"] == "" || jc["name"] == nil {
+			// FIXME internal jobs should not require a name...
+			jc["name"] = fmt.Sprintf("prometheus-%d", i)
+		}
+		job, err := parseJob(jpc, jc)
+		if err != nil {
+			return nil, errors.Wrapf(err, "cannot parse monitoring job #%d", i)
+		}
+		if job.JobType() != JobTypePrometheus {
+			return nil, errors.Errorf("monitoring job #%d has invalid job type", i)
+		}
+		c.Jobs[job.JobName()] = job
+	}
+
+	// Regular Jobs
 	for i := range asMap.Jobs {
 		job, err := parseJob(jpc, asMap.Jobs[i])
 		if err != nil {
@@ -109,7 +130,7 @@ func parseConfig(i interface{}) (c *Config, err error) {
 		}
 		jn := job.JobName()
 		if _, ok := c.Jobs[jn]; ok {
-			err = errors.Errorf("duplicate job name: %s", jn)
+			err = errors.Errorf("duplicate or invalid job name: %s", jn)
 			return nil, err
 		}
 		c.Jobs[job.JobName()] = job

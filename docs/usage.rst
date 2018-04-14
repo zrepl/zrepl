@@ -37,7 +37,7 @@ zrepl daemon
 ============
 
 All actual work zrepl does is performed by a daemon process.
-Logging is configurable via the config file. Please refer to the :ref:`logging documention <logging>`.
+The daemon supports structured :ref:`logging <logging>` and provides :ref:`monitoring endpoints <monitoring>`.
 
 When installating from a package, the package maintainer should have provided an init script / systemd.service file.
 You should thus be able to start zrepl daemon using your init system.

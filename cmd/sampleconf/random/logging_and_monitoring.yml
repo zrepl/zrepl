@@ -20,5 +20,9 @@ global:
       level: debug
       format: logfmt
 
+  monitoring:
+
+    - type: prometheus
+      listen: ':9090'
 
 jobs: []
