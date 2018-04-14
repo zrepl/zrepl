@@ -43,10 +43,14 @@ Main Features
 
   * [x] Age-based fading (grandfathering scheme)
 
-* Flexible, detailed & structured :ref:`logging <logging>`
+* Logging \& Monitoring
 
-  * [x] ``human``, ``logfmt`` and ``json`` formatting
-  * [x] stdout, syslog and TCP (+TLS client auth) outlets
+  * Detailed & structured :ref:`logging <logging>`
+
+    * ``human``, ``logfmt`` and ``json`` formatting
+    * stdout, syslog and TCP (+TLS client auth) outlets
+
+  * Prometheus :ref:`monitoring <monitoring>` endpoint
 
 * Maintainable implementation in Go
 
