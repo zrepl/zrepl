@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  branch = "master"
+  name = "github.com/beorn7/perks"
+  packages = ["quantile"]
+  revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
+
+[[projects]]
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   revision = "346938d642f2ec3594ed81d874461961cd0faa76"
@@ -32,6 +38,12 @@
   revision = "eb3733d160e74a9c7e442f435eb3bea458e1d19f"
 
 [[projects]]
+  name = "github.com/golang/protobuf"
+  packages = ["proto"]
+  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/jinzhu/copier"
   packages = ["."]
@@ -60,6 +72,12 @@
   packages = ["."]
   revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
   version = "v0.0.3"
+
+[[projects]]
+  name = "github.com/matttproud/golang_protobuf_extensions"
+  packages = ["pbutil"]
+  revision = "3247c84500bff8d9fb6d579d800f20b3e091582c"
+  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
@@ -93,6 +111,30 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/prometheus/client_golang"
+  packages = ["prometheus","prometheus/promhttp"]
+  revision = "e11c6ff8170beca9d5fd8b938e71165eeec53ac6"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/prometheus/client_model"
+  packages = ["go"]
+  revision = "99fa1f4be8e564e8a6b613da7fa6f46c9edafc6c"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/prometheus/common"
+  packages = ["expfmt","internal/bitbucket.org/ww/goautoneg","model"]
+  revision = "d0f7cd64bda49e08b22ae8a730aa57aa0db125d6"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/prometheus/procfs"
+  packages = [".","internal/util","nfs","xfs"]
+  revision = "8b1c2da0d56deffdbb9e48d4414b4e674bd8083e"
+
+[[projects]]
+  branch = "master"
   name = "github.com/spf13/cobra"
   packages = ["."]
   revision = "b78744579491c1ceeaaa3b40205e56b0591b93a3"
@@ -118,6 +160,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "fcfc66322b5f9dbe329411b7688a4e9dcebe3c529c1dadf4f78bcdb2bcfb8fbf"
+  inputs-digest = "36731e77252dcc851fdfa2b0b0778b980597e3c1a47b5e2af3bd0bcb802662ec"
   solver-name = "gps-cdcl"
   solver-version = 1

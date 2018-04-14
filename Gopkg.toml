@@ -51,3 +51,7 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
 [[constraint]]
   name = "github.com/problame/go-netssh"
   branch = "master"
+
+[[constraint]]
+  name = "github.com/prometheus/client_golang"
+  branch = "master"
