@@ -173,24 +173,24 @@ func parseJob(c JobParsingContext, i map[string]interface{}) (j Job, err error) 
 
 	name, err := extractStringField(i, "name", true)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	for _, r := range ReservedJobNames {
 		if name == r {
 			err = errors.Errorf("job name '%s' is reserved", name)
-			return
+			return nil, err
 		}
 	}
 
 	jobtypeStr, err := extractStringField(i, "type", true)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	jobtype, err := ParseUserJobType(jobtypeStr)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	switch jobtype {
