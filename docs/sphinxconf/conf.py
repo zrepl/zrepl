@@ -162,7 +162,7 @@ texinfo_documents = [
 # http://www.sphinx-doc.org/en/stable/ext/extlinks.html
 extlinks = {
     'issue':('https://github.com/zrepl/zrepl/issues/%s', 'issue #'),
-    'sampleconf':('https://github.com/zrepl/zrepl/blob/master/cmd/sampleconf/%s', 'cmd/sampleconf'),
+    'sampleconf':('https://github.com/zrepl/zrepl/blob/master/cmd/sampleconf/%s', 'cmd/sampleconf/'),
     'commit':('https://github.com/zrepl/zrepl/commit/%s', 'commit '),
         }
 
