@@ -14,6 +14,7 @@ Developers should consult the git commit log or GitHub issue tracker.
 ------------------
 
 * |feature| :issue:`67`: Expose `Prometheus <https://prometheus.io>`_ metrics via HTTP (:ref:`config docs <monitoring-prometheus>`)
+* |bugfix| Goroutine leak on ssh transport connection timeouts
 
 0.0.3
 -----

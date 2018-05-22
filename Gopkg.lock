@@ -101,7 +101,7 @@
   branch = "master"
   name = "github.com/problame/go-netssh"
   packages = ["."]
-  revision = "53a2e445f8ace7ec678f2d8cdd9c1428dfef4562"
+  revision = "c56ad38d2c91397ad3c8dd9443d7448e328a9e9e"
 
 [[projects]]
   branch = "master"
