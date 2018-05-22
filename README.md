@@ -1,5 +1,5 @@
 # zrepl
-zrepl is a ZFS filesystem backup & replication solution written in Go.
+zrepl is a one-stop ZFS backup & replication solution.
 
 ## User Documentation
 
@@ -32,7 +32,10 @@ Check out the *Coding Workflow* section below for details.
 
 ## Developer Documentation
 
-First, use `./lazy.sh devsetup` to install build dependencies and read `docs/installation.rst -> Compiling from Source`.
+zrepl is written in [Go](https://golang.org) and uses [`dep`](https://github.com/golang/dep) to manage dependencies.
+The documentation is written in [ReStructured Text](http://docutils.sourceforge.net/rst.html) using the [Sphinx](https://www.sphinx-doc.org) framework.
+
+To get started, run `./lazy.sh devsetup` to easily install build dependencies and read `docs/installation.rst -> Compiling from Source`.
 
 ### Overall Architecture
 
