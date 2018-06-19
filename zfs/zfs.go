@@ -107,8 +107,14 @@ func NewDatasetPath(s string) (p *DatasetPath, err error) {
 		p.comps = make([]string, 0)
 		return p, nil // the empty dataset path
 	}
-	const FORBIDDEN = "@#|\t <>*"
-	if strings.ContainsAny(s, FORBIDDEN) { // TODO space may be a bit too restrictive...
+	const FORBIDDEN = "@#|\t<>*"
+	/* Documenation of allowed characters in zfs names:
+	https://docs.oracle.com/cd/E19253-01/819-5461/gbcpt/index.html
+	Space is missing in the oracle list, but according to
+	https://github.com/zfsonlinux/zfs/issues/439
+	there is evidence that it was intentionally allowed
+	*/
+	if strings.ContainsAny(s, FORBIDDEN) {
 		err = fmt.Errorf("contains forbidden characters (any of '%s')", FORBIDDEN)
 		return
 	}
