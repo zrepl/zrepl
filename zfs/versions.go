@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"io"
 )
 
 type VersionType string
@@ -31,6 +32,26 @@ func (t VersionType) DelimiterChar() string {
 
 func (t VersionType) String() string {
 	return string(t)
+}
+
+func DecomposeVersionString(v string) (fs string, versionType VersionType, name string, err error) {
+	if len(v) < 3 {
+		err = errors.New(fmt.Sprintf("snapshot or bookmark name implausibly short: %s", v))
+		return
+	}
+
+	snapSplit := strings.SplitN(v, "@", 2)
+	bookmarkSplit := strings.SplitN(v, "#", 2)
+	if len(snapSplit)*len(bookmarkSplit) != 2 {
+		err = errors.New(fmt.Sprintf("dataset cannot be snapshot and bookmark at the same time: %s", v))
+		return
+	}
+
+	if len(snapSplit) == 2 {
+		return snapSplit[0], Snapshot, snapSplit[1], nil
+	} else {
+		return bookmarkSplit[0], Bookmark, bookmarkSplit[1], nil
+	}
 }
 
 type FilesystemVersion struct {
@@ -63,7 +84,7 @@ func (v FilesystemVersion) ToAbsPath(p *DatasetPath) string {
 }
 
 type FilesystemVersionFilter interface {
-	Filter(fsv FilesystemVersion) (accept bool, err error)
+	Filter(t VersionType, name string) (accept bool, err error)
 }
 
 func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) (res []FilesystemVersion, err error) {
@@ -82,31 +103,21 @@ func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) 
 
 	res = make([]FilesystemVersion, 0)
 	for listResult := range listResults {
-		if listResult.err != nil {
-			return nil, listResult.err
+		if listResult.Err != nil {
+			if listResult.Err == io.ErrUnexpectedEOF {
+				// Since we specified the fs on the command line, we'll treat this like the filesystem doesn't exist
+				return []FilesystemVersion{}, nil
+			}
+			return nil, listResult.Err
 		}
 
-		line := listResult.fields
-
-		if len(line[0]) < 3 {
-			err = errors.New(fmt.Sprintf("snapshot or bookmark name implausibly short: %s", line[0]))
-			return
-		}
-
-		snapSplit := strings.SplitN(line[0], "@", 2)
-		bookmarkSplit := strings.SplitN(line[0], "#", 2)
-		if len(snapSplit)*len(bookmarkSplit) != 2 {
-			err = errors.New(fmt.Sprintf("dataset cannot be snapshot and bookmark at the same time: %s", line[0]))
-			return
-		}
+		line := listResult.Fields
 
 		var v FilesystemVersion
-		if len(snapSplit) == 2 {
-			v.Name = snapSplit[1]
-			v.Type = Snapshot
-		} else {
-			v.Name = bookmarkSplit[1]
-			v.Type = Bookmark
+
+		_, v.Type, v.Name, err = DecomposeVersionString(line[0])
+		if err != nil {
+			return nil, err
 		}
 
 		if v.Guid, err = strconv.ParseUint(line[1], 10, 64); err != nil {
@@ -129,7 +140,7 @@ func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) 
 
 		accept := true
 		if filter != nil {
-			accept, err = filter.Filter(v)
+			accept, err = filter.Filter(v.Type, v.Name)
 			if err != nil {
 				err = fmt.Errorf("error executing filter: %s", err)
 				return nil, err

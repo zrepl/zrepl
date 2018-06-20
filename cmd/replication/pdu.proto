@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package replication;
+
+message ListFilesystemReq {}
+
+message ListFilesystemRes {
+    repeated Filesystem Filesystems = 1;
+}
+
+message Filesystem {
+    string Path = 1;
+    string ResumeToken = 2;
+}
+
+message ListFilesystemVersionsReq {
+    string Filesystem = 1;
+}
+
+message ListFilesystemVersionsRes {
+    repeated FilesystemVersion Versions = 1;
+}
+
+message FilesystemVersion {
+    enum VersionType {
+        Snapshot = 0;
+        Bookmark = 1;
+    }
+    VersionType Type = 1;
+    string Name = 2;
+    uint64 Guid = 3;
+    uint64 CreateTXG = 4;
+    string Creation = 5; // RFC 3339
+}
+
+
+message SendReq {
+    string Filesystem  = 1;
+    string From = 2;
+    // May be empty / null to request a full transfer of From
+    string To = 3;
+
+    // If ResumeToken is not empty, the resume token that CAN be tried for 'zfs send' by the sender.
+    // The sender MUST indicate in SendRes.UsedResumeToken
+    // If it does not work, the sender SHOULD clear the resume token on their side
+    // and use From and To instead
+    // If ResumeToken is not empty, the GUIDs of From and To
+    // MUST correspond to those encoded in the ResumeToken.
+    // Otherwise, the Sender MUST return an error.
+    string ResumeToken  = 4;
+    bool Compress = 5;
+    bool Dedup = 6;
+}
+
+message Property {
+    string Name = 1;
+    string Value = 2;
+}
+
+message SendRes {
+    // The actual stream is in the stream part of the streamrpc response
+
+    // Whether the resume token provided in the request has been used or not.
+    bool UsedResumeToken = 1;
+
+    repeated Property Properties  = 2;
+}
+
+message ReceiveReq {
+    // The stream part of the streamrpc request contains the zfs send stream
+
+    string Filesystem = 1;
+
+    // If true, the receiver should clear the resume token before perfoming the zfs recv of the stream in the request
+    bool ClearResumeToken = 2;
+}
+
+message ReceiveRes {}

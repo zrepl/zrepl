@@ -29,6 +29,9 @@ generate: #not part of the build, must do that manually
 	@for pkg in $(_TESTPKGS); do\
 		go generate "$$pkg" || exit 1; \
 	done;
+	protoc -I=cmd/replication --go_out=cmd/replication cmd/replication/pdu.proto
+	# FIXME fix docker build!
+
 
 build:
 	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"

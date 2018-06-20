@@ -5,10 +5,10 @@ import (
 	"io"
 	"time"
 
-	mapstructure "github.com/mitchellh/mapstructure"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/util"
+	"github.com/problame/go-streamrpc"
 )
 
 type SourceJob struct {
@@ -206,17 +206,16 @@ func (j *SourceJob) handleConnection(rwc io.ReadWriteCloser, task *Task) {
 		panic(err)
 	}
 
-	// construct connection handler
-	handler := NewHandler(task.Log(), j.Filesystems, NewPrefixFilter(j.SnapshotPrefix))
+	senderEP := NewSenderEndpoint(j.Filesystems, NewPrefixFilter(j.SnapshotPrefix))
 
-	// handle connection
-	rpcServer := rpc.NewServer(rwc)
-	if j.Debug.RPC.Log {
-		rpclog := task.Log().WithField("subsystem", "rpc")
-		rpcServer.SetLogger(rpclog, true)
-	}
-	registerEndpoints(rpcServer, handler)
-	if err = rpcServer.Serve(); err != nil {
+	handler := HandlerAdaptor{senderEP}
+	// FIXME logging support or erase config
+	//if j.Debug.RPC.Log {
+	//	rpclog := task.Log().WithField("subsystem", "rpc")
+	//	rpcServer.SetLogger(rpclog, true)
+	//}
+
+	if err := streamrpc.ServeConn(rwc, STREAMRPC_CONFIG, handler.Handle); err != nil {
 		task.Log().WithError(err).Error("error serving connection")
 	}
 

@@ -11,8 +11,8 @@ import (
 // An IOCommand exposes a forked process's std(in|out|err) through the io.ReadWriteCloser interface.
 type IOCommand struct {
 	Cmd        *exec.Cmd
-	Stdin      io.Writer
-	Stdout     io.Reader
+	Stdin      io.WriteCloser
+	Stdout     io.ReadCloser
 	StderrBuf  *bytes.Buffer
 	ExitResult *IOCommandExitResult
 }

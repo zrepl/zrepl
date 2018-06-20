@@ -103,3 +103,18 @@ func ParseResumeToken(ctx context.Context, token string) (*ResumeToken, error) {
 	return rt, nil
 
 }
+
+func ZFSGetReceiveResumeToken(fs *DatasetPath) (string, error) {
+	const prop_receive_resume_token = "receive_resume_token"
+	props, err := ZFSGet(fs, []string{prop_receive_resume_token})
+	if err != nil {
+		return "", err
+	}
+	res := props.m[prop_receive_resume_token]
+	if res == "-" {
+		return "", nil
+	} else {
+		return res, nil
+	}
+
+}

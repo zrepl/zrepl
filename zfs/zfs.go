@@ -189,13 +189,13 @@ func ZFSList(properties []string, zfsArgs ...string) (res [][]string, err error)
 }
 
 type ZFSListResult struct {
-	fields []string
-	err    error
+	Fields []string
+	Err    error
 }
 
 // ZFSListChan executes `zfs list` and sends the results to the `out` channel.
 // The `out` channel is always closed by ZFSListChan:
-// If an error occurs, it is closed after sending a result with the err field set.
+// If an error occurs, it is closed after sending a result with the Err field set.
 // If no error occurs, it is just closed.
 // If the operation is cancelled via context, the channel is just closed.
 //
@@ -250,15 +250,56 @@ func ZFSListChan(ctx context.Context, out chan ZFSListResult, properties []strin
 	return
 }
 
-func ZFSSend(fs *DatasetPath, from, to *FilesystemVersion) (stream io.Reader, err error) {
+func validateRelativeZFSVersion(s string) error {
+	if len(s) <= 1 {
+		return errors.New("version must start with a delimiter char followed by at least one character")
+	}
+	if !(s[0] == '#' || s[0] == '@') {
+		return errors.New("version name starts with invalid delimiter char")
+	}
+	// FIXME whitespace check...
+	return nil
+}
+
+func validateZFSFilesystem(fs string) error {
+	if len(fs) < 1 {
+		return errors.New("filesystem path must have length > 0")
+	}
+	return nil
+}
+
+func absVersion(fs, v string) (full string, err error) {
+	if err := validateZFSFilesystem(fs); err != nil {
+		return "", err
+	}
+	if err := validateRelativeZFSVersion(v); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s%s", fs, v), nil
+}
+
+func ZFSSend(fs string, from, to string) (stream io.Reader, err error) {
+
+	fromV, err := absVersion(fs, from)
+	if err != nil {
+		return nil, err
+	}
+
+	toV := ""
+	if to != "" {
+		toV, err = absVersion(fs, to)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	args := make([]string, 0)
 	args = append(args, "send")
 
-	if to == nil { // Initial
-		args = append(args, from.ToAbsPath(fs))
+	if toV == "" { // Initial
+		args = append(args, fromV)
 	} else {
-		args = append(args, "-i", from.ToAbsPath(fs), to.ToAbsPath(fs))
+		args = append(args, "-i", fromV, toV)
 	}
 
 	stream, err = util.RunIOCommand(ZFS_BINARY, args...)
@@ -266,14 +307,18 @@ func ZFSSend(fs *DatasetPath, from, to *FilesystemVersion) (stream io.Reader, er
 	return
 }
 
-func ZFSRecv(fs *DatasetPath, stream io.Reader, additionalArgs ...string) (err error) {
+func ZFSRecv(fs string, stream io.Reader, additionalArgs ...string) (err error) {
+
+	if err := validateZFSFilesystem(fs); err != nil {
+		return err
+	}
 
 	args := make([]string, 0)
 	args = append(args, "recv")
 	if len(args) > 0 {
 		args = append(args, additionalArgs...)
 	}
-	args = append(args, fs.ToString())
+	args = append(args, fs)
 
 	cmd := exec.Command(ZFS_BINARY, args...)
 
@@ -304,6 +349,27 @@ func ZFSRecv(fs *DatasetPath, stream io.Reader, additionalArgs ...string) (err e
 	return nil
 }
 
+func ZFSRecvWriter(fs *DatasetPath, additionalArgs ...string) (io.WriteCloser, error) {
+
+	args := make([]string, 0)
+	args = append(args, "recv")
+	if len(args) > 0 {
+		args = append(args, additionalArgs...)
+	}
+	args = append(args, fs.ToString())
+
+	cmd, err := util.NewIOCommand(ZFS_BINARY, args, 1024)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	return cmd.Stdin, nil
+}
+
 type ZFSProperties struct {
 	m map[string]string
 }
@@ -314,6 +380,10 @@ func NewZFSProperties() *ZFSProperties {
 
 func (p *ZFSProperties) Set(key, val string) {
 	p.m[key] = val
+}
+
+func (p *ZFSProperties) Get(key string) string {
+	return p.m[key]
 }
 
 func (p *ZFSProperties) appendArgs(args *[]string) (err error) {
@@ -353,6 +423,33 @@ func ZFSSet(fs *DatasetPath, props *ZFSProperties) (err error) {
 	}
 
 	return
+}
+
+func ZFSGet(fs *DatasetPath, props []string) (*ZFSProperties, error) {
+	args := []string{"get", "-Hp", "-o", "property,value", strings.Join(props, ","), fs.ToString()}
+
+	cmd := exec.Command(ZFS_BINARY, args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	o := string(output)
+	lines := strings.Split(o, "\n")
+	if len(lines) < 1 || // account for newlines
+		len(lines)-1 != len(props) {
+		return nil, fmt.Errorf("zfs get did not return the number of expected property values")
+	}
+	res := &ZFSProperties{
+		make(map[string]string, len(lines)),
+	}
+	for _, line := range lines[:len(lines)-1] {
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			return nil, fmt.Errorf("zfs get did not return property value pairs")
+		}
+		res.m[fields[0]] = fields[1]
+	}
+	return res, nil
 }
 
 func ZFSDestroy(dataset string) (err error) {

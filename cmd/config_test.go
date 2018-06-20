@@ -135,6 +135,25 @@ func TestDatasetMapFilter(t *testing.T) {
 	expectMapping(map1, "b", "")
 	expectMapping(map1, "q/r", "root4/1/2/r")
 
+	map2 := map[string]string{ // identity mapping
+		"<":"",
+	}
+	expectMapping(map2, "foo/bar", "foo/bar")
+
+	map3 := map[string]string{ // subtree to local mapping, need that for Invert()
+		"foo/bar<": "",
+	}
+	{
+		m, _ := parseDatasetMapFilter(map3, false)
+		p, _ := zfs.NewDatasetPath("foo/bar")
+		tp, err := m.Map(p)
+		assert.Nil(t, err)
+		assert.True(t, tp.Empty())
+
+		expectMapping(map3, "foo/bar/x", "x")
+		expectMapping(map3, "x", "")
+	}
+
 	filter1 := map[string]string{
 		"<":    "!",
 		"a<":   "ok",
@@ -218,5 +237,45 @@ func TestDatasetMapFilter_InvertedFilter(t *testing.T) {
 	expectMapping(inv, "1/2", true)
 	expectMapping(inv, "1/2/3", false)
 	expectMapping(inv, "1/2/a/b", true)
+
+}
+
+func TestDatasetMapFilter_Invert(t *testing.T) {
+
+	mapspec := map[string]string{
+		"<": "foo/bar",
+	}
+
+	m, err := parseDatasetMapFilter(mapspec, false)
+	assert.NoError(t, err)
+
+	inv, err := m.Invert()
+	assert.NoError(t, err)
+
+	expectMapping := func(m *DatasetMapFilter, input, expect string, expErr bool, expEmpty bool) {
+		p, err := zfs.NewDatasetPath(input)
+		assert.Nil(t, err)
+		r, err := m.Map(p)
+		if expErr {
+			assert.Nil(t, r)
+			assert.Error(t, err)
+			return
+		}
+		if expEmpty {
+			assert.Nil(t, err)
+			assert.True(t, r.Empty())
+		} else if expect == "" {
+			assert.Nil(t, r)
+			assert.Nil(t, err)
+		} else {
+			assert.Nil(t, err)
+			assert.NotNil(t, r)
+			assert.Equal(t, expect, r.ToString())
+		}
+	}
+
+	expectMapping(inv, "x", "", false, false)
+	expectMapping(inv, "foo/bar", "", false, true)
+	expectMapping(inv, "foo/bar/bee", "bee", false, false)
 
 }

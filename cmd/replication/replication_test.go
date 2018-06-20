@@ -4,17 +4,16 @@ import (
 	"context"
 	"github.com/stretchr/testify/assert"
 	"github.com/zrepl/zrepl/cmd/replication"
-	"github.com/zrepl/zrepl/zfs"
 	"io"
 	"testing"
 )
 
 type IncrementalPathSequenceStep struct {
-	SendRequest    replication.SendRequest
-	SendResponse   replication.SendResponse
+	SendRequest    *replication.SendReq
+	SendResponse   *replication.SendRes
+	SendReader io.Reader
 	SendError      error
-	ReceiveRequest replication.ReceiveRequest
-	ReceiveWriter  io.Writer
+	ReceiveRequest *replication.ReceiveReq
 	ReceiveError   error
 }
 
@@ -24,7 +23,7 @@ type MockIncrementalPathRecorder struct {
 	Pos      int
 }
 
-func (m *MockIncrementalPathRecorder) Receive(r replication.ReceiveRequest) (io.Writer, error) {
+func (m *MockIncrementalPathRecorder) Receive(r *replication.ReceiveReq, rs io.Reader) (error) {
 	if m.Pos >= len(m.Sequence) {
 		m.T.Fatal("unexpected Receive")
 	}
@@ -33,10 +32,10 @@ func (m *MockIncrementalPathRecorder) Receive(r replication.ReceiveRequest) (io.
 	if !assert.Equal(m.T, i.ReceiveRequest, r) {
 		m.T.FailNow()
 	}
-	return i.ReceiveWriter, i.ReceiveError
+	return i.ReceiveError
 }
 
-func (m *MockIncrementalPathRecorder) Send(r replication.SendRequest) (replication.SendResponse, error) {
+func (m *MockIncrementalPathRecorder) Send(r *replication.SendReq) (*replication.SendRes, io.Reader, error) {
 	if m.Pos >= len(m.Sequence) {
 		m.T.Fatal("unexpected Send")
 	}
@@ -45,7 +44,7 @@ func (m *MockIncrementalPathRecorder) Send(r replication.SendRequest) (replicati
 	if !assert.Equal(m.T, i.SendRequest, r) {
 		m.T.FailNow()
 	}
-	return i.SendResponse, i.SendError
+	return i.SendResponse, i.SendReader, i.SendError
 }
 
 func (m *MockIncrementalPathRecorder) Finished() bool {
@@ -60,8 +59,8 @@ func (DiscardCopier) Copy(writer io.Writer, reader io.Reader) (int64, error) {
 
 type IncrementalPathReplicatorTest struct {
 	Msg        string
-	Filesystem replication.Filesystem
-	Path       []zfs.FilesystemVersion
+	Filesystem *replication.Filesystem
+	Path       []*replication.FilesystemVersion
 	Steps      []IncrementalPathSequenceStep
 }
 
@@ -74,9 +73,11 @@ func (test *IncrementalPathReplicatorTest) Test(t *testing.T) {
 		Sequence: test.Steps,
 	}
 
+	ctx := context.WithValue(context.Background(), replication.ContextKeyLog, testLog{t})
+
 	ipr := replication.NewIncrementalPathReplicator()
 	ipr.Replicate(
-		context.TODO(),
+		ctx,
 		rec,
 		rec,
 		DiscardCopier{},
@@ -88,40 +89,51 @@ func (test *IncrementalPathReplicatorTest) Test(t *testing.T) {
 
 }
 
+type testLog struct {
+	t *testing.T
+}
+
+func (t testLog) Printf(fmt string, args ...interface{}) {
+	t.t.Logf(fmt, args)
+}
+
 func TestIncrementalPathReplicator_Replicate(t *testing.T) {
 
 	tbl := []IncrementalPathReplicatorTest{
 		{
 			Msg: "generic happy place with resume token",
-			Filesystem: replication.Filesystem{
+			Filesystem: &replication.Filesystem{
 				Path:        "foo/bar",
 				ResumeToken: "blafoo",
 			},
 			Path: fsvlist("@a,1", "@b,2", "@c,3"),
 			Steps: []IncrementalPathSequenceStep{
 				{
-					SendRequest: replication.SendRequest{
+					SendRequest: &replication.SendReq{
 						Filesystem:  "foo/bar",
 						From:        "@a,1",
 						To:          "@b,2",
 						ResumeToken: "blafoo",
 					},
-				},
-				{
-					ReceiveRequest: replication.ReceiveRequest{
-						Filesystem:  "foo/bar",
-						ResumeToken: "blafoo",
+					SendResponse: &replication.SendRes{
+						UsedResumeToken: true,
 					},
 				},
 				{
-					SendRequest: replication.SendRequest{
+					ReceiveRequest: &replication.ReceiveReq{
+						Filesystem:  "foo/bar",
+						ClearResumeToken: false,
+					},
+				},
+				{
+					SendRequest: &replication.SendReq{
 						Filesystem: "foo/bar",
 						From:       "@b,2",
 						To:         "@c,3",
 					},
 				},
 				{
-					ReceiveRequest: replication.ReceiveRequest{
+					ReceiveRequest: &replication.ReceiveReq{
 						Filesystem: "foo/bar",
 					},
 				},
@@ -129,19 +141,36 @@ func TestIncrementalPathReplicator_Replicate(t *testing.T) {
 		},
 		{
 			Msg: "no action on empty sequence",
-			Filesystem: replication.Filesystem{
+			Filesystem: &replication.Filesystem{
 				Path: "foo/bar",
 			},
 			Path:  fsvlist(),
 			Steps: []IncrementalPathSequenceStep{},
 		},
 		{
-			Msg: "no action on invalid path",
-			Filesystem: replication.Filesystem{
+			Msg: "full send on single entry path",
+			Filesystem: &replication.Filesystem{
 				Path: "foo/bar",
 			},
 			Path:  fsvlist("@justone,1"),
-			Steps: []IncrementalPathSequenceStep{},
+			Steps: []IncrementalPathSequenceStep{
+				{
+					SendRequest: &replication.SendReq{
+						Filesystem: "foo/bar",
+						From: "@justone,1",
+						To: "", // empty means full send
+					},
+					SendResponse: &replication.SendRes{
+						UsedResumeToken: false,
+					},
+				},
+				{
+					ReceiveRequest: &replication.ReceiveReq{
+						Filesystem: "foo/bar",
+						ClearResumeToken: false,
+					},
+				},
+			},
 		},
 	}
 

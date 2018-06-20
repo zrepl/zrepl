@@ -2,21 +2,15 @@ package cmd
 
 import (
 	"fmt"
-	"io"
-
-	"bytes"
-	"encoding/json"
-	"github.com/zrepl/zrepl/rpc"
+	"github.com/zrepl/zrepl/cmd/replication"
+	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/zfs"
+	"io"
+	"github.com/pkg/errors"
+	"github.com/golang/protobuf/proto"
+	"bytes"
+	"os"
 )
-
-type localPullACL struct{}
-
-func (a localPullACL) Filter(p *zfs.DatasetPath) (pass bool, err error) {
-	return true, nil
-}
-
-const DEFAULT_INITIAL_REPL_POLICY = InitialReplPolicyMostRecent
 
 type InitialReplPolicy string
 
@@ -25,299 +19,383 @@ const (
 	InitialReplPolicyAll        InitialReplPolicy = "all"
 )
 
-type Puller struct {
-	task              *Task
-	Remote            rpc.RPCClient
-	Mapping           DatasetMapping
-	InitialReplPolicy InitialReplPolicy
+const DEFAULT_INITIAL_REPL_POLICY = InitialReplPolicyMostRecent
+
+// SenderEndpoint implements replication.ReplicationEndpoint for a sending side
+type SenderEndpoint struct {
+	FSFilter 				zfs.DatasetFilter
+	FilesystemVersionFilter zfs.FilesystemVersionFilter
 }
 
-type remoteLocalMapping struct {
-	Remote *zfs.DatasetPath
-	Local  *zfs.DatasetPath
+func NewSenderEndpoint(fsf zfs.DatasetFilter, fsvf zfs.FilesystemVersionFilter) *SenderEndpoint {
+	return &SenderEndpoint{fsf, fsvf}
 }
 
-func (p *Puller) getRemoteFilesystems() (rfs []*zfs.DatasetPath, ok bool) {
-	p.task.Enter("fetch_remote_fs_list")
-	defer p.task.Finish()
-
-	fsr := FilesystemRequest{}
-	if err := p.Remote.Call("FilesystemRequest", &fsr, &rfs); err != nil {
-		p.task.Log().WithError(err).Error("cannot fetch remote filesystem list")
-		return nil, false
-	}
-	return rfs, true
-}
-
-func (p *Puller) buildReplMapping(remoteFilesystems []*zfs.DatasetPath) (replMapping map[string]remoteLocalMapping, ok bool) {
-	p.task.Enter("build_repl_mapping")
-	defer p.task.Finish()
-
-	replMapping = make(map[string]remoteLocalMapping, len(remoteFilesystems))
-	for fs := range remoteFilesystems {
-		var err error
-		var localFs *zfs.DatasetPath
-		localFs, err = p.Mapping.Map(remoteFilesystems[fs])
-		if err != nil {
-			err := fmt.Errorf("error mapping %s: %s", remoteFilesystems[fs], err)
-			p.task.Log().WithError(err).WithField(logMapFromField, remoteFilesystems[fs]).Error("cannot map")
-			return nil, false
-		}
-		if localFs == nil {
-			continue
-		}
-		p.task.Log().WithField(logMapFromField, remoteFilesystems[fs].ToString()).
-			WithField(logMapToField, localFs.ToString()).Debug("mapping")
-		m := remoteLocalMapping{remoteFilesystems[fs], localFs}
-		replMapping[m.Local.ToString()] = m
-	}
-	return replMapping, true
-}
-
-// returns true if the receiving filesystem (local side) exists and can have child filesystems
-func (p *Puller) replFilesystem(m remoteLocalMapping, localFilesystemState map[string]zfs.FilesystemState) (localExists bool) {
-
-	p.task.Enter("repl_fs")
-	defer p.task.Finish()
-	var err error
-	remote := p.Remote
-
-	log := p.task.Log().
-		WithField(logMapFromField, m.Remote.ToString()).
-		WithField(logMapToField, m.Local.ToString())
-
-	log.Debug("examining local filesystem state")
-	localState, localExists := localFilesystemState[m.Local.ToString()]
-	var versions []zfs.FilesystemVersion
-	switch {
-	case !localExists:
-		log.Info("local filesystem does not exist")
-	case localState.Placeholder:
-		log.Info("local filesystem is marked as placeholder")
-	default:
-		log.Debug("local filesystem exists")
-		log.Debug("requesting local filesystem versions")
-		if versions, err = zfs.ZFSListFilesystemVersions(m.Local, nil); err != nil {
-			log.WithError(err).Error("cannot get local filesystem versions")
-			return false
-		}
-	}
-
-	log.Info("requesting remote filesystem versions")
-	r := FilesystemVersionsRequest{
-		Filesystem: m.Remote,
-	}
-	var theirVersions []zfs.FilesystemVersion
-	if err = remote.Call("FilesystemVersionsRequest", &r, &theirVersions); err != nil {
-		log.WithError(err).Error("cannot get remote filesystem versions")
-		log.Warn("stopping replication for all filesystems mapped as children of receiving filesystem")
-		return false
-	}
-
-	log.Debug("computing diff between remote and local filesystem versions")
-	diff := zfs.MakeFilesystemDiff(versions, theirVersions)
-	log.WithField("diff", diff).Debug("diff between local and remote filesystem")
-
-	if localState.Placeholder && diff.Conflict != zfs.ConflictAllRight {
-		panic("internal inconsistency: local placeholder implies ConflictAllRight")
-	}
-
-	switch diff.Conflict {
-	case zfs.ConflictAllRight:
-
-		log.WithField("replication_policy", p.InitialReplPolicy).Info("performing initial sync, following policy")
-
-		if p.InitialReplPolicy != InitialReplPolicyMostRecent {
-			panic(fmt.Sprintf("policy '%s' not implemented", p.InitialReplPolicy))
-		}
-
-		snapsOnly := make([]zfs.FilesystemVersion, 0, len(diff.MRCAPathRight))
-		for s := range diff.MRCAPathRight {
-			if diff.MRCAPathRight[s].Type == zfs.Snapshot {
-				snapsOnly = append(snapsOnly, diff.MRCAPathRight[s])
-			}
-		}
-
-		if len(snapsOnly) < 1 {
-			log.Warn("cannot perform initial sync: no remote snapshots")
-			return false
-		}
-
-		r := InitialTransferRequest{
-			Filesystem:        m.Remote,
-			FilesystemVersion: snapsOnly[len(snapsOnly)-1],
-		}
-
-		log.WithField("version", r.FilesystemVersion).Debug("requesting snapshot stream")
-
-		var stream io.Reader
-
-		if err = remote.Call("InitialTransferRequest", &r, &stream); err != nil {
-			log.WithError(err).Error("cannot request initial transfer")
-			return false
-		}
-		log.Debug("received initial transfer request response")
-
-		log.Debug("invoke zfs receive")
-		recvArgs := []string{"-u"}
-		if localState.Placeholder {
-			log.Info("receive with forced rollback to replace placeholder filesystem")
-			recvArgs = append(recvArgs, "-F")
-		}
-		progressStream := p.task.ProgressUpdater(stream)
-		if err = zfs.ZFSRecv(m.Local, progressStream, recvArgs...); err != nil {
-			log.WithError(err).Error("cannot receive stream")
-			return false
-		}
-		log.Info("finished receiving stream") // TODO rx delta
-
-		// TODO unify with recv path of ConflictIncremental
-		log.Debug("configuring properties of received filesystem")
-		props := zfs.NewZFSProperties()
-		props.Set("readonly", "on")
-		if err = zfs.ZFSSet(m.Local, props); err != nil {
-			log.WithError(err).Error("cannot set readonly property")
-		}
-
-		log.Info("finished initial transfer")
-		return true
-
-	case zfs.ConflictIncremental:
-
-		if len(diff.IncrementalPath) < 2 {
-			log.Info("remote and local are in sync")
-			return true
-		}
-
-		log.Info("following incremental path from diff")
-		for i := 0; i < len(diff.IncrementalPath)-1; i++ {
-
-			from, to := diff.IncrementalPath[i], diff.IncrementalPath[i+1]
-
-			log, _ := log.WithField(logIncFromField, from.Name).WithField(logIncToField, to.Name), 0
-
-			log.Debug("requesting incremental snapshot stream")
-			r := IncrementalTransferRequest{
-				Filesystem: m.Remote,
-				From:       from,
-				To:         to,
-			}
-			var stream io.Reader
-			if err = remote.Call("IncrementalTransferRequest", &r, &stream); err != nil {
-				log.WithError(err).Error("cannot request incremental snapshot stream")
-				return false
-			}
-
-			log.Debug("invoking zfs receive")
-			progressStream := p.task.ProgressUpdater(stream)
-			// TODO protect against malicious incremental stream
-			if err = zfs.ZFSRecv(m.Local, progressStream); err != nil {
-				log.WithError(err).Error("cannot receive stream")
-				return false
-			}
-			log.Info("finished incremental transfer") // TODO increment rx
-
-		}
-		log.Info("finished following incremental path") // TODO path rx
-		return true
-
-	case zfs.ConflictNoCommonAncestor:
-		fallthrough
-	case zfs.ConflictDiverged:
-
-		var jsonDiff bytes.Buffer
-		if err := json.NewEncoder(&jsonDiff).Encode(diff); err != nil {
-			log.WithError(err).Error("cannot JSON-encode diff")
-			return false
-		}
-
-		var problem, resolution string
-
-		switch diff.Conflict {
-		case zfs.ConflictNoCommonAncestor:
-			problem = "remote and local filesystem have snapshots, but no common one"
-			resolution = "perform manual establish a common snapshot history"
-		case zfs.ConflictDiverged:
-			problem = "remote and local filesystem share a history but have diverged"
-			resolution = "perform manual replication or delete snapshots on the receiving" +
-				"side  to establish an incremental replication parse"
-		}
-
-		log.WithField("diff", jsonDiff.String()).
-			WithField("problem", problem).
-			WithField("resolution", resolution).
-			Error("manual conflict resolution required")
-
-		return false
-
-	}
-
-	panic("should not be reached")
-}
-
-func (p *Puller) Pull() {
-	p.task.Enter("run")
-	defer p.task.Finish()
-
-	p.task.Log().Info("request remote filesystem list")
-	remoteFilesystems, ok := p.getRemoteFilesystems()
-	if !ok {
-		return
-	}
-
-	p.task.Log().Debug("map remote filesystems to local paths and determine order for per-filesystem sync")
-	replMapping, ok := p.buildReplMapping(remoteFilesystems)
-	if !ok {
-
-	}
-
-	p.task.Log().Debug("build cache for already present local filesystem state")
-	p.task.Enter("cache_local_fs_state")
-	localFilesystemState, err := zfs.ZFSListFilesystemState()
-	p.task.Finish()
+func (p *SenderEndpoint) ListFilesystems() ([]*replication.Filesystem, error) {
+	fss, err := zfs.ZFSListMapping(p.FSFilter)
 	if err != nil {
-		p.task.Log().WithError(err).Error("cannot request local filesystem state")
-		return
+		return nil, err
+	}
+	rfss := make([]*replication.Filesystem, len(fss))
+	for i := range fss {
+		rfss[i] = &replication.Filesystem{
+			Path: fss[i].ToString(),
+			// FIXME: not supporting ResumeToken yet
+		}
+	}
+	return rfss, nil
+}
+
+func (p *SenderEndpoint) ListFilesystemVersions(fs string) ([]*replication.FilesystemVersion, error) {
+	dp, err := zfs.NewDatasetPath(fs)
+	if err != nil {
+		return nil, err
+	}
+	pass, err := p.FSFilter.Filter(dp)
+	if err != nil {
+		return nil, err
+	}
+	if !pass {
+		return nil, replication.NewFilteredError(fs)
+	}
+	fsvs, err := zfs.ZFSListFilesystemVersions(dp, p.FilesystemVersionFilter)
+	if err != nil {
+		return nil, err
+	}
+	rfsvs := make([]*replication.FilesystemVersion, len(fsvs))
+	for i := range fsvs {
+		rfsvs[i] = replication.FilesystemVersionFromZFS(fsvs[i])
+	}
+	return rfsvs, nil
+}
+
+func (p *SenderEndpoint) Send(r *replication.SendReq) (*replication.SendRes, io.Reader, error) {
+	os.Stderr.WriteString("sending " + r.String() + "\n")
+	dp, err := zfs.NewDatasetPath(r.Filesystem)
+	if err != nil {
+		return nil, nil, err
+	}
+	pass, err := p.FSFilter.Filter(dp)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !pass {
+		return nil, nil, replication.NewFilteredError(r.Filesystem)
+	}
+	stream, err := zfs.ZFSSend(r.Filesystem, r.From, r.To)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &replication.SendRes{}, stream, nil
+}
+
+func (p *SenderEndpoint) Receive(r *replication.ReceiveReq, sendStream io.Reader) (error) {
+	return fmt.Errorf("sender endpoint does not receive")
+}
+
+
+// ReceiverEndpoint implements replication.ReplicationEndpoint for a receiving side
+type ReceiverEndpoint struct {
+	fsmapInv *DatasetMapFilter
+	fsmap *DatasetMapFilter
+	fsvf zfs.FilesystemVersionFilter
+}
+
+func NewReceiverEndpoint(fsmap *DatasetMapFilter, fsvf zfs.FilesystemVersionFilter) (*ReceiverEndpoint, error) {
+	fsmapInv, err := fsmap.Invert()
+	if err != nil {
+		return nil, err
+	}
+	return &ReceiverEndpoint{fsmapInv, fsmap, fsvf}, nil
+}
+
+func (e *ReceiverEndpoint) ListFilesystems() ([]*replication.Filesystem, error) {
+	filtered, err := zfs.ZFSListMapping(e.fsmapInv.AsFilter())
+	if err != nil {
+		return nil, errors.Wrap(err, "error checking client permission")
+	}
+	fss := make([]*replication.Filesystem, len(filtered))
+	for i, a := range filtered {
+		mapped, err := e.fsmapInv.Map(a)
+		if err != nil {
+			return nil, err
+		}
+		fss[i] = &replication.Filesystem{Path: mapped.ToString()}
+	}
+	return fss, nil
+}
+
+func (e *ReceiverEndpoint) ListFilesystemVersions(fs string) ([]*replication.FilesystemVersion, error) {
+	p, err := zfs.NewDatasetPath(fs)
+	if err != nil {
+		return nil, err
+	}
+	lp, err := e.fsmap.Map(p)
+	if err != nil {
+		return nil, err
+	}
+	if lp == nil {
+		return nil, errors.New("access to filesystem denied")
 	}
 
-	localTraversal := zfs.NewDatasetPathForest()
-	for _, m := range replMapping {
-		localTraversal.Add(m.Local)
+	fsvs, err := zfs.ZFSListFilesystemVersions(lp, e.fsvf)
+	if err != nil {
+		return nil, err
 	}
 
-	p.task.Log().Info("start per-filesystem sync")
-	localTraversal.WalkTopDown(func(v zfs.DatasetPathVisit) bool {
+	rfsvs := make([]*replication.FilesystemVersion, len(fsvs))
+	for i := range fsvs {
+		rfsvs[i] = replication.FilesystemVersionFromZFS(fsvs[i])
+	}
 
-		p.task.Enter("tree_walk")
-		defer p.task.Finish()
+	return rfsvs, nil
+}
 
-		log := p.task.Log().WithField(logFSField, v.Path.ToString())
+func (e *ReceiverEndpoint) Send(req *replication.SendReq) (*replication.SendRes, io.Reader, error) {
+	return nil, nil, errors.New("receiver endpoint does not send")
+}
 
-		if v.FilledIn {
-			if _, exists := localFilesystemState[v.Path.ToString()]; exists {
-				// No need to verify if this is a placeholder or not. It is sufficient
-				// to know we can add child filesystems to it
-				return true
-			}
-			log.Debug("create placeholder filesystem")
-			p.task.Enter("create_placeholder")
-			err = zfs.ZFSCreatePlaceholderFilesystem(v.Path)
-			p.task.Finish()
-			if err != nil {
-				log.Error("cannot create placeholder filesystem")
+func (e *ReceiverEndpoint) Receive(req *replication.ReceiveReq, sendStream io.Reader) error {
+	p, err := zfs.NewDatasetPath(req.Filesystem)
+	if err != nil {
+		return err
+	}
+	lp, err := e.fsmap.Map(p)
+	if err != nil {
+		return err
+	}
+	if lp == nil {
+		return errors.New("receive to filesystem denied")
+	}
+
+	// create placeholder parent filesystems as appropriate
+	var visitErr error
+	f := zfs.NewDatasetPathForest()
+	f.Add(lp)
+	f.WalkTopDown(func(v zfs.DatasetPathVisit) (visitChildTree bool) {
+		if v.Path.Equal(lp) {
+			return false
+		}
+		_, err := zfs.ZFSGet(v.Path, []string{zfs.ZREPL_PLACEHOLDER_PROPERTY_NAME})
+		if err != nil {
+			os.Stderr.WriteString("error zfsget " + err.Error() + "\n")
+			// interpret this as an early exit of the zfs binary due to the fs not existing
+			if err := zfs.ZFSCreatePlaceholderFilesystem(v.Path); err != nil {
+				os.Stderr.WriteString("error creating placeholder " + v.Path.ToString() + "\n")
+				visitErr = err
 				return false
 			}
-			return true
 		}
-
-		m, ok := replMapping[v.Path.ToString()]
-		if !ok {
-			panic("internal inconsistency: replMapping should contain mapping for any path that was not filled in by WalkTopDown()")
-		}
-
-		return p.replFilesystem(m, localFilesystemState)
+		os.Stderr.WriteString(v.Path.ToString() + " exists\n")
+		return true // leave this fs as is
 	})
 
-	return
+	if visitErr != nil {
+		return visitErr
+	}
 
+	needForceRecv := false
+	props, err := zfs.ZFSGet(lp, []string{zfs.ZREPL_PLACEHOLDER_PROPERTY_NAME})
+	if err == nil {
+		if isPlaceholder, _ := zfs.IsPlaceholder(lp, props.Get(zfs.ZREPL_PLACEHOLDER_PROPERTY_NAME)); isPlaceholder {
+			needForceRecv = true
+		}
+	}
+
+	args := make([]string, 0, 1)
+	if needForceRecv {
+		args = append(args, "-F")
+	}
+
+	os.Stderr.WriteString("receiving...\n")
+
+	if err := zfs.ZFSRecv(lp.ToString(), sendStream, args...); err != nil {
+		// FIXME sendStream is on the wire and contains data, if we don't consume it, wire must be closed
+		return err
+	}
+	return nil
+}
+
+// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// RPC STUBS
+// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+
+const (
+	RPCListFilesystems = "ListFilesystems"
+	RPCListFilesystemVersions = "ListFilesystemVersions"
+	RPCReceive = "Receive"
+	RPCSend = "Send"
+)
+
+type RemoteEndpoint struct {
+	*streamrpc.Client
+}
+
+func (s RemoteEndpoint) ListFilesystems() ([]*replication.Filesystem, error) {
+	req := replication.ListFilesystemReq{}
+	b, err := proto.Marshal(&req)
+	if err != nil {
+		return nil, err
+	}
+	rb, rs, err := s.RequestReply(RPCListFilesystems, bytes.NewBuffer(b), nil)
+	if err != nil {
+		return nil, err
+	}
+	if rs != nil {
+		os.Stderr.WriteString(fmt.Sprintf("%#v\n", rs))
+		s.Close() // FIXME
+		return nil, errors.New("response contains unexpected stream")
+	}
+	var res replication.ListFilesystemRes
+	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
+		return nil, err
+	}
+	return res.Filesystems, nil
+}
+
+func (s RemoteEndpoint) ListFilesystemVersions(fs string) ([]*replication.FilesystemVersion, error) {
+	req := replication.ListFilesystemVersionsReq{
+		Filesystem: fs,
+	}
+	b, err := proto.Marshal(&req)
+	if err != nil {
+		return nil, err
+	}
+	rb, rs, err := s.RequestReply(RPCListFilesystemVersions, bytes.NewBuffer(b), nil)
+	if err != nil {
+		return nil, err
+	}
+	if rs != nil {
+		s.Close() // FIXME
+		return nil, errors.New("response contains unexpected stream")
+	}
+	var res replication.ListFilesystemVersionsRes
+	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
+		return nil, err
+	}
+	return res.Versions, nil
+}
+
+func (s RemoteEndpoint) Send(r *replication.SendReq) (*replication.SendRes, io.Reader, error) {
+	b, err := proto.Marshal(r)
+	if err != nil {
+		return nil, nil, err
+	}
+	rb, rs, err := s.RequestReply(RPCSend, bytes.NewBuffer(b), nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	if rs == nil {
+		return nil, nil, errors.New("response does not contain a stream")
+	}
+	var res replication.SendRes
+	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
+		s.Close() // FIXME
+		return  nil, nil, err
+	}
+	// FIXME make sure the consumer will read the reader until the end...
+	return &res, rs, nil
+}
+
+func (s RemoteEndpoint)	Receive(r *replication.ReceiveReq, sendStream io.Reader) (error) {
+	b, err := proto.Marshal(r)
+	if err != nil {
+		return err
+	}
+	rb, rs, err := s.RequestReply(RPCReceive, bytes.NewBuffer(b), sendStream)
+	if err != nil {
+		s.Close() // FIXME
+		return err
+	}
+	if rs != nil {
+		return errors.New("response contains unexpected stream")
+	}
+	var res replication.ReceiveRes
+	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
+		return err
+	}
+	return nil
+}
+
+type HandlerAdaptor struct {
+	ep replication.ReplicationEndpoint
+}
+
+func (a *HandlerAdaptor) Handle(endpoint string, reqStructured *bytes.Buffer, reqStream io.Reader) (resStructured *bytes.Buffer, resStream io.Reader, err error) {
+
+	switch endpoint {
+	case RPCListFilesystems:
+		var req replication.ListFilesystemReq
+		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
+			return nil, nil, err
+		}
+		fsses, err := a.ep.ListFilesystems()
+		if err != nil {
+			return nil, nil, err
+		}
+		res := &replication.ListFilesystemRes{
+			Filesystems: fsses,
+		}
+		b, err := proto.Marshal(res)
+		if err != nil {
+			return nil, nil, err
+		}
+		return bytes.NewBuffer(b), nil, nil
+
+	case RPCListFilesystemVersions:
+
+		var req replication.ListFilesystemVersionsReq
+		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
+			return nil, nil, err
+		}
+		fsvs, err := a.ep.ListFilesystemVersions(req.Filesystem)
+		if err != nil {
+			return nil, nil, err
+		}
+		res := &replication.ListFilesystemVersionsRes{
+			Versions: fsvs,
+		}
+		b, err := proto.Marshal(res)
+		if err != nil {
+			return nil, nil, err
+		}
+		return bytes.NewBuffer(b), nil, nil
+
+	case RPCSend:
+
+		var req replication.SendReq
+		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
+			return nil, nil, err
+		}
+		res, sendStream, err := a.ep.Send(&req)
+		if err != nil {
+			return nil, nil, err
+		}
+		b, err := proto.Marshal(res)
+		if err != nil {
+			return nil, nil, err
+		}
+		return bytes.NewBuffer(b), sendStream, err
+
+	case RPCReceive:
+
+		var req replication.ReceiveReq
+		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
+			return nil, nil, err
+		}
+		err := a.ep.Receive(&req, reqStream)
+		if err != nil {
+			return nil, nil, err
+		}
+		b, err := proto.Marshal(&replication.ReceiveRes{})
+		if err != nil {
+			return nil, nil, err
+		}
+		return bytes.NewBuffer(b), nil, err
+
+
+	default:
+		return nil, nil, errors.New("no handler for given endpoint")
+	}
 }

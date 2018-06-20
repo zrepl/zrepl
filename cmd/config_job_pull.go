@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/util"
+	"github.com/zrepl/zrepl/cmd/replication"
+	"github.com/problame/go-streamrpc"
 )
 
 type PullJob struct {
@@ -116,6 +117,13 @@ func (j *PullJob) JobStart(ctx context.Context) {
 	}
 }
 
+var STREAMRPC_CONFIG = &streamrpc.ConnConfig{ // FIXME oversight and configurability
+	RxHeaderMaxLen: 4096,
+	RxStructuredMaxLen: 4096 * 4096,
+	RxStreamMaxChunkSize: 4096 * 4096,
+	TxChunkSize: 4096 * 4096,
+}
+
 func (j *PullJob) doRun(ctx context.Context) {
 
 	j.task.Enter("run")
@@ -133,14 +141,28 @@ func (j *PullJob) doRun(ctx context.Context) {
 		return
 	}
 
-	client := rpc.NewClient(rwc)
+
+	client := RemoteEndpoint{streamrpc.NewClientOnConn(rwc, STREAMRPC_CONFIG)}
 	if j.Debug.RPC.Log {
-		client.SetLogger(j.task.Log(), true)
+		// FIXME implement support
+		// client.SetLogger(j.task.Log(), true)
 	}
 
 	j.task.Enter("pull")
-	puller := Puller{j.task, client, j.Mapping, j.InitialReplPolicy}
-	puller.Pull()
+
+	puller, err := NewReceiverEndpoint(
+		j.Mapping,
+		NewPrefixFilter(j.SnapshotPrefix),
+	)
+	if err != nil {
+		j.task.Log().WithError(err).Error("error creating receiver endpoint")
+		j.task.Finish()
+		return
+	}
+
+	replicator := replication.NewIncrementalPathReplicator()
+	replication.Replicate(context.WithValue(ctx, replication.ContextKeyLog, j.task.Log()), replication.NewEndpointPairPull(client, puller), replicator)
+
 	closeRPCWithTimeout(j.task, client, time.Second*1, "")
 	rwc.Close()
 	j.task.Finish()
@@ -172,7 +194,7 @@ func (j *PullJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Prune
 	return
 }
 
-func closeRPCWithTimeout(task *Task, remote rpc.RPCClient, timeout time.Duration, goodbye string) {
+func closeRPCWithTimeout(task *Task, remote RemoteEndpoint, timeout time.Duration, goodbye string) {
 
 	task.Log().Info("closing rpc connection")
 

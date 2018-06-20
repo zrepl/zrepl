@@ -6,9 +6,9 @@ import (
 	"context"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/zfs"
 	"sync"
+	"github.com/zrepl/zrepl/cmd/replication"
 )
 
 type LocalJob struct {
@@ -96,15 +96,19 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 	j.pruneRHSTask = NewTask("prune_rhs", j, rootLog)
 	j.pruneLHSTask = NewTask("prune_lhs", j, rootLog)
 
-	local := rpc.NewLocalRPC()
 	// Allow access to any dataset since we control what mapping
 	// is passed to the pull routine.
 	// All local datasets will be passed to its Map() function,
 	// but only those for which a mapping exists will actually be pulled.
 	// We can pay this small performance penalty for now.
-	handler := NewHandler(j.handlerTask.Log(), localPullACL{}, NewPrefixFilter(j.SnapshotPrefix))
+	wildcardMapFilter := NewDatasetMapFilter(1, false)
+	wildcardMapFilter.Add("<", "<")
+	sender := &SenderEndpoint{wildcardMapFilter, NewPrefixFilter(j.SnapshotPrefix)}
 
-	registerEndpoints(local, handler)
+	receiver, err := NewReceiverEndpoint(j.Mapping, NewPrefixFilter(j.SnapshotPrefix))
+	if err != nil {
+		rootLog.WithError(err).Error("unexpected error setting up local handler")
+	}
 
 	snapper := IntervalAutosnap{
 		task:             j.snapperTask,
@@ -141,8 +145,14 @@ outer:
 
 		j.mainTask.Log().Debug("replicating from lhs to rhs")
 		j.mainTask.Enter("replicate")
-		puller := Puller{j.mainTask, local, j.Mapping, j.InitialReplPolicy}
-		puller.Pull()
+
+
+		replication.Replicate(
+			ctx,
+			replication.NewEndpointPairPull(sender, receiver),
+			replication.NewIncrementalPathReplicator(),
+			)
+
 		j.mainTask.Finish()
 
 		// use a ctx as soon as Pull gains ctx support

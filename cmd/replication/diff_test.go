@@ -3,16 +3,15 @@ package replication_test
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zrepl/zrepl/cmd/replication"
-	"github.com/zrepl/zrepl/zfs"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
 
-func fsvlist(fsv ...string) (r []zfs.FilesystemVersion) {
+func fsvlist(fsv ...string) (r []*replication.FilesystemVersion) {
 
-	r = make([]zfs.FilesystemVersion, len(fsv))
+	r = make([]*replication.FilesystemVersion, len(fsv))
 	for i, f := range fsv {
 
 		// parse the id from fsvlist. it is used to derivce Guid,CreateTXG and Creation attrs
@@ -26,20 +25,20 @@ func fsvlist(fsv ...string) (r []zfs.FilesystemVersion) {
 		}
 
 		if strings.HasPrefix(f, "#") {
-			r[i] = zfs.FilesystemVersion{
+			r[i] = &replication.FilesystemVersion{
 				Name:      strings.TrimPrefix(f, "#"),
-				Type:      zfs.Bookmark,
+				Type:      replication.FilesystemVersion_Bookmark,
 				Guid:      uint64(id),
 				CreateTXG: uint64(id),
-				Creation:  time.Unix(0, 0).Add(time.Duration(id) * time.Second),
+				Creation:  time.Unix(0, 0).Add(time.Duration(id) * time.Second).Format(time.RFC3339),
 			}
 		} else if strings.HasPrefix(f, "@") {
-			r[i] = zfs.FilesystemVersion{
+			r[i] = &replication.FilesystemVersion{
 				Name:      strings.TrimPrefix(f, "@"),
-				Type:      zfs.Snapshot,
+				Type:      replication.FilesystemVersion_Snapshot,
 				Guid:      uint64(id),
 				CreateTXG: uint64(id),
-				Creation:  time.Unix(0, 0).Add(time.Duration(id) * time.Second),
+				Creation:  time.Unix(0, 0).Add(time.Duration(id) * time.Second).Format(time.RFC3339),
 			}
 		} else {
 			panic("invalid character")
@@ -49,14 +48,14 @@ func fsvlist(fsv ...string) (r []zfs.FilesystemVersion) {
 }
 
 type incPathResult struct {
-	incPath  []zfs.FilesystemVersion
+	incPath  []*replication.FilesystemVersion
 	conflict error
 }
 
 type IncrementalPathTest struct {
 	Msg                    string
-	Receiver, Sender       []zfs.FilesystemVersion
-	ExpectIncPath          []zfs.FilesystemVersion
+	Receiver, Sender       []*replication.FilesystemVersion
+	ExpectIncPath          []*replication.FilesystemVersion
 	ExpectNoCommonAncestor bool
 	ExpectDiverged         *replication.ConflictDiverged
 	ExpectPanic            bool
@@ -212,7 +211,7 @@ func TestSortVersionListByCreateTXGThenBookmarkLTSnapshot(t *testing.T) {
 
 	type Test struct {
 		Msg           string
-		Input, Output []zfs.FilesystemVersion
+		Input, Output []*replication.FilesystemVersion
 	}
 
 	l := fsvlist
@@ -258,7 +257,7 @@ func TestSortVersionListByCreateTXGThenBookmarkLTSnapshot(t *testing.T) {
 				break
 			}
 			if s.CreateTXG == last.CreateTXG {
-				if last.Type == zfs.Bookmark && s.Type != zfs.Snapshot {
+				if last.Type == replication.FilesystemVersion_Bookmark && s.Type != replication.FilesystemVersion_Snapshot {
 					t.Errorf("snapshots must come after bookmarks")
 				}
 			}

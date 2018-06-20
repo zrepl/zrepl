@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 	"sort"
+	"io"
 )
 
 type fsbyCreateTXG []FilesystemVersion
@@ -242,6 +243,19 @@ func IsPlaceholder(p *DatasetPath, placeholderPropertyValue string) (isPlacehold
 	if !isPlaceholder {
 		err = fmt.Errorf("expected %s, has %s", expected, placeholderPropertyValue)
 	}
+	return
+}
+
+// for nonexistent FS, isPlaceholder == false && err == nil
+func ZFSIsPlaceholderFilesystem(p *DatasetPath) (isPlaceholder bool, err error) {
+	props, err := ZFSGet(p, []string{ZREPL_PLACEHOLDER_PROPERTY_NAME})
+	if err == io.ErrUnexpectedEOF {
+		// interpret this as an early exit of the zfs binary due to the fs not existing
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	isPlaceholder, _  = IsPlaceholder(p, props.Get(ZREPL_PLACEHOLDER_PROPERTY_NAME))
 	return
 }
 

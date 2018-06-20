@@ -101,6 +101,7 @@ func (m DatasetMapFilter) mostSpecificPrefixMapping(path *zfs.DatasetPath) (idx 
 	return
 }
 
+// Returns target == nil if there is no mapping
 func (m DatasetMapFilter) Map(source *zfs.DatasetPath) (target *zfs.DatasetPath, err error) {
 
 	if m.filterMode {
@@ -114,9 +115,17 @@ func (m DatasetMapFilter) Map(source *zfs.DatasetPath) (target *zfs.DatasetPath,
 	}
 	me := m.entries[mi]
 
-	if strings.HasPrefix("!", me.mapping) {
-		// reject mapping
-		return nil, nil
+	if me.mapping == "" {
+		// Special case treatment: 'foo/bar<' => ''
+		if !me.subtreeMatch {
+			return nil, fmt.Errorf("mapping to '' must be a subtree match")
+		}
+		// ok...
+	} else {
+		if strings.HasPrefix("!", me.mapping) {
+			// reject mapping
+			return nil, nil
+		}
 	}
 
 	target, err = zfs.NewDatasetPath(me.mapping)
@@ -172,6 +181,38 @@ func (m DatasetMapFilter) InvertedFilter() (inv *DatasetMapFilter, err error) {
 		}
 		inv.entries[i].mapping = MapFilterResultOk
 		inv.entries[i].subtreeMatch = e.subtreeMatch
+	}
+
+	return inv, nil
+}
+
+// FIXME investigate whether we can support more...
+func (m DatasetMapFilter) Invert() (inv *DatasetMapFilter, err error) {
+
+	if m.filterMode {
+		err = errors.Errorf("can only invert mappings")
+		return
+	}
+
+	if len(m.entries) != 1 {
+		return nil, errors.Errorf("inversion of complicated mappings is not implemented") // FIXME
+	}
+
+	e := m.entries[0]
+
+	inv = &DatasetMapFilter{
+		make([]datasetMapFilterEntry, len(m.entries)),
+		false,
+	}
+	mp, err := zfs.NewDatasetPath(e.mapping)
+	if err != nil {
+		return nil, err
+	}
+
+	inv.entries[0] = datasetMapFilterEntry{
+		path: mp,
+		mapping: e.path.ToString(),
+		subtreeMatch: e.subtreeMatch,
 	}
 
 	return inv, nil
