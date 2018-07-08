@@ -11,7 +11,7 @@ import (
 type IncrementalPathSequenceStep struct {
 	SendRequest    *replication.SendReq
 	SendResponse   *replication.SendRes
-	SendReader io.Reader
+	SendReader io.ReadCloser
 	SendError      error
 	ReceiveRequest *replication.ReceiveReq
 	ReceiveError   error
@@ -23,7 +23,7 @@ type MockIncrementalPathRecorder struct {
 	Pos      int
 }
 
-func (m *MockIncrementalPathRecorder) Receive(r *replication.ReceiveReq, rs io.Reader) (error) {
+func (m *MockIncrementalPathRecorder) Receive(ctx context.Context, r *replication.ReceiveReq, rs io.ReadCloser) (error) {
 	if m.Pos >= len(m.Sequence) {
 		m.T.Fatal("unexpected Receive")
 	}
@@ -35,7 +35,7 @@ func (m *MockIncrementalPathRecorder) Receive(r *replication.ReceiveReq, rs io.R
 	return i.ReceiveError
 }
 
-func (m *MockIncrementalPathRecorder) Send(r *replication.SendReq) (*replication.SendRes, io.Reader, error) {
+func (m *MockIncrementalPathRecorder) Send(ctx context.Context, r *replication.SendReq) (*replication.SendRes, io.ReadCloser, error) {
 	if m.Pos >= len(m.Sequence) {
 		m.T.Fatal("unexpected Send")
 	}

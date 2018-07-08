@@ -7,8 +7,8 @@ import (
 
 type ReplicationEndpoint interface {
 	// Does not include placeholder filesystems
-	ListFilesystems() ([]*Filesystem, error)
-	ListFilesystemVersions(fs string) ([]*FilesystemVersion, error) // fix depS
+	ListFilesystems(ctx context.Context) ([]*Filesystem, error)
+	ListFilesystemVersions(ctx context.Context, fs string) ([]*FilesystemVersion, error) // fix depS
 	Sender
 	Receiver
 }
@@ -81,21 +81,22 @@ func Replicate(ctx context.Context, ep EndpointPair, ipr IncrementalPathReplicat
 
 	log := ctx.Value(ContextKeyLog).(Logger)
 
-	sfss, err := ep.Sender().ListFilesystems()
+	sfss, err := ep.Sender().ListFilesystems(ctx)
 	if err != nil {
 		log.Printf("error listing sender filesystems: %s", err)
 		return
 	}
 
-	rfss, err := ep.Receiver().ListFilesystems()
+	rfss, err := ep.Receiver().ListFilesystems(ctx)
 	if err != nil {
 		log.Printf("error listing receiver filesystems: %s", err)
 		return
 	}
 
 	for _, fs := range sfss {
-		log.Printf("replication fs %s", fs.Path)
-		sfsvs, err := ep.Sender().ListFilesystemVersions(fs.Path)
+		log.Printf("replicating %s", fs.Path)
+
+		sfsvs, err := ep.Sender().ListFilesystemVersions(ctx, fs.Path)
 		if err != nil {
 			log.Printf("sender error %s", err)
 			continue
@@ -115,7 +116,7 @@ func Replicate(ctx context.Context, ep EndpointPair, ipr IncrementalPathReplicat
 
 		var rfsvs []*FilesystemVersion
 		if receiverFSExists {
-			rfsvs, err = ep.Receiver().ListFilesystemVersions(fs.Path)
+			rfsvs, err = ep.Receiver().ListFilesystemVersions(ctx, fs.Path)
 			if err != nil {
 				log.Printf("receiver error %s", err)
 				if _, ok := err.(FilteredError); ok {
@@ -162,11 +163,11 @@ func Replicate(ctx context.Context, ep EndpointPair, ipr IncrementalPathReplicat
 }
 
 type Sender interface {
-	Send(r *SendReq) (*SendRes, io.Reader, error)
+	Send(ctx context.Context, r *SendReq) (*SendRes, io.ReadCloser, error)
 }
 
 type Receiver interface {
-	Receive(r *ReceiveReq, sendStream io.Reader) (error)
+	Receive(ctx context.Context, r *ReceiveReq, sendStream io.ReadCloser) (error)
 }
 
 type Copier interface {
@@ -211,7 +212,7 @@ func (incrementalPathReplicator) Replicate(ctx context.Context, sender Sender, r
 			From: path[0].RelName(),
 			ResumeToken: fs.ResumeToken,
 		}
-		sres, sstream, err := sender.Send(sr)
+		sres, sstream, err := sender.Send(ctx, sr)
 		if err != nil {
 			log.Printf("send request failed: %s", err)
 			// FIXME must close connection...
@@ -222,7 +223,7 @@ func (incrementalPathReplicator) Replicate(ctx context.Context, sender Sender, r
 			Filesystem: fs.Path,
 			ClearResumeToken: fs.ResumeToken != "" && !sres.UsedResumeToken,
 		}
-		err = receiver.Receive(rr, sstream)
+		err = receiver.Receive(ctx, rr, sstream)
 		if err != nil {
 			// FIXME this failure could be due to an unexpected exit of ZFS on the sending side
 			// FIXME  which is transported through the streamrpc protocol, and known to the sendStream.(*streamrpc.streamReader),
@@ -250,7 +251,7 @@ incrementalLoop:
 			To:          path[j+1].RelName(),
 			ResumeToken: rt,
 		}
-		sres, sstream, err := sender.Send(sr)
+		sres, sstream, err := sender.Send(ctx, sr)
 		if err != nil {
 			log.Printf("send request failed: %s", err)
 			// handle and ignore
@@ -262,7 +263,7 @@ incrementalLoop:
 			Filesystem:  fs.Path,
 			ClearResumeToken: rt != "" && !sres.UsedResumeToken,
 		}
-		err = receiver.Receive(rr, sstream)
+		err = receiver.Receive(ctx, rr, sstream)
 		if err != nil {
 			log.Printf("receive request failed: %s", err)
 			// handle and ignore

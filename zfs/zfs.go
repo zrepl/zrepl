@@ -278,7 +278,7 @@ func absVersion(fs, v string) (full string, err error) {
 	return fmt.Sprintf("%s%s", fs, v), nil
 }
 
-func ZFSSend(fs string, from, to string) (stream io.Reader, err error) {
+func ZFSSend(fs string, from, to string) (stream io.ReadCloser, err error) {
 
 	fromV, err := absVersion(fs, from)
 	if err != nil {
