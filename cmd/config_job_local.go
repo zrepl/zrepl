@@ -146,11 +146,11 @@ outer:
 		j.mainTask.Log().Debug("replicating from lhs to rhs")
 		j.mainTask.Enter("replicate")
 
-
 		replication.Replicate(
 			ctx,
 			replication.NewEndpointPairPull(sender, receiver),
 			replication.NewIncrementalPathReplicator(),
+			nil, //FIXME
 			)
 
 		j.mainTask.Finish()

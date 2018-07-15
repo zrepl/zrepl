@@ -10,6 +10,8 @@ import (
 	"github.com/zrepl/zrepl/util"
 	"github.com/zrepl/zrepl/cmd/replication"
 	"github.com/problame/go-streamrpc"
+	"io"
+	"net"
 )
 
 type PullJob struct {
@@ -107,7 +109,15 @@ func (j *PullJob) JobStart(ctx context.Context) {
 
 	ticker := time.NewTicker(j.Interval)
 	for {
+		begin := time.Now()
 		j.doRun(ctx)
+		duration := time.Now().Sub(begin)
+		if duration > j.Interval {
+			j.task.Log().
+				WithField("actual_duration", duration).
+				WithField("configured_interval", j.Interval).
+				Warn("pull run took longer than configured interval")
+		}
 		select {
 		case <-ctx.Done():
 			j.task.Log().WithError(ctx.Err()).Info("context")
@@ -124,31 +134,85 @@ var STREAMRPC_CONFIG = &streamrpc.ConnConfig{ // FIXME oversight and configurabi
 	TxChunkSize: 4096 * 4096,
 }
 
+type streamrpcRWCToNetConnAdatper struct {
+	io.ReadWriteCloser
+}
+
+func (streamrpcRWCToNetConnAdatper) LocalAddr() net.Addr {
+	panic("implement me")
+}
+
+func (streamrpcRWCToNetConnAdatper) RemoteAddr() net.Addr {
+	panic("implement me")
+}
+
+func (streamrpcRWCToNetConnAdatper) SetDeadline(t time.Time) error {
+	panic("implement me")
+}
+
+func (streamrpcRWCToNetConnAdatper) SetReadDeadline(t time.Time) error {
+	panic("implement me")
+}
+
+func (streamrpcRWCToNetConnAdatper) SetWriteDeadline(t time.Time) error {
+	panic("implement me")
+}
+
+type streamrpcRWCConnecterToNetConnAdapter struct {
+	RWCConnecter
+	ReadDump, WriteDump string
+}
+
+func (s streamrpcRWCConnecterToNetConnAdapter) Connect(ctx context.Context) (net.Conn, error) {
+	rwc, err := s.RWCConnecter.Connect()
+	if err != nil {
+		return nil, err
+	}
+	rwc, err = util.NewReadWriteCloserLogger(rwc, s.ReadDump, s.WriteDump)
+	if err != nil {
+		rwc.Close()
+		return nil, err
+	}
+	return streamrpcRWCToNetConnAdatper{rwc}, nil
+}
+
+type tcpConnecter struct {
+	d net.Dialer
+}
+
+func (t *tcpConnecter) Connect(ctx context.Context) (net.Conn, error) {
+	return t.d.DialContext(ctx, "tcp", "192.168.122.128:8888")
+}
+
 func (j *PullJob) doRun(ctx context.Context) {
 
 	j.task.Enter("run")
 	defer j.task.Finish()
 
-	j.task.Log().Info("connecting")
-	rwc, err := j.Connect.Connect()
-	if err != nil {
-		j.task.Log().WithError(err).Error("error connecting")
-		return
+	//connecter := streamrpcRWCConnecterToNetConnAdapter{
+	//	RWCConnecter: j.Connect,
+	//	ReadDump: j.Debug.Conn.ReadDump,
+	//	WriteDump: j.Debug.Conn.WriteDump,
+	//}
+
+	// FIXME
+	connecter := &tcpConnecter{net.Dialer{
+		Timeout: 2*time.Second,
+	}}
+
+	clientConf := &streamrpc.ClientConfig{
+		MaxConnectAttempts: 5, // FIXME
+		ReconnectBackoffBase: 1*time.Second,
+		ReconnectBackoffFactor: 2,
+		ConnConfig: STREAMRPC_CONFIG,
 	}
 
-	rwc, err = util.NewReadWriteCloserLogger(rwc, j.Debug.Conn.ReadDump, j.Debug.Conn.WriteDump)
-	if err != nil {
-		return
-	}
-
-
-	client := RemoteEndpoint{streamrpc.NewClientOnConn(rwc, STREAMRPC_CONFIG)}
-	if j.Debug.RPC.Log {
-		// FIXME implement support
-		// client.SetLogger(j.task.Log(), true)
-	}
+	client, err := streamrpc.NewClient(connecter, clientConf)
+	defer client.Close()
 
 	j.task.Enter("pull")
+
+	sender := RemoteEndpoint{client}
 
 	puller, err := NewReceiverEndpoint(
 		j.Mapping,
@@ -161,10 +225,27 @@ func (j *PullJob) doRun(ctx context.Context) {
 	}
 
 	replicator := replication.NewIncrementalPathReplicator()
-	replication.Replicate(context.WithValue(ctx, replication.ContextKeyLog, j.task.Log()), replication.NewEndpointPairPull(client, puller), replicator)
+	ctx = context.WithValue(ctx, replication.ContextKeyLog, j.task.Log())
+	ctx = context.WithValue(ctx, streamrpc.ContextKeyLogger, j.task.Log())
+	ctx, enforceDeadline := util.ContextWithOptionalDeadline(ctx)
 
-	closeRPCWithTimeout(j.task, client, time.Second*1, "")
-	rwc.Close()
+	// Try replicating each file system regardless of j.Interval
+	// (this does not solve the underlying problem that j.Interval is too short,
+	//  but it covers the case of initial replication taking longer than all
+	//  incremental replications afterwards)
+	allTriedOnce := make(chan struct{})
+	replicationBegin := time.Now()
+	go func() {
+		select {
+		case <-allTriedOnce:
+			enforceDeadline(replicationBegin.Add(j.Interval))
+		case <-ctx.Done():
+		}
+	}()
+	replication.Replicate(ctx, replication.NewEndpointPairPull(sender, puller), replicator, allTriedOnce)
+
+
+	client.Close()
 	j.task.Finish()
 
 	j.task.Enter("prune")
@@ -200,7 +281,8 @@ func closeRPCWithTimeout(task *Task, remote RemoteEndpoint, timeout time.Duratio
 
 	ch := make(chan error)
 	go func() {
-		ch <- remote.Close()
+		remote.Close()
+		ch <- nil
 		close(ch)
 	}()
 

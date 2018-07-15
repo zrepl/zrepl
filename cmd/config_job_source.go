@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/util"
 	"github.com/problame/go-streamrpc"
+	"net"
 )
 
 type SourceJob struct {
@@ -138,7 +139,9 @@ func (j *SourceJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Pru
 
 func (j *SourceJob) serve(ctx context.Context, task *Task) {
 
-	listener, err := j.Serve.Listen()
+	//listener, err := j.Serve.Listen()
+	// FIXME
+	listener, err := net.Listen("tcp", "192.168.122.128:8888")
 	if err != nil {
 		task.Log().WithError(err).Error("error listening")
 		return
@@ -208,7 +211,7 @@ func (j *SourceJob) handleConnection(rwc io.ReadWriteCloser, task *Task) {
 
 	senderEP := NewSenderEndpoint(j.Filesystems, NewPrefixFilter(j.SnapshotPrefix))
 
-	handler := HandlerAdaptor{senderEP}
+	handler := HandlerAdaptor{senderEP, task.Log()}
 	// FIXME logging support or erase config
 	//if j.Debug.RPC.Log {
 	//	rpclog := task.Log().WithField("subsystem", "rpc")
@@ -217,35 +220,8 @@ func (j *SourceJob) handleConnection(rwc io.ReadWriteCloser, task *Task) {
 
 	if err := streamrpc.ServeConn(rwc, STREAMRPC_CONFIG, handler.Handle); err != nil {
 		task.Log().WithError(err).Error("error serving connection")
+	} else {
+		task.Log().Info("client closed connection")
 	}
 
-	// wait for client to close connection
-	// FIXME: we cannot just close it like we would to with a TCP socket because
-	// FIXME: go-nettsh's Close() may overtake the remaining data in the pipe
-	const CLIENT_HANGUP_TIMEOUT = 1 * time.Second
-	task.Log().
-		WithField("timeout", CLIENT_HANGUP_TIMEOUT).
-		Debug("waiting for client to hang up")
-
-	wchan := make(chan error)
-	go func() {
-		var pseudo [1]byte
-		_, err := io.ReadFull(rwc, pseudo[:])
-		wchan <- err
-	}()
-	var werr error
-	select {
-	case werr = <-wchan:
-		// all right
-	case <-time.After(CLIENT_HANGUP_TIMEOUT):
-		werr = errors.New("client did not close connection within timeout")
-	}
-	if werr != nil && werr != io.EOF {
-		task.Log().WithError(werr).
-			Error("error waiting for client to hang up")
-	}
-	task.Log().Info("closing client connection")
-	if err = rwc.Close(); err != nil {
-		task.Log().WithError(err).Error("error force-closing connection")
-	}
 }

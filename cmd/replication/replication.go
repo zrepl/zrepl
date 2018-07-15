@@ -3,6 +3,9 @@ package replication
 import (
 	"context"
 	"io"
+	"container/list"
+	"fmt"
+	"net"
 )
 
 type ReplicationEndpoint interface {
@@ -77,7 +80,87 @@ type Logger interface{
 	Printf(fmt string, args ... interface{})
 }
 
-func Replicate(ctx context.Context, ep EndpointPair, ipr IncrementalPathReplicator) {
+type replicationWork struct {
+	fs            *Filesystem
+}
+
+type FilesystemReplicationResult struct {
+	Done      bool
+	Retry 	  bool
+	Unfixable bool
+}
+
+func handleGenericEndpointError(err error) FilesystemReplicationResult {
+	if _, ok := err.(net.Error); ok {
+		return FilesystemReplicationResult{Retry: true}
+	}
+	return FilesystemReplicationResult{Unfixable: true}
+}
+
+func driveFSReplication(ctx context.Context, ws *list.List, allTriedOnce chan struct{}, log Logger, f func(w *replicationWork) FilesystemReplicationResult) {
+	initialLen, fCalls := ws.Len(), 0
+	for ws.Len() > 0 {
+		select {
+		case <-ctx.Done():
+			log.Printf("aborting replication due to context error: %s", ctx.Err())
+			return
+		default:
+		}
+
+		w := ws.Remove(ws.Front()).(*replicationWork)
+		res := f(w)
+		fCalls++
+		if fCalls == initialLen {
+			select {
+			case allTriedOnce <- struct{}{}:
+			default:
+			}
+		}
+		if res.Done {
+			log.Printf("finished replication of %s", w.fs.Path)
+			continue
+		}
+
+		if res.Unfixable {
+			log.Printf("aborting replication of %s after unfixable error", w.fs.Path)
+			continue
+		}
+
+		log.Printf("queuing replication of %s for retry", w.fs.Path)
+		ws.PushBack(w)
+	}
+}
+
+func resolveConflict(conflict error) (path []*FilesystemVersion, msg string) {
+	if noCommonAncestor, ok := conflict.(*ConflictNoCommonAncestor); ok {
+		if len(noCommonAncestor.SortedReceiverVersions) == 0 {
+			// FIXME hard-coded replication policy: most recent
+			// snapshot as source
+			var mostRecentSnap *FilesystemVersion
+			for n := len(noCommonAncestor.SortedSenderVersions) -1; n >= 0; n-- {
+				if noCommonAncestor.SortedSenderVersions[n].Type == FilesystemVersion_Snapshot {
+					mostRecentSnap = noCommonAncestor.SortedSenderVersions[n]
+					break
+				}
+			}
+			if mostRecentSnap == nil {
+				return nil, "no snapshots available on sender side"
+			}
+			return []*FilesystemVersion{mostRecentSnap}, fmt.Sprintf("start replication at most recent snapshot %s", mostRecentSnap)
+		}
+	}
+	return nil, "no automated way to handle conflict type"
+}
+
+// Replicate replicates filesystems from ep.Sender() to ep.Receiver().
+//
+// All filesystems presented by the sending side are replicated,
+// unless the receiver rejects a Receive request with a *FilteredError.
+//
+// If an error occurs when replicating a filesystem, that error is logged to the logger in ctx.
+// Replicate continues with the replication of the remaining file systems.
+// Depending on the type of error, failed replications are retried in an unspecified order (currently FIFO).
+func Replicate(ctx context.Context, ep EndpointPair, ipr IncrementalPathReplicator, allTriedOnce chan struct{}) {
 
 	log := ctx.Value(ContextKeyLog).(Logger)
 
@@ -93,18 +176,27 @@ func Replicate(ctx context.Context, ep EndpointPair, ipr IncrementalPathReplicat
 		return
 	}
 
+	wq := list.New()
 	for _, fs := range sfss {
+		wq.PushBack(&replicationWork{
+			fs:            fs,
+		})
+	}
+
+	driveFSReplication(ctx, wq, allTriedOnce, log, func(w *replicationWork) FilesystemReplicationResult {
+		fs := w.fs
+
 		log.Printf("replicating %s", fs.Path)
 
 		sfsvs, err := ep.Sender().ListFilesystemVersions(ctx, fs.Path)
 		if err != nil {
-			log.Printf("sender error %s", err)
-			continue
+			log.Printf("cannot get remote filesystem versions: %s", err)
+			return handleGenericEndpointError(err)
 		}
 
 		if len(sfsvs) <= 1 {
 			log.Printf("sender does not have any versions")
-			continue
+			return FilesystemReplicationResult{Unfixable: true}
 		}
 
 		receiverFSExists := false
@@ -118,47 +210,35 @@ func Replicate(ctx context.Context, ep EndpointPair, ipr IncrementalPathReplicat
 		if receiverFSExists {
 			rfsvs, err = ep.Receiver().ListFilesystemVersions(ctx, fs.Path)
 			if err != nil {
-				log.Printf("receiver error %s", err)
 				if _, ok := err.(FilteredError); ok {
-					// Remote does not map filesystem, don't try to tx it
-					continue
+					log.Printf("receiver does not map %s", fs.Path)
+					return FilesystemReplicationResult{Done: true}
 				}
-				// log and ignore
-				continue
+				log.Printf("receiver error %s", err)
+				return handleGenericEndpointError(err)
 			}
 		} else {
 			rfsvs = []*FilesystemVersion{}
 		}
 
 		path, conflict := IncrementalPath(rfsvs, sfsvs)
-		if noCommonAncestor, ok := conflict.(*ConflictNoCommonAncestor); ok {
-			if len(noCommonAncestor.SortedReceiverVersions) == 0 {
-				log.Printf("initial replication")
-				// FIXME hard-coded replication policy: most recent
-				// snapshot as source
-				var mostRecentSnap *FilesystemVersion
-				for n := len(sfsvs) -1; n >= 0; n-- {
-					if sfsvs[n].Type == FilesystemVersion_Snapshot {
-						mostRecentSnap = sfsvs[n]
-						break
-					}
-				}
-				if mostRecentSnap == nil {
-					log.Printf("no snapshot on sender side")
-					continue
-				}
-				log.Printf("starting at most recent snapshot %s", mostRecentSnap)
-				path = []*FilesystemVersion{mostRecentSnap}
+		if conflict != nil {
+			log.Printf("conflict: %s", conflict)
+			var msg string
+			path, msg = resolveConflict(conflict)
+			if path != nil {
+				log.Printf("conflict resolved: %s", msg)
+			} else {
+				log.Printf("%s", msg)
 			}
-		} else if conflict != nil {
-			log.Printf("unresolvable conflict: %s", conflict)
-			// handle or ignore for now
-			continue
+		}
+		if path == nil {
+			return FilesystemReplicationResult{Unfixable: true}
 		}
 
-		ipr.Replicate(ctx, ep.Sender(), ep.Receiver(), NewCopier(), fs, path)
+		return ipr.Replicate(ctx, ep.Sender(), ep.Receiver(), NewCopier(), fs, path)
 
-	}
+	})
 
 }
 
@@ -185,7 +265,7 @@ func NewCopier() Copier {
 }
 
 type IncrementalPathReplicator interface {
-	Replicate(ctx context.Context, sender Sender, receiver Receiver, copier Copier, fs *Filesystem, path []*FilesystemVersion)
+	Replicate(ctx context.Context, sender Sender, receiver Receiver, copier Copier, fs *Filesystem, path []*FilesystemVersion) FilesystemReplicationResult
 }
 
 type incrementalPathReplicator struct{}
@@ -194,14 +274,13 @@ func NewIncrementalPathReplicator() IncrementalPathReplicator {
 	return incrementalPathReplicator{}
 }
 
-func (incrementalPathReplicator) Replicate(ctx context.Context, sender Sender, receiver Receiver, copier Copier, fs *Filesystem, path []*FilesystemVersion) {
+func (incrementalPathReplicator) Replicate(ctx context.Context, sender Sender, receiver Receiver, copier Copier, fs *Filesystem, path []*FilesystemVersion) FilesystemReplicationResult {
 
 	log := ctx.Value(ContextKeyLog).(Logger)
 
 	if len(path) == 0 {
 		log.Printf("nothing to do")
-		// nothing to do
-		return
+		return FilesystemReplicationResult{Done: true}
 	}
 
 	if len(path) == 1 {
@@ -215,8 +294,7 @@ func (incrementalPathReplicator) Replicate(ctx context.Context, sender Sender, r
 		sres, sstream, err := sender.Send(ctx, sr)
 		if err != nil {
 			log.Printf("send request failed: %s", err)
-			// FIXME must close connection...
-			return
+			return handleGenericEndpointError(err)
 		}
 
 		rr := &ReceiveReq{
@@ -225,20 +303,19 @@ func (incrementalPathReplicator) Replicate(ctx context.Context, sender Sender, r
 		}
 		err = receiver.Receive(ctx, rr, sstream)
 		if err != nil {
-			// FIXME this failure could be due to an unexpected exit of ZFS on the sending side
-			// FIXME  which is transported through the streamrpc protocol, and known to the sendStream.(*streamrpc.streamReader),
-			// FIXME  but the io.Reader interface design doesn not allow us to infer that it is a *streamrpc.streamReader right now
-			log.Printf("receive request failed (might also be error on sender...): %s", err)
-			// FIXME must close connection
-			return
+			log.Printf("receive request failed (might also be error on sender): %s", err)
+			sstream.Close()
+			// This failure could be due to
+			// 	- an unexpected exit of ZFS on the sending side
+			//  - an unexpected exit of ZFS on the receiving side
+			//  - a connectivity issue
+			return handleGenericEndpointError(err)
 		}
-
-		return
+		return FilesystemReplicationResult{Done: true}
 	}
 
 	usedResumeToken := false
 
-incrementalLoop:
 	for j := 0; j < len(path)-1; j++ {
 		rt := ""
 		if !usedResumeToken { // only send resume token for first increment
@@ -254,8 +331,7 @@ incrementalLoop:
 		sres, sstream, err := sender.Send(ctx, sr)
 		if err != nil {
 			log.Printf("send request failed: %s", err)
-			// handle and ignore
-			break incrementalLoop
+			return handleGenericEndpointError(err)
 		}
 		// try to consume stream
 
@@ -266,10 +342,11 @@ incrementalLoop:
 		err = receiver.Receive(ctx, rr, sstream)
 		if err != nil {
 			log.Printf("receive request failed: %s", err)
-			// handle and ignore
-			break incrementalLoop
+			return handleGenericEndpointError(err) // FIXME resume state on receiver -> update ResumeToken
 		}
 
 		// FIXME handle properties from sres
 	}
+
+	return FilesystemReplicationResult{Done: true}
 }
