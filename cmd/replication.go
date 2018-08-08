@@ -325,9 +325,8 @@ type HandlerAdaptor struct {
 	log Logger
 }
 
-func (a *HandlerAdaptor) Handle(endpoint string, reqStructured *bytes.Buffer, reqStream io.ReadCloser) (resStructured *bytes.Buffer, resStream io.ReadCloser, err error) {
+func (a *HandlerAdaptor) Handle(ctx context.Context, endpoint string, reqStructured *bytes.Buffer, reqStream io.ReadCloser) (resStructured *bytes.Buffer, resStream io.ReadCloser, err error) {
 
-	ctx := context.Background()
 	if a.log != nil {
 		// FIXME validate type conversion here?
 		ctx = context.WithValue(ctx, streamrpc.ContextKeyLogger, a.log)

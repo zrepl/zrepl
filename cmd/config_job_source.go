@@ -219,7 +219,7 @@ func (j *SourceJob) handleConnection(conn net.Conn, task *Task) {
 	//	rpcServer.SetLogger(rpclog, true)
 	//}
 
-	if err := streamrpc.ServeConn(rwc, STREAMRPC_CONFIG, handler.Handle); err != nil {
+	if err := streamrpc.ServeConn(context.TODO(), conn, STREAMRPC_CONFIG, handler.Handle); err != nil {
 		task.Log().WithError(err).Error("error serving connection")
 	} else {
 		task.Log().Info("client closed connection")

@@ -10,8 +10,6 @@ import (
 	"github.com/zrepl/zrepl/util"
 	"github.com/zrepl/zrepl/cmd/replication"
 	"github.com/problame/go-streamrpc"
-	"io"
-	"net"
 )
 
 type PullJob struct {
