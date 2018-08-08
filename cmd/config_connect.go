@@ -2,13 +2,14 @@ package cmd
 
 import (
 	"fmt"
-	"io"
+	"net"
 
 	"context"
 	"github.com/jinzhu/copier"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/problame/go-netssh"
+	"github.com/problame/go-streamrpc"
 	"time"
 )
 
@@ -23,6 +24,8 @@ type SSHStdinserverConnecter struct {
 	DialTimeout          string `mapstructure:"dial_timeout"`
 	dialTimeout          time.Duration
 }
+
+var _ streamrpc.Connecter = &SSHStdinserverConnecter{}
 
 func parseSSHStdinserverConnecter(i map[string]interface{}) (c *SSHStdinserverConnecter, err error) {
 
@@ -46,21 +49,28 @@ func parseSSHStdinserverConnecter(i map[string]interface{}) (c *SSHStdinserverCo
 
 }
 
-func (c *SSHStdinserverConnecter) Connect() (rwc io.ReadWriteCloser, err error) {
+type netsshConnToConn struct { *netssh.SSHConn }
+
+var _ net.Conn = netsshConnToConn{}
+
+func (netsshConnToConn) SetDeadline(dl time.Time) error { return nil }
+func (netsshConnToConn) SetReadDeadline(dl time.Time) error { return nil }
+func (netsshConnToConn) SetWriteDeadline(dl time.Time) error { return nil }
+
+func (c *SSHStdinserverConnecter) Connect(dialCtx context.Context) (net.Conn, error) {
 
 	var endpoint netssh.Endpoint
-	if err = copier.Copy(&endpoint, c); err != nil {
+	if err := copier.Copy(&endpoint, c); err != nil {
 		return nil, errors.WithStack(err)
 	}
-	var dialCtx context.Context
-	dialCtx, dialCancel := context.WithTimeout(context.TODO(), c.dialTimeout) // context.TODO tied to error handling below
+	dialCtx, dialCancel := context.WithTimeout(dialCtx, c.dialTimeout) // context.TODO tied to error handling below
 	defer dialCancel()
-	if rwc, err = netssh.Dial(dialCtx, endpoint); err != nil {
+	nconn, err := netssh.Dial(dialCtx, endpoint)
+	if err != nil {
 		if err == context.DeadlineExceeded {
 			err = errors.Errorf("dial_timeout of %s exceeded", c.dialTimeout)
 		}
-		err = errors.WithStack(err)
-		return
+		return nil, err
 	}
-	return
+	return netsshConnToConn{nconn}, nil
 }

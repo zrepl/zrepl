@@ -2,19 +2,17 @@ package cmd
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/util"
 	"github.com/problame/go-streamrpc"
 	"net"
 )
 
 type SourceJob struct {
 	Name           string
-	Serve          AuthenticatedChannelListenerFactory
+	Serve          ListenerFactory
 	Filesystems    *DatasetMapFilter
 	SnapshotPrefix string
 	Interval       time.Duration
@@ -68,6 +66,15 @@ func parseSourceJob(c JobParsingContext, name string, i map[string]interface{}) 
 	if err = mapstructure.Decode(asMap.Debug, &j.Debug); err != nil {
 		err = errors.Wrap(err, "cannot parse 'debug'")
 		return
+	}
+
+	if j.Debug.Conn.ReadDump != "" || j.Debug.Conn.WriteDump != "" {
+		logServe := logListenerFactory{
+			ListenerFactory: j.Serve,
+			ReadDump: j.Debug.Conn.ReadDump,
+			WriteDump: j.Debug.Conn.WriteDump,
+		}
+		j.Serve = logServe
 	}
 
 	return
@@ -139,19 +146,17 @@ func (j *SourceJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Pru
 
 func (j *SourceJob) serve(ctx context.Context, task *Task) {
 
-	//listener, err := j.Serve.Listen()
-	// FIXME
-	listener, err := net.Listen("tcp", "192.168.122.128:8888")
+	listener, err := j.Serve.Listen()
 	if err != nil {
 		task.Log().WithError(err).Error("error listening")
 		return
 	}
 
-	type rwcChanMsg struct {
-		rwc io.ReadWriteCloser
-		err error
+	type connChanMsg struct {
+		conn net.Conn
+		err  error
 	}
-	rwcChan := make(chan rwcChanMsg)
+	connChan := make(chan connChanMsg)
 
 	// Serve connections until interrupted or error
 outer:
@@ -160,23 +165,23 @@ outer:
 		go func() {
 			rwc, err := listener.Accept()
 			if err != nil {
-				rwcChan <- rwcChanMsg{rwc, err}
-				close(rwcChan)
+				connChan <- connChanMsg{rwc, err}
+				close(connChan)
 				return
 			}
-			rwcChan <- rwcChanMsg{rwc, err}
+			connChan <- connChanMsg{rwc, err}
 		}()
 
 		select {
 
-		case rwcMsg := <-rwcChan:
+		case rwcMsg := <-connChan:
 
 			if rwcMsg.err != nil {
 				task.Log().WithError(err).Error("error accepting connection")
 				break outer
 			}
 
-			j.handleConnection(rwcMsg.rwc, task)
+			j.handleConnection(rwcMsg.conn, task)
 
 		case <-ctx.Done():
 			task.Log().WithError(ctx.Err()).Info("context")
@@ -197,17 +202,13 @@ outer:
 
 }
 
-func (j *SourceJob) handleConnection(rwc io.ReadWriteCloser, task *Task) {
+func (j *SourceJob) handleConnection(conn net.Conn, task *Task) {
 
 	task.Enter("handle_connection")
 	defer task.Finish()
 
 	task.Log().Info("handling client connection")
 
-	rwc, err := util.NewReadWriteCloserLogger(rwc, j.Debug.Conn.ReadDump, j.Debug.Conn.WriteDump)
-	if err != nil {
-		panic(err)
-	}
 
 	senderEP := NewSenderEndpoint(j.Filesystems, NewPrefixFilter(j.SnapshotPrefix))
 

@@ -4,7 +4,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/problame/go-netssh"
-	"io"
+	"net"
 	"path"
 )
 
@@ -30,9 +30,9 @@ func parseStdinserverListenerFactory(c JobParsingContext, i map[string]interface
 	return
 }
 
-func (f *StdinserverListenerFactory) Listen() (al AuthenticatedChannelListener, err error) {
+func (f *StdinserverListenerFactory) Listen() (net.Listener, error) {
 
-	if err = PreparePrivateSockpath(f.sockpath); err != nil {
+	if err := PreparePrivateSockpath(f.sockpath); err != nil {
 		return nil, err
 	}
 
@@ -47,8 +47,16 @@ type StdinserverListener struct {
 	l *netssh.Listener
 }
 
-func (l StdinserverListener) Accept() (ch io.ReadWriteCloser, err error) {
-	return l.l.Accept()
+func (l StdinserverListener) Addr() net.Addr {
+	return netsshAddr{}
+}
+
+func (l StdinserverListener) Accept() (net.Conn, error) {
+	c, err := l.l.Accept()
+	if err != nil {
+		return nil, err
+	}
+	return netsshConnToNetConnAdatper{c}, nil
 }
 
 func (l StdinserverListener) Close() (err error) {

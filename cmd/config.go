@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"io"
+	"net"
 
 	"fmt"
 	"github.com/pkg/errors"
@@ -43,16 +43,8 @@ type JobDebugSettings struct {
 	}
 }
 
-type RWCConnecter interface {
-	Connect() (io.ReadWriteCloser, error)
-}
-type AuthenticatedChannelListenerFactory interface {
-	Listen() (AuthenticatedChannelListener, error)
-}
-
-type AuthenticatedChannelListener interface {
-	Accept() (ch io.ReadWriteCloser, err error)
-	Close() (err error)
+type ListenerFactory interface {
+	Listen() (net.Listener, error)
 }
 
 type SSHStdinServerConnectDescr struct {

@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+	"github.com/problame/go-streamrpc"
 )
 
 var ConfigFileDefaultLocations []string = []string{
@@ -208,7 +209,7 @@ func parseJob(c JobParsingContext, i map[string]interface{}) (j Job, err error) 
 
 }
 
-func parseConnect(i map[string]interface{}) (c RWCConnecter, err error) {
+func parseConnect(i map[string]interface{}) (c streamrpc.Connecter, err error) {
 
 	t, err := extractStringField(i, "type", true)
 	if err != nil {
@@ -266,7 +267,7 @@ func parsePrunePolicy(v map[string]interface{}, willSeeBookmarks bool) (p PruneP
 	}
 }
 
-func parseAuthenticatedChannelListenerFactory(c JobParsingContext, v map[string]interface{}) (p AuthenticatedChannelListenerFactory, err error) {
+func parseAuthenticatedChannelListenerFactory(c JobParsingContext, v map[string]interface{}) (p ListenerFactory, err error) {
 
 	t, err := extractStringField(v, "type", true)
 	if err != nil {

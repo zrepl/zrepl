@@ -16,7 +16,7 @@ import (
 
 type PullJob struct {
 	Name     string
-	Connect  RWCConnecter
+	Connect  streamrpc.Connecter
 	Interval time.Duration
 	Mapping  *DatasetMapFilter
 	// constructed from mapping during parsing
@@ -90,6 +90,15 @@ func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j
 		return
 	}
 
+	if j.Debug.Conn.ReadDump != "" || j.Debug.Conn.WriteDump != "" {
+		logConnecter := logNetConnConnecter{
+			Connecter: j.Connect,
+			ReadDump: j.Debug.Conn.ReadDump,
+			WriteDump: j.Debug.Conn.WriteDump,
+		}
+		j.Connect = logConnecter
+	}
+
 	return
 }
 
@@ -132,56 +141,12 @@ var STREAMRPC_CONFIG = &streamrpc.ConnConfig{ // FIXME oversight and configurabi
 	RxStructuredMaxLen: 4096 * 4096,
 	RxStreamMaxChunkSize: 4096 * 4096,
 	TxChunkSize: 4096 * 4096,
-}
-
-type streamrpcRWCToNetConnAdatper struct {
-	io.ReadWriteCloser
-}
-
-func (streamrpcRWCToNetConnAdatper) LocalAddr() net.Addr {
-	panic("implement me")
-}
-
-func (streamrpcRWCToNetConnAdatper) RemoteAddr() net.Addr {
-	panic("implement me")
-}
-
-func (streamrpcRWCToNetConnAdatper) SetDeadline(t time.Time) error {
-	panic("implement me")
-}
-
-func (streamrpcRWCToNetConnAdatper) SetReadDeadline(t time.Time) error {
-	panic("implement me")
-}
-
-func (streamrpcRWCToNetConnAdatper) SetWriteDeadline(t time.Time) error {
-	panic("implement me")
-}
-
-type streamrpcRWCConnecterToNetConnAdapter struct {
-	RWCConnecter
-	ReadDump, WriteDump string
-}
-
-func (s streamrpcRWCConnecterToNetConnAdapter) Connect(ctx context.Context) (net.Conn, error) {
-	rwc, err := s.RWCConnecter.Connect()
-	if err != nil {
-		return nil, err
-	}
-	rwc, err = util.NewReadWriteCloserLogger(rwc, s.ReadDump, s.WriteDump)
-	if err != nil {
-		rwc.Close()
-		return nil, err
-	}
-	return streamrpcRWCToNetConnAdatper{rwc}, nil
-}
-
-type tcpConnecter struct {
-	d net.Dialer
-}
-
-func (t *tcpConnecter) Connect(ctx context.Context) (net.Conn, error) {
-	return t.d.DialContext(ctx, "tcp", "192.168.122.128:8888")
+	RxTimeout: streamrpc.Timeout{
+		Progress: 10*time.Second,
+	},
+	TxTimeout: streamrpc.Timeout{
+		Progress: 10*time.Second,
+	},
 }
 
 func (j *PullJob) doRun(ctx context.Context) {
@@ -189,25 +154,12 @@ func (j *PullJob) doRun(ctx context.Context) {
 	j.task.Enter("run")
 	defer j.task.Finish()
 
-	//connecter := streamrpcRWCConnecterToNetConnAdapter{
-	//	RWCConnecter: j.Connect,
-	//	ReadDump: j.Debug.Conn.ReadDump,
-	//	WriteDump: j.Debug.Conn.WriteDump,
-	//}
-
 	// FIXME
-	connecter := &tcpConnecter{net.Dialer{
-		Timeout: 2*time.Second,
-	}}
-
 	clientConf := &streamrpc.ClientConfig{
-		MaxConnectAttempts: 5, // FIXME
-		ReconnectBackoffBase: 1*time.Second,
-		ReconnectBackoffFactor: 2,
 		ConnConfig: STREAMRPC_CONFIG,
 	}
 
-	client, err := streamrpc.NewClient(connecter, clientConf)
+	client, err := streamrpc.NewClient(j.Connect, clientConf)
 	defer client.Close()
 
 	j.task.Enter("pull")

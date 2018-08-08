@@ -2,18 +2,19 @@ package util
 
 import (
 	"io"
+	"net"
 	"os"
 )
 
-type ReadWriteCloserLogger struct {
-	RWC       io.ReadWriteCloser
+type NetConnLogger struct {
+	net.Conn
 	ReadFile  *os.File
 	WriteFile *os.File
 }
 
-func NewReadWriteCloserLogger(rwc io.ReadWriteCloser, readlog, writelog string) (l *ReadWriteCloserLogger, err error) {
-	l = &ReadWriteCloserLogger{
-		RWC: rwc,
+func NewNetConnLogger(conn net.Conn, readlog, writelog string) (l *NetConnLogger, err error) {
+	l = &NetConnLogger{
+        Conn: conn,
 	}
 	flags := os.O_CREATE | os.O_WRONLY
 	if readlog != "" {
@@ -29,8 +30,8 @@ func NewReadWriteCloserLogger(rwc io.ReadWriteCloser, readlog, writelog string) 
 	return
 }
 
-func (c *ReadWriteCloserLogger) Read(buf []byte) (n int, err error) {
-	n, err = c.RWC.Read(buf)
+func (c *NetConnLogger) Read(buf []byte) (n int, err error) {
+	n, err = c.Conn.Read(buf)
 	if c.WriteFile != nil {
 		if _, writeErr := c.ReadFile.Write(buf[0:n]); writeErr != nil {
 			panic(writeErr)
@@ -39,8 +40,8 @@ func (c *ReadWriteCloserLogger) Read(buf []byte) (n int, err error) {
 	return
 }
 
-func (c *ReadWriteCloserLogger) Write(buf []byte) (n int, err error) {
-	n, err = c.RWC.Write(buf)
+func (c *NetConnLogger) Write(buf []byte) (n int, err error) {
+	n, err = c.Conn.Write(buf)
 	if c.ReadFile != nil {
 		if _, writeErr := c.WriteFile.Write(buf[0:n]); writeErr != nil {
 			panic(writeErr)
@@ -48,8 +49,8 @@ func (c *ReadWriteCloserLogger) Write(buf []byte) (n int, err error) {
 	}
 	return
 }
-func (c *ReadWriteCloserLogger) Close() (err error) {
-	err = c.RWC.Close()
+func (c *NetConnLogger) Close() (err error) {
+	err = c.Conn.Close()
 	if err != nil {
 		return
 	}
