@@ -71,8 +71,8 @@ func parseSourceJob(c JobParsingContext, name string, i map[string]interface{}) 
 	if j.Debug.Conn.ReadDump != "" || j.Debug.Conn.WriteDump != "" {
 		logServe := logListenerFactory{
 			ListenerFactory: j.Serve,
-			ReadDump: j.Debug.Conn.ReadDump,
-			WriteDump: j.Debug.Conn.WriteDump,
+			ReadDump:        j.Debug.Conn.ReadDump,
+			WriteDump:       j.Debug.Conn.WriteDump,
 		}
 		j.Serve = logServe
 	}
@@ -209,17 +209,13 @@ func (j *SourceJob) handleConnection(conn net.Conn, task *Task) {
 
 	task.Log().Info("handling client connection")
 
-
 	senderEP := NewSenderEndpoint(j.Filesystems, NewPrefixFilter(j.SnapshotPrefix))
 
-	handler := HandlerAdaptor{senderEP, task.Log()}
-	// FIXME logging support or erase config
-	//if j.Debug.RPC.Log {
-	//	rpclog := task.Log().WithField("subsystem", "rpc")
-	//	rpcServer.SetLogger(rpclog, true)
-	//}
-
-	if err := streamrpc.ServeConn(context.TODO(), conn, STREAMRPC_CONFIG, handler.Handle); err != nil {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, contextKeyLog, task.Log().WithField("subsystem", "rpc.endpoint"))
+	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{task.Log().WithField("subsystem", "rpc.protocol")})
+	handler := HandlerAdaptor{senderEP}
+	if err := streamrpc.ServeConn(ctx, conn, STREAMRPC_CONFIG, handler.Handle); err != nil {
 		task.Log().WithError(err).Error("error serving connection")
 	} else {
 		task.Log().Info("client closed connection")

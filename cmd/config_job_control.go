@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"github.com/zrepl/zrepl/logger"
 )
 
 type ControlJob struct {
@@ -126,7 +127,7 @@ func (j jsonResponder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type requestLogger struct {
-	log         Logger
+	log         logger.Logger
 	handler     http.Handler
 	handlerFunc http.HandlerFunc
 }

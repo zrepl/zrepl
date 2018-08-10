@@ -25,6 +25,7 @@ const (
 	logJobField     string = "job"
 	logTaskField    string = "task"
 	logFSField      string = "filesystem"
+	logSubsysField  string = "subsystem"
 	logMapFromField string = "map_from"
 	logMapToField   string = "map_to"
 	logIncFromField string = "inc_from"
@@ -77,7 +78,7 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 		fmt.Fprintf(&line, "[%s]", e.Level.Short())
 	}
 
-	prefixFields := []string{logJobField, logTaskField, logFSField}
+	prefixFields := []string{logJobField, logTaskField, logSubsysField}
 	prefixed := make(map[string]bool, len(prefixFields)+2)
 	for _, field := range prefixFields {
 		val, ok := e.Fields[field].(string)
@@ -91,18 +92,18 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 		}
 	}
 	// even more prefix fields
-	mapFrom, mapFromOk := e.Fields[logMapFromField].(string)
-	mapTo, mapToOk := e.Fields[logMapToField].(string)
-	if mapFromOk && mapToOk && !f.ignored(logMapFromField) && !f.ignored(logMapToField) {
-		fmt.Fprintf(&line, "[%s => %s]", mapFrom, mapTo)
-		prefixed[logMapFromField], prefixed[logMapToField] = true, true
-	}
-	incFrom, incFromOk := e.Fields[logIncFromField].(string)
-	incTo, incToOk := e.Fields[logIncToField].(string)
-	if incFromOk && incToOk && !f.ignored(logIncFromField) && !f.ignored(logMapToField) {
-		fmt.Fprintf(&line, "[%s => %s]", incFrom, incTo)
-		prefixed[logIncFromField], prefixed[logIncToField] = true, true
-	}
+	//mapFrom, mapFromOk := e.Fields[logMapFromField].(string)
+	//mapTo, mapToOk := e.Fields[logMapToField].(string)
+	//if mapFromOk && mapToOk && !f.ignored(logMapFromField) && !f.ignored(logMapToField) {
+	//	fmt.Fprintf(&line, "[%s => %s]", mapFrom, mapTo)
+	//	prefixed[logMapFromField], prefixed[logMapToField] = true, true
+	//}
+	//incFrom, incFromOk := e.Fields[logIncFromField].(string)
+	//incTo, incToOk := e.Fields[logIncToField].(string)
+	//if incFromOk && incToOk && !f.ignored(logIncFromField) && !f.ignored(logMapToField) {
+	//	fmt.Fprintf(&line, "[%s => %s]", incFrom, incTo)
+	//	prefixed[logIncFromField], prefixed[logIncToField] = true, true
+	//}
 
 	if line.Len() > 0 {
 		fmt.Fprint(&line, ": ")
@@ -179,7 +180,7 @@ func (f *LogfmtFormatter) Format(e *logger.Entry) ([]byte, error) {
 
 	// at least try and put job and task in front
 	prefixed := make(map[string]bool, 2)
-	prefix := []string{logJobField, logTaskField}
+	prefix := []string{logJobField, logTaskField, logSubsysField}
 	for _, pf := range prefix {
 		v, ok := e.Fields[pf]
 		if !ok {

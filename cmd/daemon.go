@@ -9,7 +9,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"strings"
+	//"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -87,6 +87,10 @@ const (
 	contextKeyLog    contextKey = contextKey("log")
 	contextKeyDaemon contextKey = contextKey("daemon")
 )
+
+func getLogger(ctx context.Context) Logger {
+	return ctx.Value(contextKeyLog).(Logger)
+}
 
 type Daemon struct {
 	conf      *Config
@@ -276,7 +280,7 @@ func (p *taskProgress) Read() (out taskProgress) {
 type taskActivity struct {
 	name   string
 	idle   bool
-	logger *logger.Logger
+	logger logger.Logger
 	// The progress of the task that is updated by UpdateIO() and UpdateLogEntry()
 	//
 	// Progress happens on a task-level and is thus global to the task.
@@ -285,7 +289,7 @@ type taskActivity struct {
 	progress *taskProgress
 }
 
-func NewTask(name string, parent Job, lg *logger.Logger) *Task {
+func NewTask(name string, parent Job, lg logger.Logger) *Task {
 	t := &Task{
 		name:       name,
 		parent:     parent,
@@ -336,9 +340,10 @@ func (t *Task) Enter(activity string) {
 	}
 	act := &taskActivity{activity, false, nil, prev.progress}
 	t.activities.PushFront(act)
-	stack := t.buildActivityStack()
-	activityField := strings.Join(stack, ".")
-	act.logger = prev.logger.ReplaceField(logTaskField, activityField)
+	//stack := t.buildActivityStack()
+	//activityField := strings.Join(stack, ".")
+	act.logger = prev.logger
+	//	act.logger = prev.logger.ReplaceField(logTaskField, activityField)
 
 	t.activitiesLastUpdate = time.Now()
 }
@@ -425,7 +430,7 @@ func (t *Task) Finish() {
 
 // Returns a logger derived from the logger passed to the constructor function.
 // The logger's task field contains the current activity stack joined by '.'.
-func (t *Task) Log() *logger.Logger {
+func (t *Task) Log() logger.Logger {
 	t.rwl.RLock()
 	defer t.rwl.RUnlock()
 	// FIXME should influence TaskStatus's LastUpdate field

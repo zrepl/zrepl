@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/golang/protobuf/proto"
 	"bytes"
-	"os"
 	"context"
 )
 
@@ -71,7 +70,6 @@ func (p *SenderEndpoint) ListFilesystemVersions(ctx context.Context, fs string) 
 }
 
 func (p *SenderEndpoint) Send(ctx context.Context, r *replication.SendReq) (*replication.SendRes, io.ReadCloser, error) {
-	os.Stderr.WriteString("sending " + r.String() + "\n")
 	dp, err := zfs.NewDatasetPath(r.Filesystem)
 	if err != nil {
 		return nil, nil, err
@@ -175,23 +173,27 @@ func (e *ReceiverEndpoint) Receive(ctx context.Context, req *replication.Receive
 	var visitErr error
 	f := zfs.NewDatasetPathForest()
 	f.Add(lp)
+	getLogger(ctx).Debug("begin tree-walk")
 	f.WalkTopDown(func(v zfs.DatasetPathVisit) (visitChildTree bool) {
 		if v.Path.Equal(lp) {
 			return false
 		}
 		_, err := zfs.ZFSGet(v.Path, []string{zfs.ZREPL_PLACEHOLDER_PROPERTY_NAME})
 		if err != nil {
-			os.Stderr.WriteString("error zfsget " + err.Error() + "\n")
 			// interpret this as an early exit of the zfs binary due to the fs not existing
 			if err := zfs.ZFSCreatePlaceholderFilesystem(v.Path); err != nil {
-				os.Stderr.WriteString("error creating placeholder " + v.Path.ToString() + "\n")
+				getLogger(ctx).
+					WithError(err).
+					WithField("placeholder_fs", v.Path).
+					Error("cannot create placeholder filesystem")
 				visitErr = err
 				return false
 			}
 		}
-		os.Stderr.WriteString(v.Path.ToString() + " exists\n")
+		getLogger(ctx).WithField("filesystem", v.Path.ToString()).Debug("exists")
 		return true // leave this fs as is
 	})
+	getLogger(ctx).WithField("visitErr", visitErr).Debug("complete tree-walk")
 
 	if visitErr != nil {
 		return visitErr
@@ -210,7 +212,7 @@ func (e *ReceiverEndpoint) Receive(ctx context.Context, req *replication.Receive
 		args = append(args, "-F")
 	}
 
-	os.Stderr.WriteString("receiving...\n")
+	getLogger(ctx).Debug("start receive command")
 
 	if err := zfs.ZFSRecv(lp.ToString(), sendStream, args...); err != nil {
 		return err
@@ -322,15 +324,9 @@ func (s RemoteEndpoint)	Receive(ctx context.Context, r *replication.ReceiveReq, 
 
 type HandlerAdaptor struct {
 	ep replication.ReplicationEndpoint
-	log Logger
 }
 
 func (a *HandlerAdaptor) Handle(ctx context.Context, endpoint string, reqStructured *bytes.Buffer, reqStream io.ReadCloser) (resStructured *bytes.Buffer, resStream io.ReadCloser, err error) {
-
-	if a.log != nil {
-		// FIXME validate type conversion here?
-		ctx = context.WithValue(ctx, streamrpc.ContextKeyLogger, a.log)
-	}
 
 	switch endpoint {
 	case RPCListFilesystems:

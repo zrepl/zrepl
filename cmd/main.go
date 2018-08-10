@@ -24,7 +24,7 @@ var (
 	zreplVersion string // set by build infrastructure
 )
 
-type Logger = *logger.Logger
+type Logger = logger.Logger
 
 var RootCmd = &cobra.Command{
 	Use:   "zrepl",

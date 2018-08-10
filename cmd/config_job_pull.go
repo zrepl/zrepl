@@ -1,15 +1,18 @@
 package cmd
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"context"
 	"fmt"
+
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/util"
-	"github.com/zrepl/zrepl/cmd/replication"
 	"github.com/problame/go-streamrpc"
+	"github.com/zrepl/zrepl/cmd/replication"
 )
 
 type PullJob struct {
@@ -91,7 +94,7 @@ func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j
 	if j.Debug.Conn.ReadDump != "" || j.Debug.Conn.WriteDump != "" {
 		logConnecter := logNetConnConnecter{
 			Connecter: j.Connect,
-			ReadDump: j.Debug.Conn.ReadDump,
+			ReadDump:  j.Debug.Conn.ReadDump,
 			WriteDump: j.Debug.Conn.WriteDump,
 		}
 		j.Connect = logConnecter
@@ -113,6 +116,9 @@ func (j *PullJob) JobStart(ctx context.Context) {
 	j.task = NewTask("main", j, log)
 
 	// j.task is idle here idle here
+	usr1 := make(chan os.Signal)
+	signal.Notify(usr1, syscall.SIGUSR1)
+	defer signal.Stop(usr1)
 
 	ticker := time.NewTicker(j.Interval)
 	for {
@@ -130,22 +136,24 @@ func (j *PullJob) JobStart(ctx context.Context) {
 			j.task.Log().WithError(ctx.Err()).Info("context")
 			return
 		case <-ticker.C:
+		case <-usr1:
 		}
 	}
 }
 
 var STREAMRPC_CONFIG = &streamrpc.ConnConfig{ // FIXME oversight and configurability
-	RxHeaderMaxLen: 4096,
-	RxStructuredMaxLen: 4096 * 4096,
+	RxHeaderMaxLen:       4096,
+	RxStructuredMaxLen:   4096 * 4096,
 	RxStreamMaxChunkSize: 4096 * 4096,
-	TxChunkSize: 4096 * 4096,
+	TxChunkSize:          4096 * 4096,
 	RxTimeout: streamrpc.Timeout{
-		Progress: 10*time.Second,
+		Progress: 10 * time.Second,
 	},
 	TxTimeout: streamrpc.Timeout{
-		Progress: 10*time.Second,
+		Progress: 10 * time.Second,
 	},
 }
+
 
 func (j *PullJob) doRun(ctx context.Context) {
 
@@ -174,26 +182,10 @@ func (j *PullJob) doRun(ctx context.Context) {
 		return
 	}
 
-	replicator := replication.NewIncrementalPathReplicator()
-	ctx = context.WithValue(ctx, replication.ContextKeyLog, j.task.Log())
-	ctx = context.WithValue(ctx, streamrpc.ContextKeyLogger, j.task.Log())
-	ctx, enforceDeadline := util.ContextWithOptionalDeadline(ctx)
-
-	// Try replicating each file system regardless of j.Interval
-	// (this does not solve the underlying problem that j.Interval is too short,
-	//  but it covers the case of initial replication taking longer than all
-	//  incremental replications afterwards)
-	allTriedOnce := make(chan struct{})
-	replicationBegin := time.Now()
-	go func() {
-		select {
-		case <-allTriedOnce:
-			enforceDeadline(replicationBegin.Add(j.Interval))
-		case <-ctx.Done():
-		}
-	}()
-	replication.Replicate(ctx, replication.NewEndpointPairPull(sender, puller), replicator, allTriedOnce)
-
+	ctx = replication.ContextWithLogger(ctx, replicationLogAdaptor{j.task.Log().WithField("subsystem", "replication")})
+	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{j.task.Log().WithField("subsystem",     "rpc.protocol")})
+    ctx = context.WithValue(ctx, contextKeyLog, j.task.Log().WithField("subsystem",                    "rpc.endpoint"))
+	replication.Replicate(ctx, replication.NewEndpointPairPull(sender, puller))
 
 	client.Close()
 	j.task.Finish()

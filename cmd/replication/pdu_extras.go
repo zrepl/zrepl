@@ -41,6 +41,10 @@ func FilesystemVersionFromZFS(fsv zfs.FilesystemVersion) *FilesystemVersion {
 	}
 }
 
+func (v *FilesystemVersion) CreationAsTime() (time.Time, error) {
+	return time.Parse(time.RFC3339, v.Creation)
+}
+
 func (v *FilesystemVersion) ZFSFilesystemVersion() *zfs.FilesystemVersion {
 	ct := time.Time{}
 	if v.Creation != "" {
