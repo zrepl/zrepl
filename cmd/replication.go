@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/zrepl/zrepl/cmd/replication"
+	"github.com/zrepl/zrepl/cmd/replication.v2"
 	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/zfs"
 	"io"

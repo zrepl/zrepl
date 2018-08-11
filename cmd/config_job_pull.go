@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,7 +13,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
-	"github.com/zrepl/zrepl/cmd/replication"
+	"github.com/zrepl/zrepl/cmd/replication.v2"
 )
 
 type PullJob struct {
@@ -165,7 +166,10 @@ func (j *PullJob) doRun(ctx context.Context) {
 		ConnConfig: STREAMRPC_CONFIG,
 	}
 
-	client, err := streamrpc.NewClient(j.Connect, clientConf)
+	//client, err := streamrpc.NewClient(j.Connect, clientConf)
+	client, err := streamrpc.NewClient(&tcpConnecter{net.Dialer{
+		Timeout: 10*time.Second,	
+	}}, clientConf)
 	defer client.Close()
 
 	j.task.Enter("pull")
@@ -182,10 +186,26 @@ func (j *PullJob) doRun(ctx context.Context) {
 		return
 	}
 
+	usr2 := make(chan os.Signal)
+	defer close(usr2)
+	signal.Notify(usr2, syscall.SIGUSR2)
+	defer signal.Stop(usr2)
+	retryNow := make(chan struct{}, 1) // buffered so we don't leak the goroutine
+	go func() {
+		for {
+			sig := <-usr2
+			if sig != nil {
+				retryNow <- struct{}{}
+			} else {
+				break
+			}
+		}
+	}()
+
 	ctx = replication.ContextWithLogger(ctx, replicationLogAdaptor{j.task.Log().WithField("subsystem", "replication")})
 	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{j.task.Log().WithField("subsystem",     "rpc.protocol")})
     ctx = context.WithValue(ctx, contextKeyLog, j.task.Log().WithField("subsystem",                    "rpc.endpoint"))
-	replication.Replicate(ctx, replication.NewEndpointPairPull(sender, puller))
+	replication.Replicate(ctx, replication.NewEndpointPairPull(sender, puller), retryNow)
 
 	client.Close()
 	j.task.Finish()

@@ -83,18 +83,18 @@ func (m *MockIncrementalPathRecorder) Finished() bool {
 //
 //}
 
-type testLog struct {
-	t *testing.T
-}
-
-var _ replication.Logger = testLog{}
-
-func (t testLog) Infof(fmt string, args ...interface{}) {
-	t.t.Logf(fmt, args)
-}
-func (t testLog) Errorf(fmt string, args ...interface{}) {
-	t.t.Logf(fmt, args)
-}
+//type testLog struct {
+//	t *testing.T
+//}
+//
+//var _ replication.Logger = testLog{}
+//
+//func (t testLog) Infof(fmt string, args ...interface{}) {
+//	t.t.Logf(fmt, args)
+//}
+//func (t testLog) Errorf(fmt string, args ...interface{}) {
+//	t.t.Logf(fmt, args)
+//}
 
 
 //func TestIncrementalPathReplicator_Replicate(t *testing.T) {

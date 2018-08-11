@@ -146,7 +146,9 @@ func (j *SourceJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Pru
 
 func (j *SourceJob) serve(ctx context.Context, task *Task) {
 
-	listener, err := j.Serve.Listen()
+	//listener, err := j.Serve.Listen()
+
+	listener, err := net.Listen("tcp", ":8888")
 	if err != nil {
 		task.Log().WithError(err).Error("error listening")
 		return
