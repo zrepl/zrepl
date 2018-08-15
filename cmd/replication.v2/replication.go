@@ -1,10 +1,14 @@
 package replication
 
 import (
+	"os"
+	"syscall"
+	"encoding/json"
 	"context"
 	"fmt"
 	"github.com/zrepl/zrepl/logger"
 	"io"
+	"os/signal"
 )
 
 type ReplicationEndpoint interface {
@@ -131,7 +135,41 @@ func resolveConflict(conflict error) (path []*FilesystemVersion, msg string) {
 // Replicate continues with the replication of the remaining file systems.
 // Depending on the type of error, failed replications are retried in an unspecified order (currently FIFO).
 func Replicate(ctx context.Context, ep EndpointPair, retryNow chan struct{}) {
-	r := Replication{}
+	r := Replication{
+		state: Planning,
+	}
+
+	c := make(chan os.Signal)
+	defer close(c)
+	signal.Notify(c, syscall.SIGHUP)
+	go func() {
+		f, err := os.OpenFile("/tmp/report", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+		if err != nil {
+			getLogger(ctx).WithError(err).Error("cannot open report file")
+			panic(err)
+		}
+		defer f.Close()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case sig := <-c:
+				if sig == nil {
+					return
+				}
+				report := r.Report()
+				enc := json.NewEncoder(f)
+				enc.SetIndent("  ", "  ")
+				if err := enc.Encode(report); err != nil {
+					getLogger(ctx).WithError(err).Error("cannot encode report")
+					panic(err)
+				}
+				f.Write([]byte("\n"))
+				f.Sync()
+			}
+		}
+	}()
+
 	r.Drive(ctx, ep, retryNow)
 }
 

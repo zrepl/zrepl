@@ -6,7 +6,7 @@ import "strconv"
 
 const (
 	_FSReplicationState_name_0 = "FSQueuedFSActive"
-	_FSReplicationState_name_1 = "FSRetry"
+	_FSReplicationState_name_1 = "FSRetryWait"
 	_FSReplicationState_name_2 = "FSPermanentError"
 	_FSReplicationState_name_3 = "FSCompleted"
 )
