@@ -29,6 +29,7 @@ type PullJob struct {
 	Debug             JobDebugSettings
 
 	task *Task
+	rep *replication.Replication
 }
 
 func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j *PullJob, err error) {
@@ -186,26 +187,14 @@ func (j *PullJob) doRun(ctx context.Context) {
 		return
 	}
 
-	usr2 := make(chan os.Signal)
-	defer close(usr2)
-	signal.Notify(usr2, syscall.SIGUSR2)
-	defer signal.Stop(usr2)
-	retryNow := make(chan struct{}, 1) // buffered so we don't leak the goroutine
-	go func() {
-		for {
-			sig := <-usr2
-			if sig != nil {
-				retryNow <- struct{}{}
-			} else {
-				break
-			}
-		}
-	}()
 
 	ctx = replication.ContextWithLogger(ctx, replicationLogAdaptor{j.task.Log().WithField("subsystem", "replication")})
 	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{j.task.Log().WithField("subsystem",     "rpc.protocol")})
     ctx = context.WithValue(ctx, contextKeyLog, j.task.Log().WithField("subsystem",                    "rpc.endpoint"))
-	replication.Replicate(ctx, replication.NewEndpointPairPull(sender, puller), retryNow)
+
+	j.rep = &replication.Replication{}
+	retryNow := make(chan struct{})
+	j.rep.Drive(ctx, replication.NewEndpointPairPull(sender, puller), retryNow)
 
 	client.Close()
 	j.task.Finish()
@@ -219,6 +208,10 @@ func (j *PullJob) doRun(ctx context.Context) {
 	}
 	j.task.Finish()
 
+}
+
+func (j *PullJob) Report() *replication.Report {
+	return j.rep.Report()
 }
 
 func (j *PullJob) JobStatus(ctxt context.Context) (*JobStatus, error) {

@@ -91,7 +91,8 @@ func (r *Replication) Report() *Report {
 		rep.Completed = append(rep.Completed, filesystemReplicationReportFromQueueItem(qitem))
 	}
 
-	rep.Active = filesystemReplicationReportFromQueueItem(r.active)
-
+	if r.active != nil {
+		rep.Active = filesystemReplicationReportFromQueueItem(r.active)
+	}
 	return &rep
 }

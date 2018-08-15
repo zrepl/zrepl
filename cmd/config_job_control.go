@@ -78,6 +78,11 @@ func (j *ControlJob) JobStart(ctx context.Context) {
 		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {
 			return daemon.Status(), nil
 		}}})
+	mux.Handle("/pulljobreport",
+		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {
+			j := daemon.conf.Jobs["debian"]
+			return j.(*PullJob).Report(), nil
+		}}})
 	server := http.Server{Handler: mux}
 
 outer:
