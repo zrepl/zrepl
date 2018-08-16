@@ -45,9 +45,9 @@ type replicationQueueItem struct {
 	// duplicates fsr.state to avoid accessing and locking fsr
 	state FSReplicationState
 	// duplicates fsr.current.nextStepDate to avoid accessing & locking fsr
-	nextStepDate time.Time	
+	nextStepDate time.Time
 
-	fsr                   *FSReplication
+	fsr *FSReplication
 }
 
 type Replication struct {
@@ -57,9 +57,9 @@ type Replication struct {
 	state ReplicationState
 
 	// Working, WorkingWait, Completed, ContextDone
-	queue *replicationQueue
+	queue     *replicationQueue
 	completed []*FSReplication
-	active *FSReplication
+	active    *FSReplication
 
 	// PlanningError
 	planningError error
@@ -379,19 +379,19 @@ func (b *replicationQueueItemBuilder) AddStep(from, to *FilesystemVersion) *repl
 type replicationQueue []*replicationQueueItem
 
 func newReplicationQueue() *replicationQueue {
-	 q := make(replicationQueue, 0)
-	 return &q
+	q := make(replicationQueue, 0)
+	return &q
 }
 
-func (q replicationQueue) Len() int { return len(q) }
-func (q replicationQueue) Swap(i,j int) { q[i], q[j] = q[j], q[i]}
-func (q replicationQueue) Less(i,j int) bool {
+func (q replicationQueue) Len() int      { return len(q) }
+func (q replicationQueue) Swap(i, j int) { q[i], q[j] = q[j], q[i] }
+func (q replicationQueue) Less(i, j int) bool {
 	a, b := q[i], q[j]
 	statePrio := func(x *replicationQueueItem) int {
 		if x.state&(FSReady|FSRetryWait) == 0 {
 			panic(x)
 		}
-		if x.state== FSReady {
+		if x.state == FSReady {
 			return 0
 		}
 		return 1
