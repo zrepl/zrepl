@@ -35,8 +35,7 @@ func stepReportFromStep(step *FSReplicationStep) *StepReport {
 }
 
 // access to fsr's members must be exclusive
-func filesystemReplicationReportFromQueueItem(qitem *replicationQueueItem) *FilesystemReplicationReport {
-	fsr := qitem.fsr
+func filesystemReplicationReport(fsr *FSReplication) *FilesystemReplicationReport {
 	fsr.lock.Lock()
 	defer fsr.lock.Unlock()
 
@@ -81,18 +80,15 @@ func (r *Replication) Report() *Report {
 		return &rep
 	}
 
-	rep.Pending = make([]*FilesystemReplicationReport, 0, len(r.pending))
+	rep.Pending = make([]*FilesystemReplicationReport, 0, r.queue.Len())
 	rep.Completed = make([]*FilesystemReplicationReport, 0, len(r.completed)) // room for active (potentially)
 
-	for _, qitem := range r.pending {
-		rep.Pending = append(rep.Pending, filesystemReplicationReportFromQueueItem(qitem))
-	}
-	for _, qitem := range r.completed {
-		rep.Completed = append(rep.Completed, filesystemReplicationReportFromQueueItem(qitem))
+	r.queue.Foreach(func (h *replicationQueueItemHandle){
+		rep.Pending = append(rep.Pending, filesystemReplicationReport(h.GetFSReplication()))
+	})
+	for _, fsr := range r.completed {
+		rep.Completed = append(rep.Completed,  filesystemReplicationReport(fsr))
 	}
 
-	if r.active != nil {
-		rep.Active = filesystemReplicationReportFromQueueItem(r.active)
-	}
 	return &rep
 }

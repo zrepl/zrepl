@@ -4,13 +4,26 @@ package replication
 
 import "strconv"
 
-const _FSReplicationStepState_name = "StepPendingStepRetryStepPermanentErrorStepCompleted"
+const (
+	_FSReplicationStepState_name_0 = "StepReadyStepRetry"
+	_FSReplicationStepState_name_1 = "StepPermanentError"
+	_FSReplicationStepState_name_2 = "StepCompleted"
+)
 
-var _FSReplicationStepState_index = [...]uint8{0, 11, 20, 38, 51}
+var (
+	_FSReplicationStepState_index_0 = [...]uint8{0, 9, 18}
+)
 
 func (i FSReplicationStepState) String() string {
-	if i < 0 || i >= FSReplicationStepState(len(_FSReplicationStepState_index)-1) {
+	switch {
+	case 1 <= i && i <= 2:
+		i -= 1
+		return _FSReplicationStepState_name_0[_FSReplicationStepState_index_0[i]:_FSReplicationStepState_index_0[i+1]]
+	case i == 4:
+		return _FSReplicationStepState_name_1
+	case i == 8:
+		return _FSReplicationStepState_name_2
+	default:
 		return "FSReplicationStepState(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _FSReplicationStepState_name[_FSReplicationStepState_index[i]:_FSReplicationStepState_index[i+1]]
 }

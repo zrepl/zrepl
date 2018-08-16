@@ -192,7 +192,7 @@ func (j *PullJob) doRun(ctx context.Context) {
 	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{j.task.Log().WithField("subsystem",     "rpc.protocol")})
     ctx = context.WithValue(ctx, contextKeyLog, j.task.Log().WithField("subsystem",                    "rpc.endpoint"))
 
-	j.rep = &replication.Replication{}
+	j.rep = replication.NewReplication()
 	retryNow := make(chan struct{})
 	j.rep.Drive(ctx, replication.NewEndpointPairPull(sender, puller), retryNow)
 

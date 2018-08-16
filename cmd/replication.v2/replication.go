@@ -126,6 +126,12 @@ func resolveConflict(conflict error) (path []*FilesystemVersion, msg string) {
 	return nil, "no automated way to handle conflict type"
 }
 
+func NewReplication() *Replication {
+	r := Replication{
+		state: Planning,
+	}
+	return &r
+}
 // Replicate replicates filesystems from ep.Sender() to ep.Receiver().
 //
 // All filesystems presented by the sending side are replicated,
