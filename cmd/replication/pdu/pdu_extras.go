@@ -1,4 +1,4 @@
-package replication
+package pdu
 
 import (
 	"fmt"
@@ -43,6 +43,15 @@ func FilesystemVersionFromZFS(fsv zfs.FilesystemVersion) *FilesystemVersion {
 
 func (v *FilesystemVersion) CreationAsTime() (time.Time, error) {
 	return time.Parse(time.RFC3339, v.Creation)
+}
+
+// implement fsfsm.FilesystemVersion
+func (v *FilesystemVersion) SnapshotTime() time.Time {
+	t, err := v.CreationAsTime()
+	if err != nil {
+		panic(err) // FIXME
+	}
+	return t
 }
 
 func (v *FilesystemVersion) ZFSFilesystemVersion() *zfs.FilesystemVersion {

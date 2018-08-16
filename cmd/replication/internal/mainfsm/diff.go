@@ -1,7 +1,9 @@
-package replication
+package mainfsm
 
 import (
 	"sort"
+
+	. "github.com/zrepl/zrepl/cmd/replication/pdu"
 )
 
 type ConflictNoCommonAncestor struct {

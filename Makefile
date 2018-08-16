@@ -2,7 +2,12 @@
 .DEFAULT_GOAL := build
 
 ROOT := github.com/zrepl/zrepl
-SUBPKGS := cmd logger rpc util zfs
+SUBPKGS := cmd
+SUBPKGS += cmd/replication
+SUBPKGS += cmd/replication/internal/common
+SUBPKGS += cmd/replication/internal/mainfsm
+SUBPKGS += cmd/replication/internal/fsfsm
+SUBPKGS += logger util zfs
 
 _TESTPKGS := $(ROOT) $(foreach p,$(SUBPKGS),$(ROOT)/$(p))
 
@@ -26,10 +31,10 @@ vendordeps:
 	dep ensure -v -vendor-only
 
 generate: #not part of the build, must do that manually
+	protoc -I=cmd/replication/pdu --go_out=cmd/replication/pdu cmd/replication/pdu/pdu.proto
 	@for pkg in $(_TESTPKGS); do\
 		go generate "$$pkg" || exit 1; \
 	done;
-	protoc -I=cmd/replication --go_out=cmd/replication cmd/replication/pdu.proto
 	# FIXME fix docker build!
 
 

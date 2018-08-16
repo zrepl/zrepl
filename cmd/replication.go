@@ -2,7 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/zrepl/zrepl/cmd/replication.v2"
+	"github.com/zrepl/zrepl/cmd/replication/common"
+	"github.com/zrepl/zrepl/cmd/replication/pdu"
 	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/zfs"
 	"io"
@@ -31,14 +32,14 @@ func NewSenderEndpoint(fsf zfs.DatasetFilter, fsvf zfs.FilesystemVersionFilter) 
 	return &SenderEndpoint{fsf, fsvf}
 }
 
-func (p *SenderEndpoint) ListFilesystems(ctx context.Context) ([]*replication.Filesystem, error) {
+func (p *SenderEndpoint) ListFilesystems(ctx context.Context) ([]*pdu.Filesystem, error) {
 	fss, err := zfs.ZFSListMapping(p.FSFilter)
 	if err != nil {
 		return nil, err
 	}
-	rfss := make([]*replication.Filesystem, len(fss))
+	rfss := make([]*pdu.Filesystem, len(fss))
 	for i := range fss {
-		rfss[i] = &replication.Filesystem{
+		rfss[i] = &pdu.Filesystem{
 			Path: fss[i].ToString(),
 			// FIXME: not supporting ResumeToken yet
 		}
@@ -46,7 +47,7 @@ func (p *SenderEndpoint) ListFilesystems(ctx context.Context) ([]*replication.Fi
 	return rfss, nil
 }
 
-func (p *SenderEndpoint) ListFilesystemVersions(ctx context.Context, fs string) ([]*replication.FilesystemVersion, error) {
+func (p *SenderEndpoint) ListFilesystemVersions(ctx context.Context, fs string) ([]*pdu.FilesystemVersion, error) {
 	dp, err := zfs.NewDatasetPath(fs)
 	if err != nil {
 		return nil, err
@@ -56,20 +57,20 @@ func (p *SenderEndpoint) ListFilesystemVersions(ctx context.Context, fs string) 
 		return nil, err
 	}
 	if !pass {
-		return nil, replication.NewFilteredError(fs)
+		return nil, common.NewFilteredError(fs)
 	}
 	fsvs, err := zfs.ZFSListFilesystemVersions(dp, p.FilesystemVersionFilter)
 	if err != nil {
 		return nil, err
 	}
-	rfsvs := make([]*replication.FilesystemVersion, len(fsvs))
+	rfsvs := make([]*pdu.FilesystemVersion, len(fsvs))
 	for i := range fsvs {
-		rfsvs[i] = replication.FilesystemVersionFromZFS(fsvs[i])
+		rfsvs[i] = pdu.FilesystemVersionFromZFS(fsvs[i])
 	}
 	return rfsvs, nil
 }
 
-func (p *SenderEndpoint) Send(ctx context.Context, r *replication.SendReq) (*replication.SendRes, io.ReadCloser, error) {
+func (p *SenderEndpoint) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
 	dp, err := zfs.NewDatasetPath(r.Filesystem)
 	if err != nil {
 		return nil, nil, err
@@ -79,16 +80,16 @@ func (p *SenderEndpoint) Send(ctx context.Context, r *replication.SendReq) (*rep
 		return nil, nil, err
 	}
 	if !pass {
-		return nil, nil, replication.NewFilteredError(r.Filesystem)
+		return nil, nil, common.NewFilteredError(r.Filesystem)
 	}
 	stream, err := zfs.ZFSSend(r.Filesystem, r.From, r.To)
 	if err != nil {
 		return nil, nil, err
 	}
-	return &replication.SendRes{}, stream, nil
+	return &pdu.SendRes{}, stream, nil
 }
 
-func (p *SenderEndpoint) Receive(ctx context.Context, r *replication.ReceiveReq, sendStream io.ReadCloser) (error) {
+func (p *SenderEndpoint) Receive(ctx context.Context, r *pdu.ReceiveReq, sendStream io.ReadCloser) (error) {
 	return fmt.Errorf("sender endpoint does not receive")
 }
 
@@ -108,23 +109,23 @@ func NewReceiverEndpoint(fsmap *DatasetMapFilter, fsvf zfs.FilesystemVersionFilt
 	return &ReceiverEndpoint{fsmapInv, fsmap, fsvf}, nil
 }
 
-func (e *ReceiverEndpoint) ListFilesystems(ctx context.Context) ([]*replication.Filesystem, error) {
+func (e *ReceiverEndpoint) ListFilesystems(ctx context.Context) ([]*pdu.Filesystem, error) {
 	filtered, err := zfs.ZFSListMapping(e.fsmapInv.AsFilter())
 	if err != nil {
 		return nil, errors.Wrap(err, "error checking client permission")
 	}
-	fss := make([]*replication.Filesystem, len(filtered))
+	fss := make([]*pdu.Filesystem, len(filtered))
 	for i, a := range filtered {
 		mapped, err := e.fsmapInv.Map(a)
 		if err != nil {
 			return nil, err
 		}
-		fss[i] = &replication.Filesystem{Path: mapped.ToString()}
+		fss[i] = &pdu.Filesystem{Path: mapped.ToString()}
 	}
 	return fss, nil
 }
 
-func (e *ReceiverEndpoint) ListFilesystemVersions(ctx context.Context, fs string) ([]*replication.FilesystemVersion, error) {
+func (e *ReceiverEndpoint) ListFilesystemVersions(ctx context.Context, fs string) ([]*pdu.FilesystemVersion, error) {
 	p, err := zfs.NewDatasetPath(fs)
 	if err != nil {
 		return nil, err
@@ -142,19 +143,19 @@ func (e *ReceiverEndpoint) ListFilesystemVersions(ctx context.Context, fs string
 		return nil, err
 	}
 
-	rfsvs := make([]*replication.FilesystemVersion, len(fsvs))
+	rfsvs := make([]*pdu.FilesystemVersion, len(fsvs))
 	for i := range fsvs {
-		rfsvs[i] = replication.FilesystemVersionFromZFS(fsvs[i])
+		rfsvs[i] = pdu.FilesystemVersionFromZFS(fsvs[i])
 	}
 
 	return rfsvs, nil
 }
 
-func (e *ReceiverEndpoint) Send(ctx context.Context, req *replication.SendReq) (*replication.SendRes, io.ReadCloser, error) {
+func (e *ReceiverEndpoint) Send(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
 	return nil, nil, errors.New("receiver endpoint does not send")
 }
 
-func (e *ReceiverEndpoint) Receive(ctx context.Context, req *replication.ReceiveReq, sendStream io.ReadCloser) error {
+func (e *ReceiverEndpoint) Receive(ctx context.Context, req *pdu.ReceiveReq, sendStream io.ReadCloser) error {
 	defer sendStream.Close()
 
 	p, err := zfs.NewDatasetPath(req.Filesystem)
@@ -236,8 +237,8 @@ type RemoteEndpoint struct {
 	*streamrpc.Client
 }
 
-func (s RemoteEndpoint) ListFilesystems(ctx context.Context) ([]*replication.Filesystem, error) {
-	req := replication.ListFilesystemReq{}
+func (s RemoteEndpoint) ListFilesystems(ctx context.Context) ([]*pdu.Filesystem, error) {
+	req := pdu.ListFilesystemReq{}
 	b, err := proto.Marshal(&req)
 	if err != nil {
 		return nil, err
@@ -250,15 +251,15 @@ func (s RemoteEndpoint) ListFilesystems(ctx context.Context) ([]*replication.Fil
 		rs.Close()
 		return nil, errors.New("response contains unexpected stream")
 	}
-	var res replication.ListFilesystemRes
+	var res pdu.ListFilesystemRes
 	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
 		return nil, err
 	}
 	return res.Filesystems, nil
 }
 
-func (s RemoteEndpoint) ListFilesystemVersions(ctx context.Context, fs string) ([]*replication.FilesystemVersion, error) {
-	req := replication.ListFilesystemVersionsReq{
+func (s RemoteEndpoint) ListFilesystemVersions(ctx context.Context, fs string) ([]*pdu.FilesystemVersion, error) {
+	req := pdu.ListFilesystemVersionsReq{
 		Filesystem: fs,
 	}
 	b, err := proto.Marshal(&req)
@@ -273,14 +274,14 @@ func (s RemoteEndpoint) ListFilesystemVersions(ctx context.Context, fs string) (
 		rs.Close()
 		return nil, errors.New("response contains unexpected stream")
 	}
-	var res replication.ListFilesystemVersionsRes
+	var res pdu.ListFilesystemVersionsRes
 	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
 		return nil, err
 	}
 	return res.Versions, nil
 }
 
-func (s RemoteEndpoint) Send(ctx context.Context, r *replication.SendReq) (*replication.SendRes, io.ReadCloser, error) {
+func (s RemoteEndpoint) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
 	b, err := proto.Marshal(r)
 	if err != nil {
 		return nil, nil, err
@@ -292,7 +293,7 @@ func (s RemoteEndpoint) Send(ctx context.Context, r *replication.SendReq) (*repl
 	if rs == nil {
 		return nil, nil, errors.New("response does not contain a stream")
 	}
-	var res replication.SendRes
+	var res pdu.SendRes
 	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
 		rs.Close()
 		return  nil, nil, err
@@ -301,7 +302,7 @@ func (s RemoteEndpoint) Send(ctx context.Context, r *replication.SendReq) (*repl
 	return &res, rs, nil
 }
 
-func (s RemoteEndpoint)	Receive(ctx context.Context, r *replication.ReceiveReq, sendStream io.ReadCloser) (error) {
+func (s RemoteEndpoint)	Receive(ctx context.Context, r *pdu.ReceiveReq, sendStream io.ReadCloser) (error) {
 	defer sendStream.Close()
 	b, err := proto.Marshal(r)
 	if err != nil {
@@ -315,7 +316,7 @@ func (s RemoteEndpoint)	Receive(ctx context.Context, r *replication.ReceiveReq, 
 		rs.Close()
 		return errors.New("response contains unexpected stream")
 	}
-	var res replication.ReceiveRes
+	var res pdu.ReceiveRes
 	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
 		return err
 	}
@@ -323,14 +324,14 @@ func (s RemoteEndpoint)	Receive(ctx context.Context, r *replication.ReceiveReq, 
 }
 
 type HandlerAdaptor struct {
-	ep replication.ReplicationEndpoint
+	ep common.ReplicationEndpoint
 }
 
 func (a *HandlerAdaptor) Handle(ctx context.Context, endpoint string, reqStructured *bytes.Buffer, reqStream io.ReadCloser) (resStructured *bytes.Buffer, resStream io.ReadCloser, err error) {
 
 	switch endpoint {
 	case RPCListFilesystems:
-		var req replication.ListFilesystemReq
+		var req pdu.ListFilesystemReq
 		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
 			return nil, nil, err
 		}
@@ -338,7 +339,7 @@ func (a *HandlerAdaptor) Handle(ctx context.Context, endpoint string, reqStructu
 		if err != nil {
 			return nil, nil, err
 		}
-		res := &replication.ListFilesystemRes{
+		res := &pdu.ListFilesystemRes{
 			Filesystems: fsses,
 		}
 		b, err := proto.Marshal(res)
@@ -349,7 +350,7 @@ func (a *HandlerAdaptor) Handle(ctx context.Context, endpoint string, reqStructu
 
 	case RPCListFilesystemVersions:
 
-		var req replication.ListFilesystemVersionsReq
+		var req pdu.ListFilesystemVersionsReq
 		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
 			return nil, nil, err
 		}
@@ -357,7 +358,7 @@ func (a *HandlerAdaptor) Handle(ctx context.Context, endpoint string, reqStructu
 		if err != nil {
 			return nil, nil, err
 		}
-		res := &replication.ListFilesystemVersionsRes{
+		res := &pdu.ListFilesystemVersionsRes{
 			Versions: fsvs,
 		}
 		b, err := proto.Marshal(res)
@@ -368,7 +369,7 @@ func (a *HandlerAdaptor) Handle(ctx context.Context, endpoint string, reqStructu
 
 	case RPCSend:
 
-		var req replication.SendReq
+		var req pdu.SendReq
 		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
 			return nil, nil, err
 		}
@@ -384,7 +385,7 @@ func (a *HandlerAdaptor) Handle(ctx context.Context, endpoint string, reqStructu
 
 	case RPCReceive:
 
-		var req replication.ReceiveReq
+		var req pdu.ReceiveReq
 		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
 			return nil, nil, err
 		}
@@ -392,7 +393,7 @@ func (a *HandlerAdaptor) Handle(ctx context.Context, endpoint string, reqStructu
 		if err != nil {
 			return nil, nil, err
 		}
-		b, err := proto.Marshal(&replication.ReceiveRes{})
+		b, err := proto.Marshal(&pdu.ReceiveRes{})
 		if err != nil {
 			return nil, nil, err
 		}

@@ -8,7 +8,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/zfs"
 	"sync"
-	"github.com/zrepl/zrepl/cmd/replication.v2"
+	"github.com/zrepl/zrepl/cmd/replication"
+	"github.com/zrepl/zrepl/cmd/replication/common"
 )
 
 type LocalJob struct {
@@ -146,7 +147,8 @@ outer:
 		j.mainTask.Log().Debug("replicating from lhs to rhs")
 		j.mainTask.Enter("replicate")
 
-		replication.Replicate(ctx, replication.NewEndpointPairPull(sender, receiver), nil) // FIXME
+		rep := replication.NewReplication()
+		rep.Drive(ctx, common.NewEndpointPairPull(sender, receiver))
 
 		j.mainTask.Finish()
 
