@@ -5,14 +5,13 @@ package replication
 import "strconv"
 
 const (
-	_FSReplicationState_name_0 = "FSQueuedFSActive"
-	_FSReplicationState_name_1 = "FSRetryWait"
-	_FSReplicationState_name_2 = "FSPermanentError"
-	_FSReplicationState_name_3 = "FSCompleted"
+	_FSReplicationState_name_0 = "FSReadyFSRetryWait"
+	_FSReplicationState_name_1 = "FSPermanentError"
+	_FSReplicationState_name_2 = "FSCompleted"
 )
 
 var (
-	_FSReplicationState_index_0 = [...]uint8{0, 8, 16}
+	_FSReplicationState_index_0 = [...]uint8{0, 7, 18}
 )
 
 func (i FSReplicationState) String() string {
@@ -24,8 +23,6 @@ func (i FSReplicationState) String() string {
 		return _FSReplicationState_name_1
 	case i == 8:
 		return _FSReplicationState_name_2
-	case i == 16:
-		return _FSReplicationState_name_3
 	default:
 		return "FSReplicationState(" + strconv.FormatInt(int64(i), 10) + ")"
 	}

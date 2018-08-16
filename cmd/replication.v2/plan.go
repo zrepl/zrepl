@@ -69,30 +69,45 @@ type replicationUpdater func(func(*Replication)) (newState ReplicationState)
 type replicationStateFunc func(context.Context, EndpointPair, replicationUpdater) replicationStateFunc
 
 //go:generate stringer -type=FSReplicationState
-type FSReplicationState int
+type FSReplicationState uint
 
 const (
-	FSQueued FSReplicationState = 1 << iota
-	FSActive
+	FSReady FSReplicationState = 1 << iota
 	FSRetryWait
 	FSPermanentError
 	FSCompleted
 )
 
+func (s FSReplicationState) fsrsf() fsrsf {
+	idx := bits.TrailingZeros(uint(s))
+	if idx == bits.UintSize {
+		panic(s)
+	}
+	m := []fsrsf{
+		fsrsfReady,
+		fsrsfRetryWait,
+		nil,
+		nil,
+	}
+	return m[idx]
+}
+
 type FSReplication struct {
-	lock sync.Mutex
+	// lock protects all fields in this struct, but not the data behind pointers
+	lock               sync.Mutex
 	state              FSReplicationState
 	fs                 *Filesystem
-	permanentError     error
+	err                error
+	retryWaitUntil     time.Time
 	completed, pending []*FSReplicationStep
-	active             *FSReplicationStep
+	current            *FSReplicationStep
 }
 
 func newReplicationQueueItemPermanentError(fs *Filesystem, err error) *replicationQueueItem {
 	return &replicationQueueItem{0, &FSReplication{
-		state:          FSPermanentError,
-		fs:             fs,
-		permanentError: err,
+		state: FSPermanentError,
+		fs:    fs,
+		err:   err,
 	}}
 }
 
@@ -123,7 +138,7 @@ func (b *replicationQueueItemBuilder) AddStep(from, to *FilesystemVersion) *repl
 
 func (b *replicationQueueItemBuilder) Complete() *replicationQueueItem {
 	if len(b.r.pending) > 0 {
-		b.r.state = FSQueued
+		b.r.state = FSReady
 	} else {
 		b.r.state = FSCompleted
 	}
@@ -185,7 +200,7 @@ func (r *Replication) Drive(ctx context.Context, ep EndpointPair, retryNow chan 
 }
 
 func rsfPlanning(ctx context.Context, ep EndpointPair, u replicationUpdater) replicationStateFunc {
-		
+
 	log := getLogger(ctx)
 
 	handlePlanningError := func(err error) replicationStateFunc {
@@ -280,7 +295,7 @@ func rsfPlanning(ctx context.Context, ep EndpointPair, u replicationUpdater) rep
 		switch qitem.fsr.state {
 		case FSCompleted:
 			completed = append(completed, qitem)
-		case FSQueued:
+		case FSReady:
 			pending = append(pending, qitem)
 		default:
 			panic(qitem)
@@ -297,8 +312,8 @@ func rsfPlanning(ctx context.Context, ep EndpointPair, u replicationUpdater) rep
 }
 
 func rsfPlanningError(ctx context.Context, ep EndpointPair, u replicationUpdater) replicationStateFunc {
-	sleepTime := 10*time.Second
-	u(func(r *Replication){
+	sleepTime := 10 * time.Second
+	u(func(r *Replication) {
 		r.sleepUntil = time.Now().Add(sleepTime)
 	})
 	t := time.NewTimer(sleepTime) // FIXME make constant onfigurable
@@ -334,10 +349,10 @@ func rsfWorking(ctx context.Context, ep EndpointPair, u replicationUpdater) repl
 		sort.Slice(r.pending, func(i, j int) bool {
 			a, b := r.pending[i], r.pending[j]
 			statePrio := func(x *replicationQueueItem) int {
-				if x.fsr.state&(FSQueued|FSRetryWait) == 0 {
+				if x.fsr.state&(FSReady|FSRetryWait) == 0 {
 					panic(x)
 				}
-				if x.fsr.state == FSQueued {
+				if x.fsr.state == FSReady {
 					return 0
 				} else {
 					return 1
@@ -348,7 +363,7 @@ func rsfWorking(ctx context.Context, ep EndpointPair, u replicationUpdater) repl
 				return aprio < bprio
 			}
 			// now we know they are the same state
-			if a.fsr.state == FSQueued {
+			if a.fsr.state == FSReady {
 				return a.fsr.nextStepDate().Before(b.fsr.nextStepDate())
 			}
 			if a.fsr.state == FSRetryWait {
@@ -367,20 +382,11 @@ func rsfWorking(ctx context.Context, ep EndpointPair, u replicationUpdater) repl
 		return rsfNext
 	}
 
-	if active.fsr.state == FSRetryWait {
-		return u(func(r *Replication) {
-			r.state = WorkingWait
-		}).rsf()
-	}
-	if active.fsr.state != FSQueued {
-		panic(active)
-	}
-
-	fsState := active.fsr.drive(ctx, ep)
+	fsState := active.fsr.takeStep(ctx, ep)
 
 	return u(func(r *Replication) {
 
-		if fsState&FSQueued != 0 {
+		if fsState&FSReady != 0 {
 			r.active.retriesSinceLastError = 0
 		} else if fsState&FSRetryWait != 0 {
 			r.active.retriesSinceLastError++
@@ -416,7 +422,7 @@ func rsfWorkingWait(ctx context.Context, ep EndpointPair, u replicationUpdater) 
 
 // caller must have exclusive access to f
 func (f *FSReplication) nextStepDate() time.Time {
-	if f.state != FSQueued {
+	if f.state != FSReady {
 		panic(f)
 	}
 	ct, err := f.pending[0].to.CreationAsTime()
@@ -426,70 +432,94 @@ func (f *FSReplication) nextStepDate() time.Time {
 	return ct
 }
 
-func (f *FSReplication) drive(ctx context.Context, ep EndpointPair) FSReplicationState {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-	for f.state&(FSRetryWait|FSPermanentError|FSCompleted) == 0 {
-		pre := f.state
+func (f *FSReplication) takeStep(ctx context.Context, ep EndpointPair) FSReplicationState {
+
+	var u fsrUpdater = func(fu func(*FSReplication)) FSReplicationState {
+		f.lock.Lock()
+		defer f.lock.Unlock()
+		if fu != nil {
+			fu(f)
+		}
+		return f.state
+	}
+	var s fsrsf = u(nil).fsrsf()
+	for s != nil {
+		pre := u(nil)
 		preTime := time.Now()
-		f.doDrive(ctx, ep)
+		s = s(ctx, ep, u)
 		delta := time.Now().Sub(preTime)
-		post := f.state
+		post := u(nil)
 		getLogger(ctx).
+			WithField("fs", f.fs.Path).
 			WithField("transition", fmt.Sprintf("%s => %s", pre, post)).
 			WithField("duration", delta).
 			Debug("fsr state transition")
 	}
-	return f.state
+	return u(nil)
 }
 
-// caller must hold f.lock
-func (f *FSReplication) doDrive(ctx context.Context, ep EndpointPair) FSReplicationState {
-	switch f.state {
-	case FSPermanentError:
-		fallthrough
-	case FSCompleted:
-		return f.state
-	case FSRetryWait:
-		f.state = FSQueued
-		return f.state
-	case FSQueued:
-		if f.active == nil {
+type fsrUpdater func(func(fsr *FSReplication)) FSReplicationState
+type fsrsf func(ctx context.Context, ep EndpointPair, u fsrUpdater) fsrsf
+
+func fsrsfReady(ctx context.Context, ep EndpointPair, u fsrUpdater) fsrsf {
+
+	var current *FSReplicationStep
+	s := u(func(f *FSReplication) {
+		if f.current == nil {
 			if len(f.pending) == 0 {
 				f.state = FSCompleted
-				return f.state
+				return
 			}
-			f.active = f.pending[0]
+			f.current = f.pending[0]
 			f.pending = f.pending[1:]
 		}
-		f.state = FSActive
-		return f.state
+		current = f.current
+	})
+	if s != FSReady {
+		return s.fsrsf()
+	}
 
-	case FSActive:
-		var stepState FSReplicationStepState
-		func() { // drop lock during long call
-			f.lock.Unlock()
-			defer f.lock.Lock()
-			stepState = f.active.do(ctx, ep)
-		}()
+	stepState := current.do(ctx, ep)
+
+	return u(func(f *FSReplication) {
 		switch stepState {
 		case StepCompleted:
-			f.completed = append(f.completed, f.active)
-			f.active = nil
+			f.completed = append(f.completed, f.current)
+			f.current = nil
 			if len(f.pending) > 0 {
-				f.state = FSQueued
+				f.state = FSReady
 			} else {
 				f.state = FSCompleted
 			}
 		case StepRetry:
+			f.retryWaitUntil = time.Now().Add(10 * time.Second) // FIXME make configurable
 			f.state = FSRetryWait
 		case StepPermanentError:
 			f.state = FSPermanentError
+		default:
+			panic(f)
 		}
-		return f.state
-	}
+	}).fsrsf()
+}
 
-	panic(f)
+func fsrsfRetryWait(ctx context.Context, ep EndpointPair, u fsrUpdater) fsrsf {
+	var sleepUntil time.Time
+	u(func(f *FSReplication) {
+		sleepUntil = f.retryWaitUntil
+	})
+	t := time.NewTimer(sleepUntil.Sub(time.Now()))
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return u(func(f *FSReplication) {
+			f.state = FSPermanentError
+			f.err = ctx.Err()
+		}).fsrsf()
+	case <-t.C:
+	}
+	return u(func(f *FSReplication) {
+		f.state = FSReady
+	}).fsrsf()
 }
 
 func (s *FSReplicationStep) do(ctx context.Context, ep EndpointPair) FSReplicationStepState {

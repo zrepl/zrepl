@@ -46,7 +46,7 @@ func filesystemReplicationReportFromQueueItem(qitem *replicationQueueItem) *File
 	}
 
 	if fsr.state&FSPermanentError != 0 {
-		rep.Problem = fsr.permanentError.Error()
+		rep.Problem = fsr.err.Error()
 		return &rep
 	}
 
@@ -54,8 +54,8 @@ func filesystemReplicationReportFromQueueItem(qitem *replicationQueueItem) *File
 	for _, step := range fsr.completed {
 		rep.Steps = append(rep.Steps, stepReportFromStep(step))
 	}
-	if fsr.active != nil {
-		rep.Steps = append(rep.Steps, stepReportFromStep(fsr.active))
+	if fsr.current != nil {
+		rep.Steps = append(rep.Steps, stepReportFromStep(fsr.current))
 	}
 	for _, step := range fsr.pending {
 		rep.Steps = append(rep.Steps, stepReportFromStep(step))
