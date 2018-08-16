@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/bits"
 	"net"
 	"sort"
 	"sync"
@@ -12,7 +13,7 @@ import (
 )
 
 //go:generate stringer -type=ReplicationState
-type ReplicationState int
+type ReplicationState uint
 
 const (
 	Planning ReplicationState = 1 << iota
@@ -22,6 +23,22 @@ const (
 	Completed
 	ContextDone
 )
+
+func (s ReplicationState) rsf() replicationStateFunc {
+	idx := bits.TrailingZeros(uint(s))
+	if idx == bits.UintSize {
+		panic(s) // invalid value
+	}
+	m := []replicationStateFunc{
+		rsfPlanning,
+		rsfPlanningError,
+		rsfWorking,
+		rsfWorkingWait,
+		nil,
+		nil,
+	}
+	return m[idx]
+}
 
 type replicationQueueItem struct {
 	retriesSinceLastError int
@@ -48,7 +65,7 @@ type Replication struct {
 	sleepUntil time.Time
 }
 
-type replicationUpdater func(func(*Replication))
+type replicationUpdater func(func(*Replication)) (newState ReplicationState)
 type replicationStateFunc func(context.Context, EndpointPair, replicationUpdater) replicationStateFunc
 
 //go:generate stringer -type=FSReplicationState
@@ -138,25 +155,24 @@ type FSReplicationStep struct {
 }
 
 func (r *Replication) Drive(ctx context.Context, ep EndpointPair, retryNow chan struct{}) {
-	
-	var u replicationUpdater = func(f func(*Replication)) {
+
+	var u replicationUpdater = func(f func(*Replication)) ReplicationState {
 		r.lock.Lock()
 		defer r.lock.Unlock()
-		f(r)
+		if f != nil {
+			f(r)
+		}
+		return r.state
 	}
 
 	var s replicationStateFunc = rsfPlanning
 	var pre, post ReplicationState
 	for s != nil {
 		preTime := time.Now()
-		u(func(r *Replication){
-			pre = r.state
-		})
+		pre = u(nil)
 		s = s(ctx, ep, u)
 		delta := time.Now().Sub(preTime)
-		u(func(r *Replication){
-			 post = r.state
-		})
+		post = u(nil)
 		getLogger(ctx).
 			WithField("transition", fmt.Sprintf("%s => %s", pre, post)).
 			WithField("duration", delta).
@@ -173,11 +189,10 @@ func rsfPlanning(ctx context.Context, ep EndpointPair, u replicationUpdater) rep
 	log := getLogger(ctx)
 
 	handlePlanningError := func(err error) replicationStateFunc {
-		u(func(r *Replication){
-			r.state = PlanningError
+		return u(func(r *Replication) {
 			r.planningError = err
-		})
-		return rsfPlanningError
+			r.state = PlanningError
+		}).rsf()
 	}
 
 	sfss, err := ep.Sender().ListFilesystems(ctx)
@@ -273,13 +288,12 @@ func rsfPlanning(ctx context.Context, ep EndpointPair, u replicationUpdater) rep
 
 	}
 
-	u(func(r *Replication){
+	return u(func(r *Replication) {
 		r.completed = completed
 		r.pending = pending
-		r.state = Working
 		r.planningError = nil
-	})
-	return rsfWorking
+		r.state = Working
+	}).rsf()
 }
 
 func rsfPlanningError(ctx context.Context, ep EndpointPair, u replicationUpdater) replicationStateFunc {
@@ -290,25 +304,23 @@ func rsfPlanningError(ctx context.Context, ep EndpointPair, u replicationUpdater
 	t := time.NewTimer(sleepTime) // FIXME make constant onfigurable
 	defer t.Stop()
 	select {
-		case <- ctx.Done():
-			u(func(r *Replication){
-				r.state = ContextDone
-				r.contextError = ctx.Err()
-			})
-			return nil
-		case <- t.C:
-			u(func(r *Replication){
-				r.state = Planning
-			})
-			return rsfPlanning
+	case <-ctx.Done():
+		return u(func(r *Replication) {
+			r.state = ContextDone
+			r.contextError = ctx.Err()
+		}).rsf()
+	case <-t.C:
+		return u(func(r *Replication) {
+			r.state = Planning
+		}).rsf()
 	}
 }
 
-func rsfWorking(ctx context.Context, ep EndpointPair, u replicationUpdater) (rsfNext replicationStateFunc) {
+func rsfWorking(ctx context.Context, ep EndpointPair, u replicationUpdater) replicationStateFunc {
 
 	var active *replicationQueueItem
 
-	u(func(r *Replication) {
+	rsfNext := u(func(r *Replication) {
 		if r.active != nil {
 			active = r.active
 			return
@@ -349,17 +361,16 @@ func rsfWorking(ctx context.Context, ep EndpointPair, u replicationUpdater) (rsf
 		active = r.active
 		r.pending = r.pending[1:]
 
-	})
+	}).rsf()
 
 	if active == nil {
 		return rsfNext
 	}
 
 	if active.fsr.state == FSRetryWait {
-		u(func(r *Replication) {
+		return u(func(r *Replication) {
 			r.state = WorkingWait
-		})
-		return rsfWorkingWait
+		}).rsf()
 	}
 	if active.fsr.state != FSQueued {
 		panic(active)
@@ -367,7 +378,7 @@ func rsfWorking(ctx context.Context, ep EndpointPair, u replicationUpdater) (rsf
 
 	fsState := active.fsr.drive(ctx, ep)
 
-	u(func(r *Replication) {
+	return u(func(r *Replication) {
 
 		if fsState&FSQueued != 0 {
 			r.active.retriesSinceLastError = 0
@@ -380,31 +391,26 @@ func rsfWorking(ctx context.Context, ep EndpointPair, u replicationUpdater) (rsf
 			panic(r.active)
 		}
 
-	})
-
-	return rsfWorking
-	
+	}).rsf()
 }
 
 func rsfWorkingWait(ctx context.Context, ep EndpointPair, u replicationUpdater) replicationStateFunc {
-	sleepTime := 10*time.Second
-	u(func(r* Replication){
+	sleepTime := 10 * time.Second
+	u(func(r *Replication) {
 		r.sleepUntil = time.Now().Add(sleepTime)
 	})
 	t := time.NewTimer(sleepTime)
 	defer t.Stop()
 	select {
-		case <- ctx.Done():
-			u(func(r *Replication){
-				r.state = ContextDone
-				r.contextError = ctx.Err()
-			})
-			return nil
-		case <- t.C:
-			u(func(r *Replication){
-				r.state = Working
-			})
-			return rsfWorking
+	case <-ctx.Done():
+		return u(func(r *Replication) {
+			r.state = ContextDone
+			r.contextError = ctx.Err()
+		}).rsf()
+	case <-t.C:
+		return u(func(r *Replication) {
+			r.state = Working
+		}).rsf()
 	}
 }
 
