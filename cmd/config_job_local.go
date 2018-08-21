@@ -104,9 +104,9 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 	// We can pay this small performance penalty for now.
 	wildcardMapFilter := NewDatasetMapFilter(1, false)
 	wildcardMapFilter.Add("<", "<")
-	sender := &endpoint.SenderEndpoint{wildcardMapFilter, NewPrefixFilter(j.SnapshotPrefix)}
+	sender := &endpoint.Sender{wildcardMapFilter, NewPrefixFilter(j.SnapshotPrefix)}
 
-	receiver, err := endpoint.NewReceiverEndpoint(j.Mapping, NewPrefixFilter(j.SnapshotPrefix))
+	receiver, err := endpoint.NewReceiver(j.Mapping, NewPrefixFilter(j.SnapshotPrefix))
 	if err != nil {
 		rootLog.WithError(err).Error("unexpected error setting up local handler")
 	}

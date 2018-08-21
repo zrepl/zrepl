@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"context"
-	"fmt"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -176,9 +175,9 @@ func (j *PullJob) doRun(ctx context.Context) {
 
 	j.task.Enter("pull")
 
-	sender := endpoint.RemoteEndpoint{client}
+	sender := endpoint.NewRemote(client)
 
-	puller, err := endpoint.NewReceiverEndpoint(
+	puller, err := endpoint.NewReceiver(
 		j.Mapping,
 		NewPrefixFilter(j.SnapshotPrefix),
 	)
@@ -188,10 +187,9 @@ func (j *PullJob) doRun(ctx context.Context) {
 		return
 	}
 
-
 	ctx = replication.WithLogger(ctx, replicationLogAdaptor{j.task.Log().WithField("subsystem", "replication")})
 	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{j.task.Log().WithField("subsystem",     "rpc.protocol")})
-    ctx = context.WithValue(ctx, contextKeyLog, j.task.Log().WithField("subsystem",                    "rpc.endpoint"))
+	ctx = endpoint.WithLogger(ctx, j.task.Log().WithField("subsystem", "rpc.endpoint"))
 
 	j.rep = replication.NewReplication()
 	j.rep.Drive(ctx, sender, puller)
@@ -226,31 +224,6 @@ func (j *PullJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Prune
 		j.pruneFilter,
 		j.SnapshotPrefix,
 		j.Prune,
-	}
-	return
-}
-
-func closeRPCWithTimeout(task *Task, remote endpoint.RemoteEndpoint, timeout time.Duration, goodbye string) {
-
-	task.Log().Info("closing rpc connection")
-
-	ch := make(chan error)
-	go func() {
-		remote.Close()
-		ch <- nil
-		close(ch)
-	}()
-
-	var err error
-	select {
-	case <-time.After(timeout):
-		err = fmt.Errorf("timeout exceeded (%s)", timeout)
-	case closeRequestErr := <-ch:
-		err = closeRequestErr
-	}
-
-	if err != nil {
-		task.Log().WithError(err).Error("error closing connection")
 	}
 	return
 }

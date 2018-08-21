@@ -212,12 +212,12 @@ func (j *SourceJob) handleConnection(conn net.Conn, task *Task) {
 
 	task.Log().Info("handling client connection")
 
-	senderEP := endpoint.NewSenderEndpoint(j.Filesystems, NewPrefixFilter(j.SnapshotPrefix))
+	senderEP := endpoint.NewSender(j.Filesystems, NewPrefixFilter(j.SnapshotPrefix))
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, contextKeyLog, task.Log().WithField("subsystem", "rpc.endpoint"))
 	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{task.Log().WithField("subsystem", "rpc.protocol")})
-	handler := endpoint.NewHandlerAdaptor(senderEP)
+	handler := endpoint.NewHandler(senderEP)
 	if err := streamrpc.ServeConn(ctx, conn, STREAMRPC_CONFIG, handler.Handle); err != nil {
 		task.Log().WithError(err).Error("error serving connection")
 	} else {
