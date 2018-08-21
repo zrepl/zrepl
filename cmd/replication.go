@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/zrepl/zrepl/cmd/replication/pdu"
+	"github.com/zrepl/zrepl/replication/pdu"
 	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/zfs"
 	"io"
@@ -10,7 +10,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"bytes"
 	"context"
-	"github.com/zrepl/zrepl/cmd/replication"
+	"github.com/zrepl/zrepl/replication"
 )
 
 type InitialReplPolicy string

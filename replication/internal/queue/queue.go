@@ -4,7 +4,7 @@ import (
 	"time"
 	"sort"
 
-	. "github.com/zrepl/zrepl/cmd/replication/fsrep"
+	. "github.com/zrepl/zrepl/replication/fsrep"
 )
 
 type replicationQueueItem struct {

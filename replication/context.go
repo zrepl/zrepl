@@ -3,7 +3,7 @@ package replication
 import (
 	"github.com/zrepl/zrepl/logger"
 	"context"
-	"github.com/zrepl/zrepl/cmd/replication/fsrep"
+	"github.com/zrepl/zrepl/replication/fsrep"
 )
 
 type contextKey int

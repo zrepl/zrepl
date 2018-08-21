@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zrepl/zrepl/cmd/replication/pdu"
+	"github.com/zrepl/zrepl/replication/pdu"
 	"github.com/zrepl/zrepl/logger"
 )
 

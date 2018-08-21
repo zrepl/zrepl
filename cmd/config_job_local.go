@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/zfs"
 	"sync"
-	"github.com/zrepl/zrepl/cmd/replication"
+	"github.com/zrepl/zrepl/replication"
 )
 
 type LocalJob struct {

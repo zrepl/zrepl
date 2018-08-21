@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zrepl/zrepl/cmd/replication/pdu"
-	"github.com/zrepl/zrepl/cmd/replication/fsrep"
-	. "github.com/zrepl/zrepl/cmd/replication/internal/queue"
-	. "github.com/zrepl/zrepl/cmd/replication/internal/diff"
+	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/zrepl/zrepl/replication/fsrep"
+	. "github.com/zrepl/zrepl/replication/internal/queue"
+	. "github.com/zrepl/zrepl/replication/internal/diff"
 )
 
 //go:generate stringer -type=State
