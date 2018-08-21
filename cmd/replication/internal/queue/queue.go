@@ -4,17 +4,17 @@ import (
 	"time"
 	"sort"
 
-	. "github.com/zrepl/zrepl/cmd/replication/internal/fsfsm"
+	. "github.com/zrepl/zrepl/cmd/replication/fsrep"
 )
 
 type replicationQueueItem struct {
 	retriesSinceLastError int
 	// duplicates fsr.state to avoid accessing and locking fsr
-	state FSReplicationState
+	state State
 	// duplicates fsr.current.nextStepDate to avoid accessing & locking fsr
 	nextStepDate time.Time
 
-	fsr *FSReplication
+	fsr *Replication
 }
 
 type ReplicationQueue []*replicationQueueItem
@@ -32,14 +32,14 @@ type lessmapEntry struct{
 	less func(a,b *replicationQueueItem) bool
 }
 
-var lessmap = map[FSReplicationState]lessmapEntry {
-	FSReady: {
+var lessmap = map[State]lessmapEntry {
+	Ready: {
 		prio: 0,
 		less: func(a, b *replicationQueueItem) bool {
 			return a.nextStepDate.Before(b.nextStepDate)
 		},
 	},
-	FSRetryWait: {
+	RetryWait: {
 		prio: 1,
 		less: func(a, b *replicationQueueItem) bool {
 			return a.retriesSinceLastError < b.retriesSinceLastError
@@ -66,10 +66,10 @@ func (q ReplicationQueue) Less(i, j int) bool {
 	return al.less(a, b)
 }
 
-func (q *ReplicationQueue) sort() (done []*FSReplication) {
+func (q *ReplicationQueue) sort() (done []*Replication) {
 	// pre-scan for everything that is not ready
 	newq := make(ReplicationQueue, 0, len(*q))
-	done = make([]*FSReplication, 0, len(*q))
+	done = make([]*Replication, 0, len(*q))
 	for _, qitem := range *q {
 		if _, ok := lessmap[qitem.state]; !ok {
 			done = append(done, qitem.fsr)
@@ -83,7 +83,7 @@ func (q *ReplicationQueue) sort() (done []*FSReplication) {
 }
 
 // next remains valid until the next call to GetNext()
-func (q *ReplicationQueue) GetNext() (done []*FSReplication, next *ReplicationQueueItemHandle) {
+func (q *ReplicationQueue) GetNext() (done []*Replication, next *ReplicationQueueItemHandle) {
 	done = q.sort()
 	if len(*q) == 0 {
 		return done, nil
@@ -92,7 +92,7 @@ func (q *ReplicationQueue) GetNext() (done []*FSReplication, next *ReplicationQu
 	return done, next
 }
 
-func (q *ReplicationQueue) Add(fsr *FSReplication) {
+func (q *ReplicationQueue) Add(fsr *Replication) {
 	*q = append(*q, &replicationQueueItem{
 		fsr: fsr,
 		state: fsr.State(),
@@ -109,16 +109,16 @@ type ReplicationQueueItemHandle struct {
 	i *replicationQueueItem
 }
 
-func (h ReplicationQueueItemHandle) GetFSReplication() *FSReplication {
+func (h ReplicationQueueItemHandle) GetFSReplication() *Replication {
 	return h.i.fsr
 }
 
-func (h ReplicationQueueItemHandle) Update(newState FSReplicationState, nextStepDate time.Time) {
+func (h ReplicationQueueItemHandle) Update(newState State, nextStepDate time.Time) {
 	h.i.state = newState
 	h.i.nextStepDate = nextStepDate
-	if h.i.state&FSReady != 0 {
+	if h.i.state&Ready != 0 {
 		h.i.retriesSinceLastError = 0
-	} else if h.i.state&FSRetryWait != 0 {
+	} else if h.i.state&RetryWait != 0 {
 		h.i.retriesSinceLastError++
 	}
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/zrepl/zrepl/zfs"
 	"sync"
 	"github.com/zrepl/zrepl/cmd/replication"
-	"github.com/zrepl/zrepl/cmd/replication/common"
 )
 
 type LocalJob struct {
@@ -148,7 +147,7 @@ outer:
 		j.mainTask.Enter("replicate")
 
 		rep := replication.NewReplication()
-		rep.Drive(ctx, common.NewEndpointPairPull(sender, receiver))
+		rep.Drive(ctx, sender, receiver)
 
 		j.mainTask.Finish()
 

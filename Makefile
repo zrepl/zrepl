@@ -4,9 +4,10 @@
 ROOT := github.com/zrepl/zrepl
 SUBPKGS := cmd
 SUBPKGS += cmd/replication
-SUBPKGS += cmd/replication/internal/common
-SUBPKGS += cmd/replication/internal/mainfsm
-SUBPKGS += cmd/replication/internal/fsfsm
+SUBPKGS += cmd/replication/fsrep
+SUBPKGS += cmd/replication/pdu
+SUBPKGS += cmd/replication/internal/queue
+SUBPKGS += cmd/replication/internal/diff
 SUBPKGS += logger util zfs
 
 _TESTPKGS := $(ROOT) $(foreach p,$(SUBPKGS),$(ROOT)/$(p))

@@ -1,4 +1,6 @@
-package fsfsm
+// Package fsrep implements replication of a single file system with existing versions
+// from a sender to a receiver.
+package fsrep
 
 import (
 	"context"
@@ -11,8 +13,36 @@ import (
 	"time"
 
 	"github.com/zrepl/zrepl/cmd/replication/pdu"
-	. "github.com/zrepl/zrepl/cmd/replication/common"
+	"github.com/zrepl/zrepl/logger"
 )
+
+type contextKey int
+
+const (
+	contextKeyLogger contextKey = iota
+)
+
+type Logger = logger.Logger
+
+func WithLogger(ctx context.Context, log Logger) context.Context {
+	return context.WithValue(ctx, contextKeyLogger, log)
+}
+
+func getLogger(ctx context.Context) Logger {
+	l, ok := ctx.Value(contextKeyLogger).(Logger)
+	if !ok {
+		l = logger.NewNullLogger()
+	}
+	return l
+}
+
+type Sender interface {
+	Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error)
+}
+
+type Receiver interface {
+	Receive(ctx context.Context, r *pdu.ReceiveReq, sendStream io.ReadCloser) error
+}
 
 type StepReport struct {
 	From, To string
@@ -20,7 +50,7 @@ type StepReport struct {
 	Problem  string
 }
 
-type FilesystemReplicationReport struct {
+type Report struct {
 	Filesystem string
 	Status     string
 	Problem    string
@@ -28,90 +58,90 @@ type FilesystemReplicationReport struct {
 }
 
 
-//go:generate stringer -type=FSReplicationState
-type FSReplicationState uint
+//go:generate stringer -type=State
+type State uint
 
 const (
-	FSReady FSReplicationState = 1 << iota
-	FSRetryWait
-	FSPermanentError
-	FSCompleted
+	Ready          State = 1 << iota
+	RetryWait
+	PermanentError
+	Completed
 )
 
-func (s FSReplicationState) fsrsf() fsrsf {
+func (s State) fsrsf() state {
 	idx := bits.TrailingZeros(uint(s))
 	if idx == bits.UintSize {
 		panic(s)
 	}
-	m := []fsrsf{
-		fsrsfReady,
-		fsrsfRetryWait,
+	m := []state{
+		stateReady,
+		stateRetryWait,
 		nil,
 		nil,
 	}
 	return m[idx]
 }
 
-type FSReplication struct {
+type Replication struct {
 	// lock protects all fields in this struct, but not the data behind pointers
 	lock               sync.Mutex
-	state              FSReplicationState
+	state              State
 	fs                 string
 	err                error
 	retryWaitUntil     time.Time
-	completed, pending []*FSReplicationStep
+	completed, pending []*ReplicationStep
 }
 
-func (f *FSReplication) State() FSReplicationState {
+func (f *Replication) State() State {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	return f.state
 }
 
-type FSReplicationBuilder struct {
-	r *FSReplication
+type ReplicationBuilder struct {
+	r *Replication
 }
 
-func BuildFSReplication(fs string) *FSReplicationBuilder {
-	return &FSReplicationBuilder{&FSReplication{fs: fs}}
+func BuildReplication(fs string) *ReplicationBuilder {
+	return &ReplicationBuilder{&Replication{fs: fs}}
 }
 
-func (b *FSReplicationBuilder) AddStep(from, to FilesystemVersion) *FSReplicationBuilder {
-	step := &FSReplicationStep{
-		state: StepReady,
-		fsrep: b.r,
-		from:  from,
-		to:    to,
+func (b *ReplicationBuilder) AddStep(from, to FilesystemVersion) *ReplicationBuilder {
+	step := &ReplicationStep{
+		state:  StepReady,
+		parent: b.r,
+		from:   from,
+		to:     to,
 	}
 	b.r.pending = append(b.r.pending, step)
 	return b
 }
 
-func (b *FSReplicationBuilder) Done() (r *FSReplication) {
+func (b *ReplicationBuilder) Done() (r *Replication) {
 	if len(b.r.pending) > 0 {
-		b.r.state = FSReady
+		b.r.state = Ready
 	} else {
-		b.r.state = FSCompleted
+		b.r.state = Completed
 	}
 	r  = b.r
 	b.r = nil
 	return r
 }
 
-func NewFSReplicationWithPermanentError(fs string, err error) *FSReplication {
-	return &FSReplication{
-		state: FSPermanentError,
+func NewReplicationWithPermanentError(fs string, err error) *Replication {
+	return &Replication{
+		state: PermanentError,
 		fs:    fs,
 		err:   err,
 	}
 }
 
 
-//go:generate stringer -type=FSReplicationStepState
-type FSReplicationStepState uint
+//go:generate stringer -type=StepState
+type StepState uint
 
 const (
-	StepReady FSReplicationStepState = 1 << iota
+	StepReady          StepState = 1 << iota
 	StepRetry
 	StepPermanentError
 	StepCompleted
@@ -122,22 +152,22 @@ type FilesystemVersion interface {
 	RelName() string
 }
 
-type FSReplicationStep struct {
+type ReplicationStep struct {
 	// only protects state, err
-	// from, to and fsrep are assumed to be immutable
+	// from, to and parent are assumed to be immutable
 	lock sync.Mutex
 
-	state    FSReplicationStepState
+	state    StepState
 	from, to FilesystemVersion
-	fsrep    *FSReplication
+	parent   *Replication
 
 	// both retry and permanent error
 	err error
 }
 
-func (f *FSReplication) TakeStep(ctx context.Context, sender, receiver ReplicationEndpoint) (post FSReplicationState, nextStepDate time.Time) {
+func (f *Replication) TakeStep(ctx context.Context, sender Sender, receiver Receiver) (post State, nextStepDate time.Time) {
 
-	var u fsrUpdater = func(fu func(*FSReplication)) FSReplicationState {
+	var u updater = func(fu func(*Replication)) State {
 		f.lock.Lock()
 		defer f.lock.Unlock()
 		if fu != nil {
@@ -145,20 +175,20 @@ func (f *FSReplication) TakeStep(ctx context.Context, sender, receiver Replicati
 		}
 		return f.state
 	}
-	var s fsrsf = u(nil).fsrsf()
+	var s state = u(nil).fsrsf()
 
 	pre := u(nil)
 	preTime := time.Now()
 	s = s(ctx, sender, receiver, u)
 	delta := time.Now().Sub(preTime)
-	post = u(func(f *FSReplication) {
+	post = u(func(f *Replication) {
 		if len(f.pending) == 0 {
 			return
 		}
 		nextStepDate = f.pending[0].to.SnapshotTime()
 	})
 
-	GetLogger(ctx).
+	getLogger(ctx).
 		WithField("fs", f.fs).
 		WithField("transition", fmt.Sprintf("%s => %s", pre, post)).
 		WithField("duration", delta).
@@ -167,41 +197,41 @@ func (f *FSReplication) TakeStep(ctx context.Context, sender, receiver Replicati
 	return post, nextStepDate
 }
 
-type fsrUpdater func(func(fsr *FSReplication)) FSReplicationState
+type updater func(func(fsr *Replication)) State
 
-type fsrsf func(ctx context.Context, sender, receiver ReplicationEndpoint, u fsrUpdater) fsrsf
+type state func(ctx context.Context, sender Sender, receiver Receiver, u updater) state
 
-func fsrsfReady(ctx context.Context, sender, receiver ReplicationEndpoint, u fsrUpdater) fsrsf {
+func stateReady(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
 
-	var current *FSReplicationStep
-	s := u(func(f *FSReplication) {
+	var current *ReplicationStep
+	s := u(func(f *Replication) {
 		if len(f.pending) == 0 {
-			f.state = FSCompleted
+			f.state = Completed
 			return
 		}
 		current = f.pending[0]
 	})
-	if s != FSReady {
+	if s != Ready {
 		return s.fsrsf()
 	}
 
 	stepState := current.do(ctx, sender, receiver)
 
-	return u(func(f *FSReplication) {
+	return u(func(f *Replication) {
 		switch stepState {
 		case StepCompleted:
 			f.completed = append(f.completed, current)
 			f.pending = f.pending[1:]
 			if len(f.pending) > 0 {
-				f.state = FSReady
+				f.state = Ready
 			} else {
-				f.state = FSCompleted
+				f.state = Completed
 			}
 		case StepRetry:
 			f.retryWaitUntil = time.Now().Add(10 * time.Second) // FIXME make configurable
-			f.state = FSRetryWait
+			f.state = RetryWait
 		case StepPermanentError:
-			f.state = FSPermanentError
+			f.state = PermanentError
 			f.err = errors.New("a replication step failed with a permanent error")
 		default:
 			panic(f)
@@ -209,37 +239,36 @@ func fsrsfReady(ctx context.Context, sender, receiver ReplicationEndpoint, u fsr
 	}).fsrsf()
 }
 
-func fsrsfRetryWait(ctx context.Context, sender, receiver ReplicationEndpoint, u fsrUpdater) fsrsf {
+func stateRetryWait(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
 	var sleepUntil time.Time
-	u(func(f *FSReplication) {
+	u(func(f *Replication) {
 		sleepUntil = f.retryWaitUntil
 	})
 	t := time.NewTimer(sleepUntil.Sub(time.Now()))
 	defer t.Stop()
 	select {
 	case <-ctx.Done():
-		return u(func(f *FSReplication) {
-			f.state = FSPermanentError
+		return u(func(f *Replication) {
+			f.state = PermanentError
 			f.err = ctx.Err()
 		}).fsrsf()
 	case <-t.C:
 	}
-	return u(func(f *FSReplication) {
-		f.state = FSReady
+	return u(func(f *Replication) {
+		f.state = Ready
 	}).fsrsf()
 }
 
-// access to fsr's members must be exclusive
-func (fsr *FSReplication) Report() *FilesystemReplicationReport {
+func (fsr *Replication) Report() *Report {
 	fsr.lock.Lock()
 	defer fsr.lock.Unlock()
 
-	rep := FilesystemReplicationReport{
+	rep := Report{
 		Filesystem: fsr.fs,
 		Status:     fsr.state.String(),
 	}
 
-	if fsr.state&FSPermanentError != 0 {
+	if fsr.state&PermanentError != 0 {
 		rep.Problem = fsr.err.Error()
 		return &rep
 	}
@@ -255,15 +284,15 @@ func (fsr *FSReplication) Report() *FilesystemReplicationReport {
 	return &rep
 }
 
-func (s *FSReplicationStep) do(ctx context.Context, sender, receiver ReplicationEndpoint) FSReplicationStepState {
+func (s *ReplicationStep) do(ctx context.Context, sender Sender, receiver Receiver) StepState {
 
-	fs := s.fsrep.fs
+	fs := s.parent.fs
 
-	log := GetLogger(ctx).
+	log := getLogger(ctx).
 		WithField("filesystem", fs).
 		WithField("step", s.String())
 
-	updateStateError := func(err error) FSReplicationStepState {
+	updateStateError := func(err error) StepState {
 		s.lock.Lock()
 		defer s.lock.Unlock()
 
@@ -285,7 +314,7 @@ func (s *FSReplicationStep) do(ctx context.Context, sender, receiver Replication
 		return s.state
 	}
 
-	updateStateCompleted := func() FSReplicationStepState {
+	updateStateCompleted := func() StepState {
 		s.lock.Lock()
 		defer s.lock.Unlock()
 		s.err = nil
@@ -338,15 +367,15 @@ func (s *FSReplicationStep) do(ctx context.Context, sender, receiver Replication
 
 }
 
-func (s *FSReplicationStep) String() string {
+func (s *ReplicationStep) String() string {
 	if s.from == nil { // FIXME: ZFS semantics are that to is nil on non-incremental send
-		return fmt.Sprintf("%s%s (full)", s.fsrep.fs, s.to.RelName())
+		return fmt.Sprintf("%s%s (full)", s.parent.fs, s.to.RelName())
 	} else {
-		return fmt.Sprintf("%s(%s => %s)", s.fsrep.fs, s.from, s.to.RelName())
+		return fmt.Sprintf("%s(%s => %s)", s.parent.fs, s.from, s.to.RelName())
 	}
 }
 
-func (step *FSReplicationStep) Report() *StepReport {
+func (step *ReplicationStep) Report() *StepReport {
 	var from string // FIXME follow same convention as ZFS: to should be nil on full send
 	if step.from != nil {
 		from = step.from.RelName()

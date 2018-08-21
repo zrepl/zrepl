@@ -14,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/cmd/replication"
-	"github.com/zrepl/zrepl/cmd/replication/common"
 )
 
 type PullJob struct {
@@ -30,7 +29,7 @@ type PullJob struct {
 	Debug             JobDebugSettings
 
 	task *Task
-	rep replication.Replication
+	rep *replication.Replication
 }
 
 func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j *PullJob, err error) {
@@ -189,12 +188,12 @@ func (j *PullJob) doRun(ctx context.Context) {
 	}
 
 
-	ctx = common.ContextWithLogger(ctx, replicationLogAdaptor{j.task.Log().WithField("subsystem", "replication")})
+	ctx = replication.WithLogger(ctx, replicationLogAdaptor{j.task.Log().WithField("subsystem", "replication")})
 	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{j.task.Log().WithField("subsystem",     "rpc.protocol")})
     ctx = context.WithValue(ctx, contextKeyLog, j.task.Log().WithField("subsystem",                    "rpc.endpoint"))
 
 	j.rep = replication.NewReplication()
-	j.rep.Drive(ctx, common.NewEndpointPairPull(sender, puller))
+	j.rep.Drive(ctx, sender, puller)
 
 	client.Close()
 	j.task.Finish()

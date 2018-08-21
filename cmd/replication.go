@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/zrepl/zrepl/cmd/replication/common"
 	"github.com/zrepl/zrepl/cmd/replication/pdu"
 	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/zfs"
@@ -11,6 +10,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"bytes"
 	"context"
+	"github.com/zrepl/zrepl/cmd/replication"
 )
 
 type InitialReplPolicy string
@@ -57,7 +57,7 @@ func (p *SenderEndpoint) ListFilesystemVersions(ctx context.Context, fs string) 
 		return nil, err
 	}
 	if !pass {
-		return nil, common.NewFilteredError(fs)
+		return nil, replication.NewFilteredError(fs)
 	}
 	fsvs, err := zfs.ZFSListFilesystemVersions(dp, p.FilesystemVersionFilter)
 	if err != nil {
@@ -80,7 +80,7 @@ func (p *SenderEndpoint) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes
 		return nil, nil, err
 	}
 	if !pass {
-		return nil, nil, common.NewFilteredError(r.Filesystem)
+		return nil, nil, replication.NewFilteredError(r.Filesystem)
 	}
 	stream, err := zfs.ZFSSend(r.Filesystem, r.From, r.To)
 	if err != nil {
@@ -324,7 +324,7 @@ func (s RemoteEndpoint)	Receive(ctx context.Context, r *pdu.ReceiveReq, sendStre
 }
 
 type HandlerAdaptor struct {
-	ep common.ReplicationEndpoint
+	ep replication.Endpoint
 }
 
 func (a *HandlerAdaptor) Handle(ctx context.Context, endpoint string, reqStructured *bytes.Buffer, reqStream io.ReadCloser) (resStructured *bytes.Buffer, resStream io.ReadCloser, err error) {
@@ -369,11 +369,16 @@ func (a *HandlerAdaptor) Handle(ctx context.Context, endpoint string, reqStructu
 
 	case RPCSend:
 
+		sender, ok := a.ep.(replication.Sender)
+		if !ok {
+			goto Err
+		}
+
 		var req pdu.SendReq
 		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
 			return nil, nil, err
 		}
-		res, sendStream, err := a.ep.Send(ctx, &req)
+		res, sendStream, err := sender.Send(ctx, &req)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -385,11 +390,16 @@ func (a *HandlerAdaptor) Handle(ctx context.Context, endpoint string, reqStructu
 
 	case RPCReceive:
 
+		receiver, ok := a.ep.(replication.Receiver)
+		if !ok {
+			goto Err
+		}
+
 		var req pdu.ReceiveReq
 		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
 			return nil, nil, err
 		}
-		err := a.ep.Receive(ctx, &req, reqStream)
+		err := receiver.Receive(ctx, &req, reqStream)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -399,8 +409,7 @@ func (a *HandlerAdaptor) Handle(ctx context.Context, endpoint string, reqStructu
 		}
 		return bytes.NewBuffer(b), nil, err
 
-
-	default:
-		return nil, nil, errors.New("no handler for given endpoint")
 	}
+	Err:
+	return nil, nil, errors.New("no handler for given endpoint")
 }
