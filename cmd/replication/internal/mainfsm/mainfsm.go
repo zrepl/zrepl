@@ -80,9 +80,9 @@ func NewReplication() *Replication {
 }
 
 type replicationUpdater func(func(*Replication)) (newState ReplicationState)
-type replicationStateFunc func(context.Context, EndpointPair, replicationUpdater) replicationStateFunc
+type replicationStateFunc func(ctx context.Context, sender, receiver ReplicationEndpoint, u replicationUpdater) replicationStateFunc
 
-func (r *Replication) Drive(ctx context.Context, ep EndpointPair) {
+func (r *Replication) Drive(ctx context.Context, sender, receiver ReplicationEndpoint) {
 
 	var u replicationUpdater = func(f func(*Replication)) ReplicationState {
 		r.lock.Lock()
@@ -98,7 +98,7 @@ func (r *Replication) Drive(ctx context.Context, ep EndpointPair) {
 	for s != nil {
 		preTime := time.Now()
 		pre = u(nil)
-		s = s(ctx, ep, u)
+		s = s(ctx, sender, receiver, u)
 		delta := time.Now().Sub(preTime)
 		post = u(nil)
 		GetLogger(ctx).
@@ -133,7 +133,7 @@ func resolveConflict(conflict error) (path []*pdu.FilesystemVersion, msg string)
 	return nil, "no automated way to handle conflict type"
 }
 
-func rsfPlanning(ctx context.Context, ep EndpointPair, u replicationUpdater) replicationStateFunc {
+func rsfPlanning(ctx context.Context, sender, receiver ReplicationEndpoint, u replicationUpdater) replicationStateFunc {
 
 	log := GetLogger(ctx)
 
@@ -144,13 +144,13 @@ func rsfPlanning(ctx context.Context, ep EndpointPair, u replicationUpdater) rep
 		}).rsf()
 	}
 
-	sfss, err := ep.Sender().ListFilesystems(ctx)
+	sfss, err := sender.ListFilesystems(ctx)
 	if err != nil {
 		log.WithError(err).Error("error listing sender filesystems")
 		return handlePlanningError(err)
 	}
 
-	rfss, err := ep.Receiver().ListFilesystems(ctx)
+	rfss, err := receiver.ListFilesystems(ctx)
 	if err != nil {
 		log.WithError(err).Error("error listing receiver filesystems")
 		return handlePlanningError(err)
@@ -164,7 +164,7 @@ func rsfPlanning(ctx context.Context, ep EndpointPair, u replicationUpdater) rep
 
 		log.Info("assessing filesystem")
 
-		sfsvs, err := ep.Sender().ListFilesystemVersions(ctx, fs.Path)
+		sfsvs, err := sender.ListFilesystemVersions(ctx, fs.Path)
 		if err != nil {
 			log.WithError(err).Error("cannot get remote filesystem versions")
 			return handlePlanningError(err)
@@ -186,7 +186,7 @@ func rsfPlanning(ctx context.Context, ep EndpointPair, u replicationUpdater) rep
 
 		var rfsvs []*pdu.FilesystemVersion
 		if receiverFSExists {
-			rfsvs, err = ep.Receiver().ListFilesystemVersions(ctx, fs.Path)
+			rfsvs, err = receiver.ListFilesystemVersions(ctx, fs.Path)
 			if err != nil {
 				if _, ok := err.(*FilteredError); ok {
 					log.Info("receiver ignores filesystem")
@@ -236,7 +236,7 @@ func rsfPlanning(ctx context.Context, ep EndpointPair, u replicationUpdater) rep
 	}).rsf()
 }
 
-func rsfPlanningError(ctx context.Context, ep EndpointPair, u replicationUpdater) replicationStateFunc {
+func rsfPlanningError(ctx context.Context, sender, receiver ReplicationEndpoint, u replicationUpdater) replicationStateFunc {
 	sleepTime := 10 * time.Second
 	u(func(r *Replication) {
 		r.sleepUntil = time.Now().Add(sleepTime)
@@ -256,7 +256,7 @@ func rsfPlanningError(ctx context.Context, ep EndpointPair, u replicationUpdater
 	}
 }
 
-func rsfWorking(ctx context.Context, ep EndpointPair, u replicationUpdater) replicationStateFunc {
+func rsfWorking(ctx context.Context, sender, receiver ReplicationEndpoint, u replicationUpdater) replicationStateFunc {
 
 	var active *ReplicationQueueItemHandle
 	rsfNext := u(func(r *Replication) {
@@ -273,7 +273,7 @@ func rsfWorking(ctx context.Context, ep EndpointPair, u replicationUpdater) repl
 		return rsfNext
 	}
 
-	state, nextStepDate := active.GetFSReplication().TakeStep(ctx, ep)
+	state, nextStepDate := active.GetFSReplication().TakeStep(ctx, sender, receiver)
 
 	return u(func(r *Replication) {
 		active.Update(state, nextStepDate)
@@ -281,7 +281,7 @@ func rsfWorking(ctx context.Context, ep EndpointPair, u replicationUpdater) repl
 	}).rsf()
 }
 
-func rsfWorkingWait(ctx context.Context, ep EndpointPair, u replicationUpdater) replicationStateFunc {
+func rsfWorkingWait(ctx context.Context, sender, receiver ReplicationEndpoint, u replicationUpdater) replicationStateFunc {
 	sleepTime := 10 * time.Second
 	u(func(r *Replication) {
 		r.sleepUntil = time.Now().Add(sleepTime)
@@ -327,14 +327,14 @@ func (r *Replication) Report() *Report {
 		active = r.active.GetFSReplication()
 		rep.Active = active.Report()
 	}
-	r.queue.Foreach(func (h *ReplicationQueueItemHandle){
+	r.queue.Foreach(func(h *ReplicationQueueItemHandle) {
 		fsr := h.GetFSReplication()
 		if active != fsr {
 			rep.Pending = append(rep.Pending, fsr.Report())
 		}
 	})
 	for _, fsr := range r.completed {
-		rep.Completed = append(rep.Completed,  fsr.Report())
+		rep.Completed = append(rep.Completed, fsr.Report())
 	}
 
 	return &rep

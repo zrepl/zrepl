@@ -135,7 +135,7 @@ type FSReplicationStep struct {
 	err error
 }
 
-func (f *FSReplication) TakeStep(ctx context.Context, ep EndpointPair) (post FSReplicationState, nextStepDate time.Time) {
+func (f *FSReplication) TakeStep(ctx context.Context, sender, receiver ReplicationEndpoint) (post FSReplicationState, nextStepDate time.Time) {
 
 	var u fsrUpdater = func(fu func(*FSReplication)) FSReplicationState {
 		f.lock.Lock()
@@ -149,7 +149,7 @@ func (f *FSReplication) TakeStep(ctx context.Context, ep EndpointPair) (post FSR
 
 	pre := u(nil)
 	preTime := time.Now()
-	s = s(ctx, ep, u)
+	s = s(ctx, sender, receiver, u)
 	delta := time.Now().Sub(preTime)
 	post = u(func(f *FSReplication) {
 		if len(f.pending) == 0 {
@@ -169,9 +169,9 @@ func (f *FSReplication) TakeStep(ctx context.Context, ep EndpointPair) (post FSR
 
 type fsrUpdater func(func(fsr *FSReplication)) FSReplicationState
 
-type fsrsf func(ctx context.Context, ep EndpointPair, u fsrUpdater) fsrsf
+type fsrsf func(ctx context.Context, sender, receiver ReplicationEndpoint, u fsrUpdater) fsrsf
 
-func fsrsfReady(ctx context.Context, ep EndpointPair, u fsrUpdater) fsrsf {
+func fsrsfReady(ctx context.Context, sender, receiver ReplicationEndpoint, u fsrUpdater) fsrsf {
 
 	var current *FSReplicationStep
 	s := u(func(f *FSReplication) {
@@ -185,7 +185,7 @@ func fsrsfReady(ctx context.Context, ep EndpointPair, u fsrUpdater) fsrsf {
 		return s.fsrsf()
 	}
 
-	stepState := current.do(ctx, ep)
+	stepState := current.do(ctx, sender, receiver)
 
 	return u(func(f *FSReplication) {
 		switch stepState {
@@ -209,7 +209,7 @@ func fsrsfReady(ctx context.Context, ep EndpointPair, u fsrUpdater) fsrsf {
 	}).fsrsf()
 }
 
-func fsrsfRetryWait(ctx context.Context, ep EndpointPair, u fsrUpdater) fsrsf {
+func fsrsfRetryWait(ctx context.Context, sender, receiver ReplicationEndpoint, u fsrUpdater) fsrsf {
 	var sleepUntil time.Time
 	u(func(f *FSReplication) {
 		sleepUntil = f.retryWaitUntil
@@ -255,7 +255,7 @@ func (fsr *FSReplication) Report() *FilesystemReplicationReport {
 	return &rep
 }
 
-func (s *FSReplicationStep) do(ctx context.Context, ep EndpointPair) FSReplicationStepState {
+func (s *FSReplicationStep) do(ctx context.Context, sender, receiver ReplicationEndpoint) FSReplicationStepState {
 
 	fs := s.fsrep.fs
 
@@ -308,7 +308,7 @@ func (s *FSReplicationStep) do(ctx context.Context, ep EndpointPair) FSReplicati
 	}
 
 	log.WithField("request", sr).Debug("initiate send request")
-	sres, sstream, err := ep.Sender().Send(ctx, sr)
+	sres, sstream, err := sender.Send(ctx, sr)
 	if err != nil {
 		log.WithError(err).Error("send request failed")
 		return updateStateError(err)
@@ -323,7 +323,7 @@ func (s *FSReplicationStep) do(ctx context.Context, ep EndpointPair) FSReplicati
 		ClearResumeToken: !sres.UsedResumeToken,
 	}
 	log.WithField("request", rr).Debug("initiate receive request")
-	err = ep.Receiver().Receive(ctx, rr, sstream)
+	err = receiver.Receive(ctx, rr, sstream)
 	if err != nil {
 		log.WithError(err).Error("receive request failed (might also be error on sender)")
 		sstream.Close()

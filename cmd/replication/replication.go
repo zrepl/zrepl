@@ -10,7 +10,7 @@ import (
 type Report = mainfsm.Report
 
 type Replication interface {
-	Drive(ctx context.Context, ep common.EndpointPair)
+	Drive(ctx context.Context, sender, receiver common.ReplicationEndpoint)
 	Report() *Report
 }
 
