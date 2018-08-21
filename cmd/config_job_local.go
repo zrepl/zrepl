@@ -9,6 +9,7 @@ import (
 	"github.com/zrepl/zrepl/zfs"
 	"sync"
 	"github.com/zrepl/zrepl/replication"
+	"github.com/zrepl/zrepl/cmd/endpoint"
 )
 
 type LocalJob struct {
@@ -16,7 +17,7 @@ type LocalJob struct {
 	Mapping           *DatasetMapFilter
 	SnapshotPrefix    string
 	Interval          time.Duration
-	InitialReplPolicy InitialReplPolicy
+	InitialReplPolicy endpoint.InitialReplPolicy
 	PruneLHS          PrunePolicy
 	PruneRHS          PrunePolicy
 	Debug             JobDebugSettings
@@ -59,7 +60,7 @@ func parseLocalJob(c JobParsingContext, name string, i map[string]interface{}) (
 		return
 	}
 
-	if j.InitialReplPolicy, err = parseInitialReplPolicy(asMap.InitialReplPolicy, DEFAULT_INITIAL_REPL_POLICY); err != nil {
+	if j.InitialReplPolicy, err = parseInitialReplPolicy(asMap.InitialReplPolicy, endpoint.DEFAULT_INITIAL_REPL_POLICY); err != nil {
 		return
 	}
 
@@ -103,9 +104,9 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 	// We can pay this small performance penalty for now.
 	wildcardMapFilter := NewDatasetMapFilter(1, false)
 	wildcardMapFilter.Add("<", "<")
-	sender := &SenderEndpoint{wildcardMapFilter, NewPrefixFilter(j.SnapshotPrefix)}
+	sender := &endpoint.SenderEndpoint{wildcardMapFilter, NewPrefixFilter(j.SnapshotPrefix)}
 
-	receiver, err := NewReceiverEndpoint(j.Mapping, NewPrefixFilter(j.SnapshotPrefix))
+	receiver, err := endpoint.NewReceiverEndpoint(j.Mapping, NewPrefixFilter(j.SnapshotPrefix))
 	if err != nil {
 		rootLog.WithError(err).Error("unexpected error setting up local handler")
 	}

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 	"github.com/problame/go-streamrpc"
+	"github.com/zrepl/zrepl/cmd/endpoint"
 )
 
 var ConfigFileDefaultLocations []string = []string{
@@ -225,7 +226,7 @@ func parseConnect(i map[string]interface{}) (c streamrpc.Connecter, err error) {
 
 }
 
-func parseInitialReplPolicy(v interface{}, defaultPolicy InitialReplPolicy) (p InitialReplPolicy, err error) {
+func parseInitialReplPolicy(v interface{}, defaultPolicy endpoint.InitialReplPolicy) (p endpoint.InitialReplPolicy, err error) {
 	s, ok := v.(string)
 	if !ok {
 		goto err
@@ -235,9 +236,9 @@ func parseInitialReplPolicy(v interface{}, defaultPolicy InitialReplPolicy) (p I
 	case s == "":
 		p = defaultPolicy
 	case s == "most_recent":
-		p = InitialReplPolicyMostRecent
+		p = endpoint.InitialReplPolicyMostRecent
 	case s == "all":
-		p = InitialReplPolicyAll
+		p = endpoint.InitialReplPolicyAll
 	default:
 		goto err
 	}

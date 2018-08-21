@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/replication"
+	"github.com/zrepl/zrepl/cmd/endpoint"
 )
 
 type PullJob struct {
@@ -24,7 +25,7 @@ type PullJob struct {
 	// constructed from mapping during parsing
 	pruneFilter       *DatasetMapFilter
 	SnapshotPrefix    string
-	InitialReplPolicy InitialReplPolicy
+	InitialReplPolicy endpoint.InitialReplPolicy
 	Prune             PrunePolicy
 	Debug             JobDebugSettings
 
@@ -73,7 +74,7 @@ func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j
 		return nil, err
 	}
 
-	j.InitialReplPolicy, err = parseInitialReplPolicy(asMap.InitialReplPolicy, DEFAULT_INITIAL_REPL_POLICY)
+	j.InitialReplPolicy, err = parseInitialReplPolicy(asMap.InitialReplPolicy, endpoint.DEFAULT_INITIAL_REPL_POLICY)
 	if err != nil {
 		err = errors.Wrap(err, "cannot parse 'initial_repl_policy'")
 		return
@@ -175,9 +176,9 @@ func (j *PullJob) doRun(ctx context.Context) {
 
 	j.task.Enter("pull")
 
-	sender := RemoteEndpoint{client}
+	sender := endpoint.RemoteEndpoint{client}
 
-	puller, err := NewReceiverEndpoint(
+	puller, err := endpoint.NewReceiverEndpoint(
 		j.Mapping,
 		NewPrefixFilter(j.SnapshotPrefix),
 	)
@@ -229,7 +230,7 @@ func (j *PullJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Prune
 	return
 }
 
-func closeRPCWithTimeout(task *Task, remote RemoteEndpoint, timeout time.Duration, goodbye string) {
+func closeRPCWithTimeout(task *Task, remote endpoint.RemoteEndpoint, timeout time.Duration, goodbye string) {
 
 	task.Log().Info("closing rpc connection")
 

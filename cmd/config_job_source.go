@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
 	"net"
+	"github.com/zrepl/zrepl/cmd/endpoint"
 )
 
 type SourceJob struct {
@@ -211,12 +212,12 @@ func (j *SourceJob) handleConnection(conn net.Conn, task *Task) {
 
 	task.Log().Info("handling client connection")
 
-	senderEP := NewSenderEndpoint(j.Filesystems, NewPrefixFilter(j.SnapshotPrefix))
+	senderEP := endpoint.NewSenderEndpoint(j.Filesystems, NewPrefixFilter(j.SnapshotPrefix))
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, contextKeyLog, task.Log().WithField("subsystem", "rpc.endpoint"))
 	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{task.Log().WithField("subsystem", "rpc.protocol")})
-	handler := HandlerAdaptor{senderEP}
+	handler := endpoint.NewHandlerAdaptor(senderEP)
 	if err := streamrpc.ServeConn(ctx, conn, STREAMRPC_CONFIG, handler.Handle); err != nil {
 		task.Log().WithError(err).Error("error serving connection")
 	} else {

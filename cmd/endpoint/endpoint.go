@@ -1,4 +1,4 @@
-package cmd
+package endpoint
 
 import (
 	"fmt"
@@ -13,6 +13,7 @@ import (
 	"github.com/zrepl/zrepl/replication"
 )
 
+// FIXME: remove this
 type InitialReplPolicy string
 
 const (
@@ -20,6 +21,7 @@ const (
 	InitialReplPolicyAll        InitialReplPolicy = "all"
 )
 
+// FIXME: remove this
 const DEFAULT_INITIAL_REPL_POLICY = InitialReplPolicyMostRecent
 
 // SenderEndpoint implements replication.ReplicationEndpoint for a sending side
@@ -93,15 +95,26 @@ func (p *SenderEndpoint) Receive(ctx context.Context, r *pdu.ReceiveReq, sendStr
 	return fmt.Errorf("sender endpoint does not receive")
 }
 
+type FSFilter interface {
+	Filter(path *zfs.DatasetPath) (pass bool, err error)
+}
+
+// FIXME: can we get away without error types here?
+type FSMap interface {
+	FSFilter
+	Map(path *zfs.DatasetPath) (*zfs.DatasetPath,error)
+	Invert() (FSMap,error)
+	AsFilter() (FSFilter)
+}
 
 // ReceiverEndpoint implements replication.ReplicationEndpoint for a receiving side
 type ReceiverEndpoint struct {
-	fsmapInv *DatasetMapFilter
-	fsmap *DatasetMapFilter
+	fsmapInv FSMap
+	fsmap FSMap
 	fsvf zfs.FilesystemVersionFilter
 }
 
-func NewReceiverEndpoint(fsmap *DatasetMapFilter, fsvf zfs.FilesystemVersionFilter) (*ReceiverEndpoint, error) {
+func NewReceiverEndpoint(fsmap FSMap, fsvf zfs.FilesystemVersionFilter) (*ReceiverEndpoint, error) {
 	fsmapInv, err := fsmap.Invert()
 	if err != nil {
 		return nil, err
@@ -325,6 +338,10 @@ func (s RemoteEndpoint)	Receive(ctx context.Context, r *pdu.ReceiveReq, sendStre
 
 type HandlerAdaptor struct {
 	ep replication.Endpoint
+}
+
+func NewHandlerAdaptor(ep replication.Endpoint) HandlerAdaptor {
+	return HandlerAdaptor{ep}
 }
 
 func (a *HandlerAdaptor) Handle(ctx context.Context, endpoint string, reqStructured *bytes.Buffer, reqStream io.ReadCloser) (resStructured *bytes.Buffer, resStream io.ReadCloser, err error) {

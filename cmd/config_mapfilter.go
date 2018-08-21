@@ -7,6 +7,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/zfs"
+	"github.com/zrepl/zrepl/cmd/endpoint"
 )
 
 type DatasetMapFilter struct {
@@ -187,11 +188,10 @@ func (m DatasetMapFilter) InvertedFilter() (inv *DatasetMapFilter, err error) {
 }
 
 // FIXME investigate whether we can support more...
-func (m DatasetMapFilter) Invert() (inv *DatasetMapFilter, err error) {
+func (m DatasetMapFilter) Invert() (endpoint.FSMap, error) {
 
 	if m.filterMode {
-		err = errors.Errorf("can only invert mappings")
-		return
+		return nil, errors.Errorf("can only invert mappings")
 	}
 
 	if len(m.entries) != 1 {
@@ -200,7 +200,7 @@ func (m DatasetMapFilter) Invert() (inv *DatasetMapFilter, err error) {
 
 	e := m.entries[0]
 
-	inv = &DatasetMapFilter{
+	inv := &DatasetMapFilter{
 		make([]datasetMapFilterEntry, len(m.entries)),
 		false,
 	}
@@ -221,9 +221,9 @@ func (m DatasetMapFilter) Invert() (inv *DatasetMapFilter, err error) {
 // Creates a new DatasetMapFilter in filter mode from a mapping
 // All accepting mapping results are mapped to accepting filter results
 // All rejecting mapping results are mapped to rejecting filter results
-func (m DatasetMapFilter) AsFilter() (f *DatasetMapFilter) {
+func (m DatasetMapFilter) AsFilter() endpoint.FSFilter {
 
-	f = &DatasetMapFilter{
+	f := &DatasetMapFilter{
 		make([]datasetMapFilterEntry, len(m.entries)),
 		true,
 	}
