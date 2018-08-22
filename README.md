@@ -43,6 +43,7 @@ Make sure to develop an understanding how zrepl is typically used by studying th
 
 ```
 ├── cmd
+│   ├── endpoint            # implementations of endpoints for package replication
 │   ├── sampleconf          # example configuration
 ├── docs                    # sphinx-based documentation
 │   ├── **/*.rst            # documentation in reStructuredText
@@ -52,6 +53,7 @@ Make sure to develop an understanding how zrepl is typically used by studying th
 │   ├── publish.sh          # shell script for automated rendering & deploy to zrepl.github.io repo
 │   ├── public_git          # checkout of zrepl.github.io managed by above shell script
 ├── logger                  # logger package used by zrepl
+├── replication             # replication functionality
 ├── rpc                     # rpc protocol implementation
 ├── util
 └── zfs                     # ZFS wrappers, filesystemm diffing
