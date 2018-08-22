@@ -17,7 +17,7 @@ type LocalJob struct {
 	Mapping           *DatasetMapFilter
 	SnapshotPrefix    string
 	Interval          time.Duration
-	InitialReplPolicy endpoint.InitialReplPolicy
+	InitialReplPolicy replication.InitialReplPolicy
 	PruneLHS          PrunePolicy
 	PruneRHS          PrunePolicy
 	Debug             JobDebugSettings
@@ -60,7 +60,7 @@ func parseLocalJob(c JobParsingContext, name string, i map[string]interface{}) (
 		return
 	}
 
-	if j.InitialReplPolicy, err = parseInitialReplPolicy(asMap.InitialReplPolicy, endpoint.DEFAULT_INITIAL_REPL_POLICY); err != nil {
+	if j.InitialReplPolicy, err = parseInitialReplPolicy(asMap.InitialReplPolicy, replication.DEFAULT_INITIAL_REPL_POLICY); err != nil {
 		return
 	}
 

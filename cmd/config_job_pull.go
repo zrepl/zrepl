@@ -24,7 +24,7 @@ type PullJob struct {
 	// constructed from mapping during parsing
 	pruneFilter       *DatasetMapFilter
 	SnapshotPrefix    string
-	InitialReplPolicy endpoint.InitialReplPolicy
+	InitialReplPolicy replication.InitialReplPolicy
 	Prune             PrunePolicy
 	Debug             JobDebugSettings
 
@@ -73,7 +73,7 @@ func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j
 		return nil, err
 	}
 
-	j.InitialReplPolicy, err = parseInitialReplPolicy(asMap.InitialReplPolicy, endpoint.DEFAULT_INITIAL_REPL_POLICY)
+	j.InitialReplPolicy, err = parseInitialReplPolicy(asMap.InitialReplPolicy, replication.DEFAULT_INITIAL_REPL_POLICY)
 	if err != nil {
 		err = errors.Wrap(err, "cannot parse 'initial_repl_policy'")
 		return

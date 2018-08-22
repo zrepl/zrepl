@@ -13,17 +13,6 @@ import (
 	"github.com/zrepl/zrepl/replication"
 )
 
-// FIXME: remove this
-type InitialReplPolicy string
-
-const (
-	InitialReplPolicyMostRecent InitialReplPolicy = "most_recent"
-	InitialReplPolicyAll        InitialReplPolicy = "all"
-)
-
-// FIXME: remove this
-const DEFAULT_INITIAL_REPL_POLICY = InitialReplPolicyMostRecent
-
 // Sender implements replication.ReplicationEndpoint for a sending side
 type Sender struct {
 	FSFilter 				zfs.DatasetFilter
