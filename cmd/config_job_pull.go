@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
