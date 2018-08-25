@@ -160,16 +160,11 @@ func (j *SourceJob) serve(ctx context.Context, task *Task) {
 	connChan := make(chan connChanMsg)
 
 	// Serve connections until interrupted or error
-outer:
+	outer:
 	for {
 
 		go func() {
 			rwc, err := listener.Accept()
-			if err != nil {
-				connChan <- connChanMsg{rwc, err}
-				close(connChan)
-				return
-			}
 			connChan <- connChanMsg{rwc, err}
 		}()
 
@@ -178,8 +173,8 @@ outer:
 		case rwcMsg := <-connChan:
 
 			if rwcMsg.err != nil {
-				task.Log().WithError(err).Error("error accepting connection")
-				break outer
+				task.Log().WithError(rwcMsg.err).Error("error accepting connection")
+				continue
 			}
 
 			j.handleConnection(rwcMsg.conn, task)
@@ -187,10 +182,11 @@ outer:
 		case <-ctx.Done():
 			task.Log().WithError(ctx.Err()).Info("context")
 			break outer
-
 		}
 
 	}
+
+	task.Log().Info("closing listener")
 
 	task.Enter("close_listener")
 	defer task.Finish()
