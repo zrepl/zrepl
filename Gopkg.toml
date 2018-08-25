@@ -55,3 +55,7 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
 [[constraint]]
   name = "github.com/prometheus/client_golang"
   branch = "master"
+
+[[constraint]]
+  name = "github.com/problame/go-streamrpc"
+  version = "0.1.0"
