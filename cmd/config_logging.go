@@ -1,15 +1,15 @@
 package cmd
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"github.com/mattn/go-isatty"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/cmd/tlsconf"
 	"github.com/zrepl/zrepl/logger"
 	"os"
 	"time"
-	"crypto/tls"
-	"crypto/x509"
-	"github.com/zrepl/zrepl/cmd/tlsconf"
 )
 
 type LoggingConfig struct {

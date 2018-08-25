@@ -7,12 +7,12 @@ import (
 	yaml "github.com/go-yaml/yaml"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"github.com/problame/go-streamrpc"
+	"github.com/zrepl/zrepl/replication"
 	"os"
 	"regexp"
 	"strconv"
 	"time"
-	"github.com/zrepl/zrepl/replication"
-	"github.com/problame/go-streamrpc"
 )
 
 var ConfigFileDefaultLocations []string = []string{

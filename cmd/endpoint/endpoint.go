@@ -2,20 +2,20 @@
 package endpoint
 
 import (
-	"github.com/zrepl/zrepl/replication/pdu"
-	"github.com/problame/go-streamrpc"
-	"github.com/zrepl/zrepl/zfs"
-	"io"
-	"github.com/pkg/errors"
-	"github.com/golang/protobuf/proto"
 	"bytes"
 	"context"
+	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
+	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/replication"
+	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/zrepl/zrepl/zfs"
+	"io"
 )
 
 // Sender implements replication.ReplicationEndpoint for a sending side
 type Sender struct {
-	FSFilter 				zfs.DatasetFilter
+	FSFilter                zfs.DatasetFilter
 	FilesystemVersionFilter zfs.FilesystemVersionFilter
 }
 
@@ -87,16 +87,16 @@ type FSFilter interface {
 // FIXME: can we get away without error types here?
 type FSMap interface {
 	FSFilter
-	Map(path *zfs.DatasetPath) (*zfs.DatasetPath,error)
-	Invert() (FSMap,error)
-	AsFilter() (FSFilter)
+	Map(path *zfs.DatasetPath) (*zfs.DatasetPath, error)
+	Invert() (FSMap, error)
+	AsFilter() FSFilter
 }
 
 // Receiver implements replication.ReplicationEndpoint for a receiving side
 type Receiver struct {
 	fsmapInv FSMap
-	fsmap FSMap
-	fsvf zfs.FilesystemVersionFilter
+	fsmap    FSMap
+	fsvf     zfs.FilesystemVersionFilter
 }
 
 func NewReceiver(fsmap FSMap, fsvf zfs.FilesystemVersionFilter) (*Receiver, error) {
@@ -219,12 +219,11 @@ func (e *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, sendStream 
 // RPC STUBS
 // =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-
 const (
-	RPCListFilesystems = "ListFilesystems"
+	RPCListFilesystems        = "ListFilesystems"
 	RPCListFilesystemVersions = "ListFilesystemVersions"
-	RPCReceive = "Receive"
-	RPCSend = "Send"
+	RPCReceive                = "Receive"
+	RPCSend                   = "Send"
 )
 
 // Remote implements an endpoint stub that uses streamrpc as a transport.
@@ -295,13 +294,13 @@ func (s Remote) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Read
 	var res pdu.SendRes
 	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
 		rs.Close()
-		return  nil, nil, err
+		return nil, nil, err
 	}
 	// FIXME make sure the consumer will read the reader until the end...
 	return &res, rs, nil
 }
 
-func (s Remote)	Receive(ctx context.Context, r *pdu.ReceiveReq, sendStream io.ReadCloser) (error) {
+func (s Remote) Receive(ctx context.Context, r *pdu.ReceiveReq, sendStream io.ReadCloser) error {
 	defer sendStream.Close()
 	b, err := proto.Marshal(r)
 	if err != nil {
@@ -414,6 +413,6 @@ func (a *Handler) Handle(ctx context.Context, endpoint string, reqStructured *by
 		return bytes.NewBuffer(b), nil, err
 
 	}
-	Err:
+Err:
 	return nil, nil, errors.New("no handler for given endpoint")
 }

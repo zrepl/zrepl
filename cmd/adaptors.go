@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/problame/go-streamrpc"
-	"github.com/zrepl/zrepl/util"
 	"github.com/zrepl/zrepl/logger"
+	"github.com/zrepl/zrepl/util"
 )
 
 type logNetConnConnecter struct {
@@ -29,35 +29,34 @@ func (l logNetConnConnecter) Connect(ctx context.Context) (net.Conn, error) {
 }
 
 type logListenerFactory struct {
-    ListenerFactory
-    ReadDump, WriteDump string
+	ListenerFactory
+	ReadDump, WriteDump string
 }
 
 var _ ListenerFactory = logListenerFactory{}
 
 type logListener struct {
-    net.Listener
-    ReadDump, WriteDump string
+	net.Listener
+	ReadDump, WriteDump string
 }
 
 var _ net.Listener = logListener{}
 
 func (m logListenerFactory) Listen() (net.Listener, error) {
-    l, err := m.ListenerFactory.Listen()
-    if err != nil {
-        return nil, err
-    }
-    return logListener{l, m.ReadDump, m.WriteDump}, nil
+	l, err := m.ListenerFactory.Listen()
+	if err != nil {
+		return nil, err
+	}
+	return logListener{l, m.ReadDump, m.WriteDump}, nil
 }
 
 func (l logListener) Accept() (net.Conn, error) {
-    conn, err := l.Listener.Accept()
-    if err != nil {
-        return nil, err
-    }
-    return util.NewNetConnLogger(conn, l.ReadDump, l.WriteDump)
+	conn, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	return util.NewNetConnLogger(conn, l.ReadDump, l.WriteDump)
 }
-
 
 type netsshAddr struct{}
 
@@ -78,7 +77,7 @@ func (netsshConnToNetConnAdatper) SetReadDeadline(t time.Time) error { return ni
 
 func (netsshConnToNetConnAdatper) SetWriteDeadline(t time.Time) error { return nil }
 
-type streamrpcLogAdaptor = twoClassLogAdaptor 
+type streamrpcLogAdaptor = twoClassLogAdaptor
 type replicationLogAdaptor = twoClassLogAdaptor
 
 type twoClassLogAdaptor struct {
@@ -87,7 +86,7 @@ type twoClassLogAdaptor struct {
 
 var _ streamrpc.Logger = twoClassLogAdaptor{}
 
-func (a twoClassLogAdaptor) Errorf(fmtStr string, args... interface{}) {
+func (a twoClassLogAdaptor) Errorf(fmtStr string, args ...interface{}) {
 	const errorSuffix = ": %s"
 	if len(args) == 1 {
 		if err, ok := args[0].(error); ok && strings.HasSuffix(fmtStr, errorSuffix) {
@@ -99,7 +98,6 @@ func (a twoClassLogAdaptor) Errorf(fmtStr string, args... interface{}) {
 	a.Logger.Error(fmt.Sprintf(fmtStr, args...))
 }
 
-func (a twoClassLogAdaptor) Infof(fmtStr string, args... interface{}) {
+func (a twoClassLogAdaptor) Infof(fmtStr string, args ...interface{}) {
 	a.Logger.Info(fmt.Sprintf(fmtStr, args...))
 }
-

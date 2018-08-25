@@ -2,18 +2,18 @@ package util
 
 import (
 	"context"
-	"time"
 	"sync"
+	"time"
 )
 
 type contextWithOptionalDeadline struct {
 	context.Context
 
-	m sync.Mutex
+	m        sync.Mutex
 	deadline time.Time
 
 	done chan struct{}
-	err error
+	err  error
 }
 
 func (c *contextWithOptionalDeadline) Deadline() (deadline time.Time, ok bool) {
@@ -28,7 +28,7 @@ func (c *contextWithOptionalDeadline) Err() error {
 	return c.err
 }
 
-func (c *contextWithOptionalDeadline) Done() (<-chan struct{}) {
+func (c *contextWithOptionalDeadline) Done() <-chan struct{} {
 	return c.done
 }
 
@@ -37,8 +37,8 @@ func ContextWithOptionalDeadline(pctx context.Context) (ctx context.Context, enf
 	// mctx can only be cancelled by cancelMctx, not by a potential cancel of pctx
 	rctx := &contextWithOptionalDeadline{
 		Context: pctx,
-		done: make(chan struct{}),
-		err: nil,
+		done:    make(chan struct{}),
+		err:     nil,
 	}
 	enforceDeadline = func(deadline time.Time) {
 

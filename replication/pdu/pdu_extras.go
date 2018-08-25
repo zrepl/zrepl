@@ -33,11 +33,11 @@ func FilesystemVersionFromZFS(fsv zfs.FilesystemVersion) *FilesystemVersion {
 		panic("unknown fsv.Type: " + fsv.Type)
 	}
 	return &FilesystemVersion{
-		Type: t,
-		Name: fsv.Name,
-		Guid: fsv.Guid,
+		Type:      t,
+		Name:      fsv.Name,
+		Guid:      fsv.Guid,
 		CreateTXG: fsv.CreateTXG,
-		Creation: fsv.Creation.Format(time.RFC3339),
+		Creation:  fsv.Creation.Format(time.RFC3339),
 	}
 }
 
@@ -64,10 +64,10 @@ func (v *FilesystemVersion) ZFSFilesystemVersion() *zfs.FilesystemVersion {
 		}
 	}
 	return &zfs.FilesystemVersion{
-		Type: v.Type.ZFSVersionType(),
-		Name: v.Name,
-		Guid: v.Guid,
+		Type:      v.Type.ZFSVersionType(),
+		Name:      v.Name,
+		Guid:      v.Guid,
 		CreateTXG: v.CreateTXG,
-		Creation: ct,
+		Creation:  ct,
 	}
 }

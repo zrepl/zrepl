@@ -1,8 +1,8 @@
 package queue
 
 import (
-	"time"
 	"sort"
+	"time"
 
 	. "github.com/zrepl/zrepl/replication/fsrep"
 )
@@ -27,12 +27,12 @@ func NewReplicationQueue() *ReplicationQueue {
 func (q ReplicationQueue) Len() int      { return len(q) }
 func (q ReplicationQueue) Swap(i, j int) { q[i], q[j] = q[j], q[i] }
 
-type lessmapEntry struct{
+type lessmapEntry struct {
 	prio int
-	less func(a,b *replicationQueueItem) bool
+	less func(a, b *replicationQueueItem) bool
 }
 
-var lessmap = map[State]lessmapEntry {
+var lessmap = map[State]lessmapEntry{
 	Ready: {
 		prio: 0,
 		less: func(a, b *replicationQueueItem) bool {
@@ -94,7 +94,7 @@ func (q *ReplicationQueue) GetNext() (done []*Replication, next *ReplicationQueu
 
 func (q *ReplicationQueue) Add(fsr *Replication) {
 	*q = append(*q, &replicationQueueItem{
-		fsr: fsr,
+		fsr:   fsr,
 		state: fsr.State(),
 	})
 }

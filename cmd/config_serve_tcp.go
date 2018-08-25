@@ -22,8 +22,8 @@ type TCPListenerFactory struct {
 func parseTCPListenerFactory(c JobParsingContext, i map[string]interface{}) (*TCPListenerFactory, error) {
 
 	var in struct {
-		Address        string
-		TLS            map[string]interface{}
+		Address string
+		TLS     map[string]interface{}
 	}
 	if err := mapstructure.Decode(i, &in); err != nil {
 		return nil, errors.Wrap(err, "mapstructure error")
@@ -56,7 +56,7 @@ func parseTCPListenerFactory(c JobParsingContext, i map[string]interface{}) (*TC
 
 			lf.clientCA, err = tlsconf.ParseCAFile(in.CA)
 			if err != nil {
-				return errors.Wrap(err,"cannot parse ca file")
+				return errors.Wrap(err, "cannot parse ca file")
 			}
 
 			lf.serverCert, err = tls.LoadX509KeyPair(in.Cert, in.Key)

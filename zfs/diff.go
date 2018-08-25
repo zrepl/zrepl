@@ -5,9 +5,9 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os/exec"
 	"sort"
-	"io"
 )
 
 type fsbyCreateTXG []FilesystemVersion
@@ -255,7 +255,7 @@ func ZFSIsPlaceholderFilesystem(p *DatasetPath) (isPlaceholder bool, err error) 
 	} else if err != nil {
 		return false, err
 	}
-	isPlaceholder, _  = IsPlaceholder(p, props.Get(ZREPL_PLACEHOLDER_PROPERTY_NAME))
+	isPlaceholder, _ = IsPlaceholder(p, props.Get(ZREPL_PLACEHOLDER_PROPERTY_NAME))
 	return
 }
 

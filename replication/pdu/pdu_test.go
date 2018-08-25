@@ -1,15 +1,15 @@
 package pdu
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestFilesystemVersion_RelName(t *testing.T) {
 
 	type TestCase struct {
-		In FilesystemVersion
-		Out string
+		In    FilesystemVersion
+		Out   string
 		Panic bool
 	}
 
@@ -56,7 +56,7 @@ func TestFilesystemVersion_ZFSFilesystemVersion(t *testing.T) {
 	emptyZFS := empty.ZFSFilesystemVersion()
 	assert.Zero(t, emptyZFS.Creation)
 
-	dateInvalid := &FilesystemVersion{Creation:"foobar"}
+	dateInvalid := &FilesystemVersion{Creation: "foobar"}
 	assert.Panics(t, func() {
 		dateInvalid.ZFSFilesystemVersion()
 	})

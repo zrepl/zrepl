@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zrepl/zrepl/replication/pdu"
 	"github.com/zrepl/zrepl/logger"
+	"github.com/zrepl/zrepl/replication/pdu"
 )
 
 type contextKey int
@@ -51,18 +51,17 @@ type StepReport struct {
 }
 
 type Report struct {
-	Filesystem string
-	Status     string
-	Problem    string
-	Completed,Pending  []*StepReport
+	Filesystem         string
+	Status             string
+	Problem            string
+	Completed, Pending []*StepReport
 }
-
 
 //go:generate stringer -type=State
 type State uint
 
 const (
-	Ready          State = 1 << iota
+	Ready State = 1 << iota
 	RetryWait
 	PermanentError
 	Completed
@@ -123,7 +122,7 @@ func (b *ReplicationBuilder) Done() (r *Replication) {
 	} else {
 		b.r.state = Completed
 	}
-	r  = b.r
+	r = b.r
 	b.r = nil
 	return r
 }
@@ -136,12 +135,11 @@ func NewReplicationWithPermanentError(fs string, err error) *Replication {
 	}
 }
 
-
 //go:generate stringer -type=StepState
 type StepState uint
 
 const (
-	StepReady          StepState = 1 << iota
+	StepReady StepState = 1 << iota
 	StepRetry
 	StepPermanentError
 	StepCompleted
@@ -387,4 +385,3 @@ func (step *ReplicationStep) Report() *StepReport {
 	}
 	return &rep
 }
-

@@ -6,8 +6,8 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/zfs"
 	"github.com/zrepl/zrepl/cmd/endpoint"
+	"github.com/zrepl/zrepl/zfs"
 )
 
 type DatasetMapFilter struct {
@@ -210,8 +210,8 @@ func (m DatasetMapFilter) Invert() (endpoint.FSMap, error) {
 	}
 
 	inv.entries[0] = datasetMapFilterEntry{
-		path: mp,
-		mapping: e.path.ToString(),
+		path:         mp,
+		mapping:      e.path.ToString(),
 		subtreeMatch: e.subtreeMatch,
 	}
 

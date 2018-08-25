@@ -14,7 +14,7 @@ type NetConnLogger struct {
 
 func NewNetConnLogger(conn net.Conn, readlog, writelog string) (l *NetConnLogger, err error) {
 	l = &NetConnLogger{
-        Conn: conn,
+		Conn: conn,
 	}
 	flags := os.O_CREATE | os.O_WRONLY
 	if readlog != "" {

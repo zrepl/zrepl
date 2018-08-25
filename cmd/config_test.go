@@ -136,7 +136,7 @@ func TestDatasetMapFilter(t *testing.T) {
 	expectMapping(map1, "q/r", "root4/1/2/r")
 
 	map2 := map[string]string{ // identity mapping
-		"<":"",
+		"<": "",
 	}
 	expectMapping(map2, "foo/bar", "foo/bar")
 

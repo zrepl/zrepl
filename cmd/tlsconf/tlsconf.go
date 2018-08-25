@@ -43,7 +43,7 @@ func NewClientAuthListener(
 	}
 
 	tlsConf := tls.Config{
-		Certificates: []tls.Certificate{serverCert},
+		Certificates:             []tls.Certificate{serverCert},
 		ClientCAs:                ca,
 		ClientAuth:               tls.RequireAndVerifyClientCert,
 		PreferServerCipherSuites: true,
@@ -114,7 +114,7 @@ func ClientAuthClient(serverName string, rootCA *x509.CertPool, clientCert tls.C
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      rootCA,
-		ServerName: serverName,
+		ServerName:   serverName,
 	}
 	tlsConfig.BuildNameToCertificate()
 	return tlsConfig, nil

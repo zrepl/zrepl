@@ -6,10 +6,10 @@ import (
 	"context"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/cmd/endpoint"
+	"github.com/zrepl/zrepl/replication"
 	"github.com/zrepl/zrepl/zfs"
 	"sync"
-	"github.com/zrepl/zrepl/replication"
-	"github.com/zrepl/zrepl/cmd/endpoint"
 )
 
 type LocalJob struct {

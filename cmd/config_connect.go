@@ -11,8 +11,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/problame/go-netssh"
 	"github.com/problame/go-streamrpc"
-	"time"
 	"github.com/zrepl/zrepl/cmd/tlsconf"
+	"time"
 )
 
 type SSHStdinserverConnecter struct {
@@ -51,12 +51,12 @@ func parseSSHStdinserverConnecter(i map[string]interface{}) (c *SSHStdinserverCo
 
 }
 
-type netsshConnToConn struct { *netssh.SSHConn }
+type netsshConnToConn struct{ *netssh.SSHConn }
 
 var _ net.Conn = netsshConnToConn{}
 
-func (netsshConnToConn) SetDeadline(dl time.Time) error { return nil }
-func (netsshConnToConn) SetReadDeadline(dl time.Time) error { return nil }
+func (netsshConnToConn) SetDeadline(dl time.Time) error      { return nil }
+func (netsshConnToConn) SetReadDeadline(dl time.Time) error  { return nil }
 func (netsshConnToConn) SetWriteDeadline(dl time.Time) error { return nil }
 
 func (c *SSHStdinserverConnecter) Connect(dialCtx context.Context) (net.Conn, error) {

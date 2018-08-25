@@ -7,8 +7,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
-	"net"
 	"github.com/zrepl/zrepl/cmd/endpoint"
+	"net"
 )
 
 type SourceJob struct {
@@ -160,7 +160,7 @@ func (j *SourceJob) serve(ctx context.Context, task *Task) {
 	connChan := make(chan connChanMsg)
 
 	// Serve connections until interrupted or error
-	outer:
+outer:
 	for {
 
 		go func() {

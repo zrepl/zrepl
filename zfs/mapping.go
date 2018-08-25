@@ -39,7 +39,7 @@ func ZFSListMappingProperties(filter DatasetFilter, properties []string) (datase
 			panic("properties must not contain 'name'")
 		}
 	}
-	newProps := make([]string, len(properties) + 1)
+	newProps := make([]string, len(properties)+1)
 	newProps[0] = "name"
 	copy(newProps[1:], properties)
 	properties = newProps
@@ -69,7 +69,7 @@ func ZFSListMappingProperties(filter DatasetFilter, properties []string) (datase
 		}
 		if pass {
 			datasets = append(datasets, ZFSListMappingPropertiesResult{
-				Path: path,
+				Path:   path,
 				Fields: r.Fields[1:],
 			})
 		}
@@ -78,5 +78,3 @@ func ZFSListMappingProperties(filter DatasetFilter, properties []string) (datase
 
 	return
 }
-
-

@@ -5,10 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/logger"
 	"io"
 	"net"
 	"net/http"
-	"github.com/zrepl/zrepl/logger"
 )
 
 type ControlJob struct {

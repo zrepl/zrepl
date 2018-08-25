@@ -10,17 +10,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zrepl/zrepl/replication/pdu"
 	"github.com/zrepl/zrepl/replication/fsrep"
-	. "github.com/zrepl/zrepl/replication/internal/queue"
 	. "github.com/zrepl/zrepl/replication/internal/diff"
+	. "github.com/zrepl/zrepl/replication/internal/queue"
+	"github.com/zrepl/zrepl/replication/pdu"
 )
 
 //go:generate stringer -type=State
 type State uint
 
 const (
-	Planning      State = 1 << iota
+	Planning State = 1 << iota
 	PlanningError
 	Working
 	WorkingWait
@@ -77,7 +77,6 @@ type Report struct {
 	Active    *fsrep.Report
 }
 
-
 func NewReplication() *Replication {
 	r := Replication{
 		state: Planning,
@@ -101,7 +100,6 @@ type Receiver interface {
 	fsrep.Receiver
 }
 
-
 type FilteredError struct{ fs string }
 
 func NewFilteredError(fs string) *FilteredError {
@@ -109,7 +107,6 @@ func NewFilteredError(fs string) *FilteredError {
 }
 
 func (f FilteredError) Error() string { return "endpoint does not allow access to filesystem " + f.fs }
-
 
 type updater func(func(*Replication)) (newState State)
 type state func(ctx context.Context, sender Sender, receiver Receiver, u updater) state
@@ -381,4 +378,3 @@ func (r *Replication) Report() *Report {
 
 	return &rep
 }
-

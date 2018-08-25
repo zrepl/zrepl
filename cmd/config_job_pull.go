@@ -11,8 +11,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
-	"github.com/zrepl/zrepl/replication"
 	"github.com/zrepl/zrepl/cmd/endpoint"
+	"github.com/zrepl/zrepl/replication"
 )
 
 type PullJob struct {
@@ -28,7 +28,7 @@ type PullJob struct {
 	Debug             JobDebugSettings
 
 	task *Task
-	rep *replication.Replication
+	rep  *replication.Replication
 }
 
 func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j *PullJob, err error) {
@@ -155,7 +155,6 @@ var STREAMRPC_CONFIG = &streamrpc.ConnConfig{ // FIXME oversight and configurabi
 	},
 }
 
-
 func (j *PullJob) doRun(ctx context.Context) {
 
 	j.task.Enter("run")
@@ -184,7 +183,7 @@ func (j *PullJob) doRun(ctx context.Context) {
 	}
 
 	ctx = replication.WithLogger(ctx, replicationLogAdaptor{j.task.Log().WithField("subsystem", "replication")})
-	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{j.task.Log().WithField("subsystem",     "rpc.protocol")})
+	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{j.task.Log().WithField("subsystem", "rpc.protocol")})
 	ctx = endpoint.WithLogger(ctx, j.task.Log().WithField("subsystem", "rpc.endpoint"))
 
 	j.rep = replication.NewReplication()

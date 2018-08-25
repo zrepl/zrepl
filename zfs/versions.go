@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
+	"io"
 	"strconv"
 	"strings"
 	"time"
-	"io"
 )
 
 type VersionType string

@@ -1,8 +1,8 @@
 package replication
 
 import (
-	"github.com/zrepl/zrepl/logger"
 	"context"
+	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/replication/fsrep"
 )
 
@@ -27,4 +27,3 @@ func getLogger(ctx context.Context) Logger {
 	}
 	return l
 }
-
