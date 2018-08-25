@@ -12,7 +12,6 @@ jobs:
   }
   snapshot_prefix: zrepl_
   interval: 10m
-  initial_repl_policy: most_recent
 
   # keep one hour of 10m interval snapshots of filesystems matched by
   # the left-hand-side of the mapping

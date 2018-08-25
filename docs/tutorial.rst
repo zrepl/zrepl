@@ -75,7 +75,6 @@ We define a **pull job** named ``pull_app-srv`` in the |mainconfig| on host ``ba
       mapping: {
           "<":"storage/zrepl/pull/app-srv"
       }
-      initial_repl_policy: most_recent
       snapshot_prefix: zrepl_pull_backup_
       prune:
           policy: grid

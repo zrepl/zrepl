@@ -17,7 +17,6 @@ type LocalJob struct {
 	Mapping           *DatasetMapFilter
 	SnapshotPrefix    string
 	Interval          time.Duration
-	InitialReplPolicy replication.InitialReplPolicy
 	PruneLHS          PrunePolicy
 	PruneRHS          PrunePolicy
 	Debug             JobDebugSettings
@@ -57,10 +56,6 @@ func parseLocalJob(c JobParsingContext, name string, i map[string]interface{}) (
 
 	if j.Interval, err = parsePostitiveDuration(asMap.Interval); err != nil {
 		err = errors.Wrap(err, "cannot parse interval")
-		return
-	}
-
-	if j.InitialReplPolicy, err = parseInitialReplPolicy(asMap.InitialReplPolicy, replication.DEFAULT_INITIAL_REPL_POLICY); err != nil {
 		return
 	}
 

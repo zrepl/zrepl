@@ -88,8 +88,6 @@ Example: :sampleconf:`pullbackup/backuphost.yml`
       - Interval between pull attempts
     * - ``mapping``
       - |mapping| for remote to local filesystems
-    * - ``initial_repl_policy``
-      - default = ``most_recent``, initial replication policy
     * - ``snapshot_prefix``
       - prefix snapshots must match to be considered for replication & pruning
     * - ``prune``
@@ -103,7 +101,7 @@ Example: :sampleconf:`pullbackup/backuphost.yml`
  
      #. Only snapshots with prefix ``snapshot_prefix`` are replicated.
      #. If possible, incremental replication takes place.
-     #. If the local target filesystem does not exist, ``initial_repl_policy`` is used.
+     #. If the local target filesystem does not exist, the most recent snapshot is sent fully (non-incremental).
      #. On conflicts, an error is logged but replication of other filesystems with mapping continues.
   
   #. The ``prune`` policy is evaluated for all *target filesystems*
@@ -135,8 +133,6 @@ Example: :sampleconf:`localbackup/host1.yml`
       - prefix for ZFS snapshots taken by this job
     * - ``interval``
       - snapshotting & replication interval
-    * - ``initial_repl_policy``
-      - default = ``most_recent``, initial replication policy
     * - ``prune_lhs``
       -  pruning policy on left-hand-side (source)
     * - ``prune_rhs``
@@ -151,7 +147,7 @@ Example: :sampleconf:`localbackup/host1.yml`
 
      #. Only snapshots with prefix ``snapshot_prefix`` are replicated.
      #. If possible, incremental replication takes place.
-     #. If the *target filesystem* does not exist, ``initial_repl_policy`` is used.
+     #. If the *target filesystem* does not exist, the most recent snapshot is sent fully (non-incremental).
      #. On conflicts, an error is logged but replication of other *mapped filesystems* continues.
 
   #. The ``prune_lhs`` policy is triggered for all *mapped filesystems*

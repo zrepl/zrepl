@@ -4,11 +4,10 @@ import (
 	"io/ioutil"
 
 	"fmt"
-	yaml "github.com/go-yaml/yaml"
+	"github.com/go-yaml/yaml"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
-	"github.com/zrepl/zrepl/replication"
 	"os"
 	"regexp"
 	"strconv"
@@ -226,30 +225,6 @@ func parseConnect(i map[string]interface{}) (c streamrpc.Connecter, err error) {
 		return nil, errors.Errorf("unknown connection type '%s'", t)
 	}
 
-}
-
-func parseInitialReplPolicy(v interface{}, defaultPolicy replication.InitialReplPolicy) (p replication.InitialReplPolicy, err error) {
-	s, ok := v.(string)
-	if !ok {
-		goto err
-	}
-
-	switch {
-	case s == "":
-		p = defaultPolicy
-	case s == "most_recent":
-		p = replication.InitialReplPolicyMostRecent
-	case s == "all":
-		p = replication.InitialReplPolicyAll
-	default:
-		goto err
-	}
-
-	return
-
-err:
-	err = errors.New(fmt.Sprintf("expected InitialReplPolicy, got %#v", v))
-	return
 }
 
 func parsePrunePolicy(v map[string]interface{}, willSeeBookmarks bool) (p PrunePolicy, err error) {

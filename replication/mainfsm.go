@@ -151,8 +151,7 @@ func (r *Replication) Drive(ctx context.Context, sender Sender, receiver Receive
 func resolveConflict(conflict error) (path []*pdu.FilesystemVersion, msg string) {
 	if noCommonAncestor, ok := conflict.(*ConflictNoCommonAncestor); ok {
 		if len(noCommonAncestor.SortedReceiverVersions) == 0 {
-			// FIXME hard-coded replication policy: most recent
-			// snapshot as source
+			// TODO this is hard-coded replication policy: most recent snapshot as source
 			var mostRecentSnap *pdu.FilesystemVersion
 			for n := len(noCommonAncestor.SortedSenderVersions) - 1; n >= 0; n-- {
 				if noCommonAncestor.SortedSenderVersions[n].Type == pdu.FilesystemVersion_Snapshot {

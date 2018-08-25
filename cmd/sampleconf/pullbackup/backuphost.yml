@@ -17,7 +17,6 @@ jobs:
   mapping: {
     "<":"storage/backups/zrepl/pull/prod1.example.com"
   }
-  initial_repl_policy: most_recent
 
   # follow a grandfathering scheme for filesystems on the right-hand-side of the mapping
   snapshot_prefix: zrepl_
