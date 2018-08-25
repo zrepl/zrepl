@@ -220,6 +220,8 @@ func parseConnect(i map[string]interface{}) (c streamrpc.Connecter, err error) {
 	switch t {
 	case "ssh+stdinserver":
 		return parseSSHStdinserverConnecter(i)
+	case "tcp":
+		return parseTCPConnecter(i)
 	default:
 		return nil, errors.Errorf("unknown connection type '%s'", t)
 	}
@@ -278,6 +280,8 @@ func parseAuthenticatedChannelListenerFactory(c JobParsingContext, v map[string]
 	switch t {
 	case "stdinserver":
 		return parseStdinserverListenerFactory(c, v)
+	case "tcp":
+		return parseTCPListenerFactory(c, v)
 	default:
 		err = errors.Errorf("unknown type '%s'", t)
 		return

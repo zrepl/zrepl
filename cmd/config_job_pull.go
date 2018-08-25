@@ -51,7 +51,7 @@ func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j
 
 	j = &PullJob{Name: name}
 
-	j.Connect, err = parseSSHStdinserverConnecter(asMap.Connect)
+	j.Connect, err = parseConnect(asMap.Connect)
 	if err != nil {
 		err = errors.Wrap(err, "cannot parse 'connect'")
 		return nil, err
@@ -167,10 +167,7 @@ func (j *PullJob) doRun(ctx context.Context) {
 		ConnConfig: STREAMRPC_CONFIG,
 	}
 
-	//client, err := streamrpc.NewClient(j.Connect, clientConf)
-	client, err := streamrpc.NewClient(&tcpConnecter{net.Dialer{
-		Timeout: 10*time.Second,	
-	}}, clientConf)
+	client, err := streamrpc.NewClient(j.Connect, clientConf)
 	defer client.Close()
 
 	j.task.Enter("pull")

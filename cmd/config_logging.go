@@ -1,15 +1,15 @@
 package cmd
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"github.com/mattn/go-isatty"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/logger"
-	"io/ioutil"
 	"os"
 	"time"
+	"crypto/tls"
+	"crypto/x509"
+	"github.com/zrepl/zrepl/cmd/tlsconf"
 )
 
 type LoggingConfig struct {
@@ -164,11 +164,7 @@ func parseTCPOutlet(i interface{}, formatter EntryFormatter) (out *TCPOutlet, er
 		Net           string
 		Address       string
 		RetryInterval string `mapstructure:"retry_interval"`
-		TLS           *struct {
-			CA   string
-			Cert string
-			Key  string
-		}
+		TLS           map[string]interface{}
 	}
 	if err = mapstructure.Decode(i, &in); err != nil {
 		return nil, errors.Wrap(err, "mapstructure error")
@@ -188,37 +184,41 @@ func parseTCPOutlet(i interface{}, formatter EntryFormatter) (out *TCPOutlet, er
 
 	var tlsConfig *tls.Config
 	if in.TLS != nil {
-
-		cert, err := tls.LoadX509KeyPair(in.TLS.Cert, in.TLS.Key)
-		if err != nil {
-			return nil, errors.Wrap(err, "cannot load client cert")
-		}
-
-		var rootCAs *x509.CertPool
-		if in.TLS.CA == "" {
-			if rootCAs, err = x509.SystemCertPool(); err != nil {
-				return nil, errors.Wrap(err, "cannot open system cert pool")
+		tlsConfig, err = func(m map[string]interface{}, host string) (*tls.Config, error) {
+			var in struct {
+				CA   string
+				Cert string
+				Key  string
 			}
-		} else {
-			rootCAs = x509.NewCertPool()
-			rootCAPEM, err := ioutil.ReadFile(in.TLS.CA)
+			if err := mapstructure.Decode(m, &in); err != nil {
+				return nil, errors.Wrap(err, "mapstructure error")
+			}
+
+			clientCert, err := tls.LoadX509KeyPair(in.Cert, in.Key)
 			if err != nil {
-				return nil, errors.Wrap(err, "cannot load CA cert")
+				return nil, errors.Wrap(err, "cannot load client cert")
 			}
-			if !rootCAs.AppendCertsFromPEM(rootCAPEM) {
-				return nil, errors.New("cannot parse CA cert")
+
+			var rootCAs *x509.CertPool
+			if in.CA == "" {
+				if rootCAs, err = x509.SystemCertPool(); err != nil {
+					return nil, errors.Wrap(err, "cannot open system cert pool")
+				}
+			} else {
+				rootCAs, err = tlsconf.ParseCAFile(in.CA)
+				if err != nil {
+					return nil, errors.Wrap(err, "cannot parse CA cert")
+				}
 			}
-		}
-		if err != nil && in.TLS.CA == "" {
-			return nil, errors.Wrap(err, "cannot load root ca pool")
-		}
+			if rootCAs == nil {
+				panic("invariant violated")
+			}
 
-		tlsConfig = &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			RootCAs:      rootCAs,
+			return tlsconf.ClientAuthClient(host, rootCAs, clientCert)
+		}(in.TLS, in.Address)
+		if err != nil {
+			return nil, errors.New("cannot not parse TLS config in field 'tls'")
 		}
-
-		tlsConfig.BuildNameToCertificate()
 	}
 
 	formatter.SetMetadataFlags(MetadataAll)
