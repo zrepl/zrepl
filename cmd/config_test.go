@@ -249,8 +249,10 @@ func TestDatasetMapFilter_Invert(t *testing.T) {
 	m, err := parseDatasetMapFilter(mapspec, false)
 	assert.NoError(t, err)
 
-	inv, err := m.Invert()
+	invI, err := m.Invert()
 	assert.NoError(t, err)
+	inv, ok := invI.(*DatasetMapFilter)
+	assert.True(t, ok)
 
 	expectMapping := func(m *DatasetMapFilter, input, expect string, expErr bool, expEmpty bool) {
 		p, err := zfs.NewDatasetPath(input)
