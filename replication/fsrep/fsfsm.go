@@ -199,6 +199,8 @@ type updater func(func(fsr *Replication)) State
 
 type state func(ctx context.Context, sender Sender, receiver Receiver, u updater) state
 
+var RetrySleepDuration = 10 * time.Second // FIXME make configurable
+
 func stateReady(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
 
 	var current *ReplicationStep
@@ -226,7 +228,7 @@ func stateReady(ctx context.Context, sender Sender, receiver Receiver, u updater
 				f.state = Completed
 			}
 		case StepRetry:
-			f.retryWaitUntil = time.Now().Add(10 * time.Second) // FIXME make configurable
+			f.retryWaitUntil = time.Now().Add(RetrySleepDuration)
 			f.state = RetryWait
 		case StepPermanentError:
 			f.state = PermanentError

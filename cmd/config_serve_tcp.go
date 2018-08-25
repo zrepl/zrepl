@@ -75,12 +75,14 @@ func parseTCPListenerFactory(c JobParsingContext, i map[string]interface{}) (*TC
 	return lf, nil
 }
 
+var TCPListenerHandshakeTimeout = 10 * time.Second // FIXME make configurable
+
 func (f *TCPListenerFactory) Listen() (net.Listener, error) {
 	l, err := net.Listen("tcp", f.Address)
 	if !f.tls || err != nil {
 		return l, err
 	}
 
-	tl := tlsconf.NewClientAuthListener(l, f.clientCA, f.serverCert, f.clientCommonName, 10*time.Second)
+	tl := tlsconf.NewClientAuthListener(l, f.clientCA, f.serverCert, f.clientCommonName, TCPListenerHandshakeTimeout)
 	return tl, nil
 }

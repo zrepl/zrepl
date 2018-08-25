@@ -271,12 +271,13 @@ func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u upda
 	}).rsf()
 }
 
+var RetrySleepDuration = 10 * time.Second // FIXME make constant onfigurable
+
 func statePlanningError(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
-	sleepTime := 10 * time.Second
 	u(func(r *Replication) {
-		r.sleepUntil = time.Now().Add(sleepTime)
+		r.sleepUntil = time.Now().Add(RetrySleepDuration)
 	})
-	t := time.NewTimer(sleepTime) // FIXME make constant onfigurable
+	t := time.NewTimer(RetrySleepDuration)
 	defer t.Stop()
 	select {
 	case <-ctx.Done():
@@ -317,11 +318,10 @@ func stateWorking(ctx context.Context, sender Sender, receiver Receiver, u updat
 }
 
 func stateWorkingWait(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
-	sleepTime := 10 * time.Second
 	u(func(r *Replication) {
-		r.sleepUntil = time.Now().Add(sleepTime)
+		r.sleepUntil = time.Now().Add(RetrySleepDuration)
 	})
-	t := time.NewTimer(sleepTime)
+	t := time.NewTimer(RetrySleepDuration)
 	defer t.Stop()
 	select {
 	case <-ctx.Done():
