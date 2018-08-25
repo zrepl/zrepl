@@ -48,7 +48,7 @@ func (a *IntervalAutosnap) findSyncPoint(fss []*zfs.DatasetPath) (syncPoint time
 	a.task.Log().Debug("examine filesystem state")
 	for _, d := range fss {
 
-		l := a.task.Log().WithField(logFSField, d.ToString())
+		l := a.task.Log().WithField("fs", d.ToString())
 
 		fsvs, err := zfs.ZFSListFilesystemVersions(d, NewPrefixFilter(a.Prefix))
 		if err != nil {
@@ -175,7 +175,8 @@ func (a *IntervalAutosnap) doSnapshots(didSnaps chan struct{}) {
 		suffix := time.Now().In(time.UTC).Format("20060102_150405_000")
 		snapname := fmt.Sprintf("%s%s", a.Prefix, suffix)
 
-		l := a.task.Log().WithField(logFSField, d.ToString()).
+		l := a.task.Log().
+			WithField("fs", d.ToString()).
 			WithField("snapname", snapname)
 
 		l.Info("create snapshot")

@@ -41,7 +41,7 @@ func (p *Pruner) filterFilesystems() (filesystems []*zfs.DatasetPath, stop bool)
 func (p *Pruner) filterVersions(fs *zfs.DatasetPath) (fsversions []zfs.FilesystemVersion, stop bool) {
 	p.task.Enter("filter_versions")
 	defer p.task.Finish()
-	log := p.task.Log().WithField(logFSField, fs.ToString())
+	log := p.task.Log().WithField("fs", fs.ToString())
 
 	filter := NewPrefixFilter(p.SnapshotPrefix)
 	fsversions, err := zfs.ZFSListFilesystemVersions(fs, filter)
@@ -59,7 +59,7 @@ func (p *Pruner) filterVersions(fs *zfs.DatasetPath) (fsversions []zfs.Filesyste
 func (p *Pruner) pruneFilesystem(fs *zfs.DatasetPath) (r PruneResult, valid bool) {
 	p.task.Enter("prune_fs")
 	defer p.task.Finish()
-	log := p.task.Log().WithField(logFSField, fs.ToString())
+	log := p.task.Log().WithField("fs", fs.ToString())
 
 	fsversions, stop := p.filterVersions(fs)
 	if stop {

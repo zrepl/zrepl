@@ -22,14 +22,9 @@ const (
 )
 
 const (
-	logJobField     string = "job"
-	logTaskField    string = "task"
-	logFSField      string = "filesystem"
-	logSubsysField  string = "subsystem"
-	logMapFromField string = "map_from"
-	logMapToField   string = "map_to"
-	logIncFromField string = "inc_from"
-	logIncToField   string = "inc_to"
+	logJobField    string = "job"
+	logTaskField   string = "task"
+	logSubsysField string = "subsystem"
 )
 
 type NoFormatter struct{}
@@ -91,19 +86,6 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 			break
 		}
 	}
-	// even more prefix fields
-	//mapFrom, mapFromOk := e.Fields[logMapFromField].(string)
-	//mapTo, mapToOk := e.Fields[logMapToField].(string)
-	//if mapFromOk && mapToOk && !f.ignored(logMapFromField) && !f.ignored(logMapToField) {
-	//	fmt.Fprintf(&line, "[%s => %s]", mapFrom, mapTo)
-	//	prefixed[logMapFromField], prefixed[logMapToField] = true, true
-	//}
-	//incFrom, incFromOk := e.Fields[logIncFromField].(string)
-	//incTo, incToOk := e.Fields[logIncToField].(string)
-	//if incFromOk && incToOk && !f.ignored(logIncFromField) && !f.ignored(logMapToField) {
-	//	fmt.Fprintf(&line, "[%s => %s]", incFrom, incTo)
-	//	prefixed[logIncFromField], prefixed[logIncToField] = true, true
-	//}
 
 	if line.Len() > 0 {
 		fmt.Fprint(&line, ": ")

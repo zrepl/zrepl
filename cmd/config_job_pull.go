@@ -182,9 +182,9 @@ func (j *PullJob) doRun(ctx context.Context) {
 		return
 	}
 
-	ctx = replication.WithLogger(ctx, replicationLogAdaptor{j.task.Log().WithField("subsystem", "replication")})
-	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{j.task.Log().WithField("subsystem", "rpc.protocol")})
-	ctx = endpoint.WithLogger(ctx, j.task.Log().WithField("subsystem", "rpc.endpoint"))
+	ctx = replication.WithLogger(ctx, replicationLogAdaptor{j.task.Log().WithField(logSubsysField, "replication")})
+	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{j.task.Log().WithField(logSubsysField, "rpc.protocol")})
+	ctx = endpoint.WithLogger(ctx, j.task.Log().WithField(logSubsysField, "rpc.endpoint"))
 
 	j.rep = replication.NewReplication()
 	j.rep.Drive(ctx, sender, puller)
