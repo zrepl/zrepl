@@ -13,18 +13,18 @@ import (
 )
 
 type LocalJob struct {
-	Name              string
-	Mapping           *DatasetMapFilter
-	SnapshotPrefix    string
-	Interval          time.Duration
-	PruneLHS          PrunePolicy
-	PruneRHS          PrunePolicy
-	Debug             JobDebugSettings
-	snapperTask       *Task
-	mainTask          *Task
-	handlerTask       *Task
-	pruneRHSTask      *Task
-	pruneLHSTask      *Task
+	Name           string
+	Mapping        *DatasetMapFilter
+	SnapshotPrefix string
+	Interval       time.Duration
+	PruneLHS       PrunePolicy
+	PruneRHS       PrunePolicy
+	Debug          JobDebugSettings
+	snapperTask    *Task
+	mainTask       *Task
+	handlerTask    *Task
+	pruneRHSTask   *Task
+	pruneLHSTask   *Task
 }
 
 func parseLocalJob(c JobParsingContext, name string, i map[string]interface{}) (j *LocalJob, err error) {

@@ -21,10 +21,10 @@ type PullJob struct {
 	Interval time.Duration
 	Mapping  *DatasetMapFilter
 	// constructed from mapping during parsing
-	pruneFilter       *DatasetMapFilter
-	SnapshotPrefix    string
-	Prune             PrunePolicy
-	Debug             JobDebugSettings
+	pruneFilter    *DatasetMapFilter
+	SnapshotPrefix string
+	Prune          PrunePolicy
+	Debug          JobDebugSettings
 
 	task *Task
 	rep  *replication.Replication
