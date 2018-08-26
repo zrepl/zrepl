@@ -1,9 +1,9 @@
 package config
 
 import (
-	"testing"
 	"github.com/kr/pretty"
 	"path/filepath"
+	"testing"
 )
 
 func TestSampleConfigsAreParsedWithoutErrors(t *testing.T) {

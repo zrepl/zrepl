@@ -4,12 +4,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"github.com/mattn/go-isatty"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/cmd/config"
 	"github.com/zrepl/zrepl/cmd/tlsconf"
 	"github.com/zrepl/zrepl/logger"
 	"os"
-	"time"
 )
 
 type LoggingConfig struct {
@@ -26,16 +25,12 @@ const (
 	MetadataAll  MetadataFlags = ^0
 )
 
-func parseLogging(i interface{}) (c *LoggingConfig, err error) {
+func parseLogging(in []config.LoggingOutletEnum) (c *LoggingConfig, err error) {
 
 	c = &LoggingConfig{}
 	c.Outlets = logger.NewOutlets()
 
-	var asList []interface{}
-	if err = mapstructure.Decode(i, &asList); err != nil {
-		return nil, errors.Wrap(err, "mapstructure error")
-	}
-	if len(asList) == 0 {
+	if len(in) == 0 {
 		// Default config
 		out := WriterOutlet{&HumanFormatter{}, os.Stdout}
 		c.Outlets.Add(out, logger.Warn)
@@ -43,7 +38,7 @@ func parseLogging(i interface{}) (c *LoggingConfig, err error) {
 	}
 
 	var syslogOutlets, stdoutOutlets int
-	for lei, le := range asList {
+	for lei, le := range in {
 
 		outlet, minLevel, err := parseOutlet(le)
 		if err != nil {
@@ -95,56 +90,52 @@ func parseLogFormat(i interface{}) (f EntryFormatter, err error) {
 
 }
 
-func parseOutlet(i interface{}) (o logger.Outlet, level logger.Level, err error) {
+func parseOutlet(in config.LoggingOutletEnum) (o logger.Outlet, level logger.Level, err error) {
 
-	var in struct {
-		Outlet string
-		Level  string
-		Format string
-	}
-	if err = mapstructure.Decode(i, &in); err != nil {
-		err = errors.Wrap(err, "mapstructure error")
-		return
-	}
-	if in.Outlet == "" || in.Level == "" || in.Format == "" {
-		err = errors.Errorf("must specify 'outlet', 'level' and 'format' field")
-		return
-	}
+	parseCommon := func(common config.LoggingOutletCommon) (logger.Level, EntryFormatter, error) {
+		if common.Level == "" || common.Format == "" {
+			return 0, nil, errors.Errorf("must specify 'level' and 'format' field")
+		}
 
-	minLevel, err := logger.ParseLevel(in.Level)
-	if err != nil {
-		err = errors.Wrap(err, "cannot parse 'level' field")
-		return
-	}
-	formatter, err := parseLogFormat(in.Format)
-	if err != nil {
-		err = errors.Wrap(err, "cannot parse")
-		return
+		minLevel, err := logger.ParseLevel(common.Level)
+		if err != nil {
+			return 0, nil, errors.Wrap(err, "cannot parse 'level' field")
+		}
+		formatter, err := parseLogFormat(common.Format)
+		if err != nil {
+			return 0, nil, errors.Wrap(err, "cannot parse 'formatter' field")
+		}
+		return minLevel, formatter, nil
 	}
 
-	switch in.Outlet {
-	case "stdout":
-		o, err = parseStdoutOutlet(i, formatter)
-	case "tcp":
-		o, err = parseTCPOutlet(i, formatter)
-	case "syslog":
-		o, err = parseSyslogOutlet(i, formatter)
+	var f EntryFormatter
+
+	switch v := in.Ret.(type) {
+	case config.StdoutLoggingOutlet:
+		level, f, err = parseCommon(v.LoggingOutletCommon)
+		if err != nil {
+			break
+		}
+		o, err = parseStdoutOutlet(v, f)
+	case config.TCPLoggingOutlet:
+		level, f, err = parseCommon(v.LoggingOutletCommon)
+		if err != nil {
+			break
+		}
+		o, err = parseTCPOutlet(v, f)
+	case config.SyslogLoggingOutlet:
+		level, f, err = parseCommon(v.LoggingOutletCommon)
+		if err != nil {
+			break
+		}
+		o, err = parseSyslogOutlet(v, f)
 	default:
-		err = errors.Errorf("unknown outlet type '%s'", in.Outlet)
+		panic(v)
 	}
-	return o, minLevel, err
-
+	return o, level, err
 }
 
-func parseStdoutOutlet(i interface{}, formatter EntryFormatter) (WriterOutlet, error) {
-
-	var in struct {
-		Time bool
-	}
-	if err := mapstructure.Decode(i, &in); err != nil {
-		return WriterOutlet{}, errors.Wrap(err, "invalid structure for stdout outlet")
-	}
-
+func parseStdoutOutlet(in config.StdoutLoggingOutlet, formatter EntryFormatter) (WriterOutlet, error) {
 	flags := MetadataAll
 	writer := os.Stdout
 	if !isatty.IsTerminal(writer.Fd()) && !in.Time {
@@ -158,54 +149,22 @@ func parseStdoutOutlet(i interface{}, formatter EntryFormatter) (WriterOutlet, e
 	}, nil
 }
 
-func parseTCPOutlet(i interface{}, formatter EntryFormatter) (out *TCPOutlet, err error) {
-
-	var in struct {
-		Net           string
-		Address       string
-		RetryInterval string `mapstructure:"retry_interval"`
-		TLS           map[string]interface{}
-	}
-	if err = mapstructure.Decode(i, &in); err != nil {
-		return nil, errors.Wrap(err, "mapstructure error")
-	}
-
-	retryInterval, err := time.ParseDuration(in.RetryInterval)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot parse 'retry_interval'")
-	}
-
-	if len(in.Net) == 0 {
-		return nil, errors.New("field 'net' must not be empty")
-	}
-	if len(in.Address) == 0 {
-		return nil, errors.New("field 'address' must not be empty")
-	}
-
+func parseTCPOutlet(in config.TCPLoggingOutlet, formatter EntryFormatter) (out *TCPOutlet, err error) {
 	var tlsConfig *tls.Config
 	if in.TLS != nil {
-		tlsConfig, err = func(m map[string]interface{}, host string) (*tls.Config, error) {
-			var in struct {
-				CA   string
-				Cert string
-				Key  string
-			}
-			if err := mapstructure.Decode(m, &in); err != nil {
-				return nil, errors.Wrap(err, "mapstructure error")
-			}
-
-			clientCert, err := tls.LoadX509KeyPair(in.Cert, in.Key)
+		tlsConfig, err = func(m *config.TCPLoggingOutletTLS, host string) (*tls.Config, error) {
+			clientCert, err := tls.LoadX509KeyPair(m.Cert, m.Key)
 			if err != nil {
 				return nil, errors.Wrap(err, "cannot load client cert")
 			}
 
 			var rootCAs *x509.CertPool
-			if in.CA == "" {
+			if m.CA == "" {
 				if rootCAs, err = x509.SystemCertPool(); err != nil {
 					return nil, errors.Wrap(err, "cannot open system cert pool")
 				}
 			} else {
-				rootCAs, err = tlsconf.ParseCAFile(in.CA)
+				rootCAs, err = tlsconf.ParseCAFile(m.CA)
 				if err != nil {
 					return nil, errors.Wrap(err, "cannot parse CA cert")
 				}
@@ -222,30 +181,14 @@ func parseTCPOutlet(i interface{}, formatter EntryFormatter) (out *TCPOutlet, er
 	}
 
 	formatter.SetMetadataFlags(MetadataAll)
-	return NewTCPOutlet(formatter, in.Net, in.Address, tlsConfig, retryInterval), nil
+	return NewTCPOutlet(formatter, in.Net, in.Address, tlsConfig, in.RetryInterval), nil
 
 }
 
-func parseSyslogOutlet(i interface{}, formatter EntryFormatter) (out *SyslogOutlet, err error) {
-
-	var in struct {
-		RetryInterval string `mapstructure:"retry_interval"`
-	}
-	if err = mapstructure.Decode(i, &in); err != nil {
-		return nil, errors.Wrap(err, "mapstructure error")
-	}
-
+func parseSyslogOutlet(in config.SyslogLoggingOutlet, formatter EntryFormatter) (out *SyslogOutlet, err error) {
 	out = &SyslogOutlet{}
 	out.Formatter = formatter
 	out.Formatter.SetMetadataFlags(MetadataNone)
-
-	out.RetryInterval = 0 // default to 0 as we assume local syslog will just work
-	if in.RetryInterval != "" {
-		out.RetryInterval, err = time.ParseDuration(in.RetryInterval)
-		if err != nil {
-			return nil, errors.Wrap(err, "cannot parse 'retry_interval'")
-		}
-	}
-
-	return
+	out.RetryInterval = in.RetryInterval
+	return out, nil
 }

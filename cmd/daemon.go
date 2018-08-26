@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/zrepl/zrepl/cmd/config"
+	"github.com/zrepl/zrepl/logger"
 	"os"
 	"os/signal"
-
 	"syscall"
 	"time"
 	"github.com/zrepl/zrepl/cmd/daemon"
 	"github.com/zrepl/zrepl/cmd/daemon/job"
-	"github.com/zrepl/zrepl/logger"
 )
 
 // daemonCmd represents the daemon command
@@ -75,13 +75,19 @@ func (a daemonJobAdaptor) Status() interface{} { return nil }
 
 func doDaemon(cmd *cobra.Command, args []string) {
 
-	conf, err := ParseConfig(rootArgs.configFile)
+	conf, err := config.ParseConfig(rootArgs.configFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error parsing config: %s\n", err)
 		os.Exit(1)
 	}
 
-	log := logger.NewLogger(conf.Global.logging.Outlets, 1*time.Second)
+	outlets, err := parseLogging(conf.Global.Logging)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to generate logger: %s\n", err)
+		return
+	}
+	log := logger.NewLogger(outlets.Outlets, 1*time.Second)
+
 	ctx := WithLogger(context.Background(), log)
 
 	daemonJobs := make([]job.Job, 0, len(conf.Jobs))

@@ -1,15 +1,20 @@
-type: sink
-replication:
-  root_dataset: "pool2/backup_laptops"
-  serve:
-    type: tls
-    listen: "192.168.122.189:8888"
-    ca: "ca.pem"
-    cert: "cert.pem"
-    key: "key.pem"
+jobs:
+  - type: sink
+    replication:
+      root_dataset: "pool2/backup_laptops"
+      serve:
+        type: tls
+        listen: "192.168.122.189:8888"
+        ca: "ca.pem"
+        cert: "cert.pem"
+        key: "key.pem"
 global:
   logging:
-    - outlet:
-        type: "syslog"
+    - type: "tcp"
+      address: "123.123.123.123:1234"
+      tls:
+        ca: "ca.pem"
+        cert: "cert.pem"
+        key: "key.pem"
       level: "warn"
       format: "human"

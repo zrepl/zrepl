@@ -1,54 +1,57 @@
 package config
 
 import (
-	"github.com/zrepl/yaml-config"
 	"fmt"
-	"time"
-	"os"
 	"github.com/pkg/errors"
+	"github.com/zrepl/yaml-config"
 	"io/ioutil"
+	"os"
+	"time"
 )
 
-type NodeEnum struct {
+type Config struct {
+	Jobs   []JobEnum `yaml:"jobs"`
+	Global Global    `yaml:"global"`
+}
+
+type JobEnum struct {
 	Ret interface{}
 }
 
-type PushNode struct {
-	Type string `yaml:"type"`
-	Replication PushReplication `yaml:"replication"`
-	Snapshotting Snapshotting `yaml:"snapshotting"`
-	Pruning Pruning `yaml:"pruning"`
-	Global Global `yaml:"global"`
+type PushJob struct {
+	Type         string          `yaml:"type"`
+	Replication  PushReplication `yaml:"replication"`
+	Snapshotting Snapshotting    `yaml:"snapshotting"`
+	Pruning      Pruning         `yaml:"pruning"`
 }
 
-type SinkNode struct {
-	Type string `yaml:"type"`
+type SinkJob struct {
+	Type        string          `yaml:"type"`
 	Replication SinkReplication `yaml:"replication"`
-	Global Global `yaml:"global"`
 }
 
 type PushReplication struct {
-	Connect ConnectEnum `yaml:"connect"`
+	Connect     ConnectEnum     `yaml:"connect"`
 	Filesystems map[string]bool `yaml:"filesystems"`
 }
 
 type SinkReplication struct {
-	RootDataset string `yaml:"root_dataset"`
-	Serve ServeEnum `yaml:"serve"`
+	RootDataset string    `yaml:"root_dataset"`
+	Serve       ServeEnum `yaml:"serve"`
 }
 
 type Snapshotting struct {
-	SnapshotPrefix string `yaml:"snapshot_prefix"`
-	Interval time.Duration `yaml:"interval"`
+	SnapshotPrefix string        `yaml:"snapshot_prefix"`
+	Interval       time.Duration `yaml:"interval"`
 }
 
 type Pruning struct {
-	KeepLocal []PruningEnum `yaml:"keep_local"`
+	KeepLocal  []PruningEnum `yaml:"keep_local"`
 	KeepRemote []PruningEnum `yaml:"keep_remote"`
 }
 
 type Global struct {
-	Logging []LoggingOutlet `yaml:"logging"`
+	Logging []LoggingOutletEnum `yaml:"logging"`
 }
 
 type ConnectEnum struct {
@@ -56,16 +59,16 @@ type ConnectEnum struct {
 }
 
 type TCPConnect struct {
-	Type string `yaml:"type"`
+	Type    string `yaml:"type"`
 	Address string `yaml:"address"`
 }
 
 type TLSConnect struct {
-	Type string `yaml:"type"`
+	Type    string `yaml:"type"`
 	Address string `yaml:"address"`
-	Ca string `yaml:"ca"`
-	Cert string `yaml:"cert"`
-	Key string `yaml:"key"`
+	Ca      string `yaml:"ca"`
+	Cert    string `yaml:"cert"`
+	Key     string `yaml:"key"`
 }
 
 type ServeEnum struct {
@@ -73,17 +76,17 @@ type ServeEnum struct {
 }
 
 type TCPServe struct {
-	Type string `yaml:"type"`
-	Listen string `yaml:"listen"`
+	Type    string            `yaml:"type"`
+	Listen  string            `yaml:"listen"`
 	Clients map[string]string `yaml:"clients"`
 }
 
 type TLSServe struct {
-	Type string `yaml:"type"`
+	Type   string `yaml:"type"`
 	Listen string `yaml:"listen"`
-	Ca string `yaml:"ca"`
-	Cert string `yaml:"cert"`
-	Key string `yaml:"key"`
+	Ca     string `yaml:"ca"`
+	Cert   string `yaml:"cert"`
+	Key    string `yaml:"key"`
 }
 
 type PruningEnum struct {
@@ -95,8 +98,8 @@ type PruneKeepNotReplicated struct {
 }
 
 type PruneKeepLastN struct {
-	Type string `yaml:"type"`
-	Count int `yaml:"count"`
+	Type  string `yaml:"type"`
+	Count int    `yaml:"count"`
 }
 
 type PruneGrid struct {
@@ -104,24 +107,38 @@ type PruneGrid struct {
 	Grid string `yaml:"grid"`
 }
 
-type LoggingOutlet struct {
-	Outlet LoggingOutletEnum `yaml:"outlet"`
-	Level string `yaml:"level"`
-	Format string `yaml:"format"`
-}
-
 type LoggingOutletEnum struct {
 	Ret interface{}
 }
 
+type LoggingOutletCommon struct {
+	Type   string `yaml:"type"`
+	Level  string `yaml:"level"`
+	Format string `yaml:"format"`
+}
+
 type StdoutLoggingOutlet struct {
-	Type string `yaml:"type"`
-	Time bool `yaml:"time"`
+	LoggingOutletCommon `yaml:",inline"`
+	Time                bool `yaml:"time"`
 }
 
 type SyslogLoggingOutlet struct {
-	Type string `yaml:"type"`
-	RetryInterval time.Duration `yaml:"retry_interval"`
+	LoggingOutletCommon `yaml:",inline"`
+	RetryInterval       time.Duration `yaml:"retry_interval"`
+}
+
+type TCPLoggingOutlet struct {
+	LoggingOutletCommon `yaml:",inline"`
+	Address             string        `yaml:"address"` //TODO required
+	Net                 string        `yaml:"net"`     //TODO default tcp
+	RetryInterval       time.Duration `yaml:"retry_interval"`
+	TLS                 *TCPLoggingOutletTLS
+}
+
+type TCPLoggingOutletTLS struct {
+	CA   string `yaml:"ca"`
+	Cert string `yaml:"cert"`
+	Key  string `yaml:"key"`
 }
 
 func enumUnmarshal(u func(interface{}, bool) error, types map[string]interface{}) (interface{}, error) {
@@ -145,10 +162,10 @@ func enumUnmarshal(u func(interface{}, bool) error, types map[string]interface{}
 	return v, nil
 }
 
-func (t *NodeEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
+func (t *JobEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
-		"push": &PushNode{},
-		"sink": &SinkNode{},
+		"push": &PushJob{},
+		"sink": &SinkJob{},
 	})
 	return
 }
@@ -172,8 +189,8 @@ func (t *ServeEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 func (t *PruningEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
 		"not_replicated": &PruneKeepNotReplicated{},
-		"last_n": &PruneKeepLastN{},
-		"grid": &PruneGrid{},
+		"last_n":         &PruneKeepLastN{},
+		"grid":           &PruneGrid{},
 	})
 	return
 }
@@ -182,6 +199,7 @@ func (t *LoggingOutletEnum) UnmarshalYAML(u func(interface{}, bool) error) (err 
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
 		"stdout": &StdoutLoggingOutlet{},
 		"syslog": &SyslogLoggingOutlet{},
+		"tcp":    &TCPLoggingOutlet{},
 	})
 	return
 }
@@ -191,7 +209,7 @@ var ConfigFileDefaultLocations = []string{
 	"/usr/local/etc/zrepl/zrepl.yml",
 }
 
-func ParseConfig(path string) (i NodeEnum, err error) {
+func ParseConfig(path string) (i Config, err error) {
 
 	if path == "" {
 		// Try default locations
