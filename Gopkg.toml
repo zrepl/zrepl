@@ -38,7 +38,7 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
 
 [[constraint]]
   branch = "v2"
-  name = "github.com/go-yaml/yaml"
+  name = "github.com/zrepl/yaml-config"
 
 [[constraint]]
   name = "github.com/go-logfmt/logfmt"

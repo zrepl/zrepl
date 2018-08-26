@@ -228,6 +228,14 @@
   version = "v1.1.4"
 
 [[projects]]
+  branch = "v2"
+  digest = "1:f0620375dd1f6251d9973b5f2596228cc8042e887cd7f827e4220bc1ce8c30e2"
+  name = "github.com/zrepl/yaml-config"
+  packages = ["."]
+  pruneopts = ""
+  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
+
+[[projects]]
   branch = "master"
   digest = "1:9c286cf11d0ca56368185bada5dd6d97b6be4648fc26c354fcba8df7293718f7"
   name = "golang.org/x/sys"
@@ -256,6 +264,7 @@
     "github.com/spf13/cobra",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
+    "github.com/zrepl/yaml-config",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

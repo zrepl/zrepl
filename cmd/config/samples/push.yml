@@ -1,0 +1,30 @@
+type: push
+replication:
+  connect:
+    type: tcp
+    address: "backup-server.foo.bar:8888"
+  filesystems: {
+    "<": true,
+    "tmp": false
+  }
+snapshotting:
+  snapshot_prefix: zrepl_
+  interval: 10m
+pruning:
+  keep_local:
+    - type: not_replicated
+    - type: last_n
+      count: 10
+    - type: grid
+      grid: 1x1h(keep=all) | 24x1h | 14x1d
+
+  keep_remote:
+    - type: grid
+      grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
+global:
+  logging:
+    - outlet:
+        type: "stdout"
+        time: true
+      level: "warn"
+      format: "human"
