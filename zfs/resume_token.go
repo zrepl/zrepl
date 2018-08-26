@@ -48,7 +48,8 @@ func ParseResumeToken(ctx context.Context, token string) (*ResumeToken, error) {
 	//	toname = pool1/test@b
 	//cannot resume send: 'pool1/test@b' used in the initial send no longer exists
 
-	ctx, _ = context.WithTimeout(ctx, 500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	defer cancel()
 	cmd := exec.CommandContext(ctx, ZFS_BINARY, "send", "-nvt", string(token))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
