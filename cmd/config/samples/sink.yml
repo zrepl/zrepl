@@ -1,5 +1,6 @@
 jobs:
   - type: sink
+    name: "laptop_sink"
     replication:
       root_dataset: "pool2/backup_laptops"
       serve:
@@ -19,3 +20,8 @@ global:
         key: "key.pem"
       level: "warn"
       format: "human"
+  control:
+    sockpath: /var/run/zrepl/control
+  serve:
+    stdinserver:
+      sockdir: /var/run/zrepl/stdinserver

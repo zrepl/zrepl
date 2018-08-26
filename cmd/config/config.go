@@ -21,15 +21,37 @@ type JobEnum struct {
 }
 
 type PushJob struct {
-	Type         string          `yaml:"type"`
-	Replication  PushReplication `yaml:"replication"`
-	Snapshotting Snapshotting    `yaml:"snapshotting"`
-	Pruning      Pruning         `yaml:"pruning"`
+	Type         string                `yaml:"type"`
+	Name         string                `yaml:"name"`
+	Replication  PushReplication       `yaml:"replication"`
+	Snapshotting Snapshotting          `yaml:"snapshotting"`
+	Pruning      PruningSenderReceiver `yaml:"pruning"`
 }
 
 type SinkJob struct {
 	Type        string          `yaml:"type"`
+	Name        string          `yaml:"name"`
 	Replication SinkReplication `yaml:"replication"`
+}
+
+type PullJob struct {
+	Type        string                `yaml:"type"`
+	Name        string                `yaml:"name"`
+	Replication PullReplication       `yaml:"replication"`
+	Pruning     PruningSenderReceiver `yaml:"pruning"`
+}
+
+type PullReplication struct {
+	Connect     ConnectEnum `yaml:"connect"`
+	RootDataset string      `yaml:"root_dataset"`
+}
+
+type SourceJob struct {
+	Type         string            `yaml:"type"`
+	Name         string            `yaml:"name"`
+	Replication  SourceReplication `yaml:"replication"`
+	Snapshotting Snapshotting      `yaml:"snapshotting"`
+	Pruning      PruningLocal      `yaml:"pruning"`
 }
 
 type PushReplication struct {
@@ -42,19 +64,30 @@ type SinkReplication struct {
 	Serve       ServeEnum `yaml:"serve"`
 }
 
+type SourceReplication struct {
+	Serve       ServeEnum       `yaml:"serve"`
+	Filesystems map[string]bool `yaml:"filesystems"`
+}
+
 type Snapshotting struct {
 	SnapshotPrefix string        `yaml:"snapshot_prefix"`
 	Interval       time.Duration `yaml:"interval"`
 }
 
-type Pruning struct {
-	KeepLocal  []PruningEnum `yaml:"keep_local"`
-	KeepRemote []PruningEnum `yaml:"keep_remote"`
+type PruningSenderReceiver struct {
+	KeepSender   []PruningEnum `yaml:"keep_sender"`
+	KeepReceiver []PruningEnum `yaml:"keep_receiver"`
+}
+
+type PruningLocal struct {
+	Keep []PruningEnum `yaml:"keep"`
 }
 
 type Global struct {
 	Logging    []LoggingOutletEnum `yaml:"logging"`
 	Monitoring []MonitoringEnum    `yaml:"monitoring,optional"`
+	Control    GlobalControl       `yaml:"control"`
+	Serve      GlobalServe         `yaml:"serve"`
 }
 
 type ConnectEnum struct {
@@ -127,9 +160,9 @@ type SyslogLoggingOutlet struct {
 
 type TCPLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
-	Address             string        `yaml:"address"`
-	Net                 string        `yaml:"net,default=tcp"`
-	RetryInterval       time.Duration `yaml:"retry_interval"`
+	Address             string               `yaml:"address"`
+	Net                 string               `yaml:"net,default=tcp"`
+	RetryInterval       time.Duration        `yaml:"retry_interval"`
 	TLS                 *TCPLoggingOutletTLS `yaml:"tls,optional"`
 }
 
@@ -146,6 +179,18 @@ type MonitoringEnum struct {
 type PrometheusMonitoring struct {
 	Type   string `yaml:"type"`
 	Listen string `yaml:"listen"`
+}
+
+type GlobalControl struct {
+	SockPath string `yaml:"sockpath,default=/var/run/zrepl/control"`
+}
+
+type GlobalServe struct {
+	StdinServer GlobalStdinServer `yaml:"stdinserver"`
+}
+
+type GlobalStdinServer struct {
+	SockDir string `yaml:"sockdir,default=/var/run/zrepl/stdinserver"`
 }
 
 func enumUnmarshal(u func(interface{}, bool) error, types map[string]interface{}) (interface{}, error) {
@@ -171,8 +216,10 @@ func enumUnmarshal(u func(interface{}, bool) error, types map[string]interface{}
 
 func (t *JobEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
-		"push": &PushJob{},
-		"sink": &SinkJob{},
+		"push":   &PushJob{},
+		"sink":   &SinkJob{},
+		"pull":   &PullJob{},
+		"source": &SourceJob{},
 	})
 	return
 }

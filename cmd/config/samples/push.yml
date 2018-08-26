@@ -1,5 +1,6 @@
 jobs:
   - type: push
+    name: "push"
     replication:
       connect:
         type: tcp
@@ -12,7 +13,7 @@ jobs:
       snapshot_prefix: zrepl_
       interval: 10m
     pruning:
-      keep_local:
+      keep_sender:
         - type: not_replicated
         - type: last_n
           count: 10
@@ -20,7 +21,7 @@ jobs:
           grid: 1x1h(keep=all) | 24x1h | 14x1d
           keep_bookmarks: all
 
-      keep_remote:
+      keep_receiver:
         - type: grid
           grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
           keep_bookmarks: all
@@ -33,3 +34,8 @@ global:
   monitoring:
     - type: "prometheus"
       listen: ":9091"
+  control:
+    sockpath: /var/run/zrepl/control
+  serve:
+    stdinserver:
+      sockdir: /var/run/zrepl/stdinserver
