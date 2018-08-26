@@ -3,11 +3,11 @@
 
 ROOT := github.com/zrepl/zrepl
 SUBPKGS := cmd
-SUBPKGS += cmd/replication
-SUBPKGS += cmd/replication/fsrep
-SUBPKGS += cmd/replication/pdu
-SUBPKGS += cmd/replication/internal/queue
-SUBPKGS += cmd/replication/internal/diff
+SUBPKGS += replication
+SUBPKGS += replication/fsrep
+SUBPKGS += replication/pdu
+SUBPKGS += replication/internal/queue
+SUBPKGS += replication/internal/diff
 SUBPKGS += logger util zfs
 
 _TESTPKGS := $(ROOT) $(foreach p,$(SUBPKGS),$(ROOT)/$(p))
@@ -32,12 +32,10 @@ vendordeps:
 	dep ensure -v -vendor-only
 
 generate: #not part of the build, must do that manually
-	protoc -I=cmd/replication/pdu --go_out=cmd/replication/pdu cmd/replication/pdu/pdu.proto
+	protoc -I=replication/pdu --go_out=replication/pdu replication/pdu/pdu.proto
 	@for pkg in $(_TESTPKGS); do\
 		go generate "$$pkg" || exit 1; \
 	done;
-	# FIXME fix docker build!
-
 
 build:
 	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"

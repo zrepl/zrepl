@@ -29,7 +29,8 @@ builddep() {
     step "Install build depdencies using 'go get' to \$GOPATH/bin"
     go get -u golang.org/x/tools/cmd/stringer
     go get -u github.com/golang/dep/cmd/dep
-    if ! type stringer || ! type dep; then
+    go get -u github.com/golang/protobuf/protoc-gen-go
+    if ! type stringer || ! type dep || ! type protoc-gen-go; then
         echo "Installed dependencies but can't find them in \$PATH, adjust it to contain \$GOPATH/bin" 1>&2
         exit 1
     fi
