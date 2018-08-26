@@ -54,7 +54,7 @@ type Pruning struct {
 
 type Global struct {
 	Logging    []LoggingOutletEnum `yaml:"logging"`
-	Monitoring []MonitoringEnum    `yaml:"monitoring"`
+	Monitoring []MonitoringEnum    `yaml:"monitoring,optional"`
 }
 
 type ConnectEnum struct {
@@ -127,10 +127,10 @@ type SyslogLoggingOutlet struct {
 
 type TCPLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
-	Address             string        `yaml:"address"` //TODO required
-	Net                 string        `yaml:"net"`     //TODO default tcp
+	Address             string        `yaml:"address"`
+	Net                 string        `yaml:"net,default=tcp"`
 	RetryInterval       time.Duration `yaml:"retry_interval"`
-	TLS                 *TCPLoggingOutletTLS
+	TLS                 *TCPLoggingOutletTLS `yaml:"tls,optional"`
 }
 
 type TCPLoggingOutletTLS struct {
