@@ -159,7 +159,7 @@ func (j *PullJob) doRun(ctx context.Context) {
 
 	sender := endpoint.NewRemote(client)
 
-	puller, err := endpoint.NewReceiver(
+	receiver, err := endpoint.NewReceiver(
 		j.Mapping,
 		NewPrefixFilter(j.SnapshotPrefix),
 	)
@@ -173,7 +173,7 @@ func (j *PullJob) doRun(ctx context.Context) {
 		ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{log.WithField(logSubsysField, "rpc")})
 		ctx = endpoint.WithLogger(ctx, log.WithField(logSubsysField, "endpoint"))
 		j.rep = replication.NewReplication()
-		j.rep.Drive(ctx, sender, puller)
+		j.rep.Drive(ctx, sender, receiver)
 	}
 
 	client.Close()
