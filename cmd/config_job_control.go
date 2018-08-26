@@ -46,7 +46,7 @@ const (
 
 func (j *ControlJob) JobStart(ctx context.Context) {
 
-	log := ctx.Value(contextKeyLog).(Logger)
+	log := getLogger(ctx)
 	defer log.Info("control job finished")
 
 	daemon := ctx.Value(contextKeyDaemon).(*Daemon)

@@ -84,7 +84,7 @@ func (j *LocalJob) JobType() JobType { return JobTypeLocal }
 
 func (j *LocalJob) JobStart(ctx context.Context) {
 
-	rootLog := ctx.Value(contextKeyLog).(Logger)
+	rootLog := getLogger(ctx)
 
 	j.snapperTask = NewTask("snapshot", j, rootLog)
 	j.mainTask = NewTask("main", j, rootLog)

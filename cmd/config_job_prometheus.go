@@ -69,7 +69,7 @@ func (j *PrometheusJob) JobStart(ctx context.Context) {
 		panic(err)
 	}
 
-	log := ctx.Value(contextKeyLog).(Logger)
+	log := getLogger(ctx)
 	task := NewTask("main", j, log)
 	log = task.Log()
 

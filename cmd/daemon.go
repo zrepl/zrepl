@@ -73,8 +73,7 @@ func doDaemon(cmd *cobra.Command, args []string) {
 
 	log.Info(NewZreplVersionInformation().String())
 	log.Debug("starting daemon")
-	ctx := context.WithValue(context.Background(), contextKeyLog, log)
-	ctx = context.WithValue(ctx, contextKeyLog, log)
+	ctx := WithLogger(context.Background(), log)
 
 	d := NewDaemon(conf)
 	d.Loop(ctx)
@@ -92,6 +91,10 @@ func getLogger(ctx context.Context) Logger {
 	return ctx.Value(contextKeyLog).(Logger)
 }
 
+func WithLogger(ctx context.Context, l Logger) context.Context {
+	return context.WithValue(ctx, contextKeyLog, l)
+}
+
 type Daemon struct {
 	conf      *Config
 	startedAt time.Time
@@ -105,7 +108,7 @@ func (d *Daemon) Loop(ctx context.Context) {
 
 	d.startedAt = time.Now()
 
-	log := ctx.Value(contextKeyLog).(Logger)
+	log := getLogger(ctx)
 
 	ctx, cancel := context.WithCancel(ctx)
 	ctx = context.WithValue(ctx, contextKeyDaemon, d)
@@ -121,7 +124,7 @@ func (d *Daemon) Loop(ctx context.Context) {
 		logger := log.WithField(logJobField, job.JobName())
 		logger.Info("starting")
 		i++
-		jobCtx := context.WithValue(ctx, contextKeyLog, logger)
+		jobCtx := WithLogger(ctx, logger)
 		go func(j Job) {
 			j.JobStart(jobCtx)
 			finishs <- j

@@ -105,7 +105,7 @@ func (j *PullJob) JobType() JobType { return JobTypePull }
 
 func (j *PullJob) JobStart(ctx context.Context) {
 
-	log := ctx.Value(contextKeyLog).(Logger)
+	log := getLogger(ctx)
 	defer log.Info("exiting")
 	j.task = NewTask("main", j, log)
 

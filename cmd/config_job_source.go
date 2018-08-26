@@ -89,7 +89,7 @@ func (j *SourceJob) JobType() JobType { return JobTypeSource }
 
 func (j *SourceJob) JobStart(ctx context.Context) {
 
-	log := ctx.Value(contextKeyLog).(Logger)
+	log := getLogger(ctx)
 	defer log.Info("exiting")
 
 	j.autosnapTask = NewTask("autosnap", j, log)
@@ -196,7 +196,6 @@ outer:
 	}
 
 	return
-
 }
 
 func (j *SourceJob) handleConnection(conn net.Conn, task *Task) {
@@ -209,7 +208,7 @@ func (j *SourceJob) handleConnection(conn net.Conn, task *Task) {
 	senderEP := endpoint.NewSender(j.Filesystems, NewPrefixFilter(j.SnapshotPrefix))
 
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, contextKeyLog, task.Log().WithField(logSubsysField, "rpc.endpoint"))
+	ctx = endpoint.WithLogger(ctx, task.Log().WithField(logSubsysField, "rpc.endpoint"))
 	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{task.Log().WithField(logSubsysField, "rpc.protocol")})
 	handler := endpoint.NewHandler(senderEP)
 	if err := streamrpc.ServeConn(ctx, conn, STREAMRPC_CONFIG, handler.Handle); err != nil {

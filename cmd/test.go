@@ -179,7 +179,7 @@ func doTestPrunePolicy(cmd *cobra.Command, args []string) {
 
 	log.Printf("start pruning")
 
-	ctx := context.WithValue(context.Background(), contextKeyLog, log)
+	ctx := WithLogger(context.Background(), log)
 	result, err := pruner.Run(ctx)
 	if err != nil {
 		log.Printf("error running pruner: %s", err)
