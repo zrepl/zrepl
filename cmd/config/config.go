@@ -54,6 +54,14 @@ type SourceJob struct {
 	Pruning      PruningLocal      `yaml:"pruning"`
 }
 
+type LocalJob struct {
+	Type        string                `yaml:"type"`
+	Name        string                `yaml:"name"`
+	Replication LocalReplication       `yaml:"replication"`
+	Snapshotting Snapshotting          `yaml:"snapshotting"`
+	Pruning     PruningSenderReceiver `yaml:"pruning"`
+}
+
 type PushReplication struct {
 	Connect     ConnectEnum     `yaml:"connect"`
 	Filesystems map[string]bool `yaml:"filesystems"`
@@ -67,6 +75,11 @@ type SinkReplication struct {
 type SourceReplication struct {
 	Serve       ServeEnum       `yaml:"serve"`
 	Filesystems map[string]bool `yaml:"filesystems"`
+}
+
+type LocalReplication struct {
+	Filesystems map[string]bool `yaml:"filesystems"`
+	RootDataset string    `yaml:"root_dataset"`
 }
 
 type Snapshotting struct {
@@ -220,6 +233,7 @@ func (t *JobEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 		"sink":   &SinkJob{},
 		"pull":   &PullJob{},
 		"source": &SourceJob{},
+		"local": &LocalJob{},
 	})
 	return
 }
