@@ -1,4 +1,4 @@
-package cmd
+package daemon
 
 import (
 	"bytes"
@@ -9,15 +9,18 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"github.com/zrepl/zrepl/cmd/daemon/job"
+	"github.com/zrepl/zrepl/version"
+	"github.com/zrepl/zrepl/cmd/helpers"
 )
 
-type ControlJob struct {
-	Name     string
+type controlJob struct {
 	sockaddr *net.UnixAddr
+	jobs *jobs
 }
 
-func NewControlJob(name, sockpath string) (j *ControlJob, err error) {
-	j = &ControlJob{Name: name}
+func newControlJob(sockpath string, jobs *jobs) (j *controlJob, err error) {
+	j = &controlJob{jobs: jobs}
 
 	j.sockaddr, err = net.ResolveUnixAddr("unix", sockpath)
 	if err != nil {
@@ -28,11 +31,9 @@ func NewControlJob(name, sockpath string) (j *ControlJob, err error) {
 	return
 }
 
-func (j *ControlJob) JobName() string {
-	return j.Name
-}
+func (j *controlJob) Name() string { return jobNameControl }
 
-func (j *ControlJob) JobType() JobType { return JobTypeControl }
+func (j *controlJob) Status() interface{} { return nil }
 
 const (
 	ControlJobEndpointPProf   string = "/debug/pprof"
@@ -40,14 +41,12 @@ const (
 	ControlJobEndpointStatus  string = "/status"
 )
 
-func (j *ControlJob) JobStart(ctx context.Context) {
+func (j *controlJob) Run(ctx context.Context) {
 
-	log := getLogger(ctx)
+	log := job.GetLogger(ctx)
 	defer log.Info("control job finished")
 
-	daemon := ctx.Value(contextKeyDaemon).(*Daemon)
-
-	l, err := ListenUnixPrivate(j.sockaddr)
+	l, err := helpers.ListenUnixPrivate(j.sockaddr)
 	if err != nil {
 		log.WithError(err).Error("error listening")
 		return
@@ -68,16 +67,12 @@ func (j *ControlJob) JobStart(ctx context.Context) {
 	}})
 	mux.Handle(ControlJobEndpointVersion,
 		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {
-			return NewZreplVersionInformation(), nil
+			return version.NewZreplVersionInformation(), nil
 		}}})
 	mux.Handle(ControlJobEndpointStatus,
 		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {
-			panic("FIXME") // FIXME
-		}}})
-	mux.Handle("/pulljobreport",
-		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {
-			j := daemon.conf.Jobs["debian"]
-			return j.(*PullJob).Report(), nil
+			s := j.jobs.status()
+			return s, nil
 		}}})
 	server := http.Server{Handler: mux}
 

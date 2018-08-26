@@ -137,13 +137,6 @@ func parseConfig(i interface{}) (c *Config, err error) {
 		c.Jobs[job.JobName()] = job
 	}
 
-	cj, err := NewControlJob(JobNameControl, jpc.Global.Control.Sockpath)
-	if err != nil {
-		err = errors.Wrap(err, "cannot create control job")
-		return
-	}
-	c.Jobs[JobNameControl] = cj
-
 	return c, nil
 
 }
@@ -201,8 +194,6 @@ func parseJob(c JobParsingContext, i map[string]interface{}) (j Job, err error) 
 		return parseSourceJob(c, name, i)
 	case JobTypeLocal:
 		return parseLocalJob(c, name, i)
-	case JobTypePrometheus:
-		return parsePrometheusJob(c, name, i)
 	default:
 		panic(fmt.Sprintf("implementation error: unknown job type %s", jobtype))
 	}

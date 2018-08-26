@@ -13,6 +13,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"github.com/zrepl/zrepl/version"
+	"github.com/zrepl/zrepl/cmd/daemon"
 )
 
 var controlCmd = &cobra.Command{
@@ -48,7 +50,7 @@ var pprofCmd = &cobra.Command{
 	},
 }
 var pprofCmdArgs struct {
-	msg PprofServerControlMsg
+	msg daemon.PprofServerControlMsg
 }
 
 var controlVersionCmd = &cobra.Command{
@@ -107,7 +109,7 @@ func doControlPProf(cmd *cobra.Command, args []string) {
 		log.Printf("error marshaling request: %s", err)
 		die()
 	}
-	_, err = httpc.Post("http://unix"+ControlJobEndpointPProf, "application/json", &buf)
+	_, err = httpc.Post("http://unix"+daemon.ControlJobEndpointPProf, "application/json", &buf)
 	if err != nil {
 		log.Printf("error: %s", err)
 		die()
@@ -131,7 +133,7 @@ func doControLVersionCmd(cmd *cobra.Command, args []string) {
 		die()
 	}
 
-	resp, err := httpc.Get("http://unix" + ControlJobEndpointVersion)
+	resp, err := httpc.Get("http://unix" + daemon.ControlJobEndpointVersion)
 	if err != nil {
 		log.Printf("error: %s", err)
 		die()

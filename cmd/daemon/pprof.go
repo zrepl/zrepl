@@ -1,4 +1,4 @@
-package cmd
+package daemon
 
 import (
 	"net/http"

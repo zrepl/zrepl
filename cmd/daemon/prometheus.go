@@ -1,19 +1,21 @@
-package cmd
+package daemon
 
 import (
 	"context"
-	"github.com/mitchellh/mapstructure"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/zrepl/zrepl/zfs"
 	"net"
 	"net/http"
+	"github.com/zrepl/zrepl/cmd/daemon/job"
 )
 
-type PrometheusJob struct {
-	Name   string
-	Listen string
+type prometheusJob struct {
+	listen string
+}
+
+func newPrometheusJob(listen string) *prometheusJob {
+	return &prometheusJob{listen}
 }
 
 var prom struct {
@@ -46,32 +48,19 @@ func init() {
 	prometheus.MustRegister(prom.taskLogEntries)
 }
 
-func parsePrometheusJob(c JobParsingContext, name string, i map[string]interface{}) (j *PrometheusJob, err error) {
-	var s struct {
-		Listen string
-	}
-	if err := mapstructure.Decode(i, &s); err != nil {
-		return nil, errors.Wrap(err, "mapstructure error")
-	}
-	if s.Listen == "" {
-		return nil, errors.New("must specify 'listen' attribute")
-	}
-	return &PrometheusJob{name, s.Listen}, nil
-}
+func (j *prometheusJob) Name() string { return  jobNamePrometheus }
 
-func (j *PrometheusJob) JobName() string { return j.Name }
+func (j *prometheusJob) Status() interface{} { return nil }
 
-func (j *PrometheusJob) JobType() JobType { return JobTypePrometheus }
-
-func (j *PrometheusJob) JobStart(ctx context.Context) {
+func (j *prometheusJob) Run(ctx context.Context) {
 
 	if err := zfs.PrometheusRegister(prometheus.DefaultRegisterer); err != nil {
 		panic(err)
 	}
 
-	log := getLogger(ctx)
+	log := job.GetLogger(ctx)
 
-	l, err := net.Listen("tcp", j.Listen)
+	l, err := net.Listen("tcp", j.listen)
 	if err != nil {
 		log.WithError(err).Error("cannot listen")
 	}

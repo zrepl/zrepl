@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/spf13/cobra"
-	"github.com/zrepl/zrepl/logger"
 	"os"
 	"os/signal"
 
 	"syscall"
 	"time"
+	"github.com/zrepl/zrepl/cmd/daemon"
+	"github.com/zrepl/zrepl/cmd/daemon/job"
+	"github.com/zrepl/zrepl/logger"
 )
 
 // daemonCmd represents the daemon command
@@ -57,6 +59,20 @@ func (j JobType) String() string {
 	return string(j)
 }
 
+type daemonJobAdaptor struct {
+	j Job
+}
+
+func (a daemonJobAdaptor) Name() string {
+	return a.j.JobName()
+}
+
+func (a daemonJobAdaptor) Run(ctx context.Context) {
+	a.j.JobStart(ctx)
+}
+
+func (a daemonJobAdaptor) Status() interface{} { return nil }
+
 func doDaemon(cmd *cobra.Command, args []string) {
 
 	conf, err := ParseConfig(rootArgs.configFile)
@@ -66,13 +82,13 @@ func doDaemon(cmd *cobra.Command, args []string) {
 	}
 
 	log := logger.NewLogger(conf.Global.logging.Outlets, 1*time.Second)
-
-	log.Info(NewZreplVersionInformation().String())
-	log.Debug("starting daemon")
 	ctx := WithLogger(context.Background(), log)
 
-	d := NewDaemon(conf)
-	d.Loop(ctx)
+	daemonJobs := make([]job.Job, 0, len(conf.Jobs))
+	for i := range conf.Jobs {
+		daemonJobs = append(daemonJobs, daemonJobAdaptor{conf.Jobs[i]})
+	}
+	daemon.Run(ctx, conf.Global.Control.Sockpath, conf.Global.logging.Outlets, daemonJobs)
 
 }
 

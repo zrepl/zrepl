@@ -6,6 +6,7 @@ import (
 	"github.com/problame/go-netssh"
 	"net"
 	"path"
+	"github.com/zrepl/zrepl/cmd/helpers"
 )
 
 type StdinserverListenerFactory struct {
@@ -32,7 +33,7 @@ func parseStdinserverListenerFactory(c JobParsingContext, i map[string]interface
 
 func (f *StdinserverListenerFactory) Listen() (net.Listener, error) {
 
-	if err := PreparePrivateSockpath(f.sockpath); err != nil {
+	if err := helpers.PreparePrivateSockpath(f.sockpath); err != nil {
 		return nil, err
 	}
 
