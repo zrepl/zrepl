@@ -140,7 +140,7 @@ func (j *SourceJob) serve(ctx context.Context) {
 		conn net.Conn
 		err  error
 	}
-	connChan := make(chan connChanMsg)
+	connChan := make(chan connChanMsg, 1)
 
 	// Serve connections until interrupted or error
 outer:
