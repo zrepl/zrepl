@@ -36,11 +36,19 @@ func getLogger(ctx context.Context) Logger {
 	return l
 }
 
+// A Sender is usually part of a github.com/zrepl/zrepl/replication.Endpoint.
 type Sender interface {
+	// If a non-nil io.ReadCloser is returned, it is guaranteed to be closed before
+	// any next call to the parent github.com/zrepl/zrepl/replication.Endpoint.
 	Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error)
 }
 
+// A Sender is usually part of a github.com/zrepl/zrepl/replication.Endpoint.
 type Receiver interface {
+	// Receive sends r and sendStream (the latter containing a ZFS send stream)
+	// to the parent github.com/zrepl/zrepl/replication.Endpoint.
+	// Implementors must guarantee that Close was called on sendStream before
+	// the call to Receive returns.
 	Receive(ctx context.Context, r *pdu.ReceiveReq, sendStream io.ReadCloser) error
 }
 

@@ -296,7 +296,6 @@ func (s Remote) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Read
 		rs.Close()
 		return nil, nil, err
 	}
-	// FIXME make sure the consumer will read the reader until the end...
 	return &res, rs, nil
 }
 

@@ -84,9 +84,14 @@ func NewReplication() *Replication {
 	return &r
 }
 
+// Endpoint represents one side of the replication.
+//
+// An endpoint is either in Sender or Receiver mode, represented by the correspondingly
+// named interfaces defined in this package.
 type Endpoint interface {
 	// Does not include placeholder filesystems
 	ListFilesystems(ctx context.Context) ([]*pdu.Filesystem, error)
+	// FIXME document FilteredError handling
 	ListFilesystemVersions(ctx context.Context, fs string) ([]*pdu.FilesystemVersion, error) // fix depS
 }
 
@@ -99,6 +104,7 @@ type Receiver interface {
 	Endpoint
 	fsrep.Receiver
 }
+
 
 type FilteredError struct{ fs string }
 
