@@ -91,4 +91,3 @@ func (j *PrometheusJob) JobStart(ctx context.Context) {
 	}
 
 }
-

@@ -105,7 +105,6 @@ type Receiver interface {
 	fsrep.Receiver
 }
 
-
 type FilteredError struct{ fs string }
 
 func NewFilteredError(fs string) *FilteredError {

@@ -26,7 +26,7 @@ type PullJob struct {
 	Prune          PrunePolicy
 	Debug          JobDebugSettings
 
-	rep  *replication.Replication
+	rep *replication.Replication
 }
 
 func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j *PullJob, err error) {

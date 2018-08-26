@@ -77,13 +77,12 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 	prefixed := make(map[string]bool, len(prefixFields)+2)
 	for _, field := range prefixFields {
 		val, ok := e.Fields[field].(string)
-		if ok {
-			if !f.ignored(field) {
-				fmt.Fprintf(&line, "[%s]", val)
-				prefixed[field] = true
-			}
-		} else {
-			break
+		if !ok {
+			continue
+		}
+		if !f.ignored(field) {
+			fmt.Fprintf(&line, "[%s]", val)
+			prefixed[field] = true
 		}
 	}
 
