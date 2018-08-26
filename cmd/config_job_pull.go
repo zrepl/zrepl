@@ -26,7 +26,6 @@ type PullJob struct {
 	Prune          PrunePolicy
 	Debug          JobDebugSettings
 
-	task *Task
 	rep  *replication.Replication
 }
 
@@ -107,7 +106,6 @@ func (j *PullJob) JobStart(ctx context.Context) {
 
 	log := getLogger(ctx)
 	defer log.Info("exiting")
-	j.task = NewTask("main", j, log)
 
 	// j.task is idle here idle here
 	usr1 := make(chan os.Signal)
@@ -120,14 +118,14 @@ func (j *PullJob) JobStart(ctx context.Context) {
 		j.doRun(ctx)
 		duration := time.Now().Sub(begin)
 		if duration > j.Interval {
-			j.task.Log().
+			log.
 				WithField("actual_duration", duration).
 				WithField("configured_interval", j.Interval).
 				Warn("pull run took longer than configured interval")
 		}
 		select {
 		case <-ctx.Done():
-			j.task.Log().WithError(ctx.Err()).Info("context")
+			log.WithError(ctx.Err()).Info("context")
 			return
 		case <-ticker.C:
 		case <-usr1:
@@ -150,9 +148,7 @@ var STREAMRPC_CONFIG = &streamrpc.ConnConfig{ // FIXME oversight and configurabi
 
 func (j *PullJob) doRun(ctx context.Context) {
 
-	j.task.Enter("run")
-	defer j.task.Finish()
-
+	log := getLogger(ctx)
 	// FIXME
 	clientConf := &streamrpc.ClientConfig{
 		ConnConfig: STREAMRPC_CONFIG,
@@ -161,8 +157,6 @@ func (j *PullJob) doRun(ctx context.Context) {
 	client, err := streamrpc.NewClient(j.Connect, clientConf)
 	defer client.Close()
 
-	j.task.Enter("pull")
-
 	sender := endpoint.NewRemote(client)
 
 	puller, err := endpoint.NewReceiver(
@@ -170,43 +164,37 @@ func (j *PullJob) doRun(ctx context.Context) {
 		NewPrefixFilter(j.SnapshotPrefix),
 	)
 	if err != nil {
-		j.task.Log().WithError(err).Error("error creating receiver endpoint")
-		j.task.Finish()
+		log.WithError(err).Error("error creating receiver endpoint")
 		return
 	}
 
-	ctx = replication.WithLogger(ctx, replicationLogAdaptor{j.task.Log().WithField(logSubsysField, "replication")})
-	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{j.task.Log().WithField(logSubsysField, "rpc.protocol")})
-	ctx = endpoint.WithLogger(ctx, j.task.Log().WithField(logSubsysField, "rpc.endpoint"))
-
-	j.rep = replication.NewReplication()
-	j.rep.Drive(ctx, sender, puller)
+	{
+		ctx := replication.WithLogger(ctx, replicationLogAdaptor{log.WithField(logSubsysField, "replication")})
+		ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{log.WithField(logSubsysField, "rpc")})
+		ctx = endpoint.WithLogger(ctx, log.WithField(logSubsysField, "endpoint"))
+		j.rep = replication.NewReplication()
+		j.rep.Drive(ctx, sender, puller)
+	}
 
 	client.Close()
-	j.task.Finish()
 
-	j.task.Enter("prune")
-	pruner, err := j.Pruner(j.task, PrunePolicySideDefault, false)
-	if err != nil {
-		j.task.Log().WithError(err).Error("error creating pruner")
-	} else {
-		pruner.Run(ctx)
+	{
+		ctx := WithLogger(ctx, log.WithField(logSubsysField, "prune"))
+		pruner, err := j.Pruner(PrunePolicySideDefault, false)
+		if err != nil {
+			log.WithError(err).Error("error creating pruner")
+		} else {
+			pruner.Run(ctx)
+		}
 	}
-	j.task.Finish()
-
 }
 
 func (j *PullJob) Report() *replication.Report {
 	return j.rep.Report()
 }
 
-func (j *PullJob) JobStatus(ctxt context.Context) (*JobStatus, error) {
-	return &JobStatus{Tasks: []*TaskStatus{j.task.Status()}}, nil
-}
-
-func (j *PullJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Pruner, err error) {
+func (j *PullJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err error) {
 	p = Pruner{
-		task,
 		time.Now(),
 		dryRun,
 		j.pruneFilter,

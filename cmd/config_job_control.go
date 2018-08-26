@@ -34,10 +34,6 @@ func (j *ControlJob) JobName() string {
 
 func (j *ControlJob) JobType() JobType { return JobTypeControl }
 
-func (j *ControlJob) JobStatus(ctx context.Context) (*JobStatus, error) {
-	return &JobStatus{Tasks: nil}, nil
-}
-
 const (
 	ControlJobEndpointPProf   string = "/debug/pprof"
 	ControlJobEndpointVersion string = "/version"
@@ -76,7 +72,7 @@ func (j *ControlJob) JobStart(ctx context.Context) {
 		}}})
 	mux.Handle(ControlJobEndpointStatus,
 		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {
-			return daemon.Status(), nil
+			panic("FIXME") // FIXME
 		}}})
 	mux.Handle("/pulljobreport",
 		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {

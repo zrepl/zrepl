@@ -8,7 +8,6 @@ import (
 )
 
 type Pruner struct {
-	task           *Task
 	Now            time.Time
 	DryRun         bool
 	DatasetFilter  zfs.DatasetFilter
@@ -23,25 +22,21 @@ type PruneResult struct {
 	Remove     []zfs.FilesystemVersion
 }
 
-func (p *Pruner) filterFilesystems() (filesystems []*zfs.DatasetPath, stop bool) {
-	p.task.Enter("filter_fs")
-	defer p.task.Finish()
+func (p *Pruner) filterFilesystems(ctx context.Context) (filesystems []*zfs.DatasetPath, stop bool) {
 	filesystems, err := zfs.ZFSListMapping(p.DatasetFilter)
 	if err != nil {
-		p.task.Log().WithError(err).Error("error applying filesystem filter")
+		getLogger(ctx).WithError(err).Error("error applying filesystem filter")
 		return nil, true
 	}
 	if len(filesystems) <= 0 {
-		p.task.Log().Info("no filesystems matching filter")
+		getLogger(ctx).Info("no filesystems matching filter")
 		return nil, true
 	}
 	return filesystems, false
 }
 
-func (p *Pruner) filterVersions(fs *zfs.DatasetPath) (fsversions []zfs.FilesystemVersion, stop bool) {
-	p.task.Enter("filter_versions")
-	defer p.task.Finish()
-	log := p.task.Log().WithField("fs", fs.ToString())
+func (p *Pruner) filterVersions(ctx context.Context, fs *zfs.DatasetPath) (fsversions []zfs.FilesystemVersion, stop bool) {
+	log := getLogger(ctx).WithField("fs", fs.ToString())
 
 	filter := NewPrefixFilter(p.SnapshotPrefix)
 	fsversions, err := zfs.ZFSListFilesystemVersions(fs, filter)
@@ -56,19 +51,15 @@ func (p *Pruner) filterVersions(fs *zfs.DatasetPath) (fsversions []zfs.Filesyste
 	return fsversions, false
 }
 
-func (p *Pruner) pruneFilesystem(fs *zfs.DatasetPath) (r PruneResult, valid bool) {
-	p.task.Enter("prune_fs")
-	defer p.task.Finish()
-	log := p.task.Log().WithField("fs", fs.ToString())
+func (p *Pruner) pruneFilesystem(ctx context.Context, fs *zfs.DatasetPath) (r PruneResult, valid bool) {
+	log := getLogger(ctx).WithField("fs", fs.ToString())
 
-	fsversions, stop := p.filterVersions(fs)
+	fsversions, stop := p.filterVersions(ctx, fs)
 	if stop {
 		return
 	}
 
-	p.task.Enter("prune_policy")
 	keep, remove, err := p.PrunePolicy.Prune(fs, fsversions)
-	p.task.Finish()
 	if err != nil {
 		log.WithError(err).Error("error evaluating prune policy")
 		return
@@ -100,9 +91,7 @@ func (p *Pruner) pruneFilesystem(fs *zfs.DatasetPath) (r PruneResult, valid bool
 		// TODO special handling for EBUSY (zfs hold)
 		// TODO error handling for clones? just echo to cli, skip over, and exit with non-zero status code (we're idempotent)
 		if !p.DryRun {
-			p.task.Enter("destroy")
 			err := zfs.ZFSDestroyFilesystemVersion(fs, v)
-			p.task.Finish()
 			if err != nil {
 				log.WithFields(fields).WithError(err).Error("error destroying version")
 			}
@@ -112,14 +101,11 @@ func (p *Pruner) pruneFilesystem(fs *zfs.DatasetPath) (r PruneResult, valid bool
 }
 
 func (p *Pruner) Run(ctx context.Context) (r []PruneResult, err error) {
-	p.task.Enter("run")
-	defer p.task.Finish()
-
 	if p.DryRun {
-		p.task.Log().Info("doing dry run")
+		getLogger(ctx).Info("doing dry run")
 	}
 
-	filesystems, stop := p.filterFilesystems()
+	filesystems, stop := p.filterFilesystems(ctx)
 	if stop {
 		return
 	}
@@ -127,7 +113,7 @@ func (p *Pruner) Run(ctx context.Context) (r []PruneResult, err error) {
 	r = make([]PruneResult, 0, len(filesystems))
 
 	for _, fs := range filesystems {
-		res, ok := p.pruneFilesystem(fs)
+		res, ok := p.pruneFilesystem(ctx, fs)
 		if ok {
 			r = append(r, res)
 		}

@@ -57,7 +57,7 @@ type PrunePolicy interface {
 }
 
 type PruningJob interface {
-	Pruner(task *Task, side PrunePolicySide, dryRun bool) (Pruner, error)
+	Pruner(side PrunePolicySide, dryRun bool) (Pruner, error)
 }
 
 // A type for constants describing different prune policies of a PruningJob

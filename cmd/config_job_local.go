@@ -20,11 +20,6 @@ type LocalJob struct {
 	PruneLHS       PrunePolicy
 	PruneRHS       PrunePolicy
 	Debug          JobDebugSettings
-	snapperTask    *Task
-	mainTask       *Task
-	handlerTask    *Task
-	pruneRHSTask   *Task
-	pruneLHSTask   *Task
 }
 
 func parseLocalJob(c JobParsingContext, name string, i map[string]interface{}) (j *LocalJob, err error) {
@@ -84,13 +79,7 @@ func (j *LocalJob) JobType() JobType { return JobTypeLocal }
 
 func (j *LocalJob) JobStart(ctx context.Context) {
 
-	rootLog := getLogger(ctx)
-
-	j.snapperTask = NewTask("snapshot", j, rootLog)
-	j.mainTask = NewTask("main", j, rootLog)
-	j.handlerTask = NewTask("handler", j, rootLog)
-	j.pruneRHSTask = NewTask("prune_rhs", j, rootLog)
-	j.pruneLHSTask = NewTask("prune_lhs", j, rootLog)
+	log := getLogger(ctx)
 
 	// Allow access to any dataset since we control what mapping
 	// is passed to the pull routine.
@@ -103,89 +92,67 @@ func (j *LocalJob) JobStart(ctx context.Context) {
 
 	receiver, err := endpoint.NewReceiver(j.Mapping, NewPrefixFilter(j.SnapshotPrefix))
 	if err != nil {
-		rootLog.WithError(err).Error("unexpected error setting up local handler")
+		log.WithError(err).Error("unexpected error setting up local handler")
 	}
 
 	snapper := IntervalAutosnap{
-		task:             j.snapperTask,
 		DatasetFilter:    j.Mapping.AsFilter(),
 		Prefix:           j.SnapshotPrefix,
 		SnapshotInterval: j.Interval,
 	}
 
-	plhs, err := j.Pruner(j.pruneLHSTask, PrunePolicySideLeft, false)
+	plhs, err := j.Pruner(PrunePolicySideLeft, false)
 	if err != nil {
-		rootLog.WithError(err).Error("error creating lhs pruner")
+		log.WithError(err).Error("error creating lhs pruner")
 		return
 	}
-	prhs, err := j.Pruner(j.pruneRHSTask, PrunePolicySideRight, false)
+	prhs, err := j.Pruner(PrunePolicySideRight, false)
 	if err != nil {
-		rootLog.WithError(err).Error("error creating rhs pruner")
+		log.WithError(err).Error("error creating rhs pruner")
 		return
 	}
 
 	didSnaps := make(chan struct{})
-	go snapper.Run(ctx, didSnaps)
+	go snapper.Run(WithLogger(ctx, log.WithField(logSubsysField, "snap")), didSnaps)
 
 outer:
 	for {
 
 		select {
 		case <-ctx.Done():
-			j.mainTask.Log().WithError(ctx.Err()).Info("context")
+			log.WithError(ctx.Err()).Info("context")
 			break outer
 		case <-didSnaps:
-			j.mainTask.Log().Debug("finished taking snapshots")
-			j.mainTask.Log().Info("starting replication procedure")
+			log.Debug("finished taking snapshots")
+			log.Info("starting replication procedure")
 		}
 
-		j.mainTask.Log().Debug("replicating from lhs to rhs")
-		j.mainTask.Enter("replicate")
-
-		rep := replication.NewReplication()
-		rep.Drive(ctx, sender, receiver)
-
-		j.mainTask.Finish()
-
-		// use a ctx as soon as Pull gains ctx support
-		select {
-		case <-ctx.Done():
-			break outer
-		default:
+		{
+			ctx := WithLogger(ctx, log.WithField(logSubsysField, "replication"))
+			rep := replication.NewReplication()
+			rep.Drive(ctx, sender, receiver)
 		}
 
 		var wg sync.WaitGroup
 
-		j.mainTask.Log().Info("pruning lhs")
 		wg.Add(1)
 		go func() {
-			plhs.Run(ctx)
+			plhs.Run(WithLogger(ctx, log.WithField(logSubsysField, "prune_lhs")))
 			wg.Done()
 		}()
 
-		j.mainTask.Log().Info("pruning rhs")
 		wg.Add(1)
 		go func() {
-			prhs.Run(ctx)
+			prhs.Run(WithLogger(ctx, log.WithField(logSubsysField, "prune_rhs")))
 			wg.Done()
 		}()
 
 		wg.Wait()
-
 	}
 
 }
 
-func (j *LocalJob) JobStatus(ctxt context.Context) (*JobStatus, error) {
-	return &JobStatus{Tasks: []*TaskStatus{
-		j.snapperTask.Status(),
-		j.pruneLHSTask.Status(),
-		j.pruneRHSTask.Status(),
-		j.mainTask.Status(),
-	}}, nil
-}
-
-func (j *LocalJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Pruner, err error) {
+func (j *LocalJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err error) {
 
 	var dsfilter zfs.DatasetFilter
 	var pp PrunePolicy
@@ -206,7 +173,6 @@ func (j *LocalJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Prun
 	}
 
 	p = Pruner{
-		task,
 		time.Now(),
 		dryRun,
 		dsfilter,

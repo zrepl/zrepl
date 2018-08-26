@@ -70,8 +70,6 @@ func (j *PrometheusJob) JobStart(ctx context.Context) {
 	}
 
 	log := getLogger(ctx)
-	task := NewTask("main", j, log)
-	log = task.Log()
 
 	l, err := net.Listen("tcp", j.Listen)
 	if err != nil {
@@ -94,6 +92,3 @@ func (j *PrometheusJob) JobStart(ctx context.Context) {
 
 }
 
-func (*PrometheusJob) JobStatus(ctxt context.Context) (*JobStatus, error) {
-	return &JobStatus{}, nil
-}

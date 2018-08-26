@@ -170,8 +170,7 @@ func doTestPrunePolicy(cmd *cobra.Command, args []string) {
 
 	log.Printf("job dump:\n%s", pretty.Sprint(jobp))
 
-	task := NewTask("", jobi, log)
-	pruner, err := jobp.Pruner(task, testPrunePolicyArgs.side, true)
+	pruner, err := jobp.Pruner(testPrunePolicyArgs.side, true)
 	if err != nil {
 		log.Printf("cannot create test pruner: %s", err)
 		os.Exit(1)

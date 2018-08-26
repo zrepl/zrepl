@@ -19,9 +19,6 @@ type SourceJob struct {
 	Interval       time.Duration
 	Prune          PrunePolicy
 	Debug          JobDebugSettings
-	serveTask      *Task
-	autosnapTask   *Task
-	pruneTask      *Task
 }
 
 func parseSourceJob(c JobParsingContext, name string, i map[string]interface{}) (j *SourceJob, err error) {
@@ -92,12 +89,8 @@ func (j *SourceJob) JobStart(ctx context.Context) {
 	log := getLogger(ctx)
 	defer log.Info("exiting")
 
-	j.autosnapTask = NewTask("autosnap", j, log)
-	j.pruneTask = NewTask("prune", j, log)
-	j.serveTask = NewTask("serve", j, log)
-
-	a := IntervalAutosnap{j.autosnapTask, j.Filesystems, j.SnapshotPrefix, j.Interval}
-	p, err := j.Pruner(j.pruneTask, PrunePolicySideDefault, false)
+	a := IntervalAutosnap{j.Filesystems, j.SnapshotPrefix, j.Interval}
+	p, err := j.Pruner(PrunePolicySideDefault, false)
 
 	if err != nil {
 		log.WithError(err).Error("error creating pruner")
@@ -106,8 +99,8 @@ func (j *SourceJob) JobStart(ctx context.Context) {
 
 	didSnaps := make(chan struct{})
 
-	go j.serve(ctx, j.serveTask)
-	go a.Run(ctx, didSnaps)
+	go j.serve(ctx) // logSubsysField set by handleConnection
+	go a.Run(WithLogger(ctx, log.WithField(logSubsysField, "snap")), didSnaps)
 
 outer:
 	for {
@@ -115,27 +108,15 @@ outer:
 		case <-ctx.Done():
 			break outer
 		case <-didSnaps:
-			log.Info("starting pruner")
-			p.Run(ctx)
-			log.Info("pruner done")
+			p.Run(WithLogger(ctx, log.WithField(logSubsysField, "prune")))
 		}
 	}
 	log.WithError(ctx.Err()).Info("context")
 
 }
 
-func (j *SourceJob) JobStatus(ctxt context.Context) (*JobStatus, error) {
-	return &JobStatus{
-		Tasks: []*TaskStatus{
-			j.autosnapTask.Status(),
-			j.pruneTask.Status(),
-			j.serveTask.Status(),
-		}}, nil
-}
-
-func (j *SourceJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Pruner, err error) {
+func (j *SourceJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err error) {
 	p = Pruner{
-		task,
 		time.Now(),
 		dryRun,
 		j.Filesystems,
@@ -145,11 +126,13 @@ func (j *SourceJob) Pruner(task *Task, side PrunePolicySide, dryRun bool) (p Pru
 	return
 }
 
-func (j *SourceJob) serve(ctx context.Context, task *Task) {
+func (j *SourceJob) serve(ctx context.Context) {
+
+	log := getLogger(ctx)
 
 	listener, err := j.Serve.Listen()
 	if err != nil {
-		task.Log().WithError(err).Error("error listening")
+		getLogger(ctx).WithError(err).Error("error listening")
 		return
 	}
 
@@ -173,48 +156,40 @@ outer:
 		case rwcMsg := <-connChan:
 
 			if rwcMsg.err != nil {
-				task.Log().WithError(rwcMsg.err).Error("error accepting connection")
+				log.WithError(rwcMsg.err).Error("error accepting connection")
 				continue
 			}
 
-			j.handleConnection(rwcMsg.conn, task)
+			j.handleConnection(ctx, rwcMsg.conn)
 
 		case <-ctx.Done():
-			task.Log().WithError(ctx.Err()).Info("context")
+			log.WithError(ctx.Err()).Info("context")
 			break outer
 		}
 
 	}
 
-	task.Log().Info("closing listener")
-
-	task.Enter("close_listener")
-	defer task.Finish()
+	log.Info("closing listener")
 	err = listener.Close()
 	if err != nil {
-		task.Log().WithError(err).Error("error closing listener")
+		log.WithError(err).Error("error closing listener")
 	}
 
 	return
 }
 
-func (j *SourceJob) handleConnection(conn net.Conn, task *Task) {
-
-	task.Enter("handle_connection")
-	defer task.Finish()
-
-	task.Log().Info("handling client connection")
+func (j *SourceJob) handleConnection(ctx context.Context, conn net.Conn) {
+	log := getLogger(ctx)
+	log.Info("handling client connection")
 
 	senderEP := endpoint.NewSender(j.Filesystems, NewPrefixFilter(j.SnapshotPrefix))
 
-	ctx := context.Background()
-	ctx = endpoint.WithLogger(ctx, task.Log().WithField(logSubsysField, "rpc.endpoint"))
-	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{task.Log().WithField(logSubsysField, "rpc.protocol")})
+	ctx = endpoint.WithLogger(ctx, log.WithField(logSubsysField, "serve"))
+	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{log.WithField(logSubsysField, "rpc")})
 	handler := endpoint.NewHandler(senderEP)
 	if err := streamrpc.ServeConn(ctx, conn, STREAMRPC_CONFIG, handler.Handle); err != nil {
-		task.Log().WithError(err).Error("error serving connection")
+		log.WithError(err).Error("error serving connection")
 	} else {
-		task.Log().Info("client closed connection")
+		log.Info("client closed connection")
 	}
-
 }
