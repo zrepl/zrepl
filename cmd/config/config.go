@@ -53,7 +53,8 @@ type Pruning struct {
 }
 
 type Global struct {
-	Logging []LoggingOutletEnum `yaml:"logging"`
+	Logging    []LoggingOutletEnum `yaml:"logging"`
+	Monitoring []MonitoringEnum    `yaml:"monitoring"`
 }
 
 type ConnectEnum struct {
@@ -138,6 +139,15 @@ type TCPLoggingOutletTLS struct {
 	Key  string `yaml:"key"`
 }
 
+type MonitoringEnum struct {
+	Ret interface{}
+}
+
+type PrometheusMonitoring struct {
+	Type   string `yaml:"type"`
+	Listen string `yaml:"listen"`
+}
+
 func enumUnmarshal(u func(interface{}, bool) error, types map[string]interface{}) (interface{}, error) {
 	var in struct {
 		Type string
@@ -197,6 +207,13 @@ func (t *LoggingOutletEnum) UnmarshalYAML(u func(interface{}, bool) error) (err 
 		"stdout": &StdoutLoggingOutlet{},
 		"syslog": &SyslogLoggingOutlet{},
 		"tcp":    &TCPLoggingOutlet{},
+	})
+	return
+}
+
+func (t *MonitoringEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
+	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
+		"prometheus": &PrometheusMonitoring{},
 	})
 	return
 }

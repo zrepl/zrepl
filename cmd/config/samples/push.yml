@@ -28,3 +28,6 @@ global:
       time: true
       level: "warn"
       format: "human"
+  monitoring:
+    - type: "prometheus"
+      listen: ":9091"
