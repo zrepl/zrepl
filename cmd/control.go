@@ -142,7 +142,7 @@ func doControLVersionCmd(cmd *cobra.Command, args []string) {
 		die()
 	}
 
-	var info ZreplVersionInformation
+	var info version.ZreplVersionInformation
 	err = json.NewDecoder(resp.Body).Decode(&info)
 	if err != nil {
 		log.Printf("error unmarshaling response: %s", err)

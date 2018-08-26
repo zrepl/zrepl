@@ -20,7 +20,7 @@ ifndef ZREPL_VERSION
         $(error cannot infer variable ZREPL_VERSION using git and variable is not overriden by make invocation)
     endif
 endif
-GO_LDFLAGS := "-X github.com/zrepl/zrepl/cmd.zreplVersion=$(ZREPL_VERSION)"
+GO_LDFLAGS := "-X github.com/zrepl/zrepl/version.zreplVersion=$(ZREPL_VERSION)"
 
 GO_BUILD := go build -ldflags $(GO_LDFLAGS)
 

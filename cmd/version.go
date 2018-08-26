@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"runtime"
+	"github.com/zrepl/zrepl/version"
 )
 
 var versionCmd = &cobra.Command{
@@ -17,26 +17,6 @@ func init() {
 }
 
 func doVersion(cmd *cobra.Command, args []string) {
-	fmt.Println(NewZreplVersionInformation().String())
+	fmt.Println(version.NewZreplVersionInformation().String())
 }
 
-type ZreplVersionInformation struct {
-	Version         string
-	RuntimeGOOS     string
-	RuntimeGOARCH   string
-	RUNTIMECompiler string
-}
-
-func NewZreplVersionInformation() *ZreplVersionInformation {
-	return &ZreplVersionInformation{
-		Version:         zreplVersion,
-		RuntimeGOOS:     runtime.GOOS,
-		RuntimeGOARCH:   runtime.GOARCH,
-		RUNTIMECompiler: runtime.Compiler,
-	}
-}
-
-func (i *ZreplVersionInformation) String() string {
-	return fmt.Sprintf("zrepl version=%s GOOS=%s GOARCH=%s Compiler=%s",
-		i.Version, i.RuntimeGOOS, i.RuntimeGOARCH, i.RUNTIMECompiler)
-}

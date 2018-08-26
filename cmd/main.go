@@ -20,10 +20,6 @@ import (
 //	Printf(format string, v ...interface{})
 //}
 
-var (
-	zreplVersion string // set by build infrastructure
-)
-
 type Logger = logger.Logger
 
 var RootCmd = &cobra.Command{
