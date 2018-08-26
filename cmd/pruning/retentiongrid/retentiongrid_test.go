@@ -1,4 +1,4 @@
-package util
+package retentiongrid
 
 import (
 	"fmt"
@@ -9,9 +9,22 @@ import (
 	"time"
 )
 
-func retentionGridFromString(gs string) (g *RetentionGrid) {
+type retentionIntervalStub struct {
+	length    time.Duration
+	keepCount int
+}
+
+func (i *retentionIntervalStub) Length() time.Duration {
+	return i.length
+}
+
+func (i *retentionIntervalStub) KeepCount() int {
+	return i.keepCount
+}
+
+func retentionGridFromString(gs string) (g *retentionGrid) {
 	intervals := strings.Split(gs, "|")
-	g = &RetentionGrid{
+	g = &retentionGrid{
 		intervals: make([]RetentionInterval, len(intervals)),
 	}
 	for idx, i := range intervals {
@@ -25,16 +38,16 @@ func retentionGridFromString(gs string) (g *RetentionGrid) {
 		}
 
 		var err error
-		var interval RetentionInterval
+		var interval retentionIntervalStub
 
-		if interval.KeepCount, err = strconv.Atoi(numSnapsStr); err != nil {
+		if interval.keepCount, err = strconv.Atoi(numSnapsStr); err != nil {
 			panic(err)
 		}
-		if interval.Length, err = time.ParseDuration(durationStr); err != nil {
+		if interval.length, err = time.ParseDuration(durationStr); err != nil {
 			panic(err)
 		}
 
-		g.intervals[idx] = interval
+		g.intervals[idx] = &interval
 	}
 	return
 }
