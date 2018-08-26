@@ -1,0 +1,37 @@
+jobs:
+- name: pull_source
+  type: source
+  replication:
+    serve:
+      type: stdinserver
+      client_identity: "client1"
+    filesystems: {
+      "<": true,
+      "secret": false
+    }
+  snapshotting:
+    snapshot_prefix: zrepl_
+    interval: 10m
+  pruning:
+    keep:
+    - type: not_replicated
+    - type: last_n
+      count: 10
+    - type: grid
+      grid: 1x1h(keep=all) | 24x1h | 14x1d
+      keep_bookmarks: all
+
+global:
+  logging:
+  - type: "stdout"
+    time: true
+    level: "warn"
+    format: "human"
+  monitoring:
+  - type: "prometheus"
+    listen: ":9091"
+  control:
+    sockpath: /var/run/zrepl/control
+  serve:
+    stdinserver:
+      sockdir: /var/run/zrepl/stdinserver

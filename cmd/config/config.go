@@ -120,6 +120,15 @@ type TLSConnect struct {
 	Key     string `yaml:"key"`
 }
 
+type SSHStdinserverConnect struct {
+	Type string `yaml:"type"`
+	Host string `yaml:"host"`
+	User string `yaml:"user"`
+	Port uint16 `yaml:"port"`
+	IdentityFile string `yaml:"identity_file"`
+	Options []string `yaml:"options"`
+}
+
 type ServeEnum struct {
 	Ret interface{}
 }
@@ -136,6 +145,11 @@ type TLSServe struct {
 	Ca     string `yaml:"ca"`
 	Cert   string `yaml:"cert"`
 	Key    string `yaml:"key"`
+}
+
+type StdinserverServer struct {
+	Type string `yaml:"type"`
+	ClientIdentity string `yaml:"client_identity"`
 }
 
 type PruningEnum struct {
@@ -242,6 +256,7 @@ func (t *ConnectEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error)
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
 		"tcp": &TCPConnect{},
 		"tls": &TLSConnect{},
+		"ssh+stdinserver": &SSHStdinserverConnect{},
 	})
 	return
 }
@@ -250,6 +265,7 @@ func (t *ServeEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
 		"tcp": &TCPServe{},
 		"tls": &TLSServe{},
+		"stdinserver": &StdinserverServer{},
 	})
 	return
 }
