@@ -26,12 +26,14 @@ type PushJob struct {
 	Replication  PushReplication       `yaml:"replication"`
 	Snapshotting Snapshotting          `yaml:"snapshotting"`
 	Pruning      PruningSenderReceiver `yaml:"pruning"`
+	Debug        JobDebugSettings      `yaml:"debug,optional"`
 }
 
 type SinkJob struct {
-	Type        string          `yaml:"type"`
-	Name        string          `yaml:"name"`
-	Replication SinkReplication `yaml:"replication"`
+	Type        string           `yaml:"type"`
+	Name        string           `yaml:"name"`
+	Replication SinkReplication  `yaml:"replication"`
+	Debug       JobDebugSettings `yaml:"debug,optional"`
 }
 
 type PullJob struct {
@@ -39,11 +41,13 @@ type PullJob struct {
 	Name        string                `yaml:"name"`
 	Replication PullReplication       `yaml:"replication"`
 	Pruning     PruningSenderReceiver `yaml:"pruning"`
+	Debug       JobDebugSettings      `yaml:"debug,optional"`
 }
 
 type PullReplication struct {
-	Connect     ConnectEnum `yaml:"connect"`
-	RootDataset string      `yaml:"root_dataset"`
+	Connect     ConnectEnum   `yaml:"connect"`
+	RootDataset string        `yaml:"root_dataset"`
+	Interval    time.Duration `yaml:"interval,positive"`
 }
 
 type SourceJob struct {
@@ -52,14 +56,16 @@ type SourceJob struct {
 	Replication  SourceReplication `yaml:"replication"`
 	Snapshotting Snapshotting      `yaml:"snapshotting"`
 	Pruning      PruningLocal      `yaml:"pruning"`
+	Debug        JobDebugSettings  `yaml:"debug,optional"`
 }
 
 type LocalJob struct {
-	Type        string                `yaml:"type"`
-	Name        string                `yaml:"name"`
-	Replication LocalReplication       `yaml:"replication"`
+	Type         string                `yaml:"type"`
+	Name         string                `yaml:"name"`
+	Replication  LocalReplication      `yaml:"replication"`
 	Snapshotting Snapshotting          `yaml:"snapshotting"`
-	Pruning     PruningSenderReceiver `yaml:"pruning"`
+	Pruning      PruningSenderReceiver `yaml:"pruning"`
+	Debug        JobDebugSettings      `yaml:"debug,optional"`
 }
 
 type PushReplication struct {
@@ -79,12 +85,12 @@ type SourceReplication struct {
 
 type LocalReplication struct {
 	Filesystems map[string]bool `yaml:"filesystems"`
-	RootDataset string    `yaml:"root_dataset"`
+	RootDataset string          `yaml:"root_dataset"`
 }
 
 type Snapshotting struct {
 	SnapshotPrefix string        `yaml:"snapshot_prefix"`
-	Interval       time.Duration `yaml:"interval"`
+	Interval       time.Duration `yaml:"interval,positive"`
 }
 
 type PruningSenderReceiver struct {
@@ -108,25 +114,31 @@ type ConnectEnum struct {
 }
 
 type TCPConnect struct {
-	Type    string `yaml:"type"`
-	Address string `yaml:"address"`
+	Type        string        `yaml:"type"`
+	Address     string        `yaml:"address"`
+	DialTimeout time.Duration `yaml:"dial_timeout,positive,default=10s"`
 }
 
 type TLSConnect struct {
-	Type    string `yaml:"type"`
-	Address string `yaml:"address"`
-	Ca      string `yaml:"ca"`
-	Cert    string `yaml:"cert"`
-	Key     string `yaml:"key"`
+	Type        string        `yaml:"type"`
+	Address     string        `yaml:"address"`
+	Ca          string        `yaml:"ca"`
+	Cert        string        `yaml:"cert"`
+	Key         string        `yaml:"key"`
+	ServerCN    string        `yaml:"server_cn"`
+	DialTimeout time.Duration `yaml:"dial_timeout,positive,default=10s"`
 }
 
 type SSHStdinserverConnect struct {
-	Type string `yaml:"type"`
-	Host string `yaml:"host"`
-	User string `yaml:"user"`
-	Port uint16 `yaml:"port"`
-	IdentityFile string `yaml:"identity_file"`
-	Options []string `yaml:"options"`
+	Type                 string        `yaml:"type"`
+	Host                 string        `yaml:"host"`
+	User                 string        `yaml:"user"`
+	Port                 uint16        `yaml:"port"`
+	IdentityFile         string        `yaml:"identity_file"`
+	TransportOpenCommand []string      `yaml:"transport_open_command,optional"` //TODO unused
+	SSHCommand           string        `yaml:"ssh_command,optional"`            //TODO unused
+	Options              []string      `yaml:"options"`
+	DialTimeout          time.Duration `yaml:"dial_timeout,positive,default=10s"`
 }
 
 type ServeEnum struct {
@@ -140,15 +152,16 @@ type TCPServe struct {
 }
 
 type TLSServe struct {
-	Type   string `yaml:"type"`
-	Listen string `yaml:"listen"`
-	Ca     string `yaml:"ca"`
-	Cert   string `yaml:"cert"`
-	Key    string `yaml:"key"`
+	Type     string `yaml:"type"`
+	Listen   string `yaml:"listen"`
+	Ca       string `yaml:"ca"`
+	Cert     string `yaml:"cert"`
+	Key      string `yaml:"key"`
+	ClientCN string `yaml:"client_cn"`
 }
 
 type StdinserverServer struct {
-	Type string `yaml:"type"`
+	Type           string `yaml:"type"`
 	ClientIdentity string `yaml:"client_identity"`
 }
 
@@ -163,6 +176,11 @@ type PruneKeepNotReplicated struct {
 type PruneKeepLastN struct {
 	Type  string `yaml:"type"`
 	Count int    `yaml:"count"`
+}
+
+type PruneKeepPrefix struct { // FIXME rename to KeepPrefix
+	Type   string `yaml:"type"`
+	Prefix string `yaml:"prefix"`
 }
 
 type LoggingOutletEnum struct {
@@ -182,14 +200,14 @@ type StdoutLoggingOutlet struct {
 
 type SyslogLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
-	RetryInterval       time.Duration `yaml:"retry_interval"`
+	RetryInterval       time.Duration `yaml:"retry_interval,positive"`
 }
 
 type TCPLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
 	Address             string               `yaml:"address"`
 	Net                 string               `yaml:"net,default=tcp"`
-	RetryInterval       time.Duration        `yaml:"retry_interval"`
+	RetryInterval       time.Duration        `yaml:"retry_interval,positive"`
 	TLS                 *TCPLoggingOutletTLS `yaml:"tls,optional"`
 }
 
@@ -220,6 +238,13 @@ type GlobalStdinServer struct {
 	SockDir string `yaml:"sockdir,default=/var/run/zrepl/stdinserver"`
 }
 
+type JobDebugSettings struct {
+	Conn struct {
+		ReadDump  string `yaml:"read_dump"`
+		WriteDump string `yaml:"write_dump"`
+	} `yaml:"conn"`
+}
+
 func enumUnmarshal(u func(interface{}, bool) error, types map[string]interface{}) (interface{}, error) {
 	var in struct {
 		Type string
@@ -247,15 +272,15 @@ func (t *JobEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 		"sink":   &SinkJob{},
 		"pull":   &PullJob{},
 		"source": &SourceJob{},
-		"local": &LocalJob{},
+		"local":  &LocalJob{},
 	})
 	return
 }
 
 func (t *ConnectEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
-		"tcp": &TCPConnect{},
-		"tls": &TLSConnect{},
+		"tcp":             &TCPConnect{},
+		"tls":             &TLSConnect{},
 		"ssh+stdinserver": &SSHStdinserverConnect{},
 	})
 	return
@@ -263,8 +288,8 @@ func (t *ConnectEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error)
 
 func (t *ServeEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
-		"tcp": &TCPServe{},
-		"tls": &TLSServe{},
+		"tcp":         &TCPServe{},
+		"tls":         &TLSServe{},
 		"stdinserver": &StdinserverServer{},
 	})
 	return
@@ -275,6 +300,7 @@ func (t *PruningEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error)
 		"not_replicated": &PruneKeepNotReplicated{},
 		"last_n":         &PruneKeepLastN{},
 		"grid":           &PruneGrid{},
+		"prefix":         &PruneKeepPrefix{},
 	})
 	return
 }

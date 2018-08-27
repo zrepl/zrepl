@@ -12,6 +12,7 @@ jobs:
       options: # optional, default [], `-o` arguments passed to ssh
       - "Compression=on"
     root_dataset: "pool2/backup_servers"
+    interval: 10m
   pruning:
     keep_sender:
     - type: not_replicated
@@ -21,6 +22,8 @@ jobs:
       grid: 1x1h(keep=all) | 24x1h | 14x1d
       keep_bookmarks: all
     keep_receiver:
+    - type: prefix
+      prefix: keep_
     - type: grid
       grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
       keep_bookmarks: all

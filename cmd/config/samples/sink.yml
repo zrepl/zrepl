@@ -9,6 +9,7 @@ jobs:
         ca: "ca.pem"
         cert: "cert.pem"
         key: "key.pem"
+        client_cn: "laptop1"
 global:
   logging:
     - type: "tcp"
