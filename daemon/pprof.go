@@ -9,7 +9,7 @@ import (
 	"net/http/pprof"
 )
 
-type PProfServer struct {
+type pprofServer struct {
 	cc       chan PprofServerControlMsg
 	state    PprofServerControlMsg
 	listener net.Listener
@@ -22,9 +22,9 @@ type PprofServerControlMsg struct {
 	HttpListenAddress string
 }
 
-func NewPProfServer(ctx context.Context) *PProfServer {
+func NewPProfServer(ctx context.Context) *pprofServer {
 
-	s := &PProfServer{
+	s := &pprofServer{
 		cc: make(chan PprofServerControlMsg),
 	}
 
@@ -32,7 +32,7 @@ func NewPProfServer(ctx context.Context) *PProfServer {
 	return s
 }
 
-func (s *PProfServer) controlLoop(ctx context.Context) {
+func (s *pprofServer) controlLoop(ctx context.Context) {
 outer:
 	for {
 
@@ -75,6 +75,6 @@ outer:
 	}
 }
 
-func (s *PProfServer) Control(msg PprofServerControlMsg) {
+func (s *pprofServer) Control(msg PprofServerControlMsg) {
 	s.cc <- msg
 }
