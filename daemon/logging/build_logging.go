@@ -1,14 +1,18 @@
 package logging
 
 import (
-	"github.com/zrepl/zrepl/cmd/config"
-	"os"
-	"github.com/mattn/go-isatty"
+	"context"
 	"crypto/tls"
-	"github.com/pkg/errors"
 	"crypto/x509"
-	"github.com/zrepl/zrepl/cmd/tlsconf"
+	"github.com/mattn/go-isatty"
+	"github.com/pkg/errors"
+	"github.com/problame/go-streamrpc"
+	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/logger"
+	"github.com/zrepl/zrepl/replication"
+	"github.com/zrepl/zrepl/tlsconf"
+	"os"
 )
 
 func OutletsFromConfig(in []config.LoggingOutletEnum) (*logger.Outlets, error) {
@@ -53,6 +57,18 @@ func OutletsFromConfig(in []config.LoggingOutletEnum) (*logger.Outlets, error) {
 
 }
 
+const (
+	SubsysReplication = "repl"
+	SubsysStreamrpc   = "rpc"
+	SubsyEndpoint     = "endpoint"
+)
+
+func WithSubsystemLoggers(ctx context.Context, log logger.Logger) context.Context {
+	ctx = replication.WithLogger(ctx, log.WithField(SubsysField, "repl"))
+	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{log.WithField(SubsysField, "rpc")})
+	ctx = endpoint.WithLogger(ctx, log.WithField(SubsysField, "endpoint"))
+	return ctx
+}
 
 func parseLogFormat(i interface{}) (f EntryFormatter, err error) {
 	var is string
@@ -97,19 +113,19 @@ func parseOutlet(in config.LoggingOutletEnum) (o logger.Outlet, level logger.Lev
 	var f EntryFormatter
 
 	switch v := in.Ret.(type) {
-	case config.StdoutLoggingOutlet:
+	case *config.StdoutLoggingOutlet:
 		level, f, err = parseCommon(v.LoggingOutletCommon)
 		if err != nil {
 			break
 		}
 		o, err = parseStdoutOutlet(v, f)
-	case config.TCPLoggingOutlet:
+	case *config.TCPLoggingOutlet:
 		level, f, err = parseCommon(v.LoggingOutletCommon)
 		if err != nil {
 			break
 		}
 		o, err = parseTCPOutlet(v, f)
-	case config.SyslogLoggingOutlet:
+	case *config.SyslogLoggingOutlet:
 		level, f, err = parseCommon(v.LoggingOutletCommon)
 		if err != nil {
 			break
@@ -121,7 +137,7 @@ func parseOutlet(in config.LoggingOutletEnum) (o logger.Outlet, level logger.Lev
 	return o, level, err
 }
 
-func parseStdoutOutlet(in config.StdoutLoggingOutlet, formatter EntryFormatter) (WriterOutlet, error) {
+func parseStdoutOutlet(in *config.StdoutLoggingOutlet, formatter EntryFormatter) (WriterOutlet, error) {
 	flags := MetadataAll
 	writer := os.Stdout
 	if !isatty.IsTerminal(writer.Fd()) && !in.Time {
@@ -135,7 +151,7 @@ func parseStdoutOutlet(in config.StdoutLoggingOutlet, formatter EntryFormatter) 
 	}, nil
 }
 
-func parseTCPOutlet(in config.TCPLoggingOutlet, formatter EntryFormatter) (out *TCPOutlet, err error) {
+func parseTCPOutlet(in *config.TCPLoggingOutlet, formatter EntryFormatter) (out *TCPOutlet, err error) {
 	var tlsConfig *tls.Config
 	if in.TLS != nil {
 		tlsConfig, err = func(m *config.TCPLoggingOutletTLS, host string) (*tls.Config, error) {
@@ -171,11 +187,10 @@ func parseTCPOutlet(in config.TCPLoggingOutlet, formatter EntryFormatter) (out *
 
 }
 
-func parseSyslogOutlet(in config.SyslogLoggingOutlet, formatter EntryFormatter) (out *SyslogOutlet, err error) {
+func parseSyslogOutlet(in *config.SyslogLoggingOutlet, formatter EntryFormatter) (out *SyslogOutlet, err error) {
 	out = &SyslogOutlet{}
 	out.Formatter = formatter
 	out.Formatter.SetMetadataFlags(MetadataNone)
 	out.RetryInterval = in.RetryInterval
 	return out, nil
 }
-

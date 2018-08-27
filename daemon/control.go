@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/cmd/daemon/job"
-	"github.com/zrepl/zrepl/cmd/helpers"
+	"github.com/zrepl/zrepl/daemon/job"
+	"github.com/zrepl/zrepl/daemon/nethelpers"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/version"
 	"io"
@@ -39,6 +39,7 @@ const (
 	ControlJobEndpointPProf   string = "/debug/pprof"
 	ControlJobEndpointVersion string = "/version"
 	ControlJobEndpointStatus  string = "/status"
+	ControlJobEndpointWakeup  string = "/wakeup"
 )
 
 func (j *controlJob) Run(ctx context.Context) {
@@ -46,7 +47,7 @@ func (j *controlJob) Run(ctx context.Context) {
 	log := job.GetLogger(ctx)
 	defer log.Info("control job finished")
 
-	l, err := helpers.ListenUnixPrivate(j.sockaddr)
+	l, err := nethelpers.ListenUnixPrivate(j.sockaddr)
 	if err != nil {
 		log.WithError(err).Error("error listening")
 		return
@@ -55,24 +56,41 @@ func (j *controlJob) Run(ctx context.Context) {
 	pprofServer := NewPProfServer(ctx)
 
 	mux := http.NewServeMux()
-	mux.Handle(ControlJobEndpointPProf, requestLogger{log: log, handlerFunc: func(w http.ResponseWriter, r *http.Request) {
-		var msg PprofServerControlMsg
-		err := json.NewDecoder(r.Body).Decode(&msg)
-		if err != nil {
-			log.WithError(err).Error("bad pprof request from client")
-			w.WriteHeader(http.StatusBadRequest)
-		}
-		pprofServer.Control(msg)
-		w.WriteHeader(200)
-	}})
+	mux.Handle(ControlJobEndpointPProf,
+		requestLogger{log: log, handler: jsonRequestResponder{func(decoder jsonDecoder) (interface{}, error) {
+			var msg PprofServerControlMsg
+			err := decoder(&msg)
+			if err != nil {
+				return nil, errors.Errorf("decode failed")
+			}
+			pprofServer.Control(msg)
+			return struct{}{}, nil
+		}}})
+
 	mux.Handle(ControlJobEndpointVersion,
 		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {
 			return version.NewZreplVersionInformation(), nil
 		}}})
+
 	mux.Handle(ControlJobEndpointStatus,
 		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {
 			s := j.jobs.status()
 			return s, nil
+		}}})
+
+	mux.Handle(ControlJobEndpointWakeup,
+		requestLogger{log: log, handler: jsonRequestResponder{func(decoder jsonDecoder) (interface{}, error) {
+			type reqT struct {
+				Name string
+			}
+			var req reqT
+			if decoder(&req) != nil {
+				return nil, errors.Errorf("decode failed")
+			}
+
+			err := j.jobs.wakeup(req.Name)
+
+			return struct{}{}, err
 		}}})
 	server := http.Server{Handler: mux}
 
@@ -117,6 +135,43 @@ func (j jsonResponder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		io.WriteString(w, err.Error())
+	} else {
+		io.Copy(w, &buf)
+	}
+}
+
+type jsonDecoder = func(interface{}) error
+
+type jsonRequestResponder struct {
+	producer func(decoder jsonDecoder) (interface{}, error)
+}
+
+func (j jsonRequestResponder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var decodeError error
+	decoder := func(i interface{}) error {
+		err := json.NewDecoder(r.Body).Decode(&i)
+		decodeError = err
+		return err
+	}
+	res, producerErr := j.producer(decoder)
+
+	//If we had a decode error ignore output of producer and return error
+	if decodeError != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, decodeError.Error())
+		return
+	}
+	if producerErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, producerErr.Error())
+		return
+	}
+
+	var buf bytes.Buffer
+	encodeErr := json.NewEncoder(&buf).Encode(res)
+	if encodeErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, encodeErr.Error())
 	} else {
 		io.Copy(w, &buf)
 	}

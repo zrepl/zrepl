@@ -1,16 +1,13 @@
-package cmd
+package connecter
 
 import (
-	"crypto/tls"
-	"net"
-
 	"context"
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
 	"github.com/problame/go-netssh"
 	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/cmd/tlsconf"
+	"net"
 	"time"
 )
 
@@ -27,7 +24,7 @@ type SSHStdinserverConnecter struct {
 
 var _ streamrpc.Connecter = &SSHStdinserverConnecter{}
 
-func parseSSHStdinserverConnecter(in config.SSHStdinserverConnect) (c *SSHStdinserverConnecter, err error) {
+func SSHStdinserverConnecterFromConfig(in *config.SSHStdinserverConnect) (c *SSHStdinserverConnecter, err error) {
 
 	c = &SSHStdinserverConnecter{
 		Host:         in.Host,
@@ -66,54 +63,4 @@ func (c *SSHStdinserverConnecter) Connect(dialCtx context.Context) (net.Conn, er
 		return nil, err
 	}
 	return netsshConnToConn{nconn}, nil
-}
-
-type TCPConnecter struct {
-	Address string
-	dialer  net.Dialer
-}
-
-func parseTCPConnecter(in config.TCPConnect) (*TCPConnecter, error) {
-	dialer := net.Dialer{
-		Timeout: in.DialTimeout,
-	}
-
-	return &TCPConnecter{in.Address, dialer}, nil
-}
-
-func (c *TCPConnecter) Connect(dialCtx context.Context) (conn net.Conn, err error) {
-	return c.dialer.DialContext(dialCtx, "tcp", c.Address)
-}
-
-type TLSConnecter struct {
-	Address   string
-	dialer    net.Dialer
-	tlsConfig *tls.Config
-}
-
-func parseTLSConnecter(in config.TLSConnect) (*TLSConnecter, error) {
-	dialer := net.Dialer{
-		Timeout: in.DialTimeout,
-	}
-
-	ca, err := tlsconf.ParseCAFile(in.Ca)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot parse ca file")
-	}
-
-	cert, err := tls.LoadX509KeyPair(in.Cert, in.Key)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot parse cert/key pair")
-	}
-
-	tlsConfig, err := tlsconf.ClientAuthClient(in.ServerCN, ca, cert)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot build tls config")
-	}
-
-	return &TLSConnecter{in.Address, dialer, tlsConfig}, nil
-}
-
-func (c *TLSConnecter) Connect(dialCtx context.Context) (conn net.Conn, err error) {
-	return tls.DialWithDialer(&c.dialer, "tcp", c.Address, c.tlsConfig)
 }

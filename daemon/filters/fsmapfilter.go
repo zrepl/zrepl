@@ -1,12 +1,11 @@
-package cmd
+package filters
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/zfs"
+	"strings"
 )
 
 type DatasetMapFilter struct {
@@ -257,7 +256,7 @@ func (m DatasetMapFilter) parseDatasetFilterResult(result string) (pass bool, er
 	return false, fmt.Errorf("'%s' is not a valid filter result", result)
 }
 
-func parseDatasetMapFilterFilesystems(in map[string]bool) (f *DatasetMapFilter, err error) {
+func DatasetMapFilterFromConfig(in map[string]bool) (f *DatasetMapFilter, err error) {
 
 	f = NewDatasetMapFilter(len(in), true)
 	for pathPattern, accept := range in {

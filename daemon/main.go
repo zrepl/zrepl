@@ -5,4 +5,3 @@ import (
 )
 
 type Logger = logger.Logger
-

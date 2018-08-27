@@ -152,12 +152,13 @@ type TCPServe struct {
 }
 
 type TLSServe struct {
-	Type     string `yaml:"type"`
-	Listen   string `yaml:"listen"`
-	Ca       string `yaml:"ca"`
-	Cert     string `yaml:"cert"`
-	Key      string `yaml:"key"`
-	ClientCN string `yaml:"client_cn"`
+	Type             string        `yaml:"type"`
+	Listen           string        `yaml:"listen"`
+	Ca               string        `yaml:"ca"`
+	Cert             string        `yaml:"cert"`
+	Key              string        `yaml:"key"`
+	ClientCN         string        `yaml:"client_cn"`
+	HandshakeTimeout time.Duration `yaml:"handshake_timeout,positive,default=10s"`
 }
 
 type StdinserverServer struct {
@@ -195,19 +196,19 @@ type LoggingOutletCommon struct {
 
 type StdoutLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
-	Time                bool `yaml:"time"`
+	Time                bool `yaml:"time,default=true"`
 }
 
 type SyslogLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
-	RetryInterval       time.Duration `yaml:"retry_interval,positive"`
+	RetryInterval       time.Duration `yaml:"retry_interval,positive,default=10s"`
 }
 
 type TCPLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
 	Address             string               `yaml:"address"`
 	Net                 string               `yaml:"net,default=tcp"`
-	RetryInterval       time.Duration        `yaml:"retry_interval,positive"`
+	RetryInterval       time.Duration        `yaml:"retry_interval,positive,default=10s"`
 	TLS                 *TCPLoggingOutletTLS `yaml:"tls,optional"`
 }
 

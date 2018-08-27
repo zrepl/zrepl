@@ -5,7 +5,7 @@ import (
 	"crypto/x509"
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/cmd/config"
+	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/cmd/tlsconf"
 	"github.com/zrepl/zrepl/logger"
 	"os"

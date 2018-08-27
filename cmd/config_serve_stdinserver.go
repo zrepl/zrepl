@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/problame/go-netssh"
-	"github.com/zrepl/zrepl/cmd/config"
+	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/cmd/helpers"
 	"net"
 	"path"

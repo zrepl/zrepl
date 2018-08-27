@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/zrepl/zrepl/cmd/daemon/job"
+	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/zfs"
 	"net"
 	"net/http"

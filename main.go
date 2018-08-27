@@ -2,11 +2,11 @@
 package main
 
 import (
+	"github.com/spf13/cobra"
+	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon"
 	"log"
 	"os"
-	"github.com/spf13/cobra"
-	"github.com/zrepl/zrepl/daemon"
-	"github.com/zrepl/zrepl/cmd/config"
 )
 
 var rootCmd = &cobra.Command{
@@ -20,9 +20,8 @@ var rootCmd = &cobra.Command{
   - ACLs instead of blank SSH access`,
 }
 
-
 var daemonCmd = &cobra.Command{
-	Use: "daemon",
+	Use:   "daemon",
 	Short: "daemon",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.ParseConfig(rootArgs.configFile)
@@ -30,6 +29,18 @@ var daemonCmd = &cobra.Command{
 			return err
 		}
 		return daemon.Run(conf)
+	},
+}
+
+var wakeupCmd = &cobra.Command{
+	Use:   "wakeup",
+	Short: "wake up jobs",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		conf, err := config.ParseConfig(rootArgs.configFile)
+		if err != nil {
+			return err
+		}
+		return RunWakeup(conf, args)
 	},
 }
 
@@ -41,10 +52,10 @@ func init() {
 	//cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&rootArgs.configFile, "config", "", "config file path")
 	rootCmd.AddCommand(daemonCmd)
+	rootCmd.AddCommand(wakeupCmd)
 }
 
 func main() {
-
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Printf("error executing root command: %s", err)

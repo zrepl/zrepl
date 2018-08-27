@@ -2,7 +2,7 @@ package retentiongrid
 
 import (
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/cmd/config"
+	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/zfs"
 	"math"
 	"sort"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/spf13/cobra"
-	"github.com/zrepl/zrepl/cmd/config"
+	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/cmd/daemon"
 	"github.com/zrepl/zrepl/cmd/daemon/job"
 	"github.com/zrepl/zrepl/logger"

@@ -3,7 +3,10 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/version"
 	"os"
@@ -12,11 +15,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"github.com/zrepl/zrepl/cmd/config"
-	"github.com/zrepl/zrepl/daemon/logging"
-	"github.com/pkg/errors"
 )
-
 
 func Run(conf config.Config) error {
 
@@ -86,13 +85,13 @@ type jobs struct {
 
 	// m protects all fields below it
 	m       sync.RWMutex
-	wakeups map[string]job.WakeupChan // by JobName
+	wakeups map[string]job.WakeupFunc // by Job.Name
 	jobs    map[string]job.Job
 }
 
 func newJobs() *jobs {
 	return &jobs{
-		wakeups: make(map[string]job.WakeupChan),
+		wakeups: make(map[string]job.WakeupFunc),
 		jobs:    make(map[string]job.Job),
 	}
 }
@@ -135,6 +134,17 @@ func (s *jobs) status() map[string]interface{} {
 		ret[res.name] = res.status
 	}
 	return ret
+}
+
+func (s *jobs) wakeup(job string) error {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	wu, ok := s.wakeups[job]
+	if !ok {
+		return errors.Errorf("Job %s does not exist", job)
+	}
+	return wu()
 }
 
 const (

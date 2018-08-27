@@ -1,4 +1,4 @@
-package helpers
+package nethelpers
 
 import (
 	"github.com/pkg/errors"

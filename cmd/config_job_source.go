@@ -6,8 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
-	"github.com/zrepl/zrepl/cmd/config"
-	"github.com/zrepl/zrepl/cmd/endpoint"
+	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/endpoint"
 	"net"
 )
 

@@ -17,11 +17,9 @@ const (
 )
 
 const (
-	logJobField    string = "job"
-	logTaskField   string = "task"
-	logSubsysField string = "subsystem"
+	JobField    string = "job"
+	SubsysField string = "subsystem"
 )
-
 
 type MetadataFlags int64
 
@@ -32,7 +30,6 @@ const (
 	MetadataNone MetadataFlags = 0
 	MetadataAll  MetadataFlags = ^0
 )
-
 
 type NoFormatter struct{}
 
@@ -80,7 +77,7 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 		fmt.Fprintf(&line, "[%s]", e.Level.Short())
 	}
 
-	prefixFields := []string{logJobField, logTaskField, logSubsysField}
+	prefixFields := []string{JobField, SubsysField}
 	prefixed := make(map[string]bool, len(prefixFields)+2)
 	for _, field := range prefixFields {
 		val, ok := e.Fields[field].(string)
@@ -168,7 +165,7 @@ func (f *LogfmtFormatter) Format(e *logger.Entry) ([]byte, error) {
 
 	// at least try and put job and task in front
 	prefixed := make(map[string]bool, 2)
-	prefix := []string{logJobField, logTaskField, logSubsysField}
+	prefix := []string{JobField, SubsysField}
 	for _, pf := range prefix {
 		v, ok := e.Fields[pf]
 		if !ok {

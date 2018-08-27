@@ -12,7 +12,6 @@ import (
 	"time"
 )
 
-
 type EntryFormatter interface {
 	SetMetadataFlags(flags MetadataFlags)
 	Format(e *logger.Entry) ([]byte, error)
