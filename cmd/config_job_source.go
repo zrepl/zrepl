@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
+	"github.com/zrepl/zrepl/cmd/config"
 	"github.com/zrepl/zrepl/cmd/endpoint"
 	"net"
 )
@@ -18,59 +18,36 @@ type SourceJob struct {
 	SnapshotPrefix string
 	Interval       time.Duration
 	Prune          PrunePolicy
-	Debug          JobDebugSettings
 }
 
-func parseSourceJob(c JobParsingContext, name string, i map[string]interface{}) (j *SourceJob, err error) {
-
-	var asMap struct {
-		Serve          map[string]interface{}
-		Filesystems    map[string]string
-		SnapshotPrefix string `mapstructure:"snapshot_prefix"`
-		Interval       string
-		Prune          map[string]interface{}
-		Debug          map[string]interface{}
+func parseSourceJob(c config.Global, in config.SourceJob) (j *SourceJob, err error) {
+	j = &SourceJob{
+		Name:     in.Name,
+		Interval: in.Snapshotting.Interval,
 	}
 
-	if err = mapstructure.Decode(i, &asMap); err != nil {
-		err = errors.Wrap(err, "mapstructure error")
-		return nil, err
-	}
-
-	j = &SourceJob{Name: name}
-
-	if j.Serve, err = parseAuthenticatedChannelListenerFactory(c, asMap.Serve); err != nil {
+	if j.Serve, err = parseAuthenticatedChannelListenerFactory(c, in.Replication.Serve); err != nil {
 		return
 	}
 
-	if j.Filesystems, err = parseDatasetMapFilter(asMap.Filesystems, true); err != nil {
+	if j.Filesystems, err = parseDatasetMapFilter(in.Replication.Filesystems, true); err != nil {
 		return
 	}
 
-	if j.SnapshotPrefix, err = parseSnapshotPrefix(asMap.SnapshotPrefix); err != nil {
+	if j.SnapshotPrefix, err = parseSnapshotPrefix(in.Snapshotting.SnapshotPrefix); err != nil {
 		return
 	}
 
-	if j.Interval, err = parsePostitiveDuration(asMap.Interval); err != nil {
-		err = errors.Wrap(err, "cannot parse 'interval'")
-		return
-	}
-
-	if j.Prune, err = parsePrunePolicy(asMap.Prune, true); err != nil {
+	if j.Prune, err = parsePrunePolicy(in.Pruning, true); err != nil {
 		err = errors.Wrap(err, "cannot parse 'prune'")
 		return
 	}
 
-	if err = mapstructure.Decode(asMap.Debug, &j.Debug); err != nil {
-		err = errors.Wrap(err, "cannot parse 'debug'")
-		return
-	}
-
-	if j.Debug.Conn.ReadDump != "" || j.Debug.Conn.WriteDump != "" {
+	if in.Debug.Conn.ReadDump != "" || in.Debug.Conn.WriteDump != "" {
 		logServe := logListenerFactory{
 			ListenerFactory: j.Serve,
-			ReadDump:        j.Debug.Conn.ReadDump,
-			WriteDump:       j.Debug.Conn.WriteDump,
+			ReadDump:        in.Debug.Conn.ReadDump,
+			WriteDump:       in.Debug.Conn.WriteDump,
 		}
 		j.Serve = logServe
 	}
