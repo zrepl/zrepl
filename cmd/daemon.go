@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/zrepl/zrepl/cmd/config"
+	"github.com/zrepl/zrepl/cmd/daemon"
+	"github.com/zrepl/zrepl/cmd/daemon/job"
 	"github.com/zrepl/zrepl/logger"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-	"github.com/zrepl/zrepl/cmd/daemon"
-	"github.com/zrepl/zrepl/cmd/daemon/job"
 )
 
 // daemonCmd represents the daemon command
@@ -92,6 +92,7 @@ func doDaemon(cmd *cobra.Command, args []string) {
 
 	daemonJobs := make([]job.Job, 0, len(conf.Jobs))
 	for i := range conf.Jobs {
+		parseJob()
 		daemonJobs = append(daemonJobs, daemonJobAdaptor{conf.Jobs[i]})
 	}
 	daemon.Run(ctx, conf.Global.Control.Sockpath, conf.Global.logging.Outlets, daemonJobs)

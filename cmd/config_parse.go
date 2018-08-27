@@ -8,10 +8,9 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
+	"github.com/zrepl/zrepl/cmd/config"
+	"github.com/zrepl/zrepl/cmd/pruning/retentiongrid"
 	"os"
-	"regexp"
-	"strconv"
-	"time"
 )
 
 var ConfigFileDefaultLocations []string = []string{
@@ -141,116 +140,72 @@ func parseConfig(i interface{}) (c *Config, err error) {
 
 }
 
-func extractStringField(i map[string]interface{}, key string, notempty bool) (field string, err error) {
-	vi, ok := i[key]
-	if !ok {
-		err = errors.Errorf("must have field '%s'", key)
-		return "", err
-	}
-	field, ok = vi.(string)
-	if !ok {
-		err = errors.Errorf("'%s' field must have type string", key)
-		return "", err
-	}
-	if notempty && len(field) <= 0 {
-		err = errors.Errorf("'%s' field must not be empty", key)
-		return "", err
-	}
-	return
-}
-
 type JobParsingContext struct {
 	ConfigParsingContext
 }
 
-func parseJob(c JobParsingContext, i map[string]interface{}) (j Job, err error) {
+func parseJob(c config.Global, in config.JobEnum) (j Job, err error) {
 
-	name, err := extractStringField(i, "name", true)
-	if err != nil {
-		return nil, err
+	switch v := in.Ret.(type) {
+	case config.PullJob:
+		return parsePullJob(c, v)
+	case config.SourceJob:
+		return parseSourceJob(c, v)
+	case config.LocalJob:
+		return parseLocalJob(c, v)
+	default:
+		panic(fmt.Sprintf("implementation error: unknown job type %s", v))
 	}
 
-	for _, r := range ReservedJobNames {
-		if name == r {
-			err = errors.Errorf("job name '%s' is reserved", name)
-			return nil, err
+}
+
+func parseConnect(in config.ConnectEnum) (c streamrpc.Connecter, err error) {
+	switch v := in.Ret.(type) {
+	case config.SSHStdinserverConnect:
+		return parseSSHStdinserverConnecter(v)
+	case config.TCPConnect:
+		return parseTCPConnecter(v)
+	case config.TLSConnect:
+		return parseTLSConnecter(v)
+	default:
+		panic(fmt.Sprintf("unknown connect type %v", v))
+	}
+}
+
+func parsePruning(in []config.PruningEnum, willSeeBookmarks bool) (p Pruner, err error) {
+
+	policies := make([]PrunePolicy, len(in))
+	for i := range in {
+		if policies[i], err = parseKeepRule(in[i]); err != nil {
+			return nil, errors.Wrapf(err, "invalid keep rule #%d:", i)
 		}
 	}
 
-	jobtypeStr, err := extractStringField(i, "type", true)
-	if err != nil {
-		return nil, err
-	}
-
-	jobtype, err := ParseUserJobType(jobtypeStr)
-	if err != nil {
-		return nil, err
-	}
-
-	switch jobtype {
-	case JobTypePull:
-		return parsePullJob(c, name, i)
-	case JobTypeSource:
-		return parseSourceJob(c, name, i)
-	case JobTypeLocal:
-		return parseLocalJob(c, name, i)
-	default:
-		panic(fmt.Sprintf("implementation error: unknown job type %s", jobtype))
-	}
-
 }
 
-func parseConnect(i map[string]interface{}) (c streamrpc.Connecter, err error) {
-
-	t, err := extractStringField(i, "type", true)
-	if err != nil {
-		return nil, err
-	}
-
-	switch t {
-	case "ssh+stdinserver":
-		return parseSSHStdinserverConnecter(i)
-	case "tcp":
-		return parseTCPConnecter(i)
+func parseKeepRule(in config.PruningEnum) (p PrunePolicy, err error) {
+	switch v := in.Ret.(type) {
+	case config.PruneGrid:
+		return retentiongrid.ParseGridPrunePolicy(v, willSeeBookmarks)
+	//case config.PruneKeepLastN:
+	//case config.PruneKeepPrefix:
+	//case config.PruneKeepNotReplicated:
 	default:
-		return nil, errors.Errorf("unknown connection type '%s'", t)
-	}
-
-}
-
-func parsePrunePolicy(v map[string]interface{}, willSeeBookmarks bool) (p PrunePolicy, err error) {
-
-	policyName, err := extractStringField(v, "policy", true)
-	if err != nil {
-		return
-	}
-
-	switch policyName {
-	case "grid":
-		return parseGridPrunePolicy(v, willSeeBookmarks)
-	case "noprune":
-		return NoPrunePolicy{}, nil
-	default:
-		err = errors.Errorf("unknown policy '%s'", policyName)
-		return
+		panic(fmt.Sprintf("unknown keep rule type %v", v))
 	}
 }
 
-func parseAuthenticatedChannelListenerFactory(c JobParsingContext, v map[string]interface{}) (p ListenerFactory, err error) {
+func parseAuthenticatedChannelListenerFactory(c config.Global, in config.ServeEnum) (p ListenerFactory, err error) {
 
-	t, err := extractStringField(v, "type", true)
-	if err != nil {
-		return nil, err
-	}
-
-	switch t {
-	case "stdinserver":
+	switch v := in.Ret.(type) {
+	case config.StdinserverServer:
 		return parseStdinserverListenerFactory(c, v)
-	case "tcp":
+	case config.TCPServe:
 		return parseTCPListenerFactory(c, v)
+	case config.TLSServe:
+		return parseTLSListenerFactory(c, v)
 	default:
-		err = errors.Errorf("unknown type '%s'", t)
-		return
+		panic(fmt.Sprintf("unknown listener type %v", v))
 	}
 
 }

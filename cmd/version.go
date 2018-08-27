@@ -19,4 +19,3 @@ func init() {
 func doVersion(cmd *cobra.Command, args []string) {
 	fmt.Println(version.NewZreplVersionInformation().String())
 }
-

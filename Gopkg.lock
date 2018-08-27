@@ -19,14 +19,6 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:ae162f9b5c46f6d5ff4bd53a3d78f72e2eb6676c11c5d33b8b106c36f87ddb31"
-  name = "github.com/dustin/go-humanize"
-  packages = ["."]
-  pruneopts = ""
-  revision = "bb3d318650d48840a39aa21a027c6630e198e626"
-
-[[projects]]
-  branch = "master"
   digest = "1:5d0a2385edf4ba44f3b7b76bc0436ceb8f62bf55aa5d540a9eb9ec6c58d86809"
   name = "github.com/ftrvxmtrx/fd"
   packages = ["."]
@@ -247,7 +239,6 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/dustin/go-humanize",
     "github.com/go-logfmt/logfmt",
     "github.com/go-yaml/yaml",
     "github.com/golang/protobuf/proto",

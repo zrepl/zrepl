@@ -2,18 +2,17 @@ package daemon
 
 import (
 	"context"
-	"os"
-	"os/signal"
-	"syscall"
-	"sync"
 	"fmt"
 	"github.com/zrepl/zrepl/cmd/daemon/job"
-	"strings"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/version"
+	"os"
+	"os/signal"
+	"strings"
+	"sync"
+	"syscall"
 	"time"
 )
-
 
 func Run(ctx context.Context, controlSockpath string, outlets *logger.Outlets, confJobs []job.Job) {
 
@@ -59,10 +58,10 @@ func Run(ctx context.Context, controlSockpath string, outlets *logger.Outlets, c
 	}
 
 	select {
-		case <-jobs.wait():
-			log.Info("all jobs finished")
-		case <-ctx.Done():
-			log.WithError(ctx.Err()).Info("context finished")
+	case <-jobs.wait():
+		log.Info("all jobs finished")
+	case <-ctx.Done():
+		log.WithError(ctx.Err()).Info("context finished")
 	}
 	log.Info("daemon exiting")
 }
@@ -71,15 +70,15 @@ type jobs struct {
 	wg sync.WaitGroup
 
 	// m protects all fields below it
-	m sync.RWMutex
+	m       sync.RWMutex
 	wakeups map[string]job.WakeupChan // by JobName
-	jobs map[string]job.Job
+	jobs    map[string]job.Job
 }
 
 func newJobs() *jobs {
 	return &jobs{
 		wakeups: make(map[string]job.WakeupChan),
-		jobs: make(map[string]job.Job),
+		jobs:    make(map[string]job.Job),
 	}
 }
 
@@ -102,7 +101,7 @@ func (s *jobs) status() map[string]interface{} {
 	defer s.m.RUnlock()
 
 	type res struct {
-		name string
+		name   string
 		status interface{}
 	}
 	var wg sync.WaitGroup
@@ -125,7 +124,7 @@ func (s *jobs) status() map[string]interface{} {
 
 const (
 	jobNamePrometheus = "_prometheus"
-	jobNameControl = "_control"
+	jobNameControl    = "_control"
 )
 
 func IsInternalJobName(s string) bool {

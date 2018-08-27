@@ -5,18 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/cmd/daemon/job"
+	"github.com/zrepl/zrepl/cmd/helpers"
 	"github.com/zrepl/zrepl/logger"
+	"github.com/zrepl/zrepl/version"
 	"io"
 	"net"
 	"net/http"
-	"github.com/zrepl/zrepl/cmd/daemon/job"
-	"github.com/zrepl/zrepl/version"
-	"github.com/zrepl/zrepl/cmd/helpers"
 )
 
 type controlJob struct {
 	sockaddr *net.UnixAddr
-	jobs *jobs
+	jobs     *jobs
 }
 
 func newControlJob(sockpath string, jobs *jobs) (j *controlJob, err error) {

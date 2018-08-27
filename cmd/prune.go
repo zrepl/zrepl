@@ -8,11 +8,10 @@ import (
 )
 
 type Pruner struct {
-	Now            time.Time
-	DryRun         bool
-	DatasetFilter  zfs.DatasetFilter
-	SnapshotPrefix string
-	PrunePolicy    PrunePolicy
+	Now           time.Time
+	DryRun        bool
+	DatasetFilter zfs.DatasetFilter
+	policies      []PrunePolicy
 }
 
 type PruneResult struct {
@@ -38,14 +37,14 @@ func (p *Pruner) filterFilesystems(ctx context.Context) (filesystems []*zfs.Data
 func (p *Pruner) filterVersions(ctx context.Context, fs *zfs.DatasetPath) (fsversions []zfs.FilesystemVersion, stop bool) {
 	log := getLogger(ctx).WithField("fs", fs.ToString())
 
-	filter := NewPrefixFilter(p.SnapshotPrefix)
+	filter := AnyFSVFilter{}
 	fsversions, err := zfs.ZFSListFilesystemVersions(fs, filter)
 	if err != nil {
 		log.WithError(err).Error("error listing filesytem versions")
 		return nil, true
 	}
 	if len(fsversions) == 0 {
-		log.WithField("prefix", p.SnapshotPrefix).Info("no filesystem versions matching prefix")
+		log.Info("no filesystem versions matching prefix")
 		return nil, true
 	}
 	return fsversions, false

@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"github.com/zrepl/zrepl/cmd/daemon"
 	"github.com/zrepl/zrepl/logger"
+	"github.com/zrepl/zrepl/version"
 	"io"
 	golog "log"
 	"net"
 	"net/http"
 	"os"
-	"github.com/zrepl/zrepl/version"
-	"github.com/zrepl/zrepl/cmd/daemon"
 )
 
 var controlCmd = &cobra.Command{

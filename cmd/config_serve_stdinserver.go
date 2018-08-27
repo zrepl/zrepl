@@ -1,32 +1,25 @@
 package cmd
 
 import (
-	"github.com/mitchellh/mapstructure"
-	"github.com/pkg/errors"
 	"github.com/problame/go-netssh"
+	"github.com/zrepl/zrepl/cmd/config"
+	"github.com/zrepl/zrepl/cmd/helpers"
 	"net"
 	"path"
-	"github.com/zrepl/zrepl/cmd/helpers"
 )
 
 type StdinserverListenerFactory struct {
-	ClientIdentity string `mapstructure:"client_identity"`
+	ClientIdentity string
 	sockpath       string
 }
 
-func parseStdinserverListenerFactory(c JobParsingContext, i map[string]interface{}) (f *StdinserverListenerFactory, err error) {
+func parseStdinserverListenerFactory(c config.Global, in config.StdinserverServer) (f *StdinserverListenerFactory, err error) {
 
-	f = &StdinserverListenerFactory{}
-
-	if err = mapstructure.Decode(i, f); err != nil {
-		return nil, errors.Wrap(err, "mapstructure error")
-	}
-	if !(len(f.ClientIdentity) > 0) {
-		err = errors.Errorf("must specify 'client_identity'")
-		return
+	f = &StdinserverListenerFactory{
+		ClientIdentity: in.ClientIdentity,
 	}
 
-	f.sockpath = path.Join(c.Global.Serve.Stdinserver.SockDir, f.ClientIdentity)
+	f.sockpath = path.Join(c.Serve.StdinServer.SockDir, f.ClientIdentity)
 
 	return
 }

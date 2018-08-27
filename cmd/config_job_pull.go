@@ -11,6 +11,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
+	"github.com/zrepl/zrepl/cmd/config"
 	"github.com/zrepl/zrepl/cmd/endpoint"
 	"github.com/zrepl/zrepl/replication"
 )
@@ -21,57 +22,32 @@ type PullJob struct {
 	Interval time.Duration
 	Mapping  *DatasetMapFilter
 	// constructed from mapping during parsing
-	pruneFilter    *DatasetMapFilter
-	SnapshotPrefix string
-	Prune          PrunePolicy
-	Debug          JobDebugSettings
+	pruneFilter *DatasetMapFilter
+	Prune       PrunePolicy
 
 	rep *replication.Replication
 }
 
-func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j *PullJob, err error) {
+func parsePullJob(c config.Global, in config.PullJob) (j *PullJob, err error) {
 
-	var asMap struct {
-		Connect           map[string]interface{}
-		Interval          string
-		Mapping           map[string]string
-		InitialReplPolicy string `mapstructure:"initial_repl_policy"`
-		Prune             map[string]interface{}
-		SnapshotPrefix    string `mapstructure:"snapshot_prefix"`
-		Debug             map[string]interface{}
-	}
+	j = &PullJob{Name: in.Name}
 
-	if err = mapstructure.Decode(i, &asMap); err != nil {
-		err = errors.Wrap(err, "mapstructure error")
-		return nil, err
-	}
-
-	j = &PullJob{Name: name}
-
-	j.Connect, err = parseConnect(asMap.Connect)
+	j.Connect, err = parseConnect(in.Replication.Connect)
 	if err != nil {
 		err = errors.Wrap(err, "cannot parse 'connect'")
 		return nil, err
 	}
 
-	if j.Interval, err = parsePostitiveDuration(asMap.Interval); err != nil {
-		err = errors.Wrap(err, "cannot parse 'interval'")
+	j.Interval = in.Replication.Interval
+
+	j.Mapping = NewDatasetMapFilter(1, false)
+	if err := j.Mapping.Add("<", in.Replication.RootDataset); err != nil {
 		return nil, err
 	}
 
-	j.Mapping, err = parseDatasetMapFilter(asMap.Mapping, false)
-	if err != nil {
-		err = errors.Wrap(err, "cannot parse 'mapping'")
+	j.pruneFilter = NewDatasetMapFilter(1, true)
+	if err := j.pruneFilter.Add(in.Replication.RootDataset, MapFilterResultOk); err != nil {
 		return nil, err
-	}
-
-	if j.pruneFilter, err = j.Mapping.InvertedFilter(); err != nil {
-		err = errors.Wrap(err, "cannot automatically invert 'mapping' for prune job")
-		return nil, err
-	}
-
-	if j.SnapshotPrefix, err = parseSnapshotPrefix(asMap.SnapshotPrefix); err != nil {
-		return
 	}
 
 	if j.Prune, err = parsePrunePolicy(asMap.Prune, false); err != nil {
@@ -79,16 +55,11 @@ func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j
 		return
 	}
 
-	if err = mapstructure.Decode(asMap.Debug, &j.Debug); err != nil {
-		err = errors.Wrap(err, "cannot parse 'debug'")
-		return
-	}
-
-	if j.Debug.Conn.ReadDump != "" || j.Debug.Conn.WriteDump != "" {
+	if in.Debug.Conn.ReadDump != "" || j.Debug.Conn.WriteDump != "" {
 		logConnecter := logNetConnConnecter{
 			Connecter: j.Connect,
-			ReadDump:  j.Debug.Conn.ReadDump,
-			WriteDump: j.Debug.Conn.WriteDump,
+			ReadDump:  in.Debug.Conn.ReadDump,
+			WriteDump: in.Debug.Conn.WriteDump,
 		}
 		j.Connect = logConnecter
 	}
@@ -96,11 +67,7 @@ func parsePullJob(c JobParsingContext, name string, i map[string]interface{}) (j
 	return
 }
 
-func (j *PullJob) JobName() string {
-	return j.Name
-}
-
-func (j *PullJob) JobType() JobType { return JobTypePull }
+func (j *PullJob) JobName() string { return j.Name }
 
 func (j *PullJob) JobStart(ctx context.Context) {
 
@@ -159,10 +126,7 @@ func (j *PullJob) doRun(ctx context.Context) {
 
 	sender := endpoint.NewRemote(client)
 
-	receiver, err := endpoint.NewReceiver(
-		j.Mapping,
-		NewPrefixFilter(j.SnapshotPrefix),
-	)
+	receiver, err := endpoint.NewReceiver(j.Mapping, AnyFSVFilter{})
 	if err != nil {
 		log.WithError(err).Error("error creating receiver endpoint")
 		return
@@ -198,7 +162,6 @@ func (j *PullJob) Pruner(side PrunePolicySide, dryRun bool) (p Pruner, err error
 		time.Now(),
 		dryRun,
 		j.pruneFilter,
-		j.SnapshotPrefix,
 		j.Prune,
 	}
 	return

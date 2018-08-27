@@ -6,6 +6,7 @@ import (
 	"context"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/cmd/config"
 	"github.com/zrepl/zrepl/cmd/endpoint"
 	"github.com/zrepl/zrepl/replication"
 	"github.com/zrepl/zrepl/zfs"
@@ -22,7 +23,7 @@ type LocalJob struct {
 	Debug          JobDebugSettings
 }
 
-func parseLocalJob(c JobParsingContext, name string, i map[string]interface{}) (j *LocalJob, err error) {
+func parseLocalJob(c config.Global, in source.LocalJob) (j *LocalJob, err error) {
 
 	var asMap struct {
 		Mapping           map[string]string

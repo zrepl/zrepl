@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+type AnyFSVFilter struct{}
+
+func (AnyFSVFilter) Filter(t zfs.VersionType, name string) (accept bool, err error) {
+	return true, nil
+}
+
 type PrefixFilter struct {
 	prefix    string
 	fstype    zfs.VersionType

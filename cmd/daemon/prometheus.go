@@ -4,10 +4,10 @@ import (
 	"context"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/zrepl/zrepl/cmd/daemon/job"
 	"github.com/zrepl/zrepl/zfs"
 	"net"
 	"net/http"
-	"github.com/zrepl/zrepl/cmd/daemon/job"
 )
 
 type prometheusJob struct {
@@ -48,7 +48,7 @@ func init() {
 	prometheus.MustRegister(prom.taskLogEntries)
 }
 
-func (j *prometheusJob) Name() string { return  jobNamePrometheus }
+func (j *prometheusJob) Name() string { return jobNamePrometheus }
 
 func (j *prometheusJob) Status() interface{} { return nil }
 

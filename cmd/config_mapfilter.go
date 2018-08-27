@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/cmd/endpoint"
 	"github.com/zrepl/zrepl/zfs"
@@ -258,16 +257,14 @@ func (m DatasetMapFilter) parseDatasetFilterResult(result string) (pass bool, er
 	return false, fmt.Errorf("'%s' is not a valid filter result", result)
 }
 
-func parseDatasetMapFilter(mi interface{}, filterMode bool) (f *DatasetMapFilter, err error) {
+func parseDatasetMapFilterFilesystems(in map[string]bool) (f *DatasetMapFilter, err error) {
 
-	var m map[string]string
-	if err = mapstructure.Decode(mi, &m); err != nil {
-		err = fmt.Errorf("maps / filters must be specified as map[string]string: %s", err)
-		return
-	}
-
-	f = NewDatasetMapFilter(len(m), filterMode)
-	for pathPattern, mapping := range m {
+	f = NewDatasetMapFilter(len(in), true)
+	for pathPattern, accept := range in {
+		mapping := MapFilterResultOmit
+		if accept {
+			mapping = MapFilterResultOk
+		}
 		if err = f.Add(pathPattern, mapping); err != nil {
 			err = fmt.Errorf("invalid mapping entry ['%s':'%s']: %s", pathPattern, mapping, err)
 			return

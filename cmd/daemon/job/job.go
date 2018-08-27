@@ -1,8 +1,8 @@
 package job
 
 import (
-	"github.com/zrepl/zrepl/logger"
 	"context"
+	"github.com/zrepl/zrepl/logger"
 )
 
 type Logger = logger.Logger
