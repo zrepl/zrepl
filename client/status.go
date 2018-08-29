@@ -167,8 +167,10 @@ func (t *tui) draw() {
 			}
 			t.printf("Status:  %s", rep.Status)
 			t.newline()
-			t.printf("Problem: %s", rep.Problem)
-			t.newline()
+			if (rep.Problem != "") {
+				t.printf("Problem: %s", rep.Problem)
+				t.newline()
+			}
 
 			for _, fs := range rep.Completed {
 				printFilesystem(fs, t)
