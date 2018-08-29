@@ -8,8 +8,8 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/cmd/tlsconf"
+	"github.com/zrepl/zrepl/config"
 )
 
 type TCPListenerFactory struct {

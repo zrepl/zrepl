@@ -8,8 +8,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
-	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/cmd/pruning/retentiongrid"
+	"github.com/zrepl/zrepl/config"
 	"os"
 )
 

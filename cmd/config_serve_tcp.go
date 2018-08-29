@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"github.com/zrepl/zrepl/config"
-	"time"
 	"net"
+	"time"
 )
 
 type TCPListenerFactory struct {

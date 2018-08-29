@@ -9,8 +9,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/problame/go-netssh"
 	"github.com/problame/go-streamrpc"
-	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/cmd/tlsconf"
+	"github.com/zrepl/zrepl/config"
 	"time"
 )
 
