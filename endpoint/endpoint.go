@@ -74,11 +74,17 @@ func (p *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 	if !pass {
 		return nil, nil, replication.NewFilteredError(r.Filesystem)
 	}
+
+	size, err := zfs.ZFSSendDry(r.Filesystem, r.From, r.To)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	stream, err := zfs.ZFSSend(r.Filesystem, r.From, r.To)
 	if err != nil {
 		return nil, nil, err
 	}
-	return &pdu.SendRes{}, stream, nil
+	return &pdu.SendRes{ExpectedSize: size}, stream, nil
 }
 
 func (p *Sender) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error) {

@@ -40,6 +40,7 @@ func getLogger(ctx context.Context) Logger {
 type Sender interface {
 	// If a non-nil io.ReadCloser is returned, it is guaranteed to be closed before
 	// any next call to the parent github.com/zrepl/zrepl/replication.Endpoint.
+	// returned int64 is the expected size of the stream
 	Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error)
 	SnapshotReplicationStatus(ctx context.Context, r *pdu.SnapshotReplicationStatusReq) (*pdu.SnapshotReplicationStatusRes, error)
 }
@@ -58,6 +59,7 @@ type StepReport struct {
 	Status   string
 	Problem  string
 	Bytes    int64
+	ExpectedBytes int64
 }
 
 type Report struct {
@@ -169,8 +171,10 @@ type ReplicationStep struct {
 	parent   *Replication
 
 	// both retry and permanent error
-	err         error
-	byteCounter *util.ByteCounterReader
+	err error
+
+	byteCounter  *util.ByteCounterReader
+	expectedSize int64
 }
 
 func (f *Replication) TakeStep(ctx context.Context, sender Sender, receiver Receiver) (post State, nextStepDate time.Time) {
@@ -365,6 +369,7 @@ func (s *ReplicationStep) doReplication(ctx context.Context, sender Sender, rece
 		return updateStateError(err)
 	}
 
+	s.expectedSize = sres.ExpectedSize
 	s.byteCounter = util.NewByteCounterReader(sstream)
 	sstream = s.byteCounter
 
@@ -459,6 +464,7 @@ func (s *ReplicationStep) Report() *StepReport {
 		To:     s.to.RelName(),
 		Status: s.state.String(),
 		Bytes:  bytes,
+		ExpectedBytes: s.expectedSize,
 	}
 	return &rep
 }

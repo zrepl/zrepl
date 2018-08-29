@@ -63,7 +63,10 @@ message SendRes {
     // Whether the resume token provided in the request has been used or not.
     bool UsedResumeToken = 1;
 
-    repeated Property Properties  = 2;
+    // Expected stream size determined by dry run, not exact
+    int64 ExpectedSize = 2;
+
+    repeated Property Properties = 3;
 }
 
 message ReceiveReq {

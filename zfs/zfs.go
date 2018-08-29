@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/util"
 	"regexp"
+	"strconv"
 )
 
 type DatasetPath struct {
@@ -306,6 +307,49 @@ func ZFSSend(fs string, from, to string) (stream io.ReadCloser, err error) {
 	stream, err = util.RunIOCommand(ZFS_BINARY, args...)
 
 	return
+}
+
+func ZFSSendDry(fs string, from, to string) (size int64, err error) {
+
+	fromV, err := absVersion(fs, from)
+	if err != nil {
+		return 0, err
+	}
+
+	toV := ""
+	if to != "" {
+		toV, err = absVersion(fs, to)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	args := make([]string, 0)
+	args = append(args, "send", "-n", "-v", "-P")
+
+	if toV == "" { // Initial
+		args = append(args, fromV)
+	} else {
+		args = append(args, "-i", fromV, toV)
+	}
+
+	cmd := exec.Command(ZFS_BINARY, args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return 0, err
+	}
+	o := string(output)
+	lines := strings.Split(o, "\n")
+	if len(lines) < 2 {
+		return 0, errors.New("zfs send -n did not return the expected number of lines")
+	}
+	fields := strings.Fields(lines[1])
+	if len(fields) != 2 {
+		return 0, errors.New("zfs send -n returned unexpexted output")
+	}
+
+	size, err = strconv.ParseInt(fields[1], 10, 64)
+	return size, err
 }
 
 func ZFSRecv(fs string, stream io.Reader, additionalArgs ...string) (err error) {

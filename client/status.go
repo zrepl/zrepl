@@ -177,13 +177,13 @@ func (t *tui) draw() {
 			}
 
 			for _, fs := range rep.Completed {
-				printFilesystem(fs, t)
+				printFilesystem(fs, t, false)
 			}
 			if rep.Active != nil {
-				printFilesystem(rep.Active, t)
+				printFilesystem(rep.Active, t, true)
 			}
 			for _, fs := range rep.Pending {
-				printFilesystem(fs, t)
+				printFilesystem(fs, t, false)
 			}
 
 		}
@@ -202,42 +202,50 @@ func rightPad(str string, length int, pad string) string {
 	return str + times(pad, length-len(str))
 }
 
-func (t *tui) drawBar(name string, status string, total int, done int, bytes int64) {
+func (t *tui) drawBar(name string, status string, bytes int64, totalBytes int64) {
 	t.write(rightPad(name, 20, " "))
 	t.write(" ")
 	t.write(rightPad(status, 20, " "))
 
-	if total > 0 {
+	if totalBytes > 0 {
 		length := 50
-		completedLength := length * done / total
+		completedLength := int(int64(length) * bytes / totalBytes)
 
 		t.write(times("=", completedLength))
 		t.write(">")
 		t.write(times("-", length-completedLength))
 
 		t.write(" ")
-		t.write(rightPad(ByteCountBinary(bytes), 8, " "))
-		t.printf(" %d/%d", done, total)
+		t.write(rightPad(ByteCountBinary(bytes) + "/" + ByteCountBinary(bytes), 16, " "))
 	}
 
 	t.newline()
 }
 
-func printFilesystem(rep *fsrep.Report, t *tui) {
+func printFilesystem(rep *fsrep.Report, t *tui, versions bool) {
 	bytes := int64(0)
+	totalBytes := int64(0)
 	for _, s := range rep.Pending {
 		bytes += s.Bytes
+		totalBytes += s.ExpectedBytes
 	}
 	for _, s := range rep.Completed {
 		bytes += s.Bytes
+		totalBytes += s.ExpectedBytes
 	}
 
-	t.drawBar(rep.Filesystem, rep.Status, len(rep.Completed)+len(rep.Pending), len(rep.Completed), bytes)
+	t.drawBar(rep.Filesystem, rep.Status, bytes, totalBytes)
 	if rep.Problem != "" {
 		t.addIndent(1)
 		t.printf("Problem: %s", rep.Problem)
 		t.newline()
 		t.addIndent(-1)
+	}
+	if versions {
+		vs := append(rep.Completed, rep.Pending...)
+		for _, v := range vs {
+			t.drawBar(" " + v.To, v.Status, v.Bytes, v.ExpectedBytes)
+		}
 	}
 }
 
