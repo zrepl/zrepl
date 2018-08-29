@@ -1,13 +1,13 @@
 package client
 
 import (
-	"net/http"
-	"net"
-	"context"
 	"bytes"
+	"context"
 	"encoding/json"
-	"io"
 	"github.com/pkg/errors"
+	"io"
+	"net"
+	"net/http"
 )
 
 func controlHttpClient(sockpath string) (client http.Client, err error) {
@@ -43,4 +43,3 @@ func jsonRequestResponse(c http.Client, endpoint string, req interface{}, res in
 
 	return nil
 }
-

@@ -3,9 +3,9 @@ package main
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/zrepl/zrepl/client"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon"
-	"github.com/zrepl/zrepl/client"
 	"log"
 	"os"
 )

@@ -13,6 +13,7 @@ import (
 
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/zrepl/zrepl/util"
 )
 
 type contextKey int
@@ -56,6 +57,7 @@ type StepReport struct {
 	From, To string
 	Status   string
 	Problem  string
+	Bytes    int64
 }
 
 type Report struct {
@@ -167,7 +169,8 @@ type ReplicationStep struct {
 	parent   *Replication
 
 	// both retry and permanent error
-	err error
+	err         error
+	byteCounter *util.ByteCounterReader
 }
 
 func (f *Replication) TakeStep(ctx context.Context, sender Sender, receiver Receiver) (post State, nextStepDate time.Time) {
@@ -362,6 +365,9 @@ func (s *ReplicationStep) doReplication(ctx context.Context, sender Sender, rece
 		return updateStateError(err)
 	}
 
+	s.byteCounter = util.NewByteCounterReader(sstream)
+	sstream = s.byteCounter
+
 	rr := &pdu.ReceiveReq{
 		Filesystem:       fs,
 		ClearResumeToken: !sres.UsedResumeToken,
@@ -439,15 +445,20 @@ func (s *ReplicationStep) String() string {
 	}
 }
 
-func (step *ReplicationStep) Report() *StepReport {
+func (s *ReplicationStep) Report() *StepReport {
 	var from string // FIXME follow same convention as ZFS: to should be nil on full send
-	if step.from != nil {
-		from = step.from.RelName()
+	if s.from != nil {
+		from = s.from.RelName()
+	}
+	bytes := int64(0)
+	if s.byteCounter != nil {
+		bytes = s.byteCounter.Bytes()
 	}
 	rep := StepReport{
 		From:   from,
-		To:     step.to.RelName(),
-		Status: step.state.String(),
+		To:     s.to.RelName(),
+		Status: s.state.String(),
+		Bytes:  bytes,
 	}
 	return &rep
 }

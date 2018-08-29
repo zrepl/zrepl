@@ -4,6 +4,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync/atomic"
 )
 
 type NetConnLogger struct {
@@ -96,4 +97,29 @@ func (c *ChainedReader) Read(buf []byte) (n int, err error) {
 	}
 
 	return
+}
+
+type ByteCounterReader struct {
+	reader    io.ReadCloser
+	bytes     int64
+}
+
+func NewByteCounterReader(reader io.ReadCloser) *ByteCounterReader {
+	return &ByteCounterReader{
+		reader: reader,
+	}
+}
+
+func (b *ByteCounterReader) Close() error {
+	return b.reader.Close()
+}
+
+func (b *ByteCounterReader) Read(p []byte) (n int, err error) {
+	n, err = b.reader.Read(p)
+	atomic.AddInt64(&b.bytes, int64(n))
+	return n, err
+}
+
+func (b *ByteCounterReader) Bytes() int64 {
+	return atomic.LoadInt64(&b.bytes)
 }

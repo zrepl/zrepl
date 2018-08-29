@@ -1,26 +1,26 @@
 package client
 
 import (
+	"fmt"
+	"github.com/mitchellh/mapstructure"
+	"github.com/nsf/termbox-go"
+	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon"
-	"fmt"
 	"github.com/zrepl/zrepl/replication"
-	"github.com/mitchellh/mapstructure"
 	"github.com/zrepl/zrepl/replication/fsrep"
-	"github.com/nsf/termbox-go"
-	"time"
-	"github.com/pkg/errors"
 	"sort"
 	"sync"
+	"time"
 )
 
 type tui struct {
-	x, y int
+	x, y   int
 	indent int
 
-	lock sync.Mutex //For report and error
+	lock   sync.Mutex //For report and error
 	report map[string]interface{}
-	err error
+	err    error
 }
 
 func newTui() tui {
@@ -34,7 +34,7 @@ func (t *tui) moveCursor(x, y int) {
 
 func (t *tui) moveLine(dl int, col int) {
 	t.y += dl
-	t.x = t.indent * 4 + col
+	t.x = t.indent*4 + col
 }
 
 func (t *tui) write(text string) {
@@ -62,7 +62,6 @@ func (t *tui) addIndent(indent int) {
 	t.moveLine(0, 0)
 }
 
-
 func RunStatus(config config.Config, args []string) error {
 	httpc, err := controlHttpClient(config.Global.Control.SockPath)
 	if err != nil {
@@ -80,29 +79,34 @@ func RunStatus(config config.Config, args []string) error {
 	}
 	defer termbox.Close()
 
+	update := func() {
+		m := make(map[string]interface{})
+
+		err2 := jsonRequestResponse(httpc, daemon.ControlJobEndpointStatus,
+			struct{}{},
+			&m,
+		)
+
+		t.lock.Lock()
+		t.err = err2
+		t.report = m
+		t.lock.Unlock()
+		t.draw()
+	}
+	update()
+
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	go func() {
 		for _ = range ticker.C {
-			m := make(map[string]interface{})
-
-			err2 := jsonRequestResponse(httpc, daemon.ControlJobEndpointStatus,
-				struct {}{},
-				&m,
-			)
-
-			t.lock.Lock()
-			t.err = err2
-			t.report = m
-			t.lock.Unlock()
-			t.draw()
+			update()
 		}
 	}()
 
 	termbox.HideCursor()
 	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
 
-	loop:
+loop:
 	for {
 		switch ev := termbox.PollEvent(); ev.Type {
 		case termbox.EventKey:
@@ -167,7 +171,7 @@ func (t *tui) draw() {
 			}
 			t.printf("Status:  %s", rep.Status)
 			t.newline()
-			if (rep.Problem != "") {
+			if rep.Problem != "" {
 				t.printf("Problem: %s", rep.Problem)
 				t.newline()
 			}
@@ -198,7 +202,7 @@ func rightPad(str string, length int, pad string) string {
 	return str + times(pad, length-len(str))
 }
 
-func (t *tui) drawBar(name string, status string, total int, done int) {
+func (t *tui) drawBar(name string, status string, total int, done int, bytes int64) {
 	t.write(rightPad(name, 20, " "))
 	t.write(" ")
 	t.write(rightPad(status, 20, " "))
@@ -207,11 +211,12 @@ func (t *tui) drawBar(name string, status string, total int, done int) {
 		length := 50
 		completedLength := length * done / total
 
-		//FIXME finished bar has 1 off size compared to not finished bar
-		t.write(times("=", completedLength-1))
+		t.write(times("=", completedLength))
 		t.write(">")
 		t.write(times("-", length-completedLength))
 
+		t.write(" ")
+		t.write(rightPad(ByteCountBinary(bytes), 8, " "))
 		t.printf(" %d/%d", done, total)
 	}
 
@@ -219,11 +224,32 @@ func (t *tui) drawBar(name string, status string, total int, done int) {
 }
 
 func printFilesystem(rep *fsrep.Report, t *tui) {
-	t.drawBar(rep.Filesystem, rep.Status, len(rep.Completed) + len(rep.Pending), len(rep.Completed))
-	if (rep.Problem != "") {
+	bytes := int64(0)
+	for _, s := range rep.Pending {
+		bytes += s.Bytes
+	}
+	for _, s := range rep.Completed {
+		bytes += s.Bytes
+	}
+
+	t.drawBar(rep.Filesystem, rep.Status, len(rep.Completed)+len(rep.Pending), len(rep.Completed), bytes)
+	if rep.Problem != "" {
 		t.addIndent(1)
 		t.printf("Problem: %s", rep.Problem)
 		t.newline()
 		t.addIndent(-1)
 	}
+}
+
+func ByteCountBinary(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
 }
