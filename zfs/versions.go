@@ -87,6 +87,7 @@ type FilesystemVersionFilter interface {
 	Filter(t VersionType, name string) (accept bool, err error)
 }
 
+//FIXME Seems to always forget first snapshot
 func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) (res []FilesystemVersion, err error) {
 	listResults := make(chan ZFSListResult)
 
