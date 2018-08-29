@@ -90,6 +90,14 @@
   version = "v0.0.3"
 
 [[projects]]
+  digest = "1:82b912465c1da0668582a7d1117339c278e786c2536b3c3623029a0c7141c2d0"
+  name = "github.com/mattn/go-runewidth"
+  packages = ["."]
+  pruneopts = ""
+  revision = "ce7b0b5c7b45a81508558cd1dba6bb1e4ddb51bb"
+  version = "v0.0.3"
+
+[[projects]]
   digest = "1:4c23ced97a470b17d9ffd788310502a077b9c1f60221a85563e49696276b4147"
   name = "github.com/matttproud/golang_protobuf_extensions"
   packages = ["pbutil"]
@@ -104,6 +112,14 @@
   packages = ["."]
   pruneopts = ""
   revision = "d0303fe809921458f417bcf828397a65db30a7e4"
+
+[[projects]]
+  branch = "master"
+  digest = "1:20a553eff588d7abe1f05addf5f57cdbaef1d0f992427a0099b7eb51274b79cf"
+  name = "github.com/nsf/termbox-go"
+  packages = ["."]
+  pruneopts = ""
+  revision = "b66b20ab708e289ff1eb3e218478302e6aec28ce"
 
 [[projects]]
   digest = "1:7365acd48986e205ccb8652cc746f09c8b7876030d53710ea6ef7d0bd0dcd7ca"
@@ -246,6 +262,7 @@
     "github.com/kr/pretty",
     "github.com/mattn/go-isatty",
     "github.com/mitchellh/mapstructure",
+    "github.com/nsf/termbox-go",
     "github.com/pkg/errors",
     "github.com/problame/go-netssh",
     "github.com/problame/go-rwccmd",

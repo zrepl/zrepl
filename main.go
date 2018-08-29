@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon"
+	"github.com/zrepl/zrepl/client"
 	"log"
 	"os"
 )
@@ -40,7 +41,19 @@ var wakeupCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return RunWakeup(conf, args)
+		return client.RunWakeup(conf, args)
+	},
+}
+
+var statusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "status",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		conf, err := config.ParseConfig(rootArgs.configFile)
+		if err != nil {
+			return err
+		}
+		return client.RunStatus(conf, args)
 	},
 }
 
@@ -53,6 +66,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&rootArgs.configFile, "config", "", "config file path")
 	rootCmd.AddCommand(daemonCmd)
 	rootCmd.AddCommand(wakeupCmd)
+	rootCmd.AddCommand(statusCmd)
 }
 
 func main() {

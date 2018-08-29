@@ -55,7 +55,18 @@ func PushFromConfig(g config.Global, in *config.PushJob) (j *Push, err error) {
 func (j *Push) Name() string { return j.name }
 
 func (j *Push) Status() interface{} {
-	return nil // FIXME
+	rep := func() *replication.Replication {
+		j.mtx.Lock()
+		defer j.mtx.Unlock()
+		if j.replication == nil {
+			return nil
+		}
+		return j.replication
+	}()
+	if rep == nil {
+		return nil
+	}
+	return rep.Report()
 }
 
 func (j *Push) Run(ctx context.Context) {
@@ -94,11 +105,11 @@ func (j *Push) do(ctx context.Context) {
 	receiver := endpoint.NewRemote(client)
 
 	j.mtx.Lock()
-	rep := replication.NewReplication()
+	j.replication = replication.NewReplication()
 	j.mtx.Unlock()
 
 	ctx = logging.WithSubsystemLoggers(ctx, log)
-	rep.Drive(ctx, sender, receiver)
+	j.replication.Drive(ctx, sender, receiver)
 
 	// Prune sender
 	senderPruner := pruner.NewPruner(10*time.Second, sender, sender, j.keepRulesSender) // FIXME constant
