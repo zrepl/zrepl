@@ -13,6 +13,7 @@ import (
 	"github.com/zrepl/zrepl/replication"
 	"github.com/zrepl/zrepl/tlsconf"
 	"os"
+	"github.com/zrepl/zrepl/daemon/pruner"
 )
 
 func OutletsFromConfig(in []config.LoggingOutletEnum) (*logger.Outlets, error) {
@@ -67,6 +68,7 @@ func WithSubsystemLoggers(ctx context.Context, log logger.Logger) context.Contex
 	ctx = replication.WithLogger(ctx, log.WithField(SubsysField, "repl"))
 	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{log.WithField(SubsysField, "rpc")})
 	ctx = endpoint.WithLogger(ctx, log.WithField(SubsysField, "endpoint"))
+	ctx = pruner.WithLogger(ctx, log.WithField(SubsysField, "pruning"))
 	return ctx
 }
 

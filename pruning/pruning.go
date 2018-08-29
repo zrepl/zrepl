@@ -14,6 +14,7 @@ type Snapshot interface {
 	Date() time.Time
 }
 
+// The returned snapshot list is guaranteed to only contains elements of input parameter snaps
 func PruneSnapshots(snaps []Snapshot, keepRules []KeepRule) []Snapshot {
 
 	if len(keepRules) == 0 {

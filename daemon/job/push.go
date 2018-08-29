@@ -11,12 +11,17 @@ import (
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/replication"
 	"sync"
+	"github.com/zrepl/zrepl/daemon/pruner"
+	"github.com/zrepl/zrepl/pruning"
 )
 
 type Push struct {
 	name      string
 	connecter streamrpc.Connecter
 	fsfilter  endpoint.FSFilter
+
+	keepRulesSender []pruning.KeepRule
+	keepRulesReceiver []pruning.KeepRule
 
 	mtx         sync.Mutex
 	replication *replication.Replication
@@ -83,4 +88,14 @@ func (j *Push) do(ctx context.Context) {
 
 	ctx = logging.WithSubsystemLoggers(ctx, log)
 	rep.Drive(ctx, sender, receiver)
+
+	// Prune sender
+	senderPruner := pruner.NewPruner(sender, receiver, j.keepRulesSender)
+	senderPruner.Prune(ctx)
+
+	// Prune receiver
+	receiverPruner := pruner.NewPruner(receiver, receiver, j.keepRulesReceiver)
+	receiverPruner.Prune(ctx)
+
 }
+
