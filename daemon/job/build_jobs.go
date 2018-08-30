@@ -3,6 +3,7 @@ package job
 import (
 	"fmt"
 	"github.com/zrepl/zrepl/config"
+	"github.com/pkg/errors"
 )
 
 func JobsFromConfig(c config.Config) ([]Job, error) {
@@ -18,14 +19,19 @@ func JobsFromConfig(c config.Config) ([]Job, error) {
 }
 
 func buildJob(c config.Global, in config.JobEnum) (j Job, err error) {
-
 	switch v := in.Ret.(type) {
 	case *config.SinkJob:
-		return SinkFromConfig(c, v)
+		j, err = SinkFromConfig(c, v)
+		if err != nil {
+			return nil, errors.Wrapf(err, "cannot build job %q", v.Name)
+		}
 	case *config.PushJob:
-		return PushFromConfig(c, v)
+		j, err = PushFromConfig(c, v)
+		if err != nil {
+			return nil, errors.Wrapf(err, "cannot build job %q", v.Name)
+		}
 	default:
 		panic(fmt.Sprintf("implementation error: unknown job type %T", v))
 	}
-
+	return j, err
 }
