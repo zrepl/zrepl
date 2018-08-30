@@ -176,19 +176,43 @@ func (t *tui) draw() {
 				t.newline()
 			}
 
+			maxNameLength := calculateMaxFilesystemAndVersionNameLength(&rep)
+
 			for _, fs := range rep.Completed {
-				printFilesystem(fs, t, false)
+				printFilesystem(fs, t, false, maxNameLength)
 			}
 			if rep.Active != nil {
-				printFilesystem(rep.Active, t, true)
+				printFilesystem(rep.Active, t, true, maxNameLength)
 			}
 			for _, fs := range rep.Pending {
-				printFilesystem(fs, t, false)
+				printFilesystem(fs, t, false, maxNameLength)
 			}
 
 		}
 	}
 	termbox.Flush()
+}
+
+const snapshotIndent = 1
+func calculateMaxFilesystemAndVersionNameLength(report *replication.Report) int {
+	all := append(report.Completed, report.Active)
+	all = append(all, report.Pending...)
+	maxLen := 0
+	for _, e := range all {
+		if e == nil { //active can be nil
+			continue
+		}
+		if len(e.Filesystem) > maxLen {
+			maxLen = len(e.Filesystem)
+		}
+		all2 := append(e.Pending, e.Completed...)
+		for _, e2 := range all2 {
+			if len(e2.To) + snapshotIndent > maxLen {
+				maxLen = len(e2.To) + snapshotIndent
+			}
+		}
+	}
+	return maxLen
 }
 
 func times(str string, n int) (out string) {
@@ -205,8 +229,8 @@ func rightPad(str string, length int, pad string) string {
 	return str + times(pad, length-len(str))
 }
 
-func (t *tui) drawBar(name string, status string, bytes int64, totalBytes int64) {
-	t.write(rightPad(name, 20, " "))
+func (t *tui) drawBar(name string, maxNameLength int, status string, bytes int64, totalBytes int64) {
+	t.write(rightPad(name, maxNameLength + 1, " "))
 	t.write(" ")
 	t.write(rightPad(status, 14, " "))
 	t.write(" ")
@@ -244,7 +268,7 @@ func StringStepState(s fsrep.StepState) string {
 	}
 }
 
-func printFilesystem(rep *fsrep.Report, t *tui, versions bool) {
+func printFilesystem(rep *fsrep.Report, t *tui, versions bool, maxNameLength int) {
 	bytes := int64(0)
 	totalBytes := int64(0)
 	for _, s := range rep.Pending {
@@ -256,7 +280,7 @@ func printFilesystem(rep *fsrep.Report, t *tui, versions bool) {
 		totalBytes += s.ExpectedBytes
 	}
 
-	t.drawBar(rep.Filesystem, rep.Status, bytes, totalBytes)
+	t.drawBar(rep.Filesystem, maxNameLength, rep.Status, bytes, totalBytes)
 	if rep.Problem != "" {
 		t.addIndent(1)
 		t.printf("Problem: %s", rep.Problem)
@@ -265,7 +289,7 @@ func printFilesystem(rep *fsrep.Report, t *tui, versions bool) {
 	}
 	if versions && len(rep.Pending) > 0 {
 		v := rep.Pending[0]
-		t.drawBar(" " + v.To, StringStepState(v.Status), v.Bytes, v.ExpectedBytes)
+		t.drawBar(times(" ", snapshotIndent) + v.To, maxNameLength, StringStepState(v.Status), v.Bytes, v.ExpectedBytes)
 	}
 }
 
