@@ -1,15 +1,15 @@
 package pruner
 
 import (
-	"testing"
-	"github.com/zrepl/zrepl/replication/pdu"
 	"context"
-	"github.com/zrepl/zrepl/pruning"
 	"fmt"
-	"time"
 	"github.com/stretchr/testify/assert"
-	"net"
 	"github.com/zrepl/zrepl/logger"
+	"github.com/zrepl/zrepl/pruning"
+	"github.com/zrepl/zrepl/replication/pdu"
+	"net"
+	"testing"
+	"time"
 )
 
 type mockFS struct {
@@ -27,8 +27,8 @@ func (m *mockFS) FilesystemVersions() []*pdu.FilesystemVersion {
 	versions := make([]*pdu.FilesystemVersion, len(m.snaps))
 	for i, v := range m.snaps {
 		versions[i] = &pdu.FilesystemVersion{
-			Type: pdu.FilesystemVersion_Snapshot,
-			Name: v,
+			Type:     pdu.FilesystemVersion_Snapshot,
+			Name:     v,
 			Creation: pdu.FilesystemVersionCreation(time.Unix(0, 0)),
 		}
 	}
@@ -36,11 +36,11 @@ func (m *mockFS) FilesystemVersions() []*pdu.FilesystemVersion {
 }
 
 type mockTarget struct {
-	fss []mockFS
-	destroyed map[string][]string
-	listVersionsErrs map[string][]error
+	fss                []mockFS
+	destroyed          map[string][]string
+	listVersionsErrs   map[string][]error
 	listFilesystemsErr []error
-	destroyErrs map[string][]error
+	destroyErrs        map[string][]error
 }
 
 func (t *mockTarget) ListFilesystems(ctx context.Context) ([]*pdu.Filesystem, error) {
@@ -72,26 +72,29 @@ func (t *mockTarget) ListFilesystemVersions(ctx context.Context, fs string) ([]*
 	return nil, fmt.Errorf("filesystem %s does not exist", fs)
 }
 
-func (t *mockTarget) DestroySnapshots(ctx context.Context, fs string, snaps []*pdu.FilesystemVersion) ([]*pdu.FilesystemVersion, error) {
+func (t *mockTarget) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error) {
+	fs, snaps := req.Filesystem, req.Snapshots
 	if len(t.destroyErrs[fs]) != 0 {
 		e := t.destroyErrs[fs][0]
 		t.destroyErrs[fs] = t.destroyErrs[fs][1:]
 		return nil, e
 	}
 	destroyed := t.destroyed[fs]
-	for _, s := range snaps {
+	res := make([]*pdu.DestroySnapshotRes, len(snaps))
+	for i, s := range snaps {
 		destroyed = append(destroyed, s.Name)
+		res[i] = &pdu.DestroySnapshotRes{Error: "", Snapshot: s}
 	}
 	t.destroyed[fs] = destroyed
-	return snaps, nil
+	return &pdu.DestroySnapshotsRes{Results: res}, nil
 }
 
-type mockReceiver struct {
-	fss []mockFS
+type mockHistory struct {
+	fss  []mockFS
 	errs map[string][]error
 }
 
-func (r *mockReceiver) HasFilesystemVersion(ctx context.Context, fs string, version *pdu.FilesystemVersion) (bool, error) {
+func (r *mockHistory) WasSnapshotReplicated(ctx context.Context, fs string, version *pdu.FilesystemVersion) (bool, error) {
 
 	if len(r.errs[fs]) > 0 {
 		e := r.errs[fs][0]
@@ -161,7 +164,7 @@ func TestPruner_Prune(t *testing.T) {
 			},
 		},
 	}
-	receiver := &mockReceiver{
+	history := &mockHistory{
 		errs: map[string][]error{
 			"zroot/foo": {
 				&net.OpError{Op: "fakeerror4"},
@@ -174,15 +177,15 @@ func TestPruner_Prune(t *testing.T) {
 
 	keepRules := []pruning.KeepRule{pruning.MustKeepRegex("^keep")}
 
-	p := NewPruner(10*time.Millisecond, target, receiver, keepRules)
+	p := NewPruner(10*time.Millisecond, target, history, keepRules)
 	ctx := context.Background()
 	ctx = WithLogger(ctx, logger.NewTestLogger(t))
 	p.Prune(ctx)
 
 	exp := map[string][]string{
-		"zroot/bar":{"drop_g"},
+		"zroot/bar": {"drop_g"},
 		// drop_c is prohibited by failing destroy
-		// drop_i is prohibiteed by failing HasFilesystemVersion call
+		// drop_i is prohibiteed by failing WasSnapshotReplicated call
 	}
 
 	assert.Equal(t, exp, target.destroyed)
