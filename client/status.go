@@ -244,11 +244,9 @@ func printFilesystem(rep *fsrep.Report, t *tui, versions bool) {
 		t.newline()
 		t.addIndent(-1)
 	}
-	if versions {
-		vs := append(rep.Completed, rep.Pending...)
-		for _, v := range vs {
-			t.drawBar(" " + v.To, v.Status, v.Bytes, v.ExpectedBytes)
-		}
+	if versions && len(rep.Pending) > 0 {
+		v := rep.Pending[0]
+		t.drawBar(" " + v.To, v.Status, v.Bytes, v.ExpectedBytes)
 	}
 }
 
