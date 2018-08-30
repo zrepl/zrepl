@@ -1,8 +1,6 @@
 package pruning
 
 import (
-	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
@@ -20,9 +18,10 @@ func (s stubSnap) Replicated() bool { return s.replicated }
 func (s stubSnap) Date() time.Time { return s.date }
 
 type testCase struct {
-	inputs   []Snapshot
-	rules    []KeepRule
-	exp, eff map[string]bool
+	inputs                 []Snapshot
+	rules                  []KeepRule
+	expDestroy, effDestroy map[string]bool
+	expDestroyAlternatives []map[string]bool
 }
 
 func testTable(tcs map[string]testCase, t *testing.T) {
@@ -42,11 +41,26 @@ func testTable(tcs map[string]testCase, t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			tc := tcs[name]
 			remove := PruneSnapshots(tc.inputs, tc.rules)
-			tc.eff = make(map[string]bool)
+			tc.effDestroy = make(map[string]bool)
 			for _, s := range remove {
-				tc.eff[s.Name()] = true
+				tc.effDestroy[s.Name()] = true
 			}
-			assert.True(t, mapEqual(tc.exp, tc.eff), fmt.Sprintf("is %v but should be %v", tc.eff, tc.exp))
+			if tc.expDestroyAlternatives == nil {
+				if tc.expDestroy == nil {
+					panic("must specify either expDestroyAlternatives or expDestroy")
+				}
+				tc.expDestroyAlternatives = []map[string]bool{tc.expDestroy}
+			}
+			var okAlt map[string]bool = nil
+			for _, alt := range tc.expDestroyAlternatives {
+				t.Logf("testing possible result: %v", alt)
+				if mapEqual(alt, tc.effDestroy) {
+					okAlt = alt
+				}
+			}
+			if okAlt == nil {
+				t.Errorf("no alternatives matched result: %v", tc.effDestroy)
+			}
 		})
 	}
 }
@@ -67,7 +81,7 @@ func TestPruneSnapshots(t *testing.T) {
 			rules: []KeepRule{
 				MustKeepRegex("foo_"),
 			},
-			exp: map[string]bool{
+			expDestroy: map[string]bool{
 				"bar_123": true,
 			},
 		},
@@ -77,7 +91,7 @@ func TestPruneSnapshots(t *testing.T) {
 				MustKeepRegex("foo_"),
 				MustKeepRegex("bar_"),
 			},
-			exp: map[string]bool{},
+			expDestroy: map[string]bool{},
 		},
 		"onlyThoseRemovedByAllAreRemoved": {
 			inputs: inputs["s1"],
@@ -85,26 +99,27 @@ func TestPruneSnapshots(t *testing.T) {
 				MustKeepRegex("notInS1"), // would remove all
 				MustKeepRegex("bar_"),    // would remove all but bar_, i.e. foo_.*
 			},
-			exp: map[string]bool{
+			expDestroy: map[string]bool{
 				"foo_123": true,
 				"foo_456": true,
 			},
 		},
 		"noRulesKeepsAll": {
-			inputs: inputs["s1"],
-			rules:  []KeepRule{},
-			exp: map[string]bool{
-				"foo_123": true,
-				"foo_456": true,
-				"bar_123": true,
-			},
+			inputs:     inputs["s1"],
+			rules:      []KeepRule{},
+			expDestroy: map[string]bool{},
+		},
+		"nilRulesKeepsAll": {
+			inputs:     inputs["s1"],
+			rules:      nil,
+			expDestroy: map[string]bool{},
 		},
 		"noSnaps": {
 			inputs: []Snapshot{},
 			rules: []KeepRule{
 				MustKeepRegex("foo_"),
 			},
-			exp: map[string]bool{},
+			expDestroy: map[string]bool{},
 		},
 	}
 

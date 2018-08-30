@@ -179,9 +179,9 @@ type PruneKeepLastN struct {
 	Count int    `yaml:"count"`
 }
 
-type PruneKeepPrefix struct { // FIXME rename to KeepPrefix
-	Type   string `yaml:"type"`
-	Prefix string `yaml:"prefix"`
+type PruneKeepRegex struct { // FIXME rename to KeepRegex
+	Type  string `yaml:"type"`
+	Regex string `yaml:"prefix"`
 }
 
 type LoggingOutletEnum struct {
@@ -301,7 +301,7 @@ func (t *PruningEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error)
 		"not_replicated": &PruneKeepNotReplicated{},
 		"last_n":         &PruneKeepLastN{},
 		"grid":           &PruneGrid{},
-		"prefix":         &PruneKeepPrefix{},
+		"prefix":         &PruneKeepRegex{},
 	})
 	return
 }

@@ -1,11 +1,14 @@
 package pruning
 
 import (
+	"fmt"
+	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/config"
 	"time"
 )
 
 type KeepRule interface {
-	KeepRule(snaps []Snapshot) []Snapshot
+	KeepRule(snaps []Snapshot) (destroyList []Snapshot)
 }
 
 type Snapshot interface {
@@ -17,8 +20,8 @@ type Snapshot interface {
 // The returned snapshot list is guaranteed to only contains elements of input parameter snaps
 func PruneSnapshots(snaps []Snapshot, keepRules []KeepRule) []Snapshot {
 
-	if len(keepRules) == 0 {
-		return snaps
+	if keepRules == nil || len(keepRules) == 0 {
+		return []Snapshot{}
 	}
 
 	remCount := make(map[Snapshot]int, len(snaps))
@@ -37,4 +40,28 @@ func PruneSnapshots(snaps []Snapshot, keepRules []KeepRule) []Snapshot {
 	}
 
 	return remove
+}
+
+func RulesFromConfig(in []config.PruningEnum) (rules []KeepRule, err error) {
+	rules = make([]KeepRule, len(in))
+	for i := range in {
+		rules[i], err = RuleFromConfig(in[i])
+		if err != nil {
+			return nil, errors.Wrapf(err, "cannot build rule #%d", i)
+		}
+	}
+	return rules, nil
+}
+
+func RuleFromConfig(in config.PruningEnum) (KeepRule, error) {
+	switch v := in.Ret.(type) {
+	case *config.PruneKeepNotReplicated:
+		return NewKeepNotReplicated(), nil
+	case *config.PruneKeepLastN:
+		return NewKeepLastN(v.Count)
+	case *config.PruneKeepRegex:
+		return NewKeepRegex(v.Regex)
+	default:
+		return nil, fmt.Errorf("unknown keep rule type %T", v)
+	}
 }

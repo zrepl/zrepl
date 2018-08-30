@@ -16,10 +16,10 @@ func NewKeepLastN(n int) (*KeepLastN, error) {
 	return &KeepLastN{n}, nil
 }
 
-func (k KeepLastN) KeepRule(snaps []Snapshot) []Snapshot {
+func (k KeepLastN) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 
 	if k.n > len(snaps) {
-		return snaps
+		return []Snapshot{}
 	}
 
 	res := shallowCopySnapList(snaps)
@@ -28,5 +28,5 @@ func (k KeepLastN) KeepRule(snaps []Snapshot) []Snapshot {
 		return res[i].Date().After(res[j].Date())
 	})
 
-	return res[:k.n]
+	return res[k.n:]
 }

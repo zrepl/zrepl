@@ -29,17 +29,18 @@ func TestKeepLastN(t *testing.T) {
 			rules: []KeepRule{
 				KeepLastN{2},
 			},
-			exp: map[string]bool{
-				"4": true, "5": true,
+			expDestroy: map[string]bool{
+				"1": true, "2": true, "3": true,
 			},
 		},
-		"keep1": { // Keep one of two with same time
+		"keep1OfTwoWithSameTime": { // Keep one of two with same time
 			inputs: inputs["s1"],
 			rules: []KeepRule{
 				KeepLastN{1},
 			},
-			exp: map[string]bool{
-				"4": true, //5 would be ok too
+			expDestroyAlternatives: []map[string]bool{
+				{"1": true, "2": true, "3": true, "4": true},
+				{"1": true, "2": true, "3": true, "5": true},
 			},
 		},
 		"keepMany": {
@@ -47,20 +48,14 @@ func TestKeepLastN(t *testing.T) {
 			rules: []KeepRule{
 				KeepLastN{100},
 			},
-			exp: map[string]bool{
-				"1": true,
-				"2": true,
-				"3": true,
-				"4": true,
-				"5": true,
-			},
+			expDestroy: map[string]bool{},
 		},
 		"empty": {
 			inputs: inputs["s2"],
 			rules: []KeepRule{
 				KeepLastN{100},
 			},
-			exp: map[string]bool{},
+			expDestroy: map[string]bool{},
 		},
 	}
 

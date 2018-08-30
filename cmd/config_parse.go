@@ -188,7 +188,7 @@ func parseKeepRule(in config.PruningEnum) (p PrunePolicy, err error) {
 	case config.PruneGrid:
 		return retentiongrid.ParseGridPrunePolicy(v, willSeeBookmarks)
 	//case config.PruneKeepLastN:
-	//case config.PruneKeepPrefix:
+	//case config.PruneKeepRegex:
 	//case config.PruneKeepNotReplicated:
 	default:
 		panic(fmt.Sprintf("unknown keep rule type %v", v))
