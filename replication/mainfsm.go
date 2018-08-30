@@ -266,6 +266,10 @@ func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u upda
 			}
 		}
 		qitem := fsrfsm.Done()
+		if err = qitem.UpdateSizeEsitmate(ctx, sender); err != nil {
+			log.WithError(err).Error("cannot get size estimate")
+			return handlePlanningError(err)
+		}
 		q.Add(qitem)
 	}
 

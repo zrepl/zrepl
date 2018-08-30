@@ -40,7 +40,7 @@ func getLogger(ctx context.Context) Logger {
 type Sender interface {
 	// If a non-nil io.ReadCloser is returned, it is guaranteed to be closed before
 	// any next call to the parent github.com/zrepl/zrepl/replication.Endpoint.
-	// returned int64 is the expected size of the stream
+	// If the send request is for dry run the io.ReadCloser will be nil
 	Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error)
 	SnapshotReplicationStatus(ctx context.Context, r *pdu.SnapshotReplicationStatusReq) (*pdu.SnapshotReplicationStatusRes, error)
 }
@@ -103,6 +103,17 @@ func (f *Replication) State() State {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	return f.state
+}
+
+func (f *Replication) UpdateSizeEsitmate(ctx context.Context, sender Sender) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	for _, e := range f.pending {
+		if err := e.updateSizeEstimate(ctx, sender); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type ReplicationBuilder struct {
@@ -344,19 +355,7 @@ func (s *ReplicationStep) doReplication(ctx context.Context, sender Sender, rece
 		return s.state
 	}
 
-	var sr *pdu.SendReq
-	if s.from == nil {
-		sr = &pdu.SendReq{
-			Filesystem: fs,
-			From:       s.to.RelName(), // FIXME fix protocol to use To, like zfs does internally
-		}
-	} else {
-		sr = &pdu.SendReq{
-			Filesystem: fs,
-			From:       s.from.RelName(),
-			To:         s.to.RelName(),
-		}
-	}
+	sr := s.buildSendRequest(false)
 
 	log.WithField("request", sr).Debug("initiate send request")
 	sres, sstream, err := sender.Send(ctx, sr)
@@ -369,7 +368,6 @@ func (s *ReplicationStep) doReplication(ctx context.Context, sender Sender, rece
 		return updateStateError(err)
 	}
 
-	s.expectedSize = sres.ExpectedSize
 	s.byteCounter = util.NewByteCounterReader(sstream)
 	sstream = s.byteCounter
 
@@ -440,6 +438,44 @@ func (s *ReplicationStep) doMarkReplicated(ctx context.Context, sender Sender) S
 	}
 
 	return updateStateCompleted()
+}
+
+func (s *ReplicationStep) updateSizeEstimate(ctx context.Context, sender Sender) error {
+
+	fs := s.parent.fs
+
+	log := getLogger(ctx).
+		WithField("filesystem", fs).
+		WithField("step", s.String())
+
+	sr := s.buildSendRequest(true)
+
+	log.WithField("request", sr).Debug("initiate dry run send request")
+	sres, _, err := sender.Send(ctx, sr)
+	if err != nil {
+		log.WithError(err).Error("dry run send request failed")
+	}
+	s.expectedSize = sres.ExpectedSize
+	return nil
+}
+
+func (s *ReplicationStep) buildSendRequest(dryRun bool) (sr *pdu.SendReq) {
+	fs := s.parent.fs
+	if s.from == nil {
+		sr = &pdu.SendReq{
+			Filesystem: fs,
+			From:       s.to.RelName(), // FIXME fix protocol to use To, like zfs does internally
+			DryRun:     dryRun,
+		}
+	} else {
+		sr = &pdu.SendReq{
+			Filesystem: fs,
+			From:       s.from.RelName(),
+			To:         s.to.RelName(),
+			DryRun:     dryRun,
+		}
+	}
+	return sr
 }
 
 func (s *ReplicationStep) String() string {

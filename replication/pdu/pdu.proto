@@ -50,6 +50,8 @@ message SendReq {
     string ResumeToken  = 4;
     bool Compress = 5;
     bool Dedup = 6;
+
+    bool DryRun = 7;
 }
 
 message Property {
