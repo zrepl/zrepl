@@ -205,15 +205,18 @@ func rightPad(str string, length int, pad string) string {
 func (t *tui) drawBar(name string, status string, bytes int64, totalBytes int64) {
 	t.write(rightPad(name, 20, " "))
 	t.write(" ")
-	t.write(rightPad(status, 20, " "))
+	t.write(rightPad(status, 14, " "))
+	t.write(" ")
 
 	if totalBytes > 0 {
 		length := 50
 		completedLength := int(int64(length) * bytes / totalBytes)
 
+		t.write("[")
 		t.write(times("=", completedLength))
 		t.write(">")
 		t.write(times("-", length-completedLength))
+		t.write("]")
 
 		t.write(" ")
 		t.write(rightPad(ByteCountBinary(bytes) + "/" + ByteCountBinary(bytes), 16, " "))
