@@ -211,7 +211,7 @@ func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u upda
 			return handlePlanningError(err)
 		}
 
-		if len(sfsvs) <= 1 {
+		if len(sfsvs) < 1 {
 			err := errors.New("sender does not have any versions")
 			log.Error(err.Error())
 			q.Add(fsrep.NewReplicationWithPermanentError(fs.Path, err))
