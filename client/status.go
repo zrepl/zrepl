@@ -199,6 +199,9 @@ func times(str string, n int) (out string) {
 }
 
 func rightPad(str string, length int, pad string) string {
+	if len(str) > length {
+		return str[:length]
+	}
 	return str + times(pad, length-len(str))
 }
 
@@ -211,6 +214,9 @@ func (t *tui) drawBar(name string, status string, bytes int64, totalBytes int64)
 	if totalBytes > 0 {
 		length := 50
 		completedLength := int(int64(length) * bytes / totalBytes)
+		if completedLength > length {
+			completedLength = length
+		}
 
 		t.write("[")
 		t.write(times("=", completedLength))
@@ -219,10 +225,23 @@ func (t *tui) drawBar(name string, status string, bytes int64, totalBytes int64)
 		t.write("]")
 
 		t.write(" ")
-		t.write(rightPad(ByteCountBinary(bytes) + "/" + ByteCountBinary(bytes), 16, " "))
+		t.write(rightPad(ByteCountBinary(bytes) + "/" + ByteCountBinary(totalBytes), 20, " "))
 	}
 
 	t.newline()
+}
+
+func StringStepState(s fsrep.StepState) string {
+	switch s {
+	case fsrep.StepReplicationReady: return "Ready"
+	case fsrep.StepReplicationRetry: return "Retry"
+	case fsrep.StepMarkReplicatedReady: return "MarkReady"
+	case fsrep.StepMarkReplicatedRetry: return "MarkRetry"
+	case fsrep.StepPermanentError: return "PermanentError"
+	case fsrep.StepCompleted: return "Completed"
+	default:
+		return fmt.Sprintf("UNKNOWN %d", s)
+	}
 }
 
 func printFilesystem(rep *fsrep.Report, t *tui, versions bool) {
@@ -246,7 +265,7 @@ func printFilesystem(rep *fsrep.Report, t *tui, versions bool) {
 	}
 	if versions && len(rep.Pending) > 0 {
 		v := rep.Pending[0]
-		t.drawBar(" " + v.To, v.Status, v.Bytes, v.ExpectedBytes)
+		t.drawBar(" " + v.To, StringStepState(v.Status), v.Bytes, v.ExpectedBytes)
 	}
 }
 

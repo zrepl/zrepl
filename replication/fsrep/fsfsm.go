@@ -56,7 +56,7 @@ type Receiver interface {
 
 type StepReport struct {
 	From, To string
-	Status   string
+	Status   StepState
 	Problem  string
 	Bytes    int64
 	ExpectedBytes int64
@@ -498,7 +498,7 @@ func (s *ReplicationStep) Report() *StepReport {
 	rep := StepReport{
 		From:   from,
 		To:     s.to.RelName(),
-		Status: s.state.String(),
+		Status: s.state,
 		Bytes:  bytes,
 		ExpectedBytes: s.expectedSize,
 	}
