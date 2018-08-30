@@ -3,6 +3,8 @@ package pruner
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/pruning"
 	"github.com/zrepl/zrepl/replication/pdu"
@@ -63,9 +65,71 @@ type Pruner struct {
 	pruneCompleted []fs
 }
 
-func NewPruner(retryWait time.Duration, target Target, receiver History, rules []pruning.KeepRule) *Pruner {
+type PrunerFactory struct {
+	senderRules   []pruning.KeepRule
+	receiverRules []pruning.KeepRule
+	retryWait     time.Duration
+}
+
+func checkContainsKeep1(rules []pruning.KeepRule) error {
+	if len(rules) == 0 {
+		return nil //No keep rules means keep all - ok
+	}
+	for _, e := range rules {
+		switch e.(type) {
+		case *pruning.KeepLastN:
+			return nil
+		}
+	}
+	return errors.New("sender keep rules must contain last_n or be empty so that the last snapshot is definitely kept")
+}
+
+func NewPrunerFactory(in config.PruningSenderReceiver) (*PrunerFactory, error) {
+	keepRulesReceiver, err := pruning.RulesFromConfig(in.KeepReceiver)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot build receiver pruning rules")
+	}
+
+	keepRulesSender, err := pruning.RulesFromConfig(in.KeepSender)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot build sender pruning rules")
+	}
+
+	if err := checkContainsKeep1(keepRulesSender); err != nil {
+		return nil, err
+	}
+
+	f := &PrunerFactory{
+		keepRulesSender,
+		keepRulesReceiver,
+		10 * time.Second, //FIXME constant
+	}
+	return f, nil
+}
+
+func (f *PrunerFactory) BuildSenderPruner(ctx context.Context, target Target, receiver History) *Pruner {
 	p := &Pruner{
-		args:  args{nil, target, receiver, rules, retryWait}, // ctx is filled in Prune()
+		args: args{
+			WithLogger(ctx, GetLogger(ctx).WithField("prune_side", "sender")),
+			target,
+			receiver,
+			f.senderRules,
+			f.retryWait,
+		},
+		state: Plan,
+	}
+	return p
+}
+
+func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, target Target, receiver History) *Pruner {
+	p := &Pruner{
+		args: args{
+			WithLogger(ctx, GetLogger(ctx).WithField("prune_side", "receiver")),
+			target,
+			receiver,
+			f.receiverRules,
+			f.retryWait,
+		},
 		state: Plan,
 	}
 	return p
@@ -98,8 +162,7 @@ func (s State) statefunc() state {
 type updater func(func(*Pruner)) State
 type state func(args *args, u updater) state
 
-func (p *Pruner) Prune(ctx context.Context) {
-	p.args.ctx = ctx
+func (p *Pruner) Prune() {
 	p.prune(p.args)
 }
 

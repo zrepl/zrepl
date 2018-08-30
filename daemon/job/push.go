@@ -10,10 +10,8 @@ import (
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/endpoint"
-	"github.com/zrepl/zrepl/pruning"
 	"github.com/zrepl/zrepl/replication"
 	"sync"
-	"time"
 )
 
 type Push struct {
@@ -21,8 +19,7 @@ type Push struct {
 	connecter streamrpc.Connecter
 	fsfilter  endpoint.FSFilter
 
-	keepRulesSender   []pruning.KeepRule
-	keepRulesReceiver []pruning.KeepRule
+	prunerFactory *pruner.PrunerFactory
 
 	mtx         sync.Mutex
 	replication *replication.Replication
@@ -39,14 +36,9 @@ func PushFromConfig(g config.Global, in *config.PushJob) (j *Push, err error) {
 		return nil, errors.Wrap(err, "cannnot build filesystem filter")
 	}
 
-	j.keepRulesReceiver, err = pruning.RulesFromConfig(in.Pruning.KeepReceiver)
+	j.prunerFactory, err = pruner.NewPrunerFactory(in.Pruning)
 	if err != nil {
-		return nil, errors.Wrap(err, "cannot build receiver pruning rules")
-	}
-
-	j.keepRulesSender, err = pruning.RulesFromConfig(in.Pruning.KeepSender)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot build sender pruning rules")
+		return nil, err
 	}
 
 	return j, nil
@@ -112,11 +104,11 @@ func (j *Push) do(ctx context.Context) {
 	j.replication.Drive(ctx, sender, receiver)
 
 	// Prune sender
-	senderPruner := pruner.NewPruner(10*time.Second, sender, sender, j.keepRulesSender) // FIXME constant
-	senderPruner.Prune(pruner.WithLogger(ctx, pruner.GetLogger(ctx).WithField("prune_side", "sender")))
+	senderPruner := j.prunerFactory.BuildSenderPruner(ctx, sender, sender)
+	senderPruner.Prune()
 
 	// Prune receiver
-	receiverPruner := pruner.NewPruner(10*time.Second, receiver, sender, j.keepRulesReceiver) // FIXME constant
-	receiverPruner.Prune(pruner.WithLogger(ctx, pruner.GetLogger(ctx).WithField("prune_side", "receiver")))
+	receiverPruner := j.prunerFactory.BuildReceiverPruner(ctx, receiver, sender)
+	receiverPruner.Prune()
 
 }
