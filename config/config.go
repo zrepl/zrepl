@@ -197,6 +197,7 @@ type LoggingOutletCommon struct {
 type StdoutLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
 	Time                bool `yaml:"time,default=true"`
+	Color               bool `yaml:"color,default=true""`
 }
 
 type SyslogLoggingOutlet struct {

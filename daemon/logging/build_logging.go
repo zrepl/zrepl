@@ -8,12 +8,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/replication"
 	"github.com/zrepl/zrepl/tlsconf"
 	"os"
-	"github.com/zrepl/zrepl/daemon/pruner"
 )
 
 func OutletsFromConfig(in []config.LoggingOutletEnum) (*logger.Outlets, error) {
@@ -144,6 +144,9 @@ func parseStdoutOutlet(in *config.StdoutLoggingOutlet, formatter EntryFormatter)
 	writer := os.Stdout
 	if !isatty.IsTerminal(writer.Fd()) && !in.Time {
 		flags &= ^MetadataTime
+	}
+	if isatty.IsTerminal(writer.Fd()) && !in.Color {
+		flags &= ^MetadataColor
 	}
 
 	formatter.SetMetadataFlags(flags)

@@ -67,3 +67,6 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
 [[constraint]]
   name = "github.com/nsf/termbox-go"
   branch = "master"
+[[constraint]]
+  name = "github.com/fatih/color"
+  version = "1.7.0"

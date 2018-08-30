@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/go-logfmt/logfmt"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/logger"
@@ -26,6 +27,7 @@ type MetadataFlags int64
 const (
 	MetadataTime MetadataFlags = 1 << iota
 	MetadataLevel
+	MetadataColor
 
 	MetadataNone MetadataFlags = 0
 	MetadataAll  MetadataFlags = ^0
@@ -69,12 +71,16 @@ func (f *HumanFormatter) ignored(field string) bool {
 func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 
 	var line bytes.Buffer
+	col := color.New()
+	if f.metadataFlags&MetadataColor != 0 {
+		col = e.Color()
+	}
 
 	if f.metadataFlags&MetadataTime != 0 {
 		fmt.Fprintf(&line, "%s ", e.Time.Format(HumanFormatterDateFormat))
 	}
 	if f.metadataFlags&MetadataLevel != 0 {
-		fmt.Fprintf(&line, "[%s]", e.Level.Short())
+		fmt.Fprintf(&line, "[%s]", col.Sprint(e.Level.Short()))
 	}
 
 	prefixFields := []string{JobField, SubsysField}
@@ -85,7 +91,7 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 			continue
 		}
 		if !f.ignored(field) {
-			fmt.Fprintf(&line, "[%s]", val)
+			fmt.Fprintf(&line, "[%s]", col.Sprint(val))
 			prefixed[field] = true
 		}
 	}
@@ -96,15 +102,11 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 	fmt.Fprint(&line, e.Message)
 
 	if len(e.Fields)-len(prefixed) > 0 {
-		fmt.Fprint(&line, " ")
-		enc := logfmt.NewEncoder(&line)
 		for field, value := range e.Fields {
 			if prefixed[field] || f.ignored(field) {
 				continue
 			}
-			if err := logfmtTryEncodeKeyval(enc, field, value); err != nil {
-				return nil, err
-			}
+			fmt.Fprintf(&line, " %s=%q", col.Sprint(field), fmt.Sprint(value))
 		}
 	}
 
