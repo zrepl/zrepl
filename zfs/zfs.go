@@ -14,6 +14,7 @@ import (
 	"github.com/problame/go-rwccmd"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/util"
+	"regexp"
 )
 
 type DatasetPath struct {
@@ -397,14 +398,17 @@ func (p *ZFSProperties) appendArgs(args *[]string) (err error) {
 }
 
 func ZFSSet(fs *DatasetPath, props *ZFSProperties) (err error) {
+	return zfsSet(fs.ToString(), props)
+}
 
+func zfsSet(path string, props *ZFSProperties) (err error) {
 	args := make([]string, 0)
 	args = append(args, "set")
 	err = props.appendArgs(&args)
 	if err != nil {
 		return err
 	}
-	args = append(args, fs.ToString())
+	args = append(args, path)
 
 	cmd := exec.Command(ZFS_BINARY, args...)
 
@@ -426,11 +430,32 @@ func ZFSSet(fs *DatasetPath, props *ZFSProperties) (err error) {
 }
 
 func ZFSGet(fs *DatasetPath, props []string) (*ZFSProperties, error) {
-	args := []string{"get", "-Hp", "-o", "property,value", strings.Join(props, ","), fs.ToString()}
+	return zfsGet(fs.ToString(), props)
+}
 
+var zfsGetDatasetDoesNotExistRegexp = regexp.MustCompile(`^cannot open '(\s+)': dataset does not exist`)
+
+type DatasetDoesNotExist struct {
+	Path string
+}
+
+func (d *DatasetDoesNotExist) Error() string { return fmt.Sprintf("dataset %q does not exist", d.Path) }
+
+func zfsGet(path string, props []string) (*ZFSProperties, error) {
+	args := []string{"get", "-Hp", "-o", "property,value", strings.Join(props, ","), path}
 	cmd := exec.Command(ZFS_BINARY, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if exitErr.Exited() {
+				// screen-scrape output
+				if sm := zfsGetDatasetDoesNotExistRegexp.FindSubmatch(output); sm != nil {
+					if string(sm[1]) == path {
+						return nil, &DatasetDoesNotExist{path}
+					}
+				}
+			}
+		}
 		return nil, err
 	}
 	o := string(output)

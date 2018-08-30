@@ -7,7 +7,10 @@ import (
 )
 
 func (v *FilesystemVersion) RelName() string {
-	zv := v.ZFSFilesystemVersion()
+	zv, err := v.ZFSFilesystemVersion()
+	if err != nil {
+		panic(err)
+	}
 	return zv.String()
 }
 
@@ -22,7 +25,7 @@ func (v FilesystemVersion_VersionType) ZFSVersionType() zfs.VersionType {
 	}
 }
 
-func FilesystemVersionFromZFS(fsv zfs.FilesystemVersion) *FilesystemVersion {
+func FilesystemVersionFromZFS(fsv *zfs.FilesystemVersion) *FilesystemVersion {
 	var t FilesystemVersion_VersionType
 	switch fsv.Type {
 	case zfs.Bookmark:
@@ -58,14 +61,10 @@ func (v *FilesystemVersion) SnapshotTime() time.Time {
 	return t
 }
 
-func (v *FilesystemVersion) ZFSFilesystemVersion() *zfs.FilesystemVersion {
-	ct := time.Time{}
-	if v.Creation != "" {
-		var err error
-		ct, err = time.Parse(time.RFC3339, v.Creation)
-		if err != nil {
-			panic(err)
-		}
+func (v *FilesystemVersion) ZFSFilesystemVersion() (*zfs.FilesystemVersion, error) {
+	ct, err := v.CreationAsTime()
+	if err != nil {
+		return nil, err
 	}
 	return &zfs.FilesystemVersion{
 		Type:      v.Type.ZFSVersionType(),
@@ -73,5 +72,5 @@ func (v *FilesystemVersion) ZFSFilesystemVersion() *zfs.FilesystemVersion {
 		Guid:      v.Guid,
 		CreateTXG: v.CreateTXG,
 		Creation:  ct,
-	}
+	}, nil
 }

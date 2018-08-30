@@ -38,7 +38,30 @@ func (x FilesystemVersion_VersionType) String() string {
 	return proto.EnumName(FilesystemVersion_VersionType_name, int32(x))
 }
 func (FilesystemVersion_VersionType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_25ca9e5977a7ce3f, []int{5, 0}
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{5, 0}
+}
+
+type SnapshotReplicationStatusReq_Op int32
+
+const (
+	SnapshotReplicationStatusReq_Get           SnapshotReplicationStatusReq_Op = 0
+	SnapshotReplicationStatusReq_SetReplicated SnapshotReplicationStatusReq_Op = 1
+)
+
+var SnapshotReplicationStatusReq_Op_name = map[int32]string{
+	0: "Get",
+	1: "SetReplicated",
+}
+var SnapshotReplicationStatusReq_Op_value = map[string]int32{
+	"Get":           0,
+	"SetReplicated": 1,
+}
+
+func (x SnapshotReplicationStatusReq_Op) String() string {
+	return proto.EnumName(SnapshotReplicationStatusReq_Op_name, int32(x))
+}
+func (SnapshotReplicationStatusReq_Op) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{14, 0}
 }
 
 type ListFilesystemReq struct {
@@ -51,7 +74,7 @@ func (m *ListFilesystemReq) Reset()         { *m = ListFilesystemReq{} }
 func (m *ListFilesystemReq) String() string { return proto.CompactTextString(m) }
 func (*ListFilesystemReq) ProtoMessage()    {}
 func (*ListFilesystemReq) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_25ca9e5977a7ce3f, []int{0}
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{0}
 }
 func (m *ListFilesystemReq) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListFilesystemReq.Unmarshal(m, b)
@@ -82,7 +105,7 @@ func (m *ListFilesystemRes) Reset()         { *m = ListFilesystemRes{} }
 func (m *ListFilesystemRes) String() string { return proto.CompactTextString(m) }
 func (*ListFilesystemRes) ProtoMessage()    {}
 func (*ListFilesystemRes) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_25ca9e5977a7ce3f, []int{1}
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{1}
 }
 func (m *ListFilesystemRes) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListFilesystemRes.Unmarshal(m, b)
@@ -121,7 +144,7 @@ func (m *Filesystem) Reset()         { *m = Filesystem{} }
 func (m *Filesystem) String() string { return proto.CompactTextString(m) }
 func (*Filesystem) ProtoMessage()    {}
 func (*Filesystem) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_25ca9e5977a7ce3f, []int{2}
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{2}
 }
 func (m *Filesystem) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Filesystem.Unmarshal(m, b)
@@ -166,7 +189,7 @@ func (m *ListFilesystemVersionsReq) Reset()         { *m = ListFilesystemVersion
 func (m *ListFilesystemVersionsReq) String() string { return proto.CompactTextString(m) }
 func (*ListFilesystemVersionsReq) ProtoMessage()    {}
 func (*ListFilesystemVersionsReq) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_25ca9e5977a7ce3f, []int{3}
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{3}
 }
 func (m *ListFilesystemVersionsReq) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListFilesystemVersionsReq.Unmarshal(m, b)
@@ -204,7 +227,7 @@ func (m *ListFilesystemVersionsRes) Reset()         { *m = ListFilesystemVersion
 func (m *ListFilesystemVersionsRes) String() string { return proto.CompactTextString(m) }
 func (*ListFilesystemVersionsRes) ProtoMessage()    {}
 func (*ListFilesystemVersionsRes) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_25ca9e5977a7ce3f, []int{4}
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{4}
 }
 func (m *ListFilesystemVersionsRes) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListFilesystemVersionsRes.Unmarshal(m, b)
@@ -246,7 +269,7 @@ func (m *FilesystemVersion) Reset()         { *m = FilesystemVersion{} }
 func (m *FilesystemVersion) String() string { return proto.CompactTextString(m) }
 func (*FilesystemVersion) ProtoMessage()    {}
 func (*FilesystemVersion) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_25ca9e5977a7ce3f, []int{5}
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{5}
 }
 func (m *FilesystemVersion) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FilesystemVersion.Unmarshal(m, b)
@@ -325,7 +348,7 @@ func (m *SendReq) Reset()         { *m = SendReq{} }
 func (m *SendReq) String() string { return proto.CompactTextString(m) }
 func (*SendReq) ProtoMessage()    {}
 func (*SendReq) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_25ca9e5977a7ce3f, []int{6}
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{6}
 }
 func (m *SendReq) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SendReq.Unmarshal(m, b)
@@ -399,7 +422,7 @@ func (m *Property) Reset()         { *m = Property{} }
 func (m *Property) String() string { return proto.CompactTextString(m) }
 func (*Property) ProtoMessage()    {}
 func (*Property) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_25ca9e5977a7ce3f, []int{7}
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{7}
 }
 func (m *Property) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Property.Unmarshal(m, b)
@@ -446,7 +469,7 @@ func (m *SendRes) Reset()         { *m = SendRes{} }
 func (m *SendRes) String() string { return proto.CompactTextString(m) }
 func (*SendRes) ProtoMessage()    {}
 func (*SendRes) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_25ca9e5977a7ce3f, []int{8}
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{8}
 }
 func (m *SendRes) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SendRes.Unmarshal(m, b)
@@ -493,7 +516,7 @@ func (m *ReceiveReq) Reset()         { *m = ReceiveReq{} }
 func (m *ReceiveReq) String() string { return proto.CompactTextString(m) }
 func (*ReceiveReq) ProtoMessage()    {}
 func (*ReceiveReq) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_25ca9e5977a7ce3f, []int{9}
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{9}
 }
 func (m *ReceiveReq) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ReceiveReq.Unmarshal(m, b)
@@ -537,7 +560,7 @@ func (m *ReceiveRes) Reset()         { *m = ReceiveRes{} }
 func (m *ReceiveRes) String() string { return proto.CompactTextString(m) }
 func (*ReceiveRes) ProtoMessage()    {}
 func (*ReceiveRes) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_25ca9e5977a7ce3f, []int{10}
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{10}
 }
 func (m *ReceiveRes) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ReceiveRes.Unmarshal(m, b)
@@ -557,6 +580,229 @@ func (m *ReceiveRes) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ReceiveRes proto.InternalMessageInfo
 
+type DestroySnapshotsReq struct {
+	Filesystem string `protobuf:"bytes,1,opt,name=Filesystem,proto3" json:"Filesystem,omitempty"`
+	// Path to filesystem, snapshot or bookmark to be destroyed
+	Snapshots            []*FilesystemVersion `protobuf:"bytes,2,rep,name=Snapshots,proto3" json:"Snapshots,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
+}
+
+func (m *DestroySnapshotsReq) Reset()         { *m = DestroySnapshotsReq{} }
+func (m *DestroySnapshotsReq) String() string { return proto.CompactTextString(m) }
+func (*DestroySnapshotsReq) ProtoMessage()    {}
+func (*DestroySnapshotsReq) Descriptor() ([]byte, []int) {
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{11}
+}
+func (m *DestroySnapshotsReq) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DestroySnapshotsReq.Unmarshal(m, b)
+}
+func (m *DestroySnapshotsReq) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DestroySnapshotsReq.Marshal(b, m, deterministic)
+}
+func (dst *DestroySnapshotsReq) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DestroySnapshotsReq.Merge(dst, src)
+}
+func (m *DestroySnapshotsReq) XXX_Size() int {
+	return xxx_messageInfo_DestroySnapshotsReq.Size(m)
+}
+func (m *DestroySnapshotsReq) XXX_DiscardUnknown() {
+	xxx_messageInfo_DestroySnapshotsReq.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DestroySnapshotsReq proto.InternalMessageInfo
+
+func (m *DestroySnapshotsReq) GetFilesystem() string {
+	if m != nil {
+		return m.Filesystem
+	}
+	return ""
+}
+
+func (m *DestroySnapshotsReq) GetSnapshots() []*FilesystemVersion {
+	if m != nil {
+		return m.Snapshots
+	}
+	return nil
+}
+
+type DestroySnapshotRes struct {
+	Snapshot             *FilesystemVersion `protobuf:"bytes,1,opt,name=Snapshot,proto3" json:"Snapshot,omitempty"`
+	Error                string             `protobuf:"bytes,2,opt,name=Error,proto3" json:"Error,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
+}
+
+func (m *DestroySnapshotRes) Reset()         { *m = DestroySnapshotRes{} }
+func (m *DestroySnapshotRes) String() string { return proto.CompactTextString(m) }
+func (*DestroySnapshotRes) ProtoMessage()    {}
+func (*DestroySnapshotRes) Descriptor() ([]byte, []int) {
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{12}
+}
+func (m *DestroySnapshotRes) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DestroySnapshotRes.Unmarshal(m, b)
+}
+func (m *DestroySnapshotRes) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DestroySnapshotRes.Marshal(b, m, deterministic)
+}
+func (dst *DestroySnapshotRes) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DestroySnapshotRes.Merge(dst, src)
+}
+func (m *DestroySnapshotRes) XXX_Size() int {
+	return xxx_messageInfo_DestroySnapshotRes.Size(m)
+}
+func (m *DestroySnapshotRes) XXX_DiscardUnknown() {
+	xxx_messageInfo_DestroySnapshotRes.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DestroySnapshotRes proto.InternalMessageInfo
+
+func (m *DestroySnapshotRes) GetSnapshot() *FilesystemVersion {
+	if m != nil {
+		return m.Snapshot
+	}
+	return nil
+}
+
+func (m *DestroySnapshotRes) GetError() string {
+	if m != nil {
+		return m.Error
+	}
+	return ""
+}
+
+type DestroySnapshotsRes struct {
+	Results              []*DestroySnapshotRes `protobuf:"bytes,1,rep,name=Results,proto3" json:"Results,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
+	XXX_unrecognized     []byte                `json:"-"`
+	XXX_sizecache        int32                 `json:"-"`
+}
+
+func (m *DestroySnapshotsRes) Reset()         { *m = DestroySnapshotsRes{} }
+func (m *DestroySnapshotsRes) String() string { return proto.CompactTextString(m) }
+func (*DestroySnapshotsRes) ProtoMessage()    {}
+func (*DestroySnapshotsRes) Descriptor() ([]byte, []int) {
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{13}
+}
+func (m *DestroySnapshotsRes) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DestroySnapshotsRes.Unmarshal(m, b)
+}
+func (m *DestroySnapshotsRes) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DestroySnapshotsRes.Marshal(b, m, deterministic)
+}
+func (dst *DestroySnapshotsRes) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DestroySnapshotsRes.Merge(dst, src)
+}
+func (m *DestroySnapshotsRes) XXX_Size() int {
+	return xxx_messageInfo_DestroySnapshotsRes.Size(m)
+}
+func (m *DestroySnapshotsRes) XXX_DiscardUnknown() {
+	xxx_messageInfo_DestroySnapshotsRes.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DestroySnapshotsRes proto.InternalMessageInfo
+
+func (m *DestroySnapshotsRes) GetResults() []*DestroySnapshotRes {
+	if m != nil {
+		return m.Results
+	}
+	return nil
+}
+
+type SnapshotReplicationStatusReq struct {
+	Filesystem           string                          `protobuf:"bytes,1,opt,name=Filesystem,proto3" json:"Filesystem,omitempty"`
+	Snapshot             string                          `protobuf:"bytes,2,opt,name=Snapshot,proto3" json:"Snapshot,omitempty"`
+	Op                   SnapshotReplicationStatusReq_Op `protobuf:"varint,3,opt,name=op,proto3,enum=pdu.SnapshotReplicationStatusReq_Op" json:"op,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                        `json:"-"`
+	XXX_unrecognized     []byte                          `json:"-"`
+	XXX_sizecache        int32                           `json:"-"`
+}
+
+func (m *SnapshotReplicationStatusReq) Reset()         { *m = SnapshotReplicationStatusReq{} }
+func (m *SnapshotReplicationStatusReq) String() string { return proto.CompactTextString(m) }
+func (*SnapshotReplicationStatusReq) ProtoMessage()    {}
+func (*SnapshotReplicationStatusReq) Descriptor() ([]byte, []int) {
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{14}
+}
+func (m *SnapshotReplicationStatusReq) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SnapshotReplicationStatusReq.Unmarshal(m, b)
+}
+func (m *SnapshotReplicationStatusReq) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SnapshotReplicationStatusReq.Marshal(b, m, deterministic)
+}
+func (dst *SnapshotReplicationStatusReq) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SnapshotReplicationStatusReq.Merge(dst, src)
+}
+func (m *SnapshotReplicationStatusReq) XXX_Size() int {
+	return xxx_messageInfo_SnapshotReplicationStatusReq.Size(m)
+}
+func (m *SnapshotReplicationStatusReq) XXX_DiscardUnknown() {
+	xxx_messageInfo_SnapshotReplicationStatusReq.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SnapshotReplicationStatusReq proto.InternalMessageInfo
+
+func (m *SnapshotReplicationStatusReq) GetFilesystem() string {
+	if m != nil {
+		return m.Filesystem
+	}
+	return ""
+}
+
+func (m *SnapshotReplicationStatusReq) GetSnapshot() string {
+	if m != nil {
+		return m.Snapshot
+	}
+	return ""
+}
+
+func (m *SnapshotReplicationStatusReq) GetOp() SnapshotReplicationStatusReq_Op {
+	if m != nil {
+		return m.Op
+	}
+	return SnapshotReplicationStatusReq_Get
+}
+
+type SnapshotReplicationStatusRes struct {
+	Replicated           bool     `protobuf:"varint,1,opt,name=Replicated,proto3" json:"Replicated,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SnapshotReplicationStatusRes) Reset()         { *m = SnapshotReplicationStatusRes{} }
+func (m *SnapshotReplicationStatusRes) String() string { return proto.CompactTextString(m) }
+func (*SnapshotReplicationStatusRes) ProtoMessage()    {}
+func (*SnapshotReplicationStatusRes) Descriptor() ([]byte, []int) {
+	return fileDescriptor_pdu_e1dccbd3b8cde5a3, []int{15}
+}
+func (m *SnapshotReplicationStatusRes) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SnapshotReplicationStatusRes.Unmarshal(m, b)
+}
+func (m *SnapshotReplicationStatusRes) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SnapshotReplicationStatusRes.Marshal(b, m, deterministic)
+}
+func (dst *SnapshotReplicationStatusRes) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SnapshotReplicationStatusRes.Merge(dst, src)
+}
+func (m *SnapshotReplicationStatusRes) XXX_Size() int {
+	return xxx_messageInfo_SnapshotReplicationStatusRes.Size(m)
+}
+func (m *SnapshotReplicationStatusRes) XXX_DiscardUnknown() {
+	xxx_messageInfo_SnapshotReplicationStatusRes.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SnapshotReplicationStatusRes proto.InternalMessageInfo
+
+func (m *SnapshotReplicationStatusRes) GetReplicated() bool {
+	if m != nil {
+		return m.Replicated
+	}
+	return false
+}
+
 func init() {
 	proto.RegisterType((*ListFilesystemReq)(nil), "pdu.ListFilesystemReq")
 	proto.RegisterType((*ListFilesystemRes)(nil), "pdu.ListFilesystemRes")
@@ -569,39 +815,55 @@ func init() {
 	proto.RegisterType((*SendRes)(nil), "pdu.SendRes")
 	proto.RegisterType((*ReceiveReq)(nil), "pdu.ReceiveReq")
 	proto.RegisterType((*ReceiveRes)(nil), "pdu.ReceiveRes")
+	proto.RegisterType((*DestroySnapshotsReq)(nil), "pdu.DestroySnapshotsReq")
+	proto.RegisterType((*DestroySnapshotRes)(nil), "pdu.DestroySnapshotRes")
+	proto.RegisterType((*DestroySnapshotsRes)(nil), "pdu.DestroySnapshotsRes")
+	proto.RegisterType((*SnapshotReplicationStatusReq)(nil), "pdu.SnapshotReplicationStatusReq")
+	proto.RegisterType((*SnapshotReplicationStatusRes)(nil), "pdu.SnapshotReplicationStatusRes")
 	proto.RegisterEnum("pdu.FilesystemVersion_VersionType", FilesystemVersion_VersionType_name, FilesystemVersion_VersionType_value)
+	proto.RegisterEnum("pdu.SnapshotReplicationStatusReq_Op", SnapshotReplicationStatusReq_Op_name, SnapshotReplicationStatusReq_Op_value)
 }
 
-func init() { proto.RegisterFile("pdu.proto", fileDescriptor_pdu_25ca9e5977a7ce3f) }
+func init() { proto.RegisterFile("pdu.proto", fileDescriptor_pdu_e1dccbd3b8cde5a3) }
 
-var fileDescriptor_pdu_25ca9e5977a7ce3f = []byte{
-	// 445 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x53, 0xc1, 0x6e, 0xd3, 0x40,
-	0x10, 0x65, 0x13, 0xa7, 0x38, 0x93, 0xd2, 0xa6, 0x4b, 0x85, 0x0c, 0x42, 0x28, 0xda, 0x53, 0x40,
-	0x22, 0x12, 0x01, 0x71, 0xe1, 0xd6, 0xa2, 0xf4, 0x82, 0xa0, 0xda, 0x9a, 0xaa, 0x57, 0x17, 0x8f,
-	0x54, 0x2b, 0xb1, 0x77, 0xbb, 0x63, 0x23, 0xe5, 0x73, 0xf8, 0x2b, 0x3e, 0x07, 0x79, 0x6a, 0x27,
-	0x4b, 0x0c, 0x52, 0x4e, 0x99, 0xf7, 0x66, 0x32, 0xf3, 0xe6, 0xcd, 0x1a, 0x86, 0x36, 0xad, 0x66,
-	0xd6, 0x99, 0xd2, 0xc8, 0xbe, 0x4d, 0x2b, 0xf5, 0x14, 0x4e, 0xbe, 0x64, 0x54, 0x2e, 0xb2, 0x15,
-	0xd2, 0x9a, 0x4a, 0xcc, 0x35, 0xde, 0xab, 0x45, 0x97, 0x24, 0xf9, 0x0e, 0x46, 0x5b, 0x82, 0x22,
-	0x31, 0xe9, 0x4f, 0x47, 0xf3, 0xe3, 0x59, 0xdd, 0xcf, 0x2b, 0xf4, 0x6b, 0xd4, 0x19, 0xc0, 0x16,
-	0x4a, 0x09, 0xc1, 0x65, 0x52, 0xde, 0x45, 0x62, 0x22, 0xa6, 0x43, 0xcd, 0xb1, 0x9c, 0xc0, 0x48,
-	0x23, 0x55, 0x39, 0xc6, 0x66, 0x89, 0x45, 0xd4, 0xe3, 0x94, 0x4f, 0xa9, 0x4f, 0xf0, 0xfc, 0x6f,
-	0x2d, 0xd7, 0xe8, 0x28, 0x33, 0x05, 0x69, 0xbc, 0x97, 0xaf, 0xfc, 0x01, 0x4d, 0x63, 0x8f, 0x51,
-	0xdf, 0xfe, 0xff, 0x67, 0x92, 0x73, 0x08, 0x5b, 0xd8, 0x6c, 0xf3, 0x6c, 0x67, 0x9b, 0x26, 0xad,
-	0x37, 0x75, 0xea, 0xb7, 0x80, 0x93, 0x4e, 0x5e, 0x7e, 0x84, 0x20, 0x5e, 0x5b, 0x64, 0x01, 0x47,
-	0x73, 0xf5, 0xef, 0x2e, 0xb3, 0xe6, 0xb7, 0xae, 0xd4, 0x5c, 0x5f, 0x3b, 0xf2, 0x35, 0xc9, 0xb1,
-	0x59, 0x9b, 0xe3, 0x9a, 0xbb, 0xa8, 0xb2, 0x34, 0xea, 0x4f, 0xc4, 0x34, 0xd0, 0x1c, 0xcb, 0x97,
-	0x30, 0x3c, 0x77, 0x98, 0x94, 0x18, 0xdf, 0x5c, 0x44, 0x01, 0x27, 0xb6, 0x84, 0x7c, 0x01, 0x21,
-	0x83, 0xcc, 0x14, 0xd1, 0x80, 0x3b, 0x6d, 0xb0, 0x7a, 0x0d, 0x23, 0x6f, 0xac, 0x3c, 0x84, 0xf0,
-	0xaa, 0x48, 0x2c, 0xdd, 0x99, 0x72, 0xfc, 0xa8, 0x46, 0x67, 0xc6, 0x2c, 0xf3, 0xc4, 0x2d, 0xc7,
-	0x42, 0xfd, 0x12, 0xf0, 0xf8, 0x0a, 0x8b, 0x74, 0x0f, 0x5f, 0x6b, 0x91, 0x0b, 0x67, 0xf2, 0x56,
-	0x78, 0x1d, 0xcb, 0x23, 0xe8, 0xc5, 0x86, 0x65, 0x0f, 0x75, 0x2f, 0x36, 0xbb, 0xa7, 0x0d, 0x3a,
-	0xa7, 0x65, 0xe1, 0x26, 0xb7, 0x0e, 0x89, 0x58, 0x78, 0xa8, 0x37, 0x58, 0x9e, 0xc2, 0xe0, 0x33,
-	0xa6, 0x95, 0x8d, 0x0e, 0x38, 0xf1, 0x00, 0xd4, 0x07, 0x08, 0x2f, 0x9d, 0xb1, 0xe8, 0xca, 0xf5,
-	0xc6, 0x3c, 0xe1, 0x99, 0x77, 0x0a, 0x83, 0xeb, 0x64, 0x55, 0xb5, 0x8e, 0x3e, 0x00, 0x75, 0xdb,
-	0x2e, 0x46, 0x72, 0x0a, 0xc7, 0xdf, 0x09, 0x53, 0x5f, 0x98, 0xe0, 0x01, 0xbb, 0xb4, 0x7c, 0x0b,
-	0xd0, 0x8c, 0xca, 0x90, 0xa2, 0x1e, 0xbf, 0x8f, 0x27, 0x7c, 0xd9, 0x56, 0x81, 0xf6, 0x0a, 0xd4,
-	0x0d, 0x80, 0xc6, 0x1f, 0x98, 0xfd, 0xc4, 0x7d, 0xfc, 0x7b, 0x03, 0xe3, 0xf3, 0x15, 0x26, 0x6e,
-	0xf7, 0xed, 0x87, 0xba, 0xc3, 0xab, 0x43, 0xaf, 0x33, 0xdd, 0x1e, 0xf0, 0xb7, 0xfb, 0xfe, 0x4f,
-	0x00, 0x00, 0x00, 0xff, 0xff, 0xfd, 0xc4, 0x8d, 0xb7, 0xc8, 0x03, 0x00, 0x00,
+var fileDescriptor_pdu_e1dccbd3b8cde5a3 = []byte{
+	// 595 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0xdd, 0x6e, 0x12, 0x41,
+	0x14, 0x76, 0x17, 0x5a, 0x96, 0x43, 0x4b, 0x61, 0xda, 0xe8, 0xda, 0x34, 0x86, 0x4c, 0xbc, 0x40,
+	0x13, 0x49, 0x44, 0xe2, 0x8d, 0x89, 0x17, 0x6d, 0x05, 0x2f, 0x8c, 0x34, 0x03, 0x36, 0xbd, 0x32,
+	0xd9, 0x76, 0x4f, 0xd2, 0x0d, 0x2c, 0x33, 0x9d, 0xd9, 0x35, 0xe1, 0x71, 0x7c, 0x05, 0x9f, 0xc6,
+	0xc7, 0x31, 0x33, 0xec, 0xcf, 0x08, 0x2d, 0xe1, 0x8a, 0xf9, 0xce, 0xf9, 0x38, 0xe7, 0x3b, 0x7f,
+	0x0b, 0x75, 0x11, 0xa6, 0x3d, 0x21, 0x79, 0xc2, 0x49, 0x45, 0x84, 0x29, 0x3d, 0x86, 0xf6, 0xb7,
+	0x48, 0x25, 0xc3, 0x68, 0x8e, 0x6a, 0xa9, 0x12, 0x8c, 0x19, 0x3e, 0xd0, 0xe1, 0xa6, 0x51, 0x91,
+	0xf7, 0xd0, 0x28, 0x0d, 0xca, 0x77, 0x3a, 0x95, 0x6e, 0xa3, 0x7f, 0xd4, 0xd3, 0xf1, 0x2c, 0xa2,
+	0xcd, 0xa1, 0xe7, 0x00, 0x25, 0x24, 0x04, 0xaa, 0x57, 0x41, 0x72, 0xef, 0x3b, 0x1d, 0xa7, 0x5b,
+	0x67, 0xe6, 0x4d, 0x3a, 0xd0, 0x60, 0xa8, 0xd2, 0x18, 0xa7, 0x7c, 0x86, 0x0b, 0xdf, 0x35, 0x2e,
+	0xdb, 0x44, 0x3f, 0xc1, 0xcb, 0xff, 0xb5, 0x5c, 0xa3, 0x54, 0x11, 0x5f, 0x28, 0x86, 0x0f, 0xe4,
+	0x95, 0x9d, 0x20, 0x0b, 0x6c, 0x59, 0xe8, 0xf8, 0xe9, 0x3f, 0x2b, 0xd2, 0x07, 0x2f, 0x87, 0x59,
+	0x35, 0xcf, 0xd7, 0xaa, 0xc9, 0xdc, 0xac, 0xe0, 0xd1, 0xbf, 0x0e, 0xb4, 0x37, 0xfc, 0xe4, 0x23,
+	0x54, 0xa7, 0x4b, 0x81, 0x46, 0x40, 0xb3, 0x4f, 0x1f, 0x8f, 0xd2, 0xcb, 0x7e, 0x35, 0x93, 0x19,
+	0xbe, 0xee, 0xc8, 0xf7, 0x20, 0xc6, 0xac, 0x6c, 0xf3, 0xd6, 0xb6, 0x51, 0x1a, 0x85, 0x7e, 0xa5,
+	0xe3, 0x74, 0xab, 0xcc, 0xbc, 0xc9, 0x19, 0xd4, 0x2f, 0x24, 0x06, 0x09, 0x4e, 0x6f, 0x46, 0x7e,
+	0xd5, 0x38, 0x4a, 0x03, 0x39, 0x05, 0xcf, 0x80, 0x88, 0x2f, 0xfc, 0x3d, 0x13, 0xa9, 0xc0, 0xf4,
+	0x0d, 0x34, 0xac, 0xb4, 0xe4, 0x00, 0xbc, 0xc9, 0x22, 0x10, 0xea, 0x9e, 0x27, 0xad, 0x67, 0x1a,
+	0x9d, 0x73, 0x3e, 0x8b, 0x03, 0x39, 0x6b, 0x39, 0xf4, 0xb7, 0x03, 0xb5, 0x09, 0x2e, 0xc2, 0x1d,
+	0xfa, 0xaa, 0x45, 0x0e, 0x25, 0x8f, 0x73, 0xe1, 0xfa, 0x4d, 0x9a, 0xe0, 0x4e, 0xb9, 0x91, 0x5d,
+	0x67, 0xee, 0x94, 0xaf, 0x8f, 0xb6, 0xba, 0x31, 0x5a, 0x23, 0x9c, 0xc7, 0x42, 0xa2, 0x52, 0x46,
+	0xb8, 0xc7, 0x0a, 0x4c, 0x4e, 0x60, 0xef, 0x12, 0xc3, 0x54, 0xf8, 0xfb, 0xc6, 0xb1, 0x02, 0x74,
+	0x00, 0xde, 0x95, 0xe4, 0x02, 0x65, 0xb2, 0x2c, 0x9a, 0xe7, 0x58, 0xcd, 0x3b, 0x81, 0xbd, 0xeb,
+	0x60, 0x9e, 0xe6, 0x1d, 0x5d, 0x01, 0x7a, 0x9b, 0x17, 0xa6, 0x48, 0x17, 0x8e, 0x7e, 0x28, 0x0c,
+	0x6d, 0x61, 0x8e, 0x49, 0xb0, 0x6e, 0x26, 0xef, 0x00, 0xb2, 0x54, 0x11, 0x2a, 0xdf, 0x35, 0xfb,
+	0x71, 0x68, 0x26, 0x9b, 0x2b, 0x60, 0x16, 0x81, 0xde, 0x00, 0x30, 0xbc, 0xc3, 0xe8, 0x17, 0xee,
+	0xd2, 0xbf, 0xb7, 0xd0, 0xba, 0x98, 0x63, 0x20, 0xd7, 0x77, 0xdf, 0x63, 0x1b, 0x76, 0x7a, 0x60,
+	0x45, 0x56, 0x74, 0x06, 0xc7, 0x97, 0xa8, 0x12, 0xc9, 0x97, 0xf9, 0x20, 0x77, 0x39, 0x04, 0x32,
+	0x80, 0x7a, 0xc1, 0xcf, 0x8a, 0x79, 0x6a, 0xd9, 0x4b, 0x22, 0xfd, 0x09, 0x64, 0x2d, 0x59, 0x76,
+	0x37, 0x39, 0x34, 0x99, 0xb6, 0xdc, 0x4d, 0xce, 0xd3, 0x83, 0xf9, 0x22, 0x25, 0x97, 0xf9, 0x60,
+	0x0c, 0xa0, 0x5f, 0x1f, 0x2b, 0x46, 0x7f, 0x69, 0x6a, 0xba, 0x01, 0xf3, 0x24, 0xbf, 0xcb, 0x17,
+	0x26, 0xfe, 0xa6, 0x14, 0x96, 0xf3, 0xe8, 0x1f, 0x07, 0xce, 0x4a, 0x87, 0x98, 0x47, 0x77, 0x66,
+	0xff, 0x27, 0x49, 0x90, 0xa4, 0x3b, 0x35, 0xe8, 0xd4, 0x2a, 0x6a, 0xa5, 0xb1, 0x14, 0x3f, 0x00,
+	0x97, 0x0b, 0xb3, 0xd9, 0xcd, 0xfe, 0x6b, 0x23, 0x65, 0x5b, 0xaa, 0xde, 0x58, 0x30, 0x97, 0x0b,
+	0xda, 0x01, 0x77, 0x2c, 0x48, 0x0d, 0x2a, 0x23, 0xd4, 0xc7, 0xd6, 0x86, 0xc3, 0x09, 0x16, 0x7f,
+	0xc0, 0xb0, 0xe5, 0xd0, 0xcf, 0x5b, 0x35, 0x2b, 0xad, 0xb9, 0xe4, 0x67, 0x7b, 0x6a, 0x59, 0x6e,
+	0xf7, 0xcd, 0x77, 0xfc, 0xc3, 0xbf, 0x00, 0x00, 0x00, 0xff, 0xff, 0xf6, 0x1a, 0xe7, 0xf6, 0xd4,
+	0x05, 0x00, 0x00,
 }

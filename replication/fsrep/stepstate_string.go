@@ -5,13 +5,15 @@ package fsrep
 import "strconv"
 
 const (
-	_StepState_name_0 = "StepReadyStepRetry"
-	_StepState_name_1 = "StepPermanentError"
-	_StepState_name_2 = "StepCompleted"
+	_StepState_name_0 = "StepReplicationReadyStepReplicationRetry"
+	_StepState_name_1 = "StepMarkReplicatedReady"
+	_StepState_name_2 = "StepMarkReplicatedRetry"
+	_StepState_name_3 = "StepPermanentError"
+	_StepState_name_4 = "StepCompleted"
 )
 
 var (
-	_StepState_index_0 = [...]uint8{0, 9, 18}
+	_StepState_index_0 = [...]uint8{0, 20, 40}
 )
 
 func (i StepState) String() string {
@@ -23,6 +25,10 @@ func (i StepState) String() string {
 		return _StepState_name_1
 	case i == 8:
 		return _StepState_name_2
+	case i == 16:
+		return _StepState_name_3
+	case i == 32:
+		return _StepState_name_4
 	default:
 		return "StepState(" + strconv.FormatInt(int64(i), 10) + ")"
 	}

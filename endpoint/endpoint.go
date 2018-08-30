@@ -4,6 +4,7 @@ package endpoint
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
@@ -56,7 +57,7 @@ func (p *Sender) ListFilesystemVersions(ctx context.Context, fs string) ([]*pdu.
 	}
 	rfsvs := make([]*pdu.FilesystemVersion, len(fsvs))
 	for i := range fsvs {
-		rfsvs[i] = pdu.FilesystemVersionFromZFS(fsvs[i])
+		rfsvs[i] = pdu.FilesystemVersionFromZFS(&fsvs[i])
 	}
 	return rfsvs, nil
 }
@@ -78,6 +79,62 @@ func (p *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 		return nil, nil, err
 	}
 	return &pdu.SendRes{}, stream, nil
+}
+
+func (p *Sender) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error) {
+	dp, err := zfs.NewDatasetPath(req.Filesystem)
+	if err != nil {
+		return nil, err
+	}
+	pass, err := p.FSFilter.Filter(dp)
+	if err != nil {
+		return nil, err
+	}
+	if !pass {
+		return nil, replication.NewFilteredError(req.Filesystem)
+	}
+
+	return doDestroySnapshots(ctx, dp, req.Snapshots)
+}
+
+// Since replication always happens from sender to receiver, this method  is only ipmlemented for the sender.
+// If this method returns a *zfs.DatasetDoesNotExist as an error, it might be a good indicator
+// that something is wrong with the pruning logic, which is the only consumer of this method.
+func (p *Sender) SnapshotReplicationStatus(ctx context.Context, req *pdu.SnapshotReplicationStatusReq) (*pdu.SnapshotReplicationStatusRes, error) {
+	dp, err := zfs.NewDatasetPath(req.Filesystem)
+	if err != nil {
+		return nil, err
+	}
+	pass, err := p.FSFilter.Filter(dp)
+	if err != nil {
+		return nil, err
+	}
+	if !pass {
+		return nil, replication.NewFilteredError(req.Filesystem)
+	}
+
+	version := zfs.FilesystemVersion{
+		Type: zfs.Snapshot,
+		Name: req.Snapshot, //FIXME validation
+	}
+
+	replicated := false
+	switch req.Op {
+	case pdu.SnapshotReplicationStatusReq_Get:
+		replicated, err = zfs.ZFSGetReplicatedProperty(dp, &version)
+		if err != nil {
+			return nil, err
+		}
+	case pdu.SnapshotReplicationStatusReq_SetReplicated:
+		err = zfs.ZFSSetReplicatedProperty(dp, &version, true)
+		if err != nil {
+			return nil, err
+		}
+		replicated = true
+	default:
+		return nil, errors.Errorf("unknown opcode %v", req.Op)
+	}
+	return &pdu.SnapshotReplicationStatusRes{Replicated: replicated}, nil
 }
 
 type FSFilter interface {
@@ -143,7 +200,7 @@ func (e *Receiver) ListFilesystemVersions(ctx context.Context, fs string) ([]*pd
 
 	rfsvs := make([]*pdu.FilesystemVersion, len(fsvs))
 	for i := range fsvs {
-		rfsvs[i] = pdu.FilesystemVersionFromZFS(fsvs[i])
+		rfsvs[i] = pdu.FilesystemVersionFromZFS(&fsvs[i])
 	}
 
 	return rfsvs, nil
@@ -215,15 +272,61 @@ func (e *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, sendStream 
 	return nil
 }
 
+func (e *Receiver) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error) {
+	dp, err := zfs.NewDatasetPath(req.Filesystem)
+	if err != nil {
+		return nil, err
+	}
+	lp, err := e.fsmap.Map(dp)
+	if err != nil {
+		return nil, err
+	}
+	if lp == nil {
+		return nil, errors.New("access to filesystem denied")
+	}
+	return doDestroySnapshots(ctx, lp, req.Snapshots)
+}
+
+func doDestroySnapshots(ctx context.Context, lp *zfs.DatasetPath, snaps []*pdu.FilesystemVersion) (*pdu.DestroySnapshotsRes, error) {
+	fsvs := make([]*zfs.FilesystemVersion, len(snaps))
+	for i, fsv := range snaps {
+		if fsv.Type != pdu.FilesystemVersion_Snapshot {
+			return nil, fmt.Errorf("version %q is not a snapshot", fsv.Name)
+		}
+		var err error
+		fsvs[i], err = fsv.ZFSFilesystemVersion()
+		if err != nil {
+			return nil, err
+		}
+	}
+	res := &pdu.DestroySnapshotsRes{
+		Results: make([]*pdu.DestroySnapshotRes, len(fsvs)),
+	}
+	for i, fsv := range fsvs {
+		err := zfs.ZFSDestroyFilesystemVersion(lp, fsv)
+		errMsg := ""
+		if err != nil {
+			errMsg = err.Error()
+		}
+		res.Results[i] = &pdu.DestroySnapshotRes{
+			Snapshot: pdu.FilesystemVersionFromZFS(fsv),
+			Error:    errMsg,
+		}
+	}
+	return res, nil
+}
+
 // =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // RPC STUBS
 // =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 const (
-	RPCListFilesystems        = "ListFilesystems"
-	RPCListFilesystemVersions = "ListFilesystemVersions"
-	RPCReceive                = "Receive"
-	RPCSend                   = "Send"
+	RPCListFilesystems           = "ListFilesystems"
+	RPCListFilesystemVersions    = "ListFilesystemVersions"
+	RPCReceive                   = "Receive"
+	RPCSend                      = "Send"
+	RPCSDestroySnapshots         = "DestroySnapshots"
+	RPCSnapshotReplicationStatus = "SnapshotReplicationStatus"
 )
 
 // Remote implements an endpoint stub that uses streamrpc as a transport.
@@ -320,6 +423,26 @@ func (s Remote) Receive(ctx context.Context, r *pdu.ReceiveReq, sendStream io.Re
 	return nil
 }
 
+func (s Remote) DestroySnapshots(ctx context.Context, r *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error) {
+	b, err := proto.Marshal(r)
+	if err != nil {
+		return nil, err
+	}
+	rb, rs, err := s.c.RequestReply(ctx, RPCSDestroySnapshots, bytes.NewBuffer(b), nil)
+	if err != nil {
+		return nil, err
+	}
+	if rs != nil {
+		rs.Close()
+		return nil, errors.New("response contains unexpected stream")
+	}
+	var res pdu.DestroySnapshotsRes
+	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 // Handler implements the server-side streamrpc.HandlerFunc for a Remote endpoint stub.
 type Handler struct {
 	ep replication.Endpoint
@@ -410,6 +533,44 @@ func (a *Handler) Handle(ctx context.Context, endpoint string, reqStructured *by
 			return nil, nil, err
 		}
 		return bytes.NewBuffer(b), nil, err
+
+	case RPCSDestroySnapshots:
+
+		var req pdu.DestroySnapshotsReq
+		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
+			return nil, nil, err
+		}
+
+		res, err := a.ep.DestroySnapshots(ctx, &req)
+		if err != nil {
+			return nil, nil, err
+		}
+		b, err := proto.Marshal(res)
+		if err != nil {
+			return nil, nil, err
+		}
+		return bytes.NewBuffer(b), nil, nil
+
+	case RPCSnapshotReplicationStatus:
+
+		sender, ok := a.ep.(replication.Sender)
+		if !ok {
+			goto Err
+		}
+
+		var req pdu.SnapshotReplicationStatusReq
+		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
+			return nil, nil, err
+		}
+		res, err := sender.SnapshotReplicationStatus(ctx, &req)
+		if err != nil {
+			return nil, nil, err
+		}
+		b, err := proto.Marshal(res)
+		if err != nil {
+			return nil, nil, err
+		}
+		return bytes.NewBuffer(b), nil, nil
 
 	}
 Err:

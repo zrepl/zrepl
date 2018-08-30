@@ -93,6 +93,7 @@ type Endpoint interface {
 	ListFilesystems(ctx context.Context) ([]*pdu.Filesystem, error)
 	// FIXME document FilteredError handling
 	ListFilesystemVersions(ctx context.Context, fs string) ([]*pdu.FilesystemVersion, error) // fix depS
+	DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error)
 }
 
 type Sender interface {

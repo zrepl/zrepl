@@ -76,3 +76,32 @@ message ReceiveReq {
 }
 
 message ReceiveRes {}
+
+message DestroySnapshotsReq {
+    string Filesystem = 1;
+    // Path to filesystem, snapshot or bookmark to be destroyed
+    repeated FilesystemVersion Snapshots = 2;
+}
+
+message DestroySnapshotRes {
+    FilesystemVersion Snapshot = 1;
+    string Error = 2;
+}
+
+message DestroySnapshotsRes {
+    repeated DestroySnapshotRes Results = 1;
+}
+
+message SnapshotReplicationStatusReq {
+    string Filesystem = 1;
+    string Snapshot = 2;
+    enum Op {
+        Get = 0;
+        SetReplicated = 1;
+    }
+    Op op = 3;
+}
+
+message SnapshotReplicationStatusRes {
+    bool Replicated = 1;
+}

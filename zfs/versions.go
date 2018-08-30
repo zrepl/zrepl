@@ -154,7 +154,7 @@ func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) 
 	return
 }
 
-func ZFSDestroyFilesystemVersion(filesystem *DatasetPath, version FilesystemVersion) (err error) {
+func ZFSDestroyFilesystemVersion(filesystem *DatasetPath, version *FilesystemVersion) (err error) {
 
 	promTimer := prometheus.NewTimer(prom.ZFSDestroyFilesystemVersionDuration.WithLabelValues(filesystem.ToString(), version.Type.String()))
 	defer promTimer.ObserveDuration()
