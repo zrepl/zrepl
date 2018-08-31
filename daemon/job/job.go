@@ -64,10 +64,7 @@ var STREAMRPC_CONFIG = &streamrpc.ConnConfig{ // FIXME oversight and configurabi
 	RxStructuredMaxLen:   4096 * 4096,
 	RxStreamMaxChunkSize: 4096 * 4096,
 	TxChunkSize:          4096 * 4096,
-	RxTimeout: streamrpc.Timeout{
-		Progress: 10 * time.Second,
-	},
-	TxTimeout: streamrpc.Timeout{
+	Timeout: streamrpc.Timeout{
 		Progress: 10 * time.Second,
 	},
 }

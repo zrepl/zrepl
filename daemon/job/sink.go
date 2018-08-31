@@ -86,7 +86,7 @@ func (j *Sink) handleConnection(ctx context.Context, conn net.Conn) {
 	log.WithField("addr", conn.RemoteAddr()).Info("handling connection")
 	defer log.Info("finished handling connection")
 
-	logging.WithSubsystemLoggers(ctx, log)
+	ctx = logging.WithSubsystemLoggers(ctx, log)
 
 	local, err := endpoint.NewReceiver(j.fsmap, filters.NewAnyFSVFilter())
 	if err != nil {

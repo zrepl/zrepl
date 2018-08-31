@@ -7,11 +7,11 @@ import (
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/connecter"
 	"github.com/zrepl/zrepl/daemon/filters"
-	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/replication"
 	"sync"
+	"github.com/zrepl/zrepl/daemon/logging"
 )
 
 type Push struct {
@@ -66,11 +66,10 @@ func (j *Push) Run(ctx context.Context) {
 
 	defer log.Info("job exiting")
 
-	log.Debug("wait for wakeups")
-
 	invocationCount := 0
 outer:
 	for {
+		log.Info("wait for wakeups")
 		select {
 		case <-ctx.Done():
 			log.WithError(ctx.Err()).Info("context")
@@ -86,12 +85,13 @@ outer:
 func (j *Push) do(ctx context.Context) {
 
 	log := GetLogger(ctx)
+	ctx = logging.WithSubsystemLoggers(ctx, log)
 
 	client, err := streamrpc.NewClient(j.connecter, &streamrpc.ClientConfig{STREAMRPC_CONFIG})
 	if err != nil {
 		log.WithError(err).Error("cannot create streamrpc client")
 	}
-	defer client.Close()
+	defer client.Close(ctx)
 
 	sender := endpoint.NewSender(j.fsfilter, filters.NewAnyFSVFilter())
 	receiver := endpoint.NewRemote(client)
@@ -100,15 +100,17 @@ func (j *Push) do(ctx context.Context) {
 	j.replication = replication.NewReplication()
 	j.mtx.Unlock()
 
-	ctx = logging.WithSubsystemLoggers(ctx, log)
+	log.Info("start replication")
 	j.replication.Drive(ctx, sender, receiver)
 
-	// Prune sender
-	senderPruner := j.prunerFactory.BuildSenderPruner(ctx, sender, sender)
+	log.Info("start pruning sender")
+	psCtx := pruner.WithLogger(ctx, pruner.GetLogger(ctx).WithField("prune_side", "sender"))
+	senderPruner := j.prunerFactory.BuildSenderPruner(psCtx, sender, sender) // FIXME ctx as member
 	senderPruner.Prune()
 
-	// Prune receiver
-	receiverPruner := j.prunerFactory.BuildReceiverPruner(ctx, receiver, sender)
+	log.Info("start pruning receiver")
+	prCtx := pruner.WithLogger(ctx, pruner.GetLogger(ctx).WithField("prune_side", "receiver"))
+	receiverPruner := j.prunerFactory.BuildReceiverPruner(prCtx, receiver, sender) // FIXME ctx as member
 	receiverPruner.Prune()
 
 }

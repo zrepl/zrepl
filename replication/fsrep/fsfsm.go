@@ -357,7 +357,7 @@ func (s *ReplicationStep) doReplication(ctx context.Context, sender Sender, rece
 
 	sr := s.buildSendRequest(false)
 
-	log.WithField("request", sr).Debug("initiate send request")
+	log.Debug("initiate send request")
 	sres, sstream, err := sender.Send(ctx, sr)
 	if err != nil {
 		log.WithError(err).Error("send request failed")
@@ -375,10 +375,13 @@ func (s *ReplicationStep) doReplication(ctx context.Context, sender Sender, rece
 		Filesystem:       fs,
 		ClearResumeToken: !sres.UsedResumeToken,
 	}
-	log.WithField("request", rr).Debug("initiate receive request")
+	log.Debug("initiate receive request")
 	err = receiver.Receive(ctx, rr, sstream)
 	if err != nil {
-		log.WithError(err).Error("receive request failed (might also be error on sender)")
+		log.
+			WithError(err).
+			WithField("errType", fmt.Sprintf("%T", err)).
+			Error("receive request failed (might also be error on sender)")
 		sstream.Close()
 		// This failure could be due to
 		// 	- an unexpected exit of ZFS on the sending side
@@ -386,7 +389,7 @@ func (s *ReplicationStep) doReplication(ctx context.Context, sender Sender, rece
 		//  - a connectivity issue
 		return updateStateError(err)
 	}
-	log.Info("receive finished")
+	log.Debug("receive finished")
 
 	updateStateCompleted()
 
@@ -420,7 +423,7 @@ func (s *ReplicationStep) doMarkReplicated(ctx context.Context, sender Sender) S
 		return s.state
 	}
 
-	log.Info("mark snapshot as replicated")
+	log.Debug("mark snapshot as replicated")
 	req := pdu.SnapshotReplicationStatusReq{
 		Filesystem: s.parent.fs,
 		Snapshot:   s.to.GetName(),
@@ -450,7 +453,7 @@ func (s *ReplicationStep) updateSizeEstimate(ctx context.Context, sender Sender)
 
 	sr := s.buildSendRequest(true)
 
-	log.WithField("request", sr).Debug("initiate dry run send request")
+	log.Debug("initiate dry run send request")
 	sres, _, err := sender.Send(ctx, sr)
 	if err != nil {
 		log.WithError(err).Error("dry run send request failed")
@@ -482,7 +485,7 @@ func (s *ReplicationStep) String() string {
 	if s.from == nil { // FIXME: ZFS semantics are that to is nil on non-incremental send
 		return fmt.Sprintf("%s%s (full)", s.parent.fs, s.to.RelName())
 	} else {
-		return fmt.Sprintf("%s(%s => %s)", s.parent.fs, s.from, s.to.RelName())
+		return fmt.Sprintf("%s(%s => %s)", s.parent.fs, s.from.RelName(), s.to.RelName())
 	}
 }
 

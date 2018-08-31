@@ -147,6 +147,9 @@ func (r *Replication) Drive(ctx context.Context, sender Sender, receiver Receive
 			WithField("transition", fmt.Sprintf("%s => %s", pre, post)).
 			WithField("duration", delta).
 			Debug("main state transition")
+		if post == Working && pre != post {
+			getLogger(ctx).Info("start working")
+		}
 	}
 
 	getLogger(ctx).
@@ -178,6 +181,8 @@ func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u upda
 
 	log := getLogger(ctx)
 
+	log.Info("start planning")
+
 	handlePlanningError := func(err error) state {
 		return u(func(r *Replication) {
 			r.planningError = err
@@ -203,7 +208,7 @@ func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u upda
 
 		log := mainlog.WithField("filesystem", fs.Path)
 
-		log.Info("assessing filesystem")
+		log.Debug("assessing filesystem")
 
 		sfsvs, err := sender.ListFilesystemVersions(ctx, fs.Path)
 		if err != nil {
@@ -266,8 +271,10 @@ func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u upda
 			}
 		}
 		qitem := fsrfsm.Done()
+
+		log.Debug("compute send size estimate")
 		if err = qitem.UpdateSizeEsitmate(ctx, sender); err != nil {
-			log.WithError(err).Error("cannot get size estimate")
+			log.WithError(err).Error("error computing size estimate")
 			return handlePlanningError(err)
 		}
 		q.Add(qitem)
@@ -284,10 +291,13 @@ func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u upda
 var RetrySleepDuration = 10 * time.Second // FIXME make constant onfigurable
 
 func statePlanningError(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
+
+	sleepUntil := time.Now().Add(RetrySleepDuration)
 	u(func(r *Replication) {
-		r.sleepUntil = time.Now().Add(RetrySleepDuration)
+		r.sleepUntil = sleepUntil
 	})
 	t := time.NewTimer(RetrySleepDuration)
+	getLogger(ctx).WithField("until", sleepUntil).Info("retry wait after planning error")
 	defer t.Stop()
 	select {
 	case <-ctx.Done():
@@ -328,10 +338,12 @@ func stateWorking(ctx context.Context, sender Sender, receiver Receiver, u updat
 }
 
 func stateWorkingWait(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
+	sleepUntil := time.Now().Add(RetrySleepDuration)
 	u(func(r *Replication) {
-		r.sleepUntil = time.Now().Add(RetrySleepDuration)
+		r.sleepUntil = sleepUntil
 	})
 	t := time.NewTimer(RetrySleepDuration)
+	getLogger(ctx).WithField("until", sleepUntil).Info("retry wait after send/recv error")
 	defer t.Stop()
 	select {
 	case <-ctx.Done():

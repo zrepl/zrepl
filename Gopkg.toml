@@ -57,10 +57,6 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
   branch = "master"
 
 [[constraint]]
-  name = "github.com/problame/go-streamrpc"
-  version = "0.1.0"
-
-[[constraint]]
   name = "github.com/golang/protobuf"
   version = "1.2.0"
 
@@ -70,3 +66,7 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
 [[constraint]]
   name = "github.com/fatih/color"
   version = "1.7.0"
+
+[[constraint]]
+  name = "github.com/problame/go-streamrpc"
+  version = "0.2.0"

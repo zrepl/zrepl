@@ -170,15 +170,15 @@
   revision = "391d2c78c8404a9683d79f75dd24ab53040f89f7"
 
 [[projects]]
-  digest = "1:f80c558f761d9cbfb0cd1a317ece8b12a55ec670f8cef52acc515ab76463e6b6"
+  digest = "1:23576326ee8d287fd295807d5de5db9fcc9572ec2b4123c8ec2394a683edf1e1"
   name = "github.com/problame/go-streamrpc"
   packages = [
     ".",
     "internal/pdu",
   ]
   pruneopts = ""
-  revision = "de264a1c39cd8fc42a6b5e902c6eac7fd9683521"
-  version = "0.1"
+  revision = "504ffed1faf6af51c057d7b11d79e9367678c666"
+  version = "v0.2"
 
 [[projects]]
   branch = "master"

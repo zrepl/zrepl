@@ -185,7 +185,7 @@ type requestLogger struct {
 
 func (l requestLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log := l.log.WithField("method", r.Method).WithField("url", r.URL)
-	log.Info("start")
+	log.Debug("start")
 	if l.handlerFunc != nil {
 		l.handlerFunc(w, r)
 	} else if l.handler != nil {
@@ -193,5 +193,5 @@ func (l requestLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		log.Error("no handler or handlerFunc configured")
 	}
-	log.Info("finish")
+	log.Debug("finish")
 }

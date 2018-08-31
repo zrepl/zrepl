@@ -18,9 +18,8 @@ func WithLogger(ctx context.Context, log Logger) context.Context {
 }
 
 func getLogger(ctx context.Context) Logger {
-	l, ok := ctx.Value(contextKeyLogger).(Logger)
-	if !ok {
-		l = logger.NewNullLogger()
+	if l, ok := ctx.Value(contextKeyLogger).(Logger); ok {
+		return l
 	}
-	return l
+	return logger.NewNullLogger()
 }

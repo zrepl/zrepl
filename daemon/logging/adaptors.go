@@ -28,5 +28,5 @@ func (a twoClassLogAdaptor) Errorf(fmtStr string, args ...interface{}) {
 }
 
 func (a twoClassLogAdaptor) Infof(fmtStr string, args ...interface{}) {
-	a.Logger.Info(fmt.Sprintf(fmtStr, args...))
+	a.Logger.Debug(fmt.Sprintf(fmtStr, args...))
 }

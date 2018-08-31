@@ -230,6 +230,8 @@ func (e *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, sendStream 
 		return errors.New("receive to filesystem denied")
 	}
 
+	getLogger(ctx).Debug("incoming Receive")
+
 	// create placeholder parent filesystems as appropriate
 	var visitErr error
 	f := zfs.NewDatasetPathForest()
@@ -276,6 +278,11 @@ func (e *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, sendStream 
 	getLogger(ctx).Debug("start receive command")
 
 	if err := zfs.ZFSRecv(lp.ToString(), sendStream, args...); err != nil {
+		getLogger(ctx).
+			WithError(err).
+			WithField("args", args).
+			Error("zfs receive failed")
+		sendStream.Close()
 		return err
 	}
 	return nil
@@ -418,6 +425,7 @@ func (s Remote) Receive(ctx context.Context, r *pdu.ReceiveReq, sendStream io.Re
 		return err
 	}
 	rb, rs, err := s.c.RequestReply(ctx, RPCReceive, bytes.NewBuffer(b), sendStream)
+	getLogger(ctx).WithField("err", err).Debug("Remote.Receive RequestReplyReturned")
 	if err != nil {
 		return err
 	}
