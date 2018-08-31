@@ -25,7 +25,7 @@ type Push struct {
 	replication *replication.Replication
 }
 
-func PushFromConfig(g config.Global, in *config.PushJob) (j *Push, err error) {
+func PushFromConfig(g *config.Global, in *config.PushJob) (j *Push, err error) {
 
 	j = &Push{}
 	j.name = in.Name

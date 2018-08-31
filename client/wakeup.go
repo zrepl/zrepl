@@ -6,7 +6,7 @@ import (
 	"github.com/zrepl/zrepl/daemon"
 )
 
-func RunWakeup(config config.Config, args []string) error {
+func RunWakeup(config *config.Config, args []string) error {
 	if len(args) != 1 {
 		return errors.Errorf("Expected 1 argument: job")
 	}

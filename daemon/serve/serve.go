@@ -10,7 +10,7 @@ type ListenerFactory interface {
 	Listen() (net.Listener, error)
 }
 
-func FromConfig(g config.Global, in config.ServeEnum) (ListenerFactory, error) {
+func FromConfig(g *config.Global, in config.ServeEnum) (ListenerFactory, error) {
 
 	switch v := in.Ret.(type) {
 	case *config.TCPServe:

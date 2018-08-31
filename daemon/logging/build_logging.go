@@ -16,7 +16,7 @@ import (
 	"os"
 )
 
-func OutletsFromConfig(in []config.LoggingOutletEnum) (*logger.Outlets, error) {
+func OutletsFromConfig(in config.LoggingOutletEnumList) (*logger.Outlets, error) {
 
 	outlets := logger.NewOutlets()
 

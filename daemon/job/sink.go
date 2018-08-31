@@ -19,7 +19,7 @@ type Sink struct {
 	fsmapInv endpoint.FSFilter
 }
 
-func SinkFromConfig(g config.Global, in *config.SinkJob) (s *Sink, err error) {
+func SinkFromConfig(g *config.Global, in *config.SinkJob) (s *Sink, err error) {
 
 	// FIXME multi client support
 

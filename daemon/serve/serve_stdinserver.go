@@ -15,7 +15,7 @@ type StdinserverListenerFactory struct {
 	sockpath       string
 }
 
-func StdinserverListenerFactoryFromConfig(g config.Global, in *config.StdinserverServer) (f *StdinserverListenerFactory, err error) {
+func StdinserverListenerFactoryFromConfig(g *config.Global, in *config.StdinserverServer) (f *StdinserverListenerFactory, err error) {
 
 	f = &StdinserverListenerFactory{
 		ClientIdentity: in.ClientIdentity,

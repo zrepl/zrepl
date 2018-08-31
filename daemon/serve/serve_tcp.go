@@ -9,7 +9,7 @@ type TCPListenerFactory struct {
 	Address string
 }
 
-func TCPListenerFactoryFromConfig(c config.Global, in *config.TCPServe) (*TCPListenerFactory, error) {
+func TCPListenerFactoryFromConfig(c *config.Global, in *config.TCPServe) (*TCPListenerFactory, error) {
 	lf := &TCPListenerFactory{
 		Address: in.Listen,
 	}

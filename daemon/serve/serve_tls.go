@@ -18,7 +18,7 @@ type TLSListenerFactory struct {
 	handshakeTimeout time.Duration
 }
 
-func TLSListenerFactoryFromConfig(c config.Global, in *config.TLSServe) (lf *TLSListenerFactory, err error) {
+func TLSListenerFactoryFromConfig(c *config.Global, in *config.TLSServe) (lf *TLSListenerFactory, err error) {
 	lf = &TLSListenerFactory{
 		address: in.Listen,
 	}

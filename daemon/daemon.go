@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-func Run(conf config.Config) error {
+func Run(conf *config.Config) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -29,7 +29,7 @@ func Run(conf config.Config) error {
 		cancel()
 	}()
 
-	outlets, err := logging.OutletsFromConfig(conf.Global.Logging)
+	outlets, err := logging.OutletsFromConfig(*conf.Global.Logging)
 	if err != nil {
 		return errors.Wrap(err, "cannot build logging from config")
 	}

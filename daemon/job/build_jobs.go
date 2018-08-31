@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func JobsFromConfig(c config.Config) ([]Job, error) {
+func JobsFromConfig(c *config.Config) ([]Job, error) {
 	js := make([]Job, len(c.Jobs))
 	for i := range c.Jobs {
 		j, err := buildJob(c.Global, c.Jobs[i])
@@ -18,7 +18,7 @@ func JobsFromConfig(c config.Config) ([]Job, error) {
 	return js, nil
 }
 
-func buildJob(c config.Global, in config.JobEnum) (j Job, err error) {
+func buildJob(c *config.Global, in config.JobEnum) (j Job, err error) {
 	switch v := in.Ret.(type) {
 	case *config.SinkJob:
 		j, err = SinkFromConfig(c, v)

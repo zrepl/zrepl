@@ -62,7 +62,7 @@ func (t *tui) addIndent(indent int) {
 	t.moveLine(0, 0)
 }
 
-func RunStatus(config config.Config, args []string) error {
+func RunStatus(config *config.Config, args []string) error {
 	httpc, err := controlHttpClient(config.Global.Control.SockPath)
 	if err != nil {
 		return err

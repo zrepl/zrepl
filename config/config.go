@@ -9,11 +9,12 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+	"reflect"
 )
 
 type Config struct {
 	Jobs   []JobEnum `yaml:"jobs"`
-	Global Global    `yaml:"global"`
+	Global *Global    `yaml:"global,optional,fromdefaults"`
 }
 
 type JobEnum struct {
@@ -102,11 +103,51 @@ type PruningLocal struct {
 	Keep []PruningEnum `yaml:"keep"`
 }
 
+type LoggingOutletEnumList []LoggingOutletEnum
+
+func (l *LoggingOutletEnumList) SetDefault() {
+	def := `
+type: "stdout"
+time: true
+level: "warn"
+format: "human"
+`
+	s := StdoutLoggingOutlet{}
+	err := yaml.UnmarshalStrict([]byte(def), &s)
+	if err != nil {
+		panic(err)
+	}
+	*l = []LoggingOutletEnum{LoggingOutletEnum{Ret: s}}
+}
+
+var _ yaml.Defaulter = &LoggingOutletEnumList{}
+
 type Global struct {
-	Logging    []LoggingOutletEnum `yaml:"logging"`
+	Logging    *LoggingOutletEnumList `yaml:"logging,optional,fromdefaults"`
 	Monitoring []MonitoringEnum    `yaml:"monitoring,optional"`
-	Control    GlobalControl       `yaml:"control"`
-	Serve      GlobalServe         `yaml:"serve"`
+	Control    *GlobalControl       `yaml:"control,optional,fromdefaults"`
+	Serve      *GlobalServe         `yaml:"serve,optional,fromdefaults"`
+	RPC 		*RPCConfig          `yaml:"rpc,optional,fromdefaults"`
+}
+
+func Default(i interface{}) {
+	v := reflect.ValueOf(i)
+	if v.Kind() != reflect.Ptr {
+		panic(v)
+	}
+	y := `{}`
+	err := yaml.Unmarshal([]byte(y), v.Interface())
+	if err != nil {
+		panic(err)
+	}
+}
+
+type RPCConfig struct {
+	Timeout time.Duration `yaml:"timeout,optional,positive,default=10s"`
+	TxChunkSize uint `yaml:"tx_chunk_size,optional,default=32768"`
+	RxStructuredMaxLen uint `yaml:"rx_structured_max,optional,default=16777216"`
+	RxStreamChunkMaxLen uint `yaml:"rx_stream_chunk_max,optional,default=16777216"`
+	RxHeaderMaxLen uint `yaml:"rx_header_max,optional,default=40960"`
 }
 
 type ConnectEnum struct {
@@ -115,12 +156,14 @@ type ConnectEnum struct {
 
 type TCPConnect struct {
 	Type        string        `yaml:"type"`
+	RPC 		*RPCConfig	   `yaml:"rpc,optional"`
 	Address     string        `yaml:"address"`
 	DialTimeout time.Duration `yaml:"dial_timeout,positive,default=10s"`
 }
 
 type TLSConnect struct {
 	Type        string        `yaml:"type"`
+	RPC 		*RPCConfig	   `yaml:"rpc,optional"`
 	Address     string        `yaml:"address"`
 	Ca          string        `yaml:"ca"`
 	Cert        string        `yaml:"cert"`
@@ -131,6 +174,7 @@ type TLSConnect struct {
 
 type SSHStdinserverConnect struct {
 	Type                 string        `yaml:"type"`
+	RPC 		*RPCConfig	   `yaml:"rpc,optional"`
 	Host                 string        `yaml:"host"`
 	User                 string        `yaml:"user"`
 	Port                 uint16        `yaml:"port"`
@@ -233,7 +277,7 @@ type GlobalControl struct {
 }
 
 type GlobalServe struct {
-	StdinServer GlobalStdinServer `yaml:"stdinserver"`
+	StdinServer *GlobalStdinServer `yaml:"stdinserver,optional,fromdefaults"`
 }
 
 type GlobalStdinServer struct {
@@ -241,10 +285,11 @@ type GlobalStdinServer struct {
 }
 
 type JobDebugSettings struct {
-	Conn struct {
+	Conn *struct {
 		ReadDump  string `yaml:"read_dump"`
 		WriteDump string `yaml:"write_dump"`
-	} `yaml:"conn"`
+	} `yaml:"conn,optional"`
+	RPCLog bool `yaml:"rpc_log,optional,default=false"`
 }
 
 func enumUnmarshal(u func(interface{}, bool) error, types map[string]interface{}) (interface{}, error) {
@@ -328,7 +373,7 @@ var ConfigFileDefaultLocations = []string{
 	"/usr/local/etc/zrepl/zrepl.yml",
 }
 
-func ParseConfig(path string) (i Config, err error) {
+func ParseConfig(path string) (i *Config, err error) {
 
 	if path == "" {
 		// Try default locations
@@ -352,11 +397,18 @@ func ParseConfig(path string) (i Config, err error) {
 		return
 	}
 
-	if err = yaml.UnmarshalStrict(bytes, &i); err != nil {
-		return
-	}
+	return ParseConfigBytes(bytes)
+}
 
-	return
+func ParseConfigBytes(bytes []byte) (*Config, error) {
+	var c *Config
+	if err := yaml.UnmarshalStrict(bytes, &c); err != nil {
+		return nil, err
+	}
+	if c == nil {
+		return nil, fmt.Errorf("config is empty or only consists of comments")
+	}
+	return c, nil
 }
 
 var durationStringRegex *regexp.Regexp = regexp.MustCompile(`^\s*(\d+)\s*(s|m|h|d|w)\s*$`)

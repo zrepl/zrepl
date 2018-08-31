@@ -6,7 +6,7 @@ import (
 	"github.com/zrepl/zrepl/config"
 )
 
-func FromConfig(g config.Global, in config.ConnectEnum) (streamrpc.Connecter, error) {
+func FromConfig(g *config.Global, in config.ConnectEnum) (streamrpc.Connecter, error) {
 	switch v := in.Ret.(type) {
 	case *config.SSHStdinserverConnect:
 		return SSHStdinserverConnecterFromConfig(v)
