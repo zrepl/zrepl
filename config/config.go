@@ -6,15 +6,15 @@ import (
 	"github.com/zrepl/yaml-config"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"regexp"
 	"strconv"
 	"time"
-	"reflect"
 )
 
 type Config struct {
 	Jobs   []JobEnum `yaml:"jobs"`
-	Global *Global    `yaml:"global,optional,fromdefaults"`
+	Global *Global   `yaml:"global,optional,fromdefaults"`
 }
 
 type JobEnum struct {
@@ -124,10 +124,10 @@ var _ yaml.Defaulter = &LoggingOutletEnumList{}
 
 type Global struct {
 	Logging    *LoggingOutletEnumList `yaml:"logging,optional,fromdefaults"`
-	Monitoring []MonitoringEnum    `yaml:"monitoring,optional"`
-	Control    *GlobalControl       `yaml:"control,optional,fromdefaults"`
-	Serve      *GlobalServe         `yaml:"serve,optional,fromdefaults"`
-	RPC 		*RPCConfig          `yaml:"rpc,optional,fromdefaults"`
+	Monitoring []MonitoringEnum       `yaml:"monitoring,optional"`
+	Control    *GlobalControl         `yaml:"control,optional,fromdefaults"`
+	Serve      *GlobalServe           `yaml:"serve,optional,fromdefaults"`
+	RPC        *RPCConfig             `yaml:"rpc,optional,fromdefaults"`
 }
 
 func Default(i interface{}) {
@@ -143,38 +143,40 @@ func Default(i interface{}) {
 }
 
 type RPCConfig struct {
-	Timeout time.Duration `yaml:"timeout,optional,positive,default=10s"`
-	TxChunkSize uint `yaml:"tx_chunk_size,optional,default=32768"`
-	RxStructuredMaxLen uint `yaml:"rx_structured_max,optional,default=16777216"`
-	RxStreamChunkMaxLen uint `yaml:"rx_stream_chunk_max,optional,default=16777216"`
-	RxHeaderMaxLen uint `yaml:"rx_header_max,optional,default=40960"`
+	Timeout             time.Duration `yaml:"timeout,optional,positive,default=10s"`
+	TxChunkSize         uint32        `yaml:"tx_chunk_size,optional,default=32768"`
+	RxStructuredMaxLen  uint32        `yaml:"rx_structured_max,optional,default=16777216"`
+	RxStreamChunkMaxLen uint32        `yaml:"rx_stream_chunk_max,optional,default=16777216"`
+	RxHeaderMaxLen      uint32        `yaml:"rx_header_max,optional,default=40960"`
 }
 
 type ConnectEnum struct {
 	Ret interface{}
 }
 
+type ConnectCommon struct {
+	Type string     `yaml:"type"`
+	RPC  *RPCConfig `yaml:"rpc,optional"`
+}
+
 type TCPConnect struct {
-	Type        string        `yaml:"type"`
-	RPC 		*RPCConfig	   `yaml:"rpc,optional"`
-	Address     string        `yaml:"address"`
-	DialTimeout time.Duration `yaml:"dial_timeout,positive,default=10s"`
+	ConnectCommon `yaml:",inline"`
+	Address       string        `yaml:"address"`
+	DialTimeout   time.Duration `yaml:"dial_timeout,positive,default=10s"`
 }
 
 type TLSConnect struct {
-	Type        string        `yaml:"type"`
-	RPC 		*RPCConfig	   `yaml:"rpc,optional"`
-	Address     string        `yaml:"address"`
-	Ca          string        `yaml:"ca"`
-	Cert        string        `yaml:"cert"`
-	Key         string        `yaml:"key"`
-	ServerCN    string        `yaml:"server_cn"`
-	DialTimeout time.Duration `yaml:"dial_timeout,positive,default=10s"`
+	ConnectCommon `yaml:",inline"`
+	Address       string        `yaml:"address"`
+	Ca            string        `yaml:"ca"`
+	Cert          string        `yaml:"cert"`
+	Key           string        `yaml:"key"`
+	ServerCN      string        `yaml:"server_cn"`
+	DialTimeout   time.Duration `yaml:"dial_timeout,positive,default=10s"`
 }
 
 type SSHStdinserverConnect struct {
-	Type                 string        `yaml:"type"`
-	RPC 		*RPCConfig	   `yaml:"rpc,optional"`
+	ConnectCommon        `yaml:",inline"`
 	Host                 string        `yaml:"host"`
 	User                 string        `yaml:"user"`
 	Port                 uint16        `yaml:"port"`
@@ -189,14 +191,19 @@ type ServeEnum struct {
 	Ret interface{}
 }
 
+type ServeCommon struct {
+	Type string     `yaml:"type"`
+	RPC  *RPCConfig `yaml:"rpc,optional"`
+}
+
 type TCPServe struct {
-	Type    string            `yaml:"type"`
-	Listen  string            `yaml:"listen"`
-	Clients map[string]string `yaml:"clients"`
+	ServeCommon `yaml:",inline"`
+	Listen      string            `yaml:"listen"`
+	Clients     map[string]string `yaml:"clients"`
 }
 
 type TLSServe struct {
-	Type             string        `yaml:"type"`
+	ServeCommon      `yaml:",inline"`
 	Listen           string        `yaml:"listen"`
 	Ca               string        `yaml:"ca"`
 	Cert             string        `yaml:"cert"`
@@ -206,7 +213,7 @@ type TLSServe struct {
 }
 
 type StdinserverServer struct {
-	Type           string `yaml:"type"`
+	ServeCommon    `yaml:",inline"`
 	ClientIdentity string `yaml:"client_identity"`
 }
 

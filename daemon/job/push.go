@@ -3,7 +3,6 @@ package job
 import (
 	"context"
 	"github.com/pkg/errors"
-	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/connecter"
 	"github.com/zrepl/zrepl/daemon/filters"
@@ -16,7 +15,7 @@ import (
 
 type Push struct {
 	name      string
-	connecter streamrpc.Connecter
+	clientFactory *connecter.ClientFactory
 	fsfilter  endpoint.FSFilter
 
 	prunerFactory *pruner.PrunerFactory
@@ -30,7 +29,10 @@ func PushFromConfig(g *config.Global, in *config.PushJob) (j *Push, err error) {
 	j = &Push{}
 	j.name = in.Name
 
-	j.connecter, err = connecter.FromConfig(g, in.Replication.Connect)
+	j.clientFactory, err = connecter.FromConfig(g, in.Replication.Connect)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot build client")
+	}
 
 	if j.fsfilter, err = filters.DatasetMapFilterFromConfig(in.Replication.Filesystems); err != nil {
 		return nil, errors.Wrap(err, "cannnot build filesystem filter")
@@ -87,9 +89,9 @@ func (j *Push) do(ctx context.Context) {
 	log := GetLogger(ctx)
 	ctx = logging.WithSubsystemLoggers(ctx, log)
 
-	client, err := streamrpc.NewClient(j.connecter, &streamrpc.ClientConfig{STREAMRPC_CONFIG})
+	client, err := j.clientFactory.NewClient()
 	if err != nil {
-		log.WithError(err).Error("cannot create streamrpc client")
+		log.WithError(err).Error("factory cannot instantiate streamrpc client")
 	}
 	defer client.Close(ctx)
 

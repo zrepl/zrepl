@@ -69,4 +69,4 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
 
 [[constraint]]
   name = "github.com/problame/go-streamrpc"
-  version = "0.2.0"
+  version = "0.3.0"

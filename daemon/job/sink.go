@@ -15,6 +15,7 @@ import (
 type Sink struct {
 	name     string
 	l        serve.ListenerFactory
+	rpcConf  *streamrpc.ConnConfig
 	fsmap    endpoint.FSMap
 	fsmapInv endpoint.FSFilter
 }
@@ -24,7 +25,7 @@ func SinkFromConfig(g *config.Global, in *config.SinkJob) (s *Sink, err error) {
 	// FIXME multi client support
 
 	s = &Sink{name: in.Name}
-	if s.l, err = serve.FromConfig(g, in.Replication.Serve); err != nil {
+	if s.l, s.rpcConf, err = serve.FromConfig(g, in.Replication.Serve); err != nil {
 		return nil, errors.Wrap(err, "cannot build server")
 	}
 
@@ -95,7 +96,7 @@ func (j *Sink) handleConnection(ctx context.Context, conn net.Conn) {
 	}
 
 	handler := endpoint.NewHandler(local)
-	if err := streamrpc.ServeConn(ctx, conn, STREAMRPC_CONFIG, handler.Handle); err != nil {
+	if err := streamrpc.ServeConn(ctx, conn, j.rpcConf, handler.Handle); err != nil {
 		log.WithError(err).Error("error serving client")
 	}
 }

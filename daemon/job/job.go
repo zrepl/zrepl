@@ -3,9 +3,7 @@ package job
 import (
 	"context"
 	"errors"
-	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/logger"
-	"time"
 )
 
 type Logger = logger.Logger
@@ -59,12 +57,3 @@ func WaitWakeup(ctx context.Context) <-chan struct{} {
 	return wc
 }
 
-var STREAMRPC_CONFIG = &streamrpc.ConnConfig{ // FIXME oversight and configurability
-	RxHeaderMaxLen:       4096,
-	RxStructuredMaxLen:   4096 * 4096,
-	RxStreamMaxChunkSize: 4096 * 4096,
-	TxChunkSize:          4096 * 4096,
-	Timeout: streamrpc.Timeout{
-		Progress: 10 * time.Second,
-	},
-}
