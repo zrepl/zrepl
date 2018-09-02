@@ -49,19 +49,8 @@ func SortVersionListByCreateTXGThenBookmarkLTSnapshot(fsvslice []*FilesystemVers
 // conflict may be a *ConflictDiverged or a *ConflictNoCommonAncestor
 func IncrementalPath(receiver, sender []*FilesystemVersion) (incPath []*FilesystemVersion, conflict error) {
 
-	if receiver == nil {
-		panic("receiver must not be nil")
-	}
-	if sender == nil {
-		panic("sender must not be nil")
-	}
-
 	receiver = SortVersionListByCreateTXGThenBookmarkLTSnapshot(receiver)
 	sender = SortVersionListByCreateTXGThenBookmarkLTSnapshot(sender)
-
-	if len(sender) == 0 {
-		return []*FilesystemVersion{}, nil
-	}
 
 	// Find most recent common ancestor by name, preferring snapshots over bookmarks
 
