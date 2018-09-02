@@ -136,7 +136,7 @@ type ZFSError struct {
 }
 
 func (e ZFSError) Error() string {
-	return fmt.Sprintf("zfs exited with error: %s", e.WaitErr.Error())
+	return fmt.Sprintf("zfs exited with error: %s\nstderr:\n%s", e.WaitErr.Error(), e.Stderr)
 }
 
 var ZFS_BINARY string = "zfs"
