@@ -170,15 +170,15 @@
   revision = "391d2c78c8404a9683d79f75dd24ab53040f89f7"
 
 [[projects]]
-  digest = "1:23576326ee8d287fd295807d5de5db9fcc9572ec2b4123c8ec2394a683edf1e1"
+  digest = "1:f6bc2d2f9c00737754ef87dba06c851458523fa382a61e1e2e5270c1f39a6622"
   name = "github.com/problame/go-streamrpc"
   packages = [
     ".",
     "internal/pdu",
   ]
   pruneopts = ""
-  revision = "504ffed1faf6af51c057d7b11d79e9367678c666"
-  version = "v0.2"
+  revision = "a67d93db93b3dc8c2d6901a1b2183ff42dea8f7d"
+  version = "v0.3"
 
 [[projects]]
   branch = "master"
@@ -253,11 +253,11 @@
 
 [[projects]]
   branch = "v2"
-  digest = "1:1d4340fa24f9e4a81097fb8e56f509e528bfc7456e2e9f672831c7d9e9cb8109"
+  digest = "1:9d92186f609a73744232323416ddafd56fae67cb552162cc190ab903e36900dd"
   name = "github.com/zrepl/yaml-config"
   packages = ["."]
   pruneopts = ""
-  revision = "3f4c23177f5097f12b95dd3d053481015815a6cd"
+  revision = "af27d27978ad95808723a62d87557d63c3ff0605"
 
 [[projects]]
   branch = "master"
