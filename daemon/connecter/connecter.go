@@ -34,7 +34,11 @@ func FromConfig(g *config.Global, in config.ConnectEnum) (*ClientFactory, error)
 		return nil, errRPC
 	}
 
-	return &ClientFactory{connecter: connecter, config: &streamrpc.ClientConfig{connConf}}, nil
+	config := streamrpc.ClientConfig{connConf}
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+	return &ClientFactory{connecter: connecter, config: &config}, nil
 }
 
 type ClientFactory struct {

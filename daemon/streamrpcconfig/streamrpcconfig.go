@@ -10,7 +10,7 @@ func FromDaemonConfig(g *config.Global, in *config.RPCConfig) (*streamrpc.ConnCo
 	if conf == nil {
 		conf = g.RPC
 	}
-	return &streamrpc.ConnConfig{
+	srpcConf := &streamrpc.ConnConfig{
 		RxHeaderMaxLen:       conf.RxHeaderMaxLen,
 		RxStructuredMaxLen:   conf.RxStructuredMaxLen,
 		RxStreamMaxChunkSize: conf.RxStreamChunkMaxLen,
@@ -18,5 +18,9 @@ func FromDaemonConfig(g *config.Global, in *config.RPCConfig) (*streamrpc.ConnCo
 		Timeout: streamrpc.Timeout{
 			Progress: conf.Timeout,
 		},
-	}, nil
+	}
+	if err := srpcConf.Validate(); err != nil {
+		return nil, err
+	}
+	return srpcConf, nil
 }
