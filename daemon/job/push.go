@@ -106,13 +106,11 @@ func (j *Push) do(ctx context.Context) {
 	j.replication.Drive(ctx, sender, receiver)
 
 	log.Info("start pruning sender")
-	psCtx := pruner.WithLogger(ctx, pruner.GetLogger(ctx).WithField("prune_side", "sender"))
-	senderPruner := j.prunerFactory.BuildSenderPruner(psCtx, sender, sender) // FIXME ctx as member
+	senderPruner := j.prunerFactory.BuildSenderPruner(ctx, sender, sender)
 	senderPruner.Prune()
 
 	log.Info("start pruning receiver")
-	prCtx := pruner.WithLogger(ctx, pruner.GetLogger(ctx).WithField("prune_side", "receiver"))
-	receiverPruner := j.prunerFactory.BuildReceiverPruner(prCtx, receiver, sender) // FIXME ctx as member
+	receiverPruner := j.prunerFactory.BuildReceiverPruner(ctx, receiver, sender)
 	receiverPruner.Prune()
 
 }
