@@ -108,5 +108,10 @@ message SnapshotReplicationStatusReq {
 }
 
 message SnapshotReplicationStatusRes {
-    bool Replicated = 1;
+    enum Status {
+        Nonexistent = 0;
+        NotReplicated = 1;
+        Replicated = 2;
+    }
+    Status status = 1;
 }

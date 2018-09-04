@@ -127,23 +127,30 @@ func (p *Sender) SnapshotReplicationStatus(ctx context.Context, req *pdu.Snapsho
 		Name: req.Snapshot, //FIXME validation
 	}
 
-	replicated := false
+	var status pdu.SnapshotReplicationStatusRes_Status
 	switch req.Op {
 	case pdu.SnapshotReplicationStatusReq_Get:
-		replicated, err = zfs.ZFSGetReplicatedProperty(dp, &version)
-		if err != nil {
-			return nil, err
+		replicated, err := zfs.ZFSGetReplicatedProperty(dp, &version)
+		if _, ok := err.(*zfs.DatasetDoesNotExist); ok {
+			status = pdu.SnapshotReplicationStatusRes_Nonexistent
+		} else if err != nil {
+
+		}
+		if replicated {
+			status = pdu.SnapshotReplicationStatusRes_Replicated
+		} else {
+			status = pdu.SnapshotReplicationStatusRes_NotReplicated
 		}
 	case pdu.SnapshotReplicationStatusReq_SetReplicated:
 		err = zfs.ZFSSetReplicatedProperty(dp, &version, true)
 		if err != nil {
 			return nil, err
 		}
-		replicated = true
+		status = pdu.SnapshotReplicationStatusRes_Replicated
 	default:
 		return nil, errors.Errorf("unknown opcode %v", req.Op)
 	}
-	return &pdu.SnapshotReplicationStatusRes{Replicated: replicated}, nil
+	return &pdu.SnapshotReplicationStatusRes{Status: status}, nil
 }
 
 type FSFilter interface {

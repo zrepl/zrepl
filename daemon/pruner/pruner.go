@@ -279,6 +279,11 @@ func statePlan(a *args, u updater) state {
 				Op:         pdu.SnapshotReplicationStatusReq_Get,
 			}
 			res, err := receiver.SnapshotReplicationStatus(ctx, &req)
+			if err != nil {
+				GetLogger(ctx).
+					WithField("req", req.String()).
+					WithError(err).Error("cannot get snapshot replication status")
+			}
 			if err != nil && shouldRetry(err) {
 				return onErr(u, err)
 			} else if err != nil {
@@ -286,9 +291,12 @@ func statePlan(a *args, u updater) state {
 				pfs.snaps = nil
 				break
 			}
-
+			if res.Status == pdu.SnapshotReplicationStatusRes_Nonexistent {
+				GetLogger(ctx).
+					Debug("snapshot does not exist in history, assuming was replicated")
+			}
 			pfs.snaps = append(pfs.snaps, snapshot{
-				replicated: res.Replicated,
+				replicated: !(res.Status != pdu.SnapshotReplicationStatusRes_Replicated),
 				date:       creation,
 				fsv:        tfsv,
 			})

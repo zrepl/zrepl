@@ -434,8 +434,8 @@ func (s *ReplicationStep) doMarkReplicated(ctx context.Context, sender Sender) S
 		log.WithError(err).Error("error marking snapshot as replicated")
 		return updateStateError(err)
 	}
-	if res.Replicated != true {
-		err := fmt.Errorf("sender did not report snapshot as replicated")
+	if res.Status != pdu.SnapshotReplicationStatusRes_Replicated {
+		err := fmt.Errorf("sender did not report snapshot as replicated: %s", res.Status)
 		log.Error(err.Error())
 		return updateStateError(err)
 	}
