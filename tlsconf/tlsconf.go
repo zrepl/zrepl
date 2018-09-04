@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"time"
@@ -24,22 +23,18 @@ func ParseCAFile(certfile string) (*x509.CertPool, error) {
 
 type ClientAuthListener struct {
 	l                net.Listener
-	clientCommonName string
 	handshakeTimeout time.Duration
 }
 
 func NewClientAuthListener(
 	l net.Listener, ca *x509.CertPool, serverCert tls.Certificate,
-	clientCommonName string, handshakeTimeout time.Duration) *ClientAuthListener {
+	handshakeTimeout time.Duration) *ClientAuthListener {
 
 	if ca == nil {
 		panic(ca)
 	}
 	if serverCert.Certificate == nil || serverCert.PrivateKey == nil {
 		panic(serverCert)
-	}
-	if clientCommonName == "" {
-		panic(clientCommonName)
 	}
 
 	tlsConf := tls.Config{
@@ -51,19 +46,18 @@ func NewClientAuthListener(
 	l = tls.NewListener(l, &tlsConf)
 	return &ClientAuthListener{
 		l,
-		clientCommonName,
 		handshakeTimeout,
 	}
 }
 
-func (l *ClientAuthListener) Accept() (c net.Conn, err error) {
+func (l *ClientAuthListener) Accept() (c net.Conn, clientCN string, err error) {
 	c, err = l.l.Accept()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	tlsConn, ok := c.(*tls.Conn)
 	if !ok {
-		return c, err
+		return c, "", err
 	}
 
 	var (
@@ -83,14 +77,10 @@ func (l *ClientAuthListener) Accept() (c net.Conn, err error) {
 		goto CloseAndErr
 	}
 	cn = peerCerts[0].Subject.CommonName
-	if cn != l.clientCommonName {
-		err = fmt.Errorf("client cert common name does not match client_identity: %q != %q", cn, l.clientCommonName)
-		goto CloseAndErr
-	}
-	return c, nil
+	return c, cn, nil
 CloseAndErr:
 	c.Close()
-	return nil, err
+	return nil, "", err
 }
 
 func (l *ClientAuthListener) Addr() net.Addr {

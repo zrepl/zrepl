@@ -15,6 +15,7 @@ import (
 	"github.com/zrepl/zrepl/tlsconf"
 	"os"
 	"github.com/zrepl/zrepl/daemon/snapper"
+	"github.com/zrepl/zrepl/daemon/serve"
 )
 
 func OutletsFromConfig(in config.LoggingOutletEnumList) (*logger.Outlets, error) {
@@ -71,6 +72,7 @@ func WithSubsystemLoggers(ctx context.Context, log logger.Logger) context.Contex
 	ctx = endpoint.WithLogger(ctx, log.WithField(SubsysField, "endpoint"))
 	ctx = pruner.WithLogger(ctx, log.WithField(SubsysField, "pruning"))
 	ctx = snapper.WithLogger(ctx, log.WithField(SubsysField, "snapshot"))
+	ctx = serve.WithLogger(ctx, log.WithField(SubsysField, "serve"))
 	return ctx
 }
 

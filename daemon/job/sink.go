@@ -9,31 +9,27 @@ import (
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/daemon/serve"
 	"github.com/zrepl/zrepl/endpoint"
-	"net"
+	"path"
 )
 
 type Sink struct {
 	name     string
 	l        serve.ListenerFactory
 	rpcConf  *streamrpc.ConnConfig
-	fsmap    endpoint.FSMap
-	fsmapInv endpoint.FSFilter
+	rootDataset string
 }
 
 func SinkFromConfig(g *config.Global, in *config.SinkJob) (s *Sink, err error) {
-
-	// FIXME multi client support
 
 	s = &Sink{name: in.Name}
 	if s.l, s.rpcConf, err = serve.FromConfig(g, in.Serve); err != nil {
 		return nil, errors.Wrap(err, "cannot build server")
 	}
 
-	fsmap := filters.NewDatasetMapFilter(1, false) // FIXME multi-client support
-	if err := fsmap.Add("<", in.RootDataset); err != nil {
-		return nil, errors.Wrap(err, "unexpected error: cannot build filesystem mapping")
+	if in.RootDataset == "" {
+		return nil, errors.Wrap(err, "must specify root dataset")
 	}
-	s.fsmap = fsmap
+	s.rootDataset = in.RootDataset
 
 	return s, nil
 }
@@ -55,6 +51,7 @@ func (j *Sink) Run(ctx context.Context) {
 		log.WithError(err).Error("cannot listen")
 		return
 	}
+	defer l.Close()
 
 	log.WithField("addr", l.Addr()).Debug("accepting connections")
 
@@ -64,10 +61,10 @@ outer:
 	for {
 
 		select {
-		case res := <-accept(l):
+		case res := <-accept(ctx, l):
 			if res.err != nil {
-				log.WithError(err).Info("accept error")
-				break outer
+				log.WithError(res.err).Info("accept error")
+				continue
 			}
 			connId++
 			connLog := log.
@@ -82,14 +79,28 @@ outer:
 
 }
 
-func (j *Sink) handleConnection(ctx context.Context, conn net.Conn) {
+func (j *Sink) handleConnection(ctx context.Context, conn serve.AuthenticatedConn) {
+	defer conn.Close()
+
 	log := GetLogger(ctx)
-	log.WithField("addr", conn.RemoteAddr()).Info("handling connection")
+	log.
+		WithField("addr", conn.RemoteAddr()).
+		WithField("client_identity", conn.ClientIdentity()).
+		Info("handling connection")
 	defer log.Info("finished handling connection")
+
+	clientRoot := path.Join(j.rootDataset, conn.ClientIdentity())
+	log.WithField("client_root", clientRoot).Debug("client root")
+	fsmap := filters.NewDatasetMapFilter(1, false)
+	if err := fsmap.Add("<", clientRoot); err != nil {
+		log.WithError(err).
+			WithField("client_identity", conn.ClientIdentity()).
+			Error("cannot build client filesystem map (client identity must be a valid ZFS FS name")
+	}
 
 	ctx = logging.WithSubsystemLoggers(ctx, log)
 
-	local, err := endpoint.NewReceiver(j.fsmap, filters.NewAnyFSVFilter())
+	local, err := endpoint.NewReceiver(fsmap, filters.NewAnyFSVFilter())
 	if err != nil {
 		log.WithError(err).Error("unexpected error: cannot convert mapping to filter")
 		return
@@ -102,14 +113,14 @@ func (j *Sink) handleConnection(ctx context.Context, conn net.Conn) {
 }
 
 type acceptResult struct {
-	conn net.Conn
+	conn serve.AuthenticatedConn
 	err  error
 }
 
-func accept(listener net.Listener) <-chan acceptResult {
+func accept(ctx context.Context, listener serve.AuthenticatedListener) <-chan acceptResult {
 	c := make(chan acceptResult, 1)
 	go func() {
-		conn, err := listener.Accept()
+		conn, err := listener.Accept(ctx)
 		c <- acceptResult{conn, err}
 	}()
 	return c

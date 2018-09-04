@@ -3,7 +3,9 @@ jobs:
   type: source
   serve:
     type: stdinserver
-    client_identity: "client1"
+    client_identities:
+      - "client1"
+      - "client2"
   filesystems: {
     "<": true,
     "secret": false

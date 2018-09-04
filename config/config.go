@@ -165,7 +165,7 @@ type SSHStdinserverConnect struct {
 	IdentityFile         string        `yaml:"identity_file"`
 	TransportOpenCommand []string      `yaml:"transport_open_command,optional"` //TODO unused
 	SSHCommand           string        `yaml:"ssh_command,optional"`            //TODO unused
-	Options              []string      `yaml:"options"`
+	Options              []string      `yaml:"options,optional"`
 	DialTimeout          time.Duration `yaml:"dial_timeout,positive,default=10s"`
 }
 
@@ -190,13 +190,13 @@ type TLSServe struct {
 	Ca               string        `yaml:"ca"`
 	Cert             string        `yaml:"cert"`
 	Key              string        `yaml:"key"`
-	ClientCN         string        `yaml:"client_cn"`
+	ClientCNs        []string      `yaml:"client_cns"`
 	HandshakeTimeout time.Duration `yaml:"handshake_timeout,positive,default=10s"`
 }
 
 type StdinserverServer struct {
 	ServeCommon    `yaml:",inline"`
-	ClientIdentity string `yaml:"client_identity"`
+	ClientIdentities []string `yaml:"client_identities"`
 }
 
 type PruningEnum struct {

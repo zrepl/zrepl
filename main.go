@@ -57,6 +57,18 @@ var statusCmd = &cobra.Command{
 	},
 }
 
+var stdinserverCmd = &cobra.Command{
+	Use:   "stdinserver CLIENT_IDENTITY",
+	Short: "start in stdinserver mode (from authorized_keys file)",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		conf, err := config.ParseConfig(rootArgs.configFile)
+		if err != nil {
+			return err
+		}
+		return client.RunStdinserver(conf, args)
+	},
+}
+
 var rootArgs struct {
 	configFile string
 }
@@ -67,6 +79,7 @@ func init() {
 	rootCmd.AddCommand(daemonCmd)
 	rootCmd.AddCommand(wakeupCmd)
 	rootCmd.AddCommand(statusCmd)
+	rootCmd.AddCommand(stdinserverCmd)
 }
 
 func main() {
