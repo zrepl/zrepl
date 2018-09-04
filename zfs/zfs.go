@@ -477,7 +477,7 @@ func ZFSGet(fs *DatasetPath, props []string) (*ZFSProperties, error) {
 	return zfsGet(fs.ToString(), props)
 }
 
-var zfsGetDatasetDoesNotExistRegexp = regexp.MustCompile(`^cannot open '(\s+)': dataset does not exist`)
+var zfsGetDatasetDoesNotExistRegexp = regexp.MustCompile(`^cannot open '(\S+)': dataset does not exist`)
 
 type DatasetDoesNotExist struct {
 	Path string
@@ -488,12 +488,12 @@ func (d *DatasetDoesNotExist) Error() string { return fmt.Sprintf("dataset %q do
 func zfsGet(path string, props []string) (*ZFSProperties, error) {
 	args := []string{"get", "-Hp", "-o", "property,value", strings.Join(props, ","), path}
 	cmd := exec.Command(ZFS_BINARY, args...)
-	output, err := cmd.CombinedOutput()
+	stdout, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			if exitErr.Exited() {
 				// screen-scrape output
-				if sm := zfsGetDatasetDoesNotExistRegexp.FindSubmatch(output); sm != nil {
+				if sm := zfsGetDatasetDoesNotExistRegexp.FindSubmatch(exitErr.Stderr); sm != nil {
 					if string(sm[1]) == path {
 						return nil, &DatasetDoesNotExist{path}
 					}
@@ -502,7 +502,7 @@ func zfsGet(path string, props []string) (*ZFSProperties, error) {
 		}
 		return nil, err
 	}
-	o := string(output)
+	o := string(stdout)
 	lines := strings.Split(o, "\n")
 	if len(lines) < 1 || // account for newlines
 		len(lines)-1 != len(props) {
