@@ -1,6 +1,9 @@
 package filters
 
-import "github.com/zrepl/zrepl/zfs"
+import (
+	"github.com/zrepl/zrepl/zfs"
+	"strings"
+)
 
 type AnyFSVFilter struct{}
 
@@ -12,4 +15,27 @@ var _ zfs.FilesystemVersionFilter = AnyFSVFilter{}
 
 func (AnyFSVFilter) Filter(t zfs.VersionType, name string) (accept bool, err error) {
 	return true, nil
+}
+
+
+type PrefixFilter struct {
+	prefix    string
+	fstype    zfs.VersionType
+	fstypeSet bool // optionals anyone?
+}
+
+var _ zfs.FilesystemVersionFilter = &PrefixFilter{}
+
+func NewPrefixFilter(prefix string) *PrefixFilter {
+	return &PrefixFilter{prefix: prefix}
+}
+
+func NewTypedPrefixFilter(prefix string, versionType zfs.VersionType) *PrefixFilter {
+	return &PrefixFilter{prefix, versionType, true}
+}
+
+func (f *PrefixFilter) Filter(t zfs.VersionType, name string) (accept bool, err error) {
+	fstypeMatches := (!f.fstypeSet || t == f.fstype)
+	prefixMatches := strings.HasPrefix(name, f.prefix)
+	return fstypeMatches && prefixMatches, nil
 }

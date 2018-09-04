@@ -11,6 +11,7 @@ import (
 	"github.com/zrepl/zrepl/replication"
 	"sync"
 	"github.com/zrepl/zrepl/daemon/logging"
+	"github.com/zrepl/zrepl/daemon/snapper"
 )
 
 type Push struct {
@@ -19,6 +20,8 @@ type Push struct {
 	fsfilter  endpoint.FSFilter
 
 	prunerFactory *pruner.PrunerFactory
+
+	snapper *snapper.Snapper
 
 	mtx         sync.Mutex
 	replication *replication.Replication
@@ -34,13 +37,19 @@ func PushFromConfig(g *config.Global, in *config.PushJob) (j *Push, err error) {
 		return nil, errors.Wrap(err, "cannot build client")
 	}
 
-	if j.fsfilter, err = filters.DatasetMapFilterFromConfig(in.Filesystems); err != nil {
+	fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
+	if err != nil {
 		return nil, errors.Wrap(err, "cannnot build filesystem filter")
 	}
+	j.fsfilter = fsf
 
 	j.prunerFactory, err = pruner.NewPrunerFactory(in.Pruning)
 	if err != nil {
 		return nil, err
+	}
+
+	if j.snapper, err = snapper.FromConfig(g, fsf, &in.Snapshotting); err != nil {
+		return nil, errors.Wrap(err, "cannot build snapper")
 	}
 
 	return j, nil
@@ -68,6 +77,14 @@ func (j *Push) Run(ctx context.Context) {
 
 	defer log.Info("job exiting")
 
+	snapshotsTaken := make(chan struct{})
+	{
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		ctx = logging.WithSubsystemLoggers(ctx, log)
+		go j.snapper.Run(ctx, snapshotsTaken)
+	}
+
 	invocationCount := 0
 outer:
 	for {
@@ -76,11 +93,13 @@ outer:
 		case <-ctx.Done():
 			log.WithError(ctx.Err()).Info("context")
 			break outer
+
 		case <-WaitWakeup(ctx):
-			invocationCount++
-			invLog := log.WithField("invocation", invocationCount)
-			j.do(WithLogger(ctx, invLog))
+		case <-snapshotsTaken:
 		}
+		invocationCount++
+		invLog := log.WithField("invocation", invocationCount)
+		j.do(WithLogger(ctx, invLog))
 	}
 }
 

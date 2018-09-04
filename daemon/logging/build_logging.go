@@ -14,6 +14,7 @@ import (
 	"github.com/zrepl/zrepl/replication"
 	"github.com/zrepl/zrepl/tlsconf"
 	"os"
+	"github.com/zrepl/zrepl/daemon/snapper"
 )
 
 func OutletsFromConfig(in config.LoggingOutletEnumList) (*logger.Outlets, error) {
@@ -69,6 +70,7 @@ func WithSubsystemLoggers(ctx context.Context, log logger.Logger) context.Contex
 	ctx = streamrpc.ContextWithLogger(ctx, streamrpcLogAdaptor{log.WithField(SubsysField, "rpc")})
 	ctx = endpoint.WithLogger(ctx, log.WithField(SubsysField, "endpoint"))
 	ctx = pruner.WithLogger(ctx, log.WithField(SubsysField, "pruning"))
+	ctx = snapper.WithLogger(ctx, log.WithField(SubsysField, "snapshot"))
 	return ctx
 }
 
