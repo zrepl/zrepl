@@ -1,14 +1,13 @@
 jobs:
 - name: pull_source
   type: source
-  replication:
-    serve:
-      type: stdinserver
-      client_identity: "client1"
-    filesystems: {
-      "<": true,
-      "secret": false
-    }
+  serve:
+    type: stdinserver
+    client_identity: "client1"
+  filesystems: {
+    "<": true,
+    "secret": false
+  }
   snapshotting:
     snapshot_prefix: zrepl_
     interval: 10m

@@ -24,7 +24,8 @@ type JobEnum struct {
 type PushJob struct {
 	Type         string                `yaml:"type"`
 	Name         string                `yaml:"name"`
-	Replication  PushReplication       `yaml:"replication"`
+	Connect     ConnectEnum     `yaml:"connect"`
+	Filesystems FilesystemsFilter `yaml:"filesystems"`
 	Snapshotting Snapshotting          `yaml:"snapshotting"`
 	Pruning      PruningSenderReceiver `yaml:"pruning"`
 	Debug        JobDebugSettings      `yaml:"debug,optional"`
@@ -33,28 +34,26 @@ type PushJob struct {
 type SinkJob struct {
 	Type        string           `yaml:"type"`
 	Name        string           `yaml:"name"`
-	Replication SinkReplication  `yaml:"replication"`
+	RootDataset string    `yaml:"root_dataset"`
+	Serve       ServeEnum `yaml:"serve"`
 	Debug       JobDebugSettings `yaml:"debug,optional"`
 }
 
 type PullJob struct {
 	Type        string                `yaml:"type"`
 	Name        string                `yaml:"name"`
-	Replication PullReplication       `yaml:"replication"`
-	Pruning     PruningSenderReceiver `yaml:"pruning"`
-	Debug       JobDebugSettings      `yaml:"debug,optional"`
-}
-
-type PullReplication struct {
 	Connect     ConnectEnum   `yaml:"connect"`
 	RootDataset string        `yaml:"root_dataset"`
 	Interval    time.Duration `yaml:"interval,positive"`
+	Pruning     PruningSenderReceiver `yaml:"pruning"`
+	Debug       JobDebugSettings      `yaml:"debug,optional"`
 }
 
 type SourceJob struct {
 	Type         string            `yaml:"type"`
 	Name         string            `yaml:"name"`
-	Replication  SourceReplication `yaml:"replication"`
+	Serve       ServeEnum       `yaml:"serve"`
+	Filesystems FilesystemsFilter `yaml:"filesystems"`
 	Snapshotting Snapshotting      `yaml:"snapshotting"`
 	Pruning      PruningLocal      `yaml:"pruning"`
 	Debug        JobDebugSettings  `yaml:"debug,optional"`
@@ -63,31 +62,14 @@ type SourceJob struct {
 type LocalJob struct {
 	Type         string                `yaml:"type"`
 	Name         string                `yaml:"name"`
-	Replication  LocalReplication      `yaml:"replication"`
+	Filesystems FilesystemsFilter `yaml:"filesystems"`
+	RootDataset string          `yaml:"root_dataset"`
 	Snapshotting Snapshotting          `yaml:"snapshotting"`
 	Pruning      PruningSenderReceiver `yaml:"pruning"`
 	Debug        JobDebugSettings      `yaml:"debug,optional"`
 }
 
-type PushReplication struct {
-	Connect     ConnectEnum     `yaml:"connect"`
-	Filesystems map[string]bool `yaml:"filesystems"`
-}
-
-type SinkReplication struct {
-	RootDataset string    `yaml:"root_dataset"`
-	Serve       ServeEnum `yaml:"serve"`
-}
-
-type SourceReplication struct {
-	Serve       ServeEnum       `yaml:"serve"`
-	Filesystems map[string]bool `yaml:"filesystems"`
-}
-
-type LocalReplication struct {
-	Filesystems map[string]bool `yaml:"filesystems"`
-	RootDataset string          `yaml:"root_dataset"`
-}
+type FilesystemsFilter map[string]bool
 
 type Snapshotting struct {
 	SnapshotPrefix string        `yaml:"snapshot_prefix"`

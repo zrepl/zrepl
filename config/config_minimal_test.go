@@ -18,16 +18,15 @@ jobs:
   type: push
   # snapshot the filesystems matched by the left-hand-side of the mapping
   # every 10m with zrepl_ as prefix
-  replication:
-    connect:
-      type: tcp
-      address: localhost:2342
-    filesystems: {
-      "pool1/var/db<": true,
-      "pool1/usr/home<": true,
-      "pool1/usr/home/paranoid": false, #don't backup paranoid user
-      "pool1/poudriere/ports<": false #don't backup the ports trees
-    }
+  connect:
+    type: tcp
+    address: localhost:2342
+  filesystems: {
+    "pool1/var/db<": true,
+    "pool1/usr/home<": true,
+    "pool1/usr/home/paranoid": false, #don't backup paranoid user
+    "pool1/poudriere/ports<": false #don't backup the ports trees
+  }
   snapshotting:
     snapshot_prefix: zrepl_
     interval: 10m

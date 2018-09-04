@@ -2,17 +2,16 @@ jobs:
 
 - name: pull_servers
   type: pull
-  replication:
-    connect:
-      type: ssh+stdinserver
-      host: app-srv.example.com
-      user: root
-      port: 22
-      identity_file: /etc/zrepl/ssh/identity
-      options: # optional, default [], `-o` arguments passed to ssh
-      - "Compression=on"
-    root_dataset: "pool2/backup_servers"
-    interval: 10m
+  connect:
+    type: ssh+stdinserver
+    host: app-srv.example.com
+    user: root
+    port: 22
+    identity_file: /etc/zrepl/ssh/identity
+    options: # optional, default [], `-o` arguments passed to ssh
+    - "Compression=on"
+  root_dataset: "pool2/backup_servers"
+  interval: 10m
   pruning:
     keep_sender:
     - type: not_replicated

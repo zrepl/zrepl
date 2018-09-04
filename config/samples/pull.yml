@@ -1,16 +1,15 @@
 jobs:
 - name: pull_servers
   type: pull
-  replication:
-    connect:
-      type: tls
-      address: "server1.foo.bar:8888"
-      ca: "/certs/ca.crt"
-      cert: "/certs/cert.crt"
-      key: "/certs/key.pem"
-      server_cn: "server1"
-    root_dataset: "pool2/backup_servers"
-    interval: 10m
+  connect:
+    type: tls
+    address: "server1.foo.bar:8888"
+    ca: "/certs/ca.crt"
+    cert: "/certs/cert.crt"
+    key: "/certs/key.pem"
+    server_cn: "server1"
+  root_dataset: "pool2/backup_servers"
+  interval: 10m
   pruning:
     keep_sender:
     - type: not_replicated

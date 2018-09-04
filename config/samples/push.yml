@@ -1,14 +1,13 @@
 jobs:
   - type: push
     name: "push"
-    replication:
-      connect:
-        type: tcp
-        address: "backup-server.foo.bar:8888"
-      filesystems: {
-        "<": true,
-        "tmp": false
-      }
+    filesystems: {
+      "<": true,
+      "tmp": false
+    }
+    connect:
+      type: tcp
+      address: "backup-server.foo.bar:8888"
     snapshotting:
       snapshot_prefix: zrepl_
       interval: 10m

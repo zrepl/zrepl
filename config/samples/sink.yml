@@ -1,15 +1,14 @@
 jobs:
   - type: sink
     name: "laptop_sink"
-    replication:
-      root_dataset: "pool2/backup_laptops"
-      serve:
-        type: tls
-        listen: "192.168.122.189:8888"
-        ca: "ca.pem"
-        cert: "cert.pem"
-        key: "key.pem"
-        client_cn: "laptop1"
+    root_dataset: "pool2/backup_laptops"
+    serve:
+      type: tls
+      listen: "192.168.122.189:8888"
+      ca: "ca.pem"
+      cert: "cert.pem"
+      key: "key.pem"
+      client_cn: "laptop1"
 global:
   logging:
     - type: "tcp"

@@ -29,12 +29,12 @@ func PushFromConfig(g *config.Global, in *config.PushJob) (j *Push, err error) {
 	j = &Push{}
 	j.name = in.Name
 
-	j.clientFactory, err = connecter.FromConfig(g, in.Replication.Connect)
+	j.clientFactory, err = connecter.FromConfig(g, in.Connect)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot build client")
 	}
 
-	if j.fsfilter, err = filters.DatasetMapFilterFromConfig(in.Replication.Filesystems); err != nil {
+	if j.fsfilter, err = filters.DatasetMapFilterFromConfig(in.Filesystems); err != nil {
 		return nil, errors.Wrap(err, "cannnot build filesystem filter")
 	}
 

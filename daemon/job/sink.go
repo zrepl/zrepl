@@ -25,12 +25,12 @@ func SinkFromConfig(g *config.Global, in *config.SinkJob) (s *Sink, err error) {
 	// FIXME multi client support
 
 	s = &Sink{name: in.Name}
-	if s.l, s.rpcConf, err = serve.FromConfig(g, in.Replication.Serve); err != nil {
+	if s.l, s.rpcConf, err = serve.FromConfig(g, in.Serve); err != nil {
 		return nil, errors.Wrap(err, "cannot build server")
 	}
 
 	fsmap := filters.NewDatasetMapFilter(1, false) // FIXME multi-client support
-	if err := fsmap.Add("<", in.Replication.RootDataset); err != nil {
+	if err := fsmap.Add("<", in.RootDataset); err != nil {
 		return nil, errors.Wrap(err, "unexpected error: cannot build filesystem mapping")
 	}
 	s.fsmap = fsmap
