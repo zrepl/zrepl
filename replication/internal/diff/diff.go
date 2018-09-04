@@ -65,7 +65,16 @@ func IncrementalPath(receiver, sender []*FilesystemVersion) (incPath []*Filesyst
 			}
 			break
 		}
-		if receiver[mrcaRcv].CreateTXG < sender[mrcaSnd].CreateTXG {
+		receiverCreation, err := receiver[mrcaRcv].CreationAsTime()
+		if err != nil {
+			panic(err) // FIXME move this to a sorting phase before
+		}
+		senderCreation, err := sender[mrcaSnd].CreationAsTime()
+		if err != nil {
+			panic(err) // FIXME move this to the sorting phase before
+		}
+
+		if receiverCreation.Before(senderCreation) {
 			mrcaSnd--
 		} else {
 			mrcaRcv--
