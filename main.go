@@ -88,6 +88,18 @@ var bashcompCmd = &cobra.Command{
 	Hidden: true,
 }
 
+var configcheckCmd = &cobra.Command{
+	Use: "configcheck",
+	Short: "validate config file",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		conf, err := config.ParseConfig(rootArgs.configFile)
+		if err != nil {
+			return err
+		}
+		return client.RunConfigcheck(conf, args)
+	},
+}
+
 var rootArgs struct {
 	configFile string
 }
@@ -100,6 +112,7 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(stdinserverCmd)
 	rootCmd.AddCommand(bashcompCmd)
+	rootCmd.AddCommand(configcheckCmd)
 }
 
 func main() {
