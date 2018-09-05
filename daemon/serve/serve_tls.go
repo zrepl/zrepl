@@ -21,6 +21,7 @@ type TLSListenerFactory struct {
 func TLSListenerFactoryFromConfig(c *config.Global, in *config.TLSServe) (lf *TLSListenerFactory, err error) {
 	lf = &TLSListenerFactory{
 		address: in.Listen,
+		handshakeTimeout: in.HandshakeTimeout,
 	}
 
 	if in.Ca == "" || in.Cert == "" || in.Key == "" {
