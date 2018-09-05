@@ -34,7 +34,7 @@ func FromConfig(g *config.Global, in config.ConnectEnum) (*ClientFactory, error)
 		return nil, errRPC
 	}
 
-	config := streamrpc.ClientConfig{connConf}
+	config := streamrpc.ClientConfig{ConnConfig: connConf}
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}

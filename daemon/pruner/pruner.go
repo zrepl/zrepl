@@ -61,8 +61,8 @@ type Pruner struct {
 	err        error
 
 	// State Exec
-	prunePending   []fs
-	pruneCompleted []fs
+	prunePending   []*fs
+	pruneCompleted []*fs
 }
 
 type PrunerFactory struct {
@@ -253,14 +253,14 @@ func statePlan(a *args, u updater) state {
 		return onErr(u, err)
 	}
 
-	pfss := make([]fs, len(tfss))
+	pfss := make([]*fs, len(tfss))
 	for i, tfs := range tfss {
 		tfsvs, err := target.ListFilesystemVersions(ctx, tfs.Path)
 		if err != nil {
 			return onErr(u, err)
 		}
 
-		pfs := fs{
+		pfs := &fs{
 			path:  tfs.Path,
 			snaps: make([]pruning.Snapshot, 0, len(tfsvs)),
 		}
@@ -321,7 +321,7 @@ func statePlan(a *args, u updater) state {
 
 func stateExec(a *args, u updater) state {
 
-	var pfs fs
+	var pfs *fs
 	state := u(func(pruner *Pruner) {
 		if len(pruner.prunePending) == 0 {
 			pruner.state = Done

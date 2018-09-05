@@ -230,7 +230,7 @@ type LoggingOutletCommon struct {
 type StdoutLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
 	Time                bool `yaml:"time,default=true"`
-	Color               bool `yaml:"color,default=true""`
+	Color               bool `yaml:"color,default=true"`
 }
 
 type SyslogLoggingOutlet struct {
@@ -289,12 +289,12 @@ func enumUnmarshal(u func(interface{}, bool) error, types map[string]interface{}
 		return nil, err
 	}
 	if in.Type == "" {
-		return nil, &yaml.TypeError{[]string{"must specify type"}}
+		return nil, &yaml.TypeError{Errors: []string{"must specify type"}}
 	}
 
 	v, ok := types[in.Type]
 	if !ok {
-		return nil, &yaml.TypeError{[]string{fmt.Sprintf("invalid type name %q", in.Type)}}
+		return nil, &yaml.TypeError{Errors: []string{fmt.Sprintf("invalid type name %q", in.Type)}}
 	}
 	if err := u(v, false); err != nil {
 		return nil, err
