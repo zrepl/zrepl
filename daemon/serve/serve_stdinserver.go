@@ -11,8 +11,6 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"sync/atomic"
-	"fmt"
-	"os"
 )
 
 type StdinserverListenerFactory struct {
@@ -87,9 +85,7 @@ func (m *MultiStdinserverListener) Accept(ctx context.Context) (AuthenticatedCon
 		for i := range m.listeners {
 			go func(i int) {
 				for atomic.LoadInt32(&m.closed) == 0 {
-					fmt.Fprintf(os.Stderr, "accepting\n")
 					conn, err := m.listeners[i].Accept(context.TODO())
-					fmt.Fprintf(os.Stderr, "incoming\n")
 					m.accepts <- multiStdinserverAcceptRes{conn, err}
 				}
 			}(i)
