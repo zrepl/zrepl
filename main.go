@@ -8,6 +8,7 @@ import (
 	"github.com/zrepl/zrepl/daemon"
 	"log"
 	"os"
+	"fmt"
 )
 
 var rootCmd = &cobra.Command{
@@ -69,6 +70,24 @@ var stdinserverCmd = &cobra.Command{
 	},
 }
 
+
+var bashcompCmd = &cobra.Command{
+	Use:   "bashcomp path/to/out/file",
+	Short: "generate bash completions",
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "specify exactly one positional agument\n")
+			cmd.Usage()
+			os.Exit(1)
+		}
+		if err := rootCmd.GenBashCompletionFile(args[0]); err != nil {
+			fmt.Fprintf(os.Stderr, "error generating bash completion: %s", err)
+			os.Exit(1)
+		}
+	},
+	Hidden: true,
+}
+
 var rootArgs struct {
 	configFile string
 }
@@ -80,6 +99,7 @@ func init() {
 	rootCmd.AddCommand(wakeupCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(stdinserverCmd)
+	rootCmd.AddCommand(bashcompCmd)
 }
 
 func main() {
