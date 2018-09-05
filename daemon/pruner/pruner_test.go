@@ -90,42 +90,45 @@ func (t *mockTarget) DestroySnapshots(ctx context.Context, req *pdu.DestroySnaps
 }
 
 type mockHistory struct {
-	fss  []mockFS
 	errs map[string][]error
 }
 
-func (r *mockHistory) WasSnapshotReplicated(ctx context.Context, fs string, version *pdu.FilesystemVersion) (bool, error) {
-
+func (r *mockHistory) SnapshotReplicationStatus(ctx context.Context, req *pdu.SnapshotReplicationStatusReq) (*pdu.SnapshotReplicationStatusRes, error) {
+	fs := req.Filesystem
 	if len(r.errs[fs]) > 0 {
 		e := r.errs[fs][0]
 		r.errs[fs] = r.errs[fs][1:]
-		return false, e
+		return nil, e
 	}
-
-	for _, mfs := range r.fss {
-		if mfs.path != fs {
-			continue
-		}
-		for _, v := range mfs.FilesystemVersions() {
-			if v.Type == version.Type && v.Name == v.Name && v.CreateTXG == version.CreateTXG {
-				return true, nil
-			}
-		}
-	}
-	return false, nil
+	return &pdu.SnapshotReplicationStatusRes{Status: pdu.SnapshotReplicationStatusRes_Nonexistent}, nil
 }
+
+type stubNetErr struct {
+	msg string
+	temporary, timeout bool
+}
+
+var _ net.Error = stubNetErr{}
+
+func (e stubNetErr) Error() string {
+	return e.msg
+}
+
+func (e stubNetErr) Temporary() bool { return e.temporary }
+
+func (e stubNetErr) Timeout() bool { return e.timeout }
 
 func TestPruner_Prune(t *testing.T) {
 
 	var _ net.Error = &net.OpError{} // we use it below
 	target := &mockTarget{
 		listFilesystemsErr: []error{
-			&net.OpError{Op: "fakerror0"},
+			stubNetErr{msg: "fakerror0"},
 		},
 		listVersionsErrs: map[string][]error{
 			"zroot/foo": {
-				&net.OpError{Op: "fakeerror1"}, // should be classified as temporaty
-				&net.OpError{Op: "fakeerror2"},
+				stubNetErr{msg: "fakeerror1"}, // should be classified as temporaty
+				stubNetErr{msg: "fakeerror2"},
 			},
 		},
 		destroyErrs: map[string][]error{
@@ -133,7 +136,7 @@ func TestPruner_Prune(t *testing.T) {
 				fmt.Errorf("permanent error"),
 			},
 			"zroot/bar": {
-				&net.OpError{Op: "fakeerror3"},
+				stubNetErr{msg: "fakeerror3"},
 			},
 		},
 		destroyed: make(map[string][]string),
@@ -167,7 +170,7 @@ func TestPruner_Prune(t *testing.T) {
 	history := &mockHistory{
 		errs: map[string][]error{
 			"zroot/foo": {
-				&net.OpError{Op: "fakeerror4"},
+				stubNetErr{msg: "fakeerror4"},
 			},
 			"zroot/baz": {
 				fmt.Errorf("permanent error2"),
@@ -177,10 +180,17 @@ func TestPruner_Prune(t *testing.T) {
 
 	keepRules := []pruning.KeepRule{pruning.MustKeepRegex("^keep")}
 
-	p := NewPruner(10*time.Millisecond, target, history, keepRules)
-	ctx := context.Background()
-	ctx = WithLogger(ctx, logger.NewTestLogger(t))
-	p.Prune(ctx)
+	p := Pruner{
+		args: args{
+			ctx: WithLogger(context.Background(), logger.NewTestLogger(t)),
+			target: target,
+			receiver: history,
+			rules: keepRules,
+			retryWait: 10*time.Millisecond,
+		},
+		state: Plan,
+	}
+	p.Prune()
 
 	exp := map[string][]string{
 		"zroot/bar": {"drop_g"},
