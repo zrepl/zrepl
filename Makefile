@@ -2,13 +2,30 @@
 .DEFAULT_GOAL := build
 
 ROOT := github.com/zrepl/zrepl
-SUBPKGS := cmd
+SUBPKGS += client
+SUBPKGS += config
+SUBPKGS += daemon
+SUBPKGS += daemon/connecter
+SUBPKGS += daemon/filters
+SUBPKGS += daemon/job
+SUBPKGS += daemon/logging
+SUBPKGS += daemon/nethelpers
+SUBPKGS += daemon/pruner
+SUBPKGS += daemon/serve
+SUBPKGS += daemon/snapper
+SUBPKGS += daemon/streamrpcconfig
+SUBPKGS += endpoint
+SUBPKGS += logger
+SUBPKGS += pruning
 SUBPKGS += replication
 SUBPKGS += replication/fsrep
 SUBPKGS += replication/pdu
 SUBPKGS += replication/internal/queue
 SUBPKGS += replication/internal/diff
-SUBPKGS += logger util zfs
+SUBPKGS += tlsconf
+SUBPKGS += util
+SUBPKGS += version
+SUBPKGS += zfs
 
 _TESTPKGS := $(ROOT) $(foreach p,$(SUBPKGS),$(ROOT)/$(p))
 
