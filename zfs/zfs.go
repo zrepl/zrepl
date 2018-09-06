@@ -309,6 +309,9 @@ func ZFSSend(fs string, from, to string) (stream io.ReadCloser, err error) {
 	return
 }
 
+var BookmarkSizeEstimationNotSupported error = fmt.Errorf("size estimation is not supported for bookmarks")
+
+// May return BookmarkSizeEstimationNotSupported as err if from is a bookmark.
 func ZFSSendDry(fs string, from, to string) (size int64, err error) {
 
 	fromV, err := absVersion(fs, from)
@@ -322,6 +325,16 @@ func ZFSSendDry(fs string, from, to string) (size int64, err error) {
 		if err != nil {
 			return 0, err
 		}
+	}
+
+	if strings.Contains(fromV, "#") {
+		/* TODO:
+		 * ZFS at the time of writing does not support dry-run send because size-estimation
+		 * uses fromSnap's deadlist. However, for a bookmark, that deadlist no longer exists.
+		 * Redacted send & recv will bring this functionality, see
+		 * 	https://github.com/openzfs/openzfs/pull/484
+		 */
+		 return 0, BookmarkSizeEstimationNotSupported
 	}
 
 	args := make([]string, 0)

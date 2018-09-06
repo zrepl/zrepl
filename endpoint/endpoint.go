@@ -77,6 +77,9 @@ func (p *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 
 	if r.DryRun {
 		size, err := zfs.ZFSSendDry(r.Filesystem, r.From, r.To)
+		if err == zfs.BookmarkSizeEstimationNotSupported {
+			return &pdu.SendRes{ExpectedSize: 0}, nil, nil
+		}
 		if err != nil {
 			return nil, nil, err
 		}

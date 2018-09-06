@@ -235,22 +235,27 @@ func (t *tui) drawBar(name string, maxNameLength int, status string, bytes int64
 	t.write(rightPad(status, 14, " "))
 	t.write(" ")
 
+	length := 50
+	var completedLength int
 	if totalBytes > 0 {
-		length := 50
-		completedLength := int(int64(length) * bytes / totalBytes)
+		completedLength = int(int64(length) * bytes / totalBytes)
 		if completedLength > length {
 			completedLength = length
 		}
-
-		t.write("[")
-		t.write(times("=", completedLength))
-		t.write(">")
-		t.write(times("-", length-completedLength))
-		t.write("]")
-
-		t.write(" ")
-		t.write(rightPad(ByteCountBinary(bytes) + "/" + ByteCountBinary(totalBytes), 20, " "))
 	}
+
+	t.write("[")
+	t.write(times("=", completedLength))
+	t.write(">")
+	t.write(times("-", length-completedLength))
+	t.write("]")
+
+	t.write(" ")
+	totalBytesStr := ByteCountBinary(totalBytes)
+	if totalBytes == 0 {
+		totalBytesStr = "??? B"
+	}
+	t.write(rightPad(ByteCountBinary(bytes)+"/"+totalBytesStr, 20, " "))
 
 	t.newline()
 }

@@ -493,7 +493,8 @@ func (m *Property) GetValue() string {
 type SendRes struct {
 	// Whether the resume token provided in the request has been used or not.
 	UsedResumeToken bool `protobuf:"varint,1,opt,name=UsedResumeToken,proto3" json:"UsedResumeToken,omitempty"`
-	// Expected stream size determined by dry run, not exact
+	// Expected stream size determined by dry run, not exact.
+	// 0 indicates that for the given SendReq, no size estimate could be made.
 	ExpectedSize         int64       `protobuf:"varint,2,opt,name=ExpectedSize,proto3" json:"ExpectedSize,omitempty"`
 	Properties           []*Property `protobuf:"bytes,3,rep,name=Properties,proto3" json:"Properties,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`

@@ -59,7 +59,7 @@ type StepReport struct {
 	Status   StepState
 	Problem  string
 	Bytes    int64
-	ExpectedBytes int64
+	ExpectedBytes int64 // 0 means no size estimate possible
 }
 
 type Report struct {
@@ -185,7 +185,7 @@ type ReplicationStep struct {
 	err error
 
 	byteCounter  *util.ByteCounterReader
-	expectedSize int64
+	expectedSize int64 // 0 means no size estimate present / possible
 }
 
 func (f *Replication) TakeStep(ctx context.Context, sender Sender, receiver Receiver) (post State, nextStepDate time.Time) {
@@ -457,6 +457,7 @@ func (s *ReplicationStep) updateSizeEstimate(ctx context.Context, sender Sender)
 	sres, _, err := sender.Send(ctx, sr)
 	if err != nil {
 		log.WithError(err).Error("dry run send request failed")
+		return err
 	}
 	s.expectedSize = sres.ExpectedSize
 	return nil
