@@ -30,6 +30,7 @@ func (m *mockFS) FilesystemVersions() []*pdu.FilesystemVersion {
 			Type:     pdu.FilesystemVersion_Snapshot,
 			Name:     v,
 			Creation: pdu.FilesystemVersionCreation(time.Unix(0, 0)),
+			Guid: uint64(i),
 		}
 	}
 	return versions
@@ -89,18 +90,23 @@ func (t *mockTarget) DestroySnapshots(ctx context.Context, req *pdu.DestroySnaps
 	return &pdu.DestroySnapshotsRes{Results: res}, nil
 }
 
+type mockCursor struct {
+	snapname string
+	guid uint64
+}
 type mockHistory struct {
 	errs map[string][]error
+	cursors map[string]*mockCursor
 }
 
-func (r *mockHistory) SnapshotReplicationStatus(ctx context.Context, req *pdu.SnapshotReplicationStatusReq) (*pdu.SnapshotReplicationStatusRes, error) {
+func (r *mockHistory) ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
 	fs := req.Filesystem
 	if len(r.errs[fs]) > 0 {
 		e := r.errs[fs][0]
 		r.errs[fs] = r.errs[fs][1:]
 		return nil, e
 	}
-	return &pdu.SnapshotReplicationStatusRes{Status: pdu.SnapshotReplicationStatusRes_Nonexistent}, nil
+	return &pdu.ReplicationCursorRes{Result: &pdu.ReplicationCursorRes_Guid{Guid: 0}}, nil
 }
 
 type stubNetErr struct {
@@ -195,7 +201,7 @@ func TestPruner_Prune(t *testing.T) {
 	exp := map[string][]string{
 		"zroot/bar": {"drop_g"},
 		// drop_c is prohibited by failing destroy
-		// drop_i is prohibiteed by failing WasSnapshotReplicated call
+		// drop_i is prohibiteed by failing ReplicationCursor call
 	}
 
 	assert.Equal(t, exp, target.destroyed)

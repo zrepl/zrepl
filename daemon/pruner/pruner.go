@@ -270,11 +270,22 @@ fsloop:
 		l := GetLogger(ctx).WithField("fs", tfs.Path)
 		l.Debug("plan filesystem")
 
+
+		pfs := &fs{
+			path:  tfs.Path,
+		}
+		pfss[i] = pfs
+
 		tfsvs, err := target.ListFilesystemVersions(ctx, tfs.Path)
 		if err != nil {
 			l.WithError(err).Error("cannot list filesystem versions")
-			return onErr(u, err)
+			if shouldRetry(err) {
+				return onErr(u, err)
+			}
+			pfs.err = err
+			continue fsloop
 		}
+		pfs.snaps = make([]pruning.Snapshot, 0, len(tfsvs))
 
 		rcReq := &pdu.ReplicationCursorReq{
 			Filesystem: tfs.Path,
@@ -283,18 +294,18 @@ fsloop:
 		rc, err := receiver.ReplicationCursor(ctx, rcReq)
 		if err != nil {
 			l.WithError(err).Error("cannot get replication cursor")
-			return onErr(u, err)
+			if shouldRetry(err) {
+				return onErr(u, err)
+			}
+			pfs.err = err
+			continue fsloop
 		}
 		if rc.GetError() != "" {
 			l.WithField("reqErr", rc.GetError()).Error("cannot get replication cursor")
-			return onErr(u, fmt.Errorf("%s", rc.GetError()))
+			pfs.err = fmt.Errorf("%s", rc.GetError())
+			continue fsloop
 		}
 
-		pfs := &fs{
-			path:  tfs.Path,
-			snaps: make([]pruning.Snapshot, 0, len(tfsvs)),
-		}
-		pfss[i] = pfs
 
 		// scan from older to newer, all snapshots older than cursor are interpreted as replicated
 		sort.Slice(tfsvs, func(i, j int) bool {
