@@ -24,13 +24,13 @@ func ZFSGetReplicationCursor(fs *DatasetPath) (*FilesystemVersion, error) {
 
 func ZFSSetReplicationCursor(fs *DatasetPath, snapname string) (guid uint64, err error) {
 	snapPath := fmt.Sprintf("%s@%s", fs.ToString(), snapname)
-	propsSnap, err := zfsGet(snapPath, []string{"createtxg", "guid"})
+	propsSnap, err := zfsGet(snapPath, []string{"createtxg", "guid"}, sourceAny)
 	if err != nil {
 		return 0, err
 	}
 	snapGuid, err := strconv.ParseUint(propsSnap.Get("guid"), 10, 64)
 	bookmarkPath := fmt.Sprintf("%s#%s", fs.ToString(), ReplicationCursorBookmarkName)
-	propsBookmark, err := zfsGet(bookmarkPath, []string{"createtxg"})
+	propsBookmark, err := zfsGet(bookmarkPath, []string{"createtxg"}, sourceAny)
 	_, bookmarkNotExistErr := err.(*DatasetDoesNotExist)
 	if err != nil && !bookmarkNotExistErr {
 		return 0, err

@@ -487,7 +487,7 @@ func zfsSet(path string, props *ZFSProperties) (err error) {
 }
 
 func ZFSGet(fs *DatasetPath, props []string) (*ZFSProperties, error) {
-	return zfsGet(fs.ToString(), props)
+	return zfsGet(fs.ToString(), props, sourceAny)
 }
 
 var zfsGetDatasetDoesNotExistRegexp = regexp.MustCompile(`^cannot open '(\S+)': (dataset does not exist|no such pool or dataset)`)
@@ -498,8 +498,30 @@ type DatasetDoesNotExist struct {
 
 func (d *DatasetDoesNotExist) Error() string { return fmt.Sprintf("dataset %q does not exist", d.Path) }
 
-func zfsGet(path string, props []string) (*ZFSProperties, error) {
-	args := []string{"get", "-Hp", "-o", "property,value", strings.Join(props, ","), path}
+type zfsPropertySource uint
+
+const (
+	sourceLocal zfsPropertySource = 1 << iota
+	sourceDefault
+	sourceInherited
+	sourceNone
+	sourceTemporary
+
+	sourceAny zfsPropertySource = ^zfsPropertySource(0)
+)
+
+func (s zfsPropertySource) zfsGetSourceFieldPrefixes() []string {
+	prefixes := make([]string, 0, 5)
+	if s&sourceLocal != 0 {prefixes = append(prefixes, "local")}
+	if s&sourceDefault != 0 {prefixes = append(prefixes, "default")}
+	if s&sourceInherited != 0 {prefixes = append(prefixes, "inherited")}
+	if s&sourceNone != 0 {prefixes = append(prefixes, "-")}
+	if s&sourceTemporary != 0 { prefixes = append(prefixes, "temporary")}
+	return prefixes
+}
+
+func zfsGet(path string, props []string, allowedSources zfsPropertySource) (*ZFSProperties, error) {
+	args := []string{"get", "-Hp", "-o", "property,value,source", strings.Join(props, ","), path}
 	cmd := exec.Command(ZFS_BINARY, args...)
 	stdout, err := cmd.Output()
 	if err != nil {
@@ -524,12 +546,20 @@ func zfsGet(path string, props []string) (*ZFSProperties, error) {
 	res := &ZFSProperties{
 		make(map[string]string, len(lines)),
 	}
+	allowedPrefixes := allowedSources.zfsGetSourceFieldPrefixes()
 	for _, line := range lines[:len(lines)-1] {
-		fields := strings.Fields(line)
-		if len(fields) != 2 {
-			return nil, fmt.Errorf("zfs get did not return property value pairs")
+		fields := strings.FieldsFunc(line, func(r rune) bool {
+			return r == '\t'
+		})
+		if len(fields) != 3 {
+			return nil, fmt.Errorf("zfs get did not return property,value,source tuples")
 		}
-		res.m[fields[0]] = fields[1]
+		for _, p := range allowedPrefixes {
+			if strings.HasPrefix(fields[2],p) {
+				res.m[fields[0]] = fields[1]
+				break
+			}
+		}
 	}
 	return res, nil
 }
