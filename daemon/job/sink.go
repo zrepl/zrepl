@@ -5,18 +5,18 @@ import (
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/daemon/serve"
 	"github.com/zrepl/zrepl/endpoint"
 	"path"
+	"github.com/zrepl/zrepl/zfs"
 )
 
 type Sink struct {
 	name     string
 	l        serve.ListenerFactory
 	rpcConf  *streamrpc.ConnConfig
-	rootDataset string
+	rootDataset *zfs.DatasetPath
 }
 
 func SinkFromConfig(g *config.Global, in *config.SinkJob) (s *Sink, err error) {
@@ -26,10 +26,14 @@ func SinkFromConfig(g *config.Global, in *config.SinkJob) (s *Sink, err error) {
 		return nil, errors.Wrap(err, "cannot build server")
 	}
 
-	if in.RootDataset == "" {
-		return nil, errors.Wrap(err, "must specify root dataset")
+	s.rootDataset, err = zfs.NewDatasetPath(in.RootDataset)
+	if err != nil {
+		return nil, errors.New("root dataset is not a valid zfs filesystem path")
 	}
-	s.rootDataset = in.RootDataset
+	if s.rootDataset.Length() <= 0 {
+		return nil, errors.New("root dataset must not be empty") // duplicates error check of receiver
+	}
+
 
 	return s, nil
 }
@@ -89,18 +93,18 @@ func (j *Sink) handleConnection(ctx context.Context, conn serve.AuthenticatedCon
 		Info("handling connection")
 	defer log.Info("finished handling connection")
 
-	clientRoot := path.Join(j.rootDataset, conn.ClientIdentity())
-	log.WithField("client_root", clientRoot).Debug("client root")
-	fsmap := filters.NewDatasetMapFilter(1, false)
-	if err := fsmap.Add("<", clientRoot); err != nil {
+	clientRootStr := path.Join(j.rootDataset.ToString(), conn.ClientIdentity())
+	clientRoot, err := zfs.NewDatasetPath(clientRootStr)
+	if err != nil {
 		log.WithError(err).
 			WithField("client_identity", conn.ClientIdentity()).
 			Error("cannot build client filesystem map (client identity must be a valid ZFS FS name")
 	}
+	log.WithField("client_root", clientRoot).Debug("client root")
 
 	ctx = logging.WithSubsystemLoggers(ctx, log)
 
-	local, err := endpoint.NewReceiver(fsmap, filters.NewAnyFSVFilter())
+	local, err := endpoint.NewReceiver(clientRoot)
 	if err != nil {
 		log.WithError(err).Error("unexpected error: cannot convert mapping to filter")
 		return

@@ -114,7 +114,7 @@ func (j *Push) do(ctx context.Context) {
 	}
 	defer client.Close(ctx)
 
-	sender := endpoint.NewSender(j.fsfilter, filters.NewAnyFSVFilter())
+	sender := endpoint.NewSender(j.fsfilter)
 	receiver := endpoint.NewRemote(client)
 
 	j.mtx.Lock()
