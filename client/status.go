@@ -211,9 +211,14 @@ func (t *tui) draw() {
 				t.newline()
 			}
 
-			maxFS, maxStatus := calculateMaxFilesystemAndVersionNameLength(all)
+			var maxFSLen int
 			for _, fs := range all {
-				printFilesystemStatus(fs, t, fs == rep.Active, maxFS, maxStatus)
+				if len(fs.Filesystem) > maxFSLen {
+					maxFSLen = len(fs.Filesystem)
+				}
+			}
+			for _, fs := range all {
+				printFilesystemStatus(fs, t, fs == rep.Active, maxFSLen)
 			}
 		}
 	}
@@ -221,7 +226,7 @@ func (t *tui) draw() {
 }
 
 const snapshotIndent = 1
-func calculateMaxFilesystemAndVersionNameLength(all []*fsrep.Report) (maxFS, maxStatus int) {
+func calculateMaxFSLength(all []*fsrep.Report) (maxFS, maxStatus int) {
 	for _, e := range all {
 		if len(e.Filesystem) > maxFS {
 			maxFS = len(e.Filesystem)
@@ -268,6 +273,8 @@ func (t *tui) drawBar(length int, bytes, totalBytes int64) {
 		if completedLength > length {
 			completedLength = length
 		}
+	} else if totalBytes == bytes {
+		completedLength = length
 	}
 
 	t.write("[")
@@ -290,7 +297,7 @@ func StringStepState(s fsrep.StepState) string {
 	}
 }
 
-func filesystemStatusString(rep *fsrep.Report, active bool, maxFS, maxStatus int) (totalStatus string, bytes, totalBytes int64) {
+func filesystemStatusString(rep *fsrep.Report, active bool, fsWidth int) (line string, bytes, totalBytes int64) {
 	bytes = int64(0)
 	totalBytes = int64(0)
 	for _, s := range rep.Pending {
@@ -302,37 +309,35 @@ func filesystemStatusString(rep *fsrep.Report, active bool, maxFS, maxStatus int
 		totalBytes += s.ExpectedBytes
 	}
 
-	nextStep := ""
-	if len(rep.Pending) > 0 {
+	next := ""
+	if rep.Problem != "" {
+		next = " problem: " + rep.Problem
+	} else if len(rep.Pending) > 0 {
 		if rep.Pending[0].From != "" {
-			nextStep = fmt.Sprintf("%s => %s", rep.Pending[0].From, rep.Pending[0].To)
+			next = fmt.Sprintf("next: %s => %s", rep.Pending[0].From, rep.Pending[0].To)
 		} else {
-			nextStep = fmt.Sprintf("%s (full)", rep.Pending[0].To)
+			next = fmt.Sprintf("next: %s (full)", rep.Pending[0].To)
 		}
 	}
-	status := fmt.Sprintf("%s (step %d/%d, %s/%s)",
+	status := fmt.Sprintf("%s (step %d/%d, %s/%s)%s",
 		rep.Status,
 		len(rep.Completed), len(rep.Pending) + len(rep.Completed),
 		ByteCountBinary(bytes), ByteCountBinary(totalBytes),
+		next,
 	)
-	if rep.Problem == "" && nextStep != "" {
-		status += fmt.Sprintf(" next: %s", nextStep)
-	} else if rep.Problem != "" {
-		status += fmt.Sprintf(" problem: %s", rep.Problem)
-	}
 	activeIndicator := " "
 	if active {
 		activeIndicator = "*"
 	}
-	totalStatus = fmt.Sprintf("%s %s %s",
+	line = fmt.Sprintf("%s %s %s",
 		activeIndicator,
-		rightPad(rep.Filesystem, maxFS, " "),
-		rightPad(status, maxStatus, " "))
-	return totalStatus, bytes, totalBytes
+		rightPad(rep.Filesystem, fsWidth, " "),
+		status)
+	return line, bytes, totalBytes
 }
 
-func printFilesystemStatus(rep *fsrep.Report, t *tui, active bool, maxFS, maxTotal int) {
-	totalStatus, _, _ := filesystemStatusString(rep, active, maxFS, maxTotal)
+func printFilesystemStatus(rep *fsrep.Report, t *tui, active bool, maxFS int) {
+	totalStatus, _, _ := filesystemStatusString(rep, active, maxFS)
 	t.write(totalStatus)
 	t.newline()
 }
