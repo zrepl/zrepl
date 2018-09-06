@@ -119,7 +119,7 @@ func (p *Sender) ReplicationCursor(ctx context.Context, req *pdu.ReplicationCurs
 		if cursor == nil {
 			return &pdu.ReplicationCursorRes{Result: &pdu.ReplicationCursorRes_Error{Error: "cursor does not exist"}}, nil
 		}
-		return &pdu.ReplicationCursorRes{Result: &pdu.ReplicationCursorRes_Guid{cursor.Guid}}, nil
+		return &pdu.ReplicationCursorRes{Result: &pdu.ReplicationCursorRes_Guid{Guid: cursor.Guid}}, nil
 	case *pdu.ReplicationCursorReq_Set:
 		guid, err := zfs.ZFSSetReplicationCursor(dp, op.Set.Snapshot)
 		if err != nil {
