@@ -59,10 +59,9 @@ func IncrementalPath(receiver, sender []*FilesystemVersion) (incPath []*Filesyst
 
 	for mrcaRcv >= 0 && mrcaSnd >= 0 {
 		if receiver[mrcaRcv].Guid == sender[mrcaSnd].Guid {
-			if mrcaSnd-1 >= 0 && sender[mrcaSnd-1].Guid == sender[mrcaSnd].Guid && sender[mrcaSnd-1].Type == FilesystemVersion_Bookmark {
-				// prefer bookmarks over snapshots as the snapshot might go away sooner
-				mrcaSnd -= 1
-			}
+			// Since we arrive from the end of the array, and because we defined bookmark < snapshot,
+			// this condition will match snapshot first, which is what we want because it gives us
+			// size estimation
 			break
 		}
 		receiverCreation, err := receiver[mrcaRcv].CreationAsTime()

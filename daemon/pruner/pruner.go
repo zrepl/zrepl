@@ -9,13 +9,14 @@ import (
 	"github.com/zrepl/zrepl/pruning"
 	"github.com/zrepl/zrepl/replication/pdu"
 	"net"
+	"sort"
 	"sync"
 	"time"
 )
 
 // Try to keep it compatible with gitub.com/zrepl/zrepl/replication.Endpoint
 type History interface {
-	SnapshotReplicationStatus(ctx context.Context, req *pdu.SnapshotReplicationStatusReq) (*pdu.SnapshotReplicationStatusRes, error)
+	ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error)
 }
 
 type Target interface {
@@ -42,11 +43,12 @@ func GetLogger(ctx context.Context) Logger {
 }
 
 type args struct {
-	ctx       context.Context
-	target    Target
-	receiver  History
-	rules     []pruning.KeepRule
-	retryWait time.Duration
+	ctx                            context.Context
+	target                         Target
+	receiver                       History
+	rules                          []pruning.KeepRule
+	retryWait                      time.Duration
+	considerSnapAtCursorReplicated bool
 }
 
 type Pruner struct {
@@ -66,9 +68,10 @@ type Pruner struct {
 }
 
 type PrunerFactory struct {
-	senderRules   []pruning.KeepRule
-	receiverRules []pruning.KeepRule
-	retryWait     time.Duration
+	senderRules                    []pruning.KeepRule
+	receiverRules                  []pruning.KeepRule
+	retryWait                      time.Duration
+	considerSnapAtCursorReplicated bool
 }
 
 func checkContainsKeep1(rules []pruning.KeepRule) error {
@@ -95,14 +98,19 @@ func NewPrunerFactory(in config.PruningSenderReceiver) (*PrunerFactory, error) {
 		return nil, errors.Wrap(err, "cannot build sender pruning rules")
 	}
 
-	if err := checkContainsKeep1(keepRulesSender); err != nil {
-		return nil, err
+	considerSnapAtCursorReplicated := false
+	for _, r := range in.KeepSender {
+		knr, ok := r.Ret.(*config.PruneKeepNotReplicated)
+		if !ok {
+			continue
+		}
+		considerSnapAtCursorReplicated = considerSnapAtCursorReplicated || !knr.KeepSnapshotAtCursor
 	}
-
 	f := &PrunerFactory{
 		keepRulesSender,
 		keepRulesReceiver,
 		10 * time.Second, //FIXME constant
+		considerSnapAtCursorReplicated,
 	}
 	return f, nil
 }
@@ -115,6 +123,7 @@ func (f *PrunerFactory) BuildSenderPruner(ctx context.Context, target Target, re
 			receiver,
 			f.senderRules,
 			f.retryWait,
+			f.considerSnapAtCursorReplicated,
 		},
 		state: Plan,
 	}
@@ -129,6 +138,7 @@ func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, target Target, 
 			receiver,
 			f.receiverRules,
 			f.retryWait,
+			false, // senseless here anyways
 		},
 		state: Plan,
 	}
@@ -254,56 +264,66 @@ func statePlan(a *args, u updater) state {
 	}
 
 	pfss := make([]*fs, len(tfss))
+fsloop:
 	for i, tfs := range tfss {
+
+		l := GetLogger(ctx).WithField("fs", tfs.Path)
+		l.Debug("plan filesystem")
+
 		tfsvs, err := target.ListFilesystemVersions(ctx, tfs.Path)
 		if err != nil {
+			l.WithError(err).Error("cannot list filesystem versions")
 			return onErr(u, err)
+		}
+
+		rcReq := &pdu.ReplicationCursorReq{
+			Filesystem: tfs.Path,
+			Op:         &pdu.ReplicationCursorReq_Get{},
+		}
+		rc, err := receiver.ReplicationCursor(ctx, rcReq)
+		if err != nil {
+			l.WithError(err).Error("cannot get replication cursor")
+			return onErr(u, err)
+		}
+		if rc.GetError() != "" {
+			l.WithField("reqErr", rc.GetError()).Error("cannot get replication cursor")
+			return onErr(u, fmt.Errorf("%s", rc.GetError()))
 		}
 
 		pfs := &fs{
 			path:  tfs.Path,
 			snaps: make([]pruning.Snapshot, 0, len(tfsvs)),
 		}
+		pfss[i] = pfs
 
+		// scan from older to newer, all snapshots older than cursor are interpreted as replicated
+		sort.Slice(tfsvs, func(i, j int) bool {
+			return tfsvs[i].CreateTXG < tfsvs[j].CreateTXG
+		})
+		preCursor := true
 		for _, tfsv := range tfsvs {
 			if tfsv.Type != pdu.FilesystemVersion_Snapshot {
 				continue
 			}
 			creation, err := tfsv.CreationAsTime()
 			if err != nil {
-				return onErr(u, fmt.Errorf("%s%s has invalid creation date: %s", tfs, tfsv.RelName(), err))
+				pfs.err = fmt.Errorf("%s%s has invalid creation date: %s", tfs, tfsv.RelName(), err)
+				l.WithError(pfs.err).Error("")
+				continue fsloop
 			}
-			req := pdu.SnapshotReplicationStatusReq{
-				Filesystem: tfs.Path,
-				Snapshot:   tfsv.Name,
-				Op:         pdu.SnapshotReplicationStatusReq_Get,
-			}
-			res, err := receiver.SnapshotReplicationStatus(ctx, &req)
-			if err != nil {
-				GetLogger(ctx).
-					WithField("req", req.String()).
-					WithError(err).Error("cannot get snapshot replication status")
-			}
-			if err != nil && shouldRetry(err) {
-				return onErr(u, err)
-			} else if err != nil {
-				pfs.err = err
-				pfs.snaps = nil
-				break
-			}
-			if res.Status == pdu.SnapshotReplicationStatusRes_Nonexistent {
-				GetLogger(ctx).
-					Debug("snapshot does not exist in history, assuming was replicated")
-			}
+			atCursor := tfsv.Guid == rc.GetGuid()
+			preCursor = preCursor && !atCursor
 			pfs.snaps = append(pfs.snaps, snapshot{
-				replicated: !(res.Status != pdu.SnapshotReplicationStatusRes_Replicated),
+				replicated: preCursor || (a.considerSnapAtCursorReplicated && atCursor),
 				date:       creation,
 				fsv:        tfsv,
 			})
-
 		}
-
-		pfss[i] = pfs
+		if preCursor {
+			pfs.err = fmt.Errorf("replication cursor not found in prune target filesystem versions")
+			l.WithError(pfs.err).Error("")
+			continue fsloop
+		}
 
 	}
 
@@ -324,7 +344,13 @@ func stateExec(a *args, u updater) state {
 	var pfs *fs
 	state := u(func(pruner *Pruner) {
 		if len(pruner.prunePending) == 0 {
-			pruner.state = Done
+			nextState := Done
+			for _, pfs := range pruner.pruneCompleted {
+				if pfs.err != nil {
+					nextState = ErrPerm
+				}
+			}
+			pruner.state = nextState
 			return
 		}
 		pfs = pruner.prunePending[0]

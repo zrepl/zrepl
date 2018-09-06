@@ -42,7 +42,7 @@ type Sender interface {
 	// any next call to the parent github.com/zrepl/zrepl/replication.Endpoint.
 	// If the send request is for dry run the io.ReadCloser will be nil
 	Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error)
-	SnapshotReplicationStatus(ctx context.Context, r *pdu.SnapshotReplicationStatusReq) (*pdu.SnapshotReplicationStatusRes, error)
+	ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error)
 }
 
 // A Sender is usually part of a github.com/zrepl/zrepl/replication.Endpoint.
@@ -423,19 +423,22 @@ func (s *ReplicationStep) doMarkReplicated(ctx context.Context, sender Sender) S
 		return s.state
 	}
 
-	log.Debug("mark snapshot as replicated")
-	req := pdu.SnapshotReplicationStatusReq{
+	log.Debug("advance replication cursor")
+	req := &pdu.ReplicationCursorReq{
 		Filesystem: s.parent.fs,
-		Snapshot:   s.to.GetName(),
-		Op:         pdu.SnapshotReplicationStatusReq_SetReplicated,
+		Op: &pdu.ReplicationCursorReq_Set{
+			Set: &pdu.ReplicationCursorReq_SetOp{
+				Snapshot:   s.to.GetName(),
+			},
+		},
 	}
-	res, err := sender.SnapshotReplicationStatus(ctx, &req)
+	res, err := sender.ReplicationCursor(ctx, req)
 	if err != nil {
-		log.WithError(err).Error("error marking snapshot as replicated")
+		log.WithError(err).Error("error advancing replication cursor")
 		return updateStateError(err)
 	}
-	if res.Status != pdu.SnapshotReplicationStatusRes_Replicated {
-		err := fmt.Errorf("sender did not report snapshot as replicated: %s", res.Status)
+	if res.GetError() != "" {
+		err := fmt.Errorf("cannot advance replication cursor: %s", res.GetError())
 		log.Error(err.Error())
 		return updateStateError(err)
 	}

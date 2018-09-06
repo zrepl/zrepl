@@ -109,10 +109,7 @@ func (p *Sender) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshots
 	return doDestroySnapshots(ctx, dp, req.Snapshots)
 }
 
-// Since replication always happens from sender to receiver, this method  is only ipmlemented for the sender.
-// If this method returns a *zfs.DatasetDoesNotExist as an error, it might be a good indicator
-// that something is wrong with the pruning logic, which is the only consumer of this method.
-func (p *Sender) SnapshotReplicationStatus(ctx context.Context, req *pdu.SnapshotReplicationStatusReq) (*pdu.SnapshotReplicationStatusRes, error) {
+func (p *Sender) ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
 	dp, err := zfs.NewDatasetPath(req.Filesystem)
 	if err != nil {
 		return nil, err
@@ -125,35 +122,25 @@ func (p *Sender) SnapshotReplicationStatus(ctx context.Context, req *pdu.Snapsho
 		return nil, replication.NewFilteredError(req.Filesystem)
 	}
 
-	version := zfs.FilesystemVersion{
-		Type: zfs.Snapshot,
-		Name: req.Snapshot, //FIXME validation
-	}
-
-	var status pdu.SnapshotReplicationStatusRes_Status
-	switch req.Op {
-	case pdu.SnapshotReplicationStatusReq_Get:
-		replicated, err := zfs.ZFSGetReplicatedProperty(dp, &version)
-		if _, ok := err.(*zfs.DatasetDoesNotExist); ok {
-			status = pdu.SnapshotReplicationStatusRes_Nonexistent
-		} else if err != nil {
-
-		}
-		if replicated {
-			status = pdu.SnapshotReplicationStatusRes_Replicated
-		} else {
-			status = pdu.SnapshotReplicationStatusRes_NotReplicated
-		}
-	case pdu.SnapshotReplicationStatusReq_SetReplicated:
-		err = zfs.ZFSSetReplicatedProperty(dp, &version, true)
+	switch op := req.Op.(type) {
+	case *pdu.ReplicationCursorReq_Get:
+		cursor, err := zfs.ZFSGetReplicationCursor(dp)
 		if err != nil {
 			return nil, err
 		}
-		status = pdu.SnapshotReplicationStatusRes_Replicated
+		if cursor == nil {
+			return &pdu.ReplicationCursorRes{Result: &pdu.ReplicationCursorRes_Error{Error: "cursor does not exist"}}, nil
+		}
+		return &pdu.ReplicationCursorRes{Result: &pdu.ReplicationCursorRes_Guid{cursor.Guid}}, nil
+	case *pdu.ReplicationCursorReq_Set:
+		guid, err := zfs.ZFSSetReplicationCursor(dp, op.Set.Snapshot)
+		if err != nil {
+			return nil, err
+		}
+		return &pdu.ReplicationCursorRes{Result: &pdu.ReplicationCursorRes_Guid{Guid: guid}}, nil
 	default:
-		return nil, errors.Errorf("unknown opcode %v", req.Op)
+		return nil, errors.Errorf("unknown op %T", op)
 	}
-	return &pdu.SnapshotReplicationStatusRes{Status: status}, nil
 }
 
 type FSFilter interface {
@@ -347,12 +334,12 @@ func doDestroySnapshots(ctx context.Context, lp *zfs.DatasetPath, snaps []*pdu.F
 // =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 const (
-	RPCListFilesystems           = "ListFilesystems"
-	RPCListFilesystemVersions    = "ListFilesystemVersions"
-	RPCReceive                   = "Receive"
-	RPCSend                      = "Send"
-	RPCSDestroySnapshots         = "DestroySnapshots"
-	RPCSnapshotReplicationStatus = "SnapshotReplicationStatus"
+	RPCListFilesystems        = "ListFilesystems"
+	RPCListFilesystemVersions = "ListFilesystemVersions"
+	RPCReceive                = "Receive"
+	RPCSend                   = "Send"
+	RPCSDestroySnapshots      = "DestroySnapshots"
+	RPCReplicationCursor      = "ReplicationCursor"
 )
 
 // Remote implements an endpoint stub that uses streamrpc as a transport.
@@ -578,18 +565,18 @@ func (a *Handler) Handle(ctx context.Context, endpoint string, reqStructured *by
 		}
 		return bytes.NewBuffer(b), nil, nil
 
-	case RPCSnapshotReplicationStatus:
+	case RPCReplicationCursor:
 
 		sender, ok := a.ep.(replication.Sender)
 		if !ok {
 			goto Err
 		}
 
-		var req pdu.SnapshotReplicationStatusReq
+		var req pdu.ReplicationCursorReq
 		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
 			return nil, nil, err
 		}
-		res, err := sender.SnapshotReplicationStatus(ctx, &req)
+		res, err := sender.ReplicationCursor(ctx, &req)
 		if err != nil {
 			return nil, nil, err
 		}

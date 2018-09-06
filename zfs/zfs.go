@@ -490,7 +490,7 @@ func ZFSGet(fs *DatasetPath, props []string) (*ZFSProperties, error) {
 	return zfsGet(fs.ToString(), props)
 }
 
-var zfsGetDatasetDoesNotExistRegexp = regexp.MustCompile(`^cannot open '(\S+)': dataset does not exist`)
+var zfsGetDatasetDoesNotExistRegexp = regexp.MustCompile(`^cannot open '(\S+)': (dataset does not exist|no such pool or dataset)`)
 
 type DatasetDoesNotExist struct {
 	Path string

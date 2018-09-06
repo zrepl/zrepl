@@ -98,21 +98,21 @@ message DestroySnapshotsRes {
     repeated DestroySnapshotRes Results = 1;
 }
 
-message SnapshotReplicationStatusReq {
+message ReplicationCursorReq {
     string Filesystem = 1;
-    string Snapshot = 2;
-    enum Op {
-        Get = 0;
-        SetReplicated = 1;
+    message GetOp {}
+    message SetOp {
+        string Snapshot = 2;
     }
-    Op op = 3;
+    oneof op {
+        GetOp get = 2;
+        SetOp set = 3;
+    }
 }
 
-message SnapshotReplicationStatusRes {
-    enum Status {
-        Nonexistent = 0;
-        NotReplicated = 1;
-        Replicated = 2;
+message ReplicationCursorRes {
+    oneof Result {
+        uint64 Guid = 1;
+        string Error = 2;
     }
-    Status status = 1;
 }

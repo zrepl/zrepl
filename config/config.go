@@ -205,6 +205,7 @@ type PruningEnum struct {
 
 type PruneKeepNotReplicated struct {
 	Type string `yaml:"type"`
+	KeepSnapshotAtCursor bool `yaml:"keep_snapshot_at_cursor,optional,default=true"`
 }
 
 type PruneKeepLastN struct {
