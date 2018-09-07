@@ -113,6 +113,41 @@ var versionCmd = &cobra.Command{
 	},
 }
 
+var pprofCmd = &cobra.Command{
+	Use:   "pprof off | [on TCP_LISTEN_ADDRESS]",
+	Short: "start a http server exposing go-tool-compatible profiling endpoints at TCP_LISTEN_ADDRESS",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		conf, err := config.ParseConfig(rootArgs.configFile)
+		if err != nil {
+			return err
+		}
+
+		var pprofCmdArgs client.PProfArgs
+		if cmd.Flags().NArg() < 1 {
+			goto enargs
+		}
+		switch cmd.Flags().Arg(0) {
+		case "on":
+			pprofCmdArgs.Run = true
+			if cmd.Flags().NArg() != 2 {
+				return errors.New("must specify TCP_LISTEN_ADDRESS as second positional argument")
+			}
+			pprofCmdArgs.HttpListenAddress = cmd.Flags().Arg(1)
+		case "off":
+			if cmd.Flags().NArg() != 1 {
+				goto enargs
+			}
+			pprofCmdArgs.Run = false
+		}
+
+		client.RunPProf(conf, pprofCmdArgs)
+		return nil
+	enargs:
+		return errors.New("invalid number of positional arguments")
+
+	},
+}
+
 var rootArgs struct {
 	configFile string
 }
@@ -128,6 +163,7 @@ func init() {
 	rootCmd.AddCommand(configcheckCmd)
 	versionCmd.Flags().StringVar(&versionCmdArgs.Show, "show", "", "version info to show (client|daemon)")
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(pprofCmd)
 }
 
 func main() {
