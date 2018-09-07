@@ -100,6 +100,19 @@ var configcheckCmd = &cobra.Command{
 	},
 }
 
+var versionCmdArgs client.VersionArgs
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "print version of zrepl binary (for running daemon 'zrepl control version' command)",
+	Run: func(cmd *cobra.Command, args []string) {
+		conf, err := config.ParseConfig(rootArgs.configFile)
+		if err == nil {
+			versionCmdArgs.Config = conf
+		}
+		client.RunVersion(versionCmdArgs)
+	},
+}
+
 var rootArgs struct {
 	configFile string
 }
@@ -113,6 +126,8 @@ func init() {
 	rootCmd.AddCommand(stdinserverCmd)
 	rootCmd.AddCommand(bashcompCmd)
 	rootCmd.AddCommand(configcheckCmd)
+	versionCmd.Flags().StringVar(&versionCmdArgs.Show, "show", "", "version info to show (client|daemon)")
+	rootCmd.AddCommand(versionCmd)
 }
 
 func main() {
