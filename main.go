@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"github.com/spf13/cobra"
 	"github.com/zrepl/zrepl/client"
 	"github.com/zrepl/zrepl/config"
