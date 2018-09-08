@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"github.com/problame/go-streamrpc"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/daemon/serve"
@@ -44,6 +45,8 @@ func (*Sink) Status() interface{} {
 	// FIXME
 	return nil
 }
+
+func (*Sink) RegisterMetrics(registerer prometheus.Registerer) {}
 
 func (j *Sink) Run(ctx context.Context) {
 

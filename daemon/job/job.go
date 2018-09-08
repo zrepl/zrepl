@@ -3,6 +3,7 @@ package job
 import (
 	"context"
 	"errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/logger"
 )
 
@@ -47,6 +48,7 @@ type Job interface {
 	Name() string
 	Run(ctx context.Context)
 	Status() interface{}
+	RegisterMetrics(registerer prometheus.Registerer)
 }
 
 func WaitWakeup(ctx context.Context) <-chan struct{} {

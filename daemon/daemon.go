@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/daemon/logging"
@@ -59,9 +60,23 @@ func Run(conf *config.Config) error {
 	}
 	jobs.start(ctx, controlJob, true)
 
-	// start prometheus
-	//var promJob *prometheusJob // FIXME
-	//jobs.start(ctx, promJob, true)
+	for i, jc := range conf.Global.Monitoring {
+		var (
+			job job.Job
+			err error
+		)
+		switch v := jc.Ret.(type) {
+		case *config.PrometheusMonitoring:
+			job, err = newPrometheusJobFromConfig(v)
+		default:
+			return errors.Errorf("unknown monitoring job #%d (type %T)", i, v)
+		}
+		if err != nil {
+			return errors.Wrapf(err,"cannot build monitorin gjob #%d", i)
+		}
+		jobs.start(ctx, job, true)
+	}
+
 
 	log.Info("starting daemon")
 
@@ -160,7 +175,9 @@ func (s *jobs) start(ctx context.Context, j job.Job, internal bool) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	jobLog := job.GetLogger(ctx).WithField(logJobField, j.Name())
+	jobLog := job.GetLogger(ctx).
+		WithField(logJobField, j.Name()).
+		WithOutlet(newPrometheusLogOutlet(j.Name()), logger.Debug)
 	jobName := j.Name()
 	if !internal && IsInternalJobName(jobName) {
 		panic(fmt.Sprintf("internal job name used for non-internal job %s", jobName))
@@ -171,6 +188,9 @@ func (s *jobs) start(ctx context.Context, j job.Job, internal bool) {
 	if _, ok := s.jobs[jobName]; ok {
 		panic(fmt.Sprintf("duplicate job name %s", jobName))
 	}
+
+	j.RegisterMetrics(prometheus.DefaultRegisterer)
+
 	s.jobs[jobName] = j
 	ctx = job.WithLogger(ctx, jobLog)
 	ctx, wakeupChan := job.WithWakeup(ctx)

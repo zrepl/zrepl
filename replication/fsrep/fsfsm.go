@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
 	"io"
 	"net"
 	"sync"
@@ -90,7 +91,9 @@ func (s State) fsrsf() state {
 }
 
 type Replication struct {
-	// lock protects all fields in this struct, but not the data behind pointers
+	promBytesReplicated prometheus.Counter
+
+	// lock protects all fields below it in this struct, but not the data behind pointers
 	lock               sync.Mutex
 	state              State
 	fs                 string
@@ -120,8 +123,8 @@ type ReplicationBuilder struct {
 	r *Replication
 }
 
-func BuildReplication(fs string) *ReplicationBuilder {
-	return &ReplicationBuilder{&Replication{fs: fs}}
+func BuildReplication(fs string, promBytesReplicated prometheus.Counter) *ReplicationBuilder {
+	return &ReplicationBuilder{&Replication{fs: fs, promBytesReplicated: promBytesReplicated}}
 }
 
 func (b *ReplicationBuilder) AddStep(from, to FilesystemVersion) *ReplicationBuilder {
@@ -204,6 +207,7 @@ func (f *Replication) TakeStep(ctx context.Context, sender Sender, receiver Rece
 	preTime := time.Now()
 	s = s(ctx, sender, receiver, u)
 	delta := time.Now().Sub(preTime)
+
 	post = u(func(f *Replication) {
 		if len(f.pending) == 0 {
 			return
@@ -369,6 +373,9 @@ func (s *ReplicationStep) doReplication(ctx context.Context, sender Sender, rece
 	}
 
 	s.byteCounter = util.NewByteCounterReader(sstream)
+	defer func() {
+		s.parent.promBytesReplicated.Add(float64(s.byteCounter.Bytes()))
+	}()
 	sstream = s.byteCounter
 
 	rr := &pdu.ReceiveReq{

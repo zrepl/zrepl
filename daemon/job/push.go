@@ -3,6 +3,7 @@ package job
 import (
 	"context"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/connecter"
 	"github.com/zrepl/zrepl/daemon/filters"
@@ -15,13 +16,17 @@ import (
 )
 
 type Push struct {
-	name      string
-	clientFactory *connecter.ClientFactory
-	fsfilter  endpoint.FSFilter
+	name             string
+	clientFactory    *connecter.ClientFactory
+	fsfilter         endpoint.FSFilter
 
 	prunerFactory *pruner.PrunerFactory
 
 	snapper *snapper.Snapper
+
+	promRepStateSecs *prometheus.HistogramVec // labels: state
+	promPruneSecs *prometheus.HistogramVec // labels: prune_side
+	promBytesReplicated *prometheus.CounterVec // labels: filesystem
 
 	mtx         sync.Mutex
 	replication *replication.Replication
@@ -31,6 +36,20 @@ func PushFromConfig(g *config.Global, in *config.PushJob) (j *Push, err error) {
 
 	j = &Push{}
 	j.name = in.Name
+	j.promRepStateSecs = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace:   "zrepl",
+		Subsystem:   "replication",
+		Name:        "state_time",
+		Help:        "seconds spent during replication",
+		ConstLabels: prometheus.Labels{"zrepl_job":j.name},
+	}, []string{"state"})
+	j.promBytesReplicated = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace:   "zrepl",
+		Subsystem:   "replication",
+		Name:        "bytes_replicated",
+		Help:        "number of bytes replicated from sender to receiver per filesystem",
+		ConstLabels: prometheus.Labels{"zrepl_job":j.name},
+	}, []string{"filesystem"})
 
 	j.clientFactory, err = connecter.FromConfig(g, in.Connect)
 	if err != nil {
@@ -43,7 +62,14 @@ func PushFromConfig(g *config.Global, in *config.PushJob) (j *Push, err error) {
 	}
 	j.fsfilter = fsf
 
-	j.prunerFactory, err = pruner.NewPrunerFactory(in.Pruning)
+	j.promPruneSecs = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace:   "zrepl",
+		Subsystem:   "pruning",
+		Name:        "time",
+		Help:        "seconds spent in pruner",
+		ConstLabels: prometheus.Labels{"zrepl_job":j.name},
+	}, []string{"prune_side"})
+	j.prunerFactory, err = pruner.NewPrunerFactory(in.Pruning, j.promPruneSecs)
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +79,12 @@ func PushFromConfig(g *config.Global, in *config.PushJob) (j *Push, err error) {
 	}
 
 	return j, nil
+}
+
+func (j *Push) RegisterMetrics(registerer prometheus.Registerer) {
+	registerer.MustRegister(j.promRepStateSecs)
+	registerer.MustRegister(j.promPruneSecs)
+	registerer.MustRegister(j.promBytesReplicated)
 }
 
 func (j *Push) Name() string { return j.name }
@@ -118,7 +150,7 @@ func (j *Push) do(ctx context.Context) {
 	receiver := endpoint.NewRemote(client)
 
 	j.mtx.Lock()
-	j.replication = replication.NewReplication()
+	j.replication = replication.NewReplication(j.promRepStateSecs, j.promBytesReplicated)
 	j.mtx.Unlock()
 
 	log.Info("start replication")

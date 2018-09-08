@@ -4,7 +4,9 @@ import (
 	"context"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
+	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/zfs"
 	"net"
 	"net/http"
@@ -14,43 +16,32 @@ type prometheusJob struct {
 	listen string
 }
 
-func newPrometheusJob(listen string) *prometheusJob {
-	return &prometheusJob{listen}
+func newPrometheusJobFromConfig(in *config.PrometheusMonitoring) (*prometheusJob, error) {
+	if _, _, err := net.SplitHostPort(in.Listen); err != nil {
+		return nil, err
+	}
+	return &prometheusJob{in.Listen}, nil
 }
 
 var prom struct {
-	taskLastActiveStart    *prometheus.GaugeVec
-	taskLastActiveDuration *prometheus.GaugeVec
 	taskLogEntries         *prometheus.CounterVec
 }
 
 func init() {
-	prom.taskLastActiveStart = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: "zrepl",
-		Subsystem: "daemon",
-		Name:      "task_last_active_start",
-		Help:      "point in time at which the job task last left idle state",
-	}, []string{"zrepl_job", "job_type", "task"})
-	prom.taskLastActiveDuration = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: "zrepl",
-		Subsystem: "daemon",
-		Name:      "task_last_active_duration",
-		Help:      "seconds that the last run ob a job task spent between leaving and re-entering idle state",
-	}, []string{"zrepl_job", "job_type", "task"})
 	prom.taskLogEntries = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "zrepl",
 		Subsystem: "daemon",
-		Name:      "task_log_entries",
+		Name:      "log_entries",
 		Help:      "number of log entries per job task and level",
-	}, []string{"zrepl_job", "job_type", "task", "level"})
-	prometheus.MustRegister(prom.taskLastActiveStart)
-	prometheus.MustRegister(prom.taskLastActiveDuration)
+	}, []string{"zrepl_job", "level"})
 	prometheus.MustRegister(prom.taskLogEntries)
 }
 
 func (j *prometheusJob) Name() string { return jobNamePrometheus }
 
 func (j *prometheusJob) Status() interface{} { return nil }
+
+func (j *prometheusJob) RegisterMetrics(registerer prometheus.Registerer) {}
 
 func (j *prometheusJob) Run(ctx context.Context) {
 
@@ -80,3 +71,19 @@ func (j *prometheusJob) Run(ctx context.Context) {
 	}
 
 }
+
+type prometheusJobOutlet struct {
+	jobName string
+}
+
+var _ logger.Outlet = prometheusJobOutlet{}
+
+func newPrometheusLogOutlet(jobName string) prometheusJobOutlet {
+	return prometheusJobOutlet{jobName}
+}
+
+func (o prometheusJobOutlet) WriteEntry(entry logger.Entry) error {
+	prom.taskLogEntries.WithLabelValues(o.jobName, entry.Level.String()).Inc()
+	return nil
+}
+

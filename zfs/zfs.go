@@ -566,6 +566,21 @@ func zfsGet(path string, props []string, allowedSources zfsPropertySource) (*ZFS
 
 func ZFSDestroy(dataset string) (err error) {
 
+	var dstype, filesystem string
+	idx := strings.IndexAny(dataset, "@#")
+	if idx == -1 {
+		dstype = "filesystem"
+		filesystem = dataset
+	} else {
+		switch dataset[idx] {
+		case '@': dstype = "snapshot"
+		case '#': dstype = "bookmark"
+		}
+		filesystem = dataset[:idx]
+	}
+
+	defer prometheus.NewTimer(prom.ZFSDestroyDuration.WithLabelValues(dstype, filesystem))
+
 	cmd := exec.Command(ZFS_BINARY, "destroy", dataset)
 
 	stderr := bytes.NewBuffer(make([]byte, 0, 1024))

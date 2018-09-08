@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/daemon/nethelpers"
 	"github.com/zrepl/zrepl/logger"
@@ -34,6 +35,8 @@ func newControlJob(sockpath string, jobs *jobs) (j *controlJob, err error) {
 func (j *controlJob) Name() string { return jobNameControl }
 
 func (j *controlJob) Status() interface{} { return nil }
+
+func (j *controlJob) RegisterMetrics(registerer prometheus.Registerer) {}
 
 const (
 	ControlJobEndpointPProf   string = "/debug/pprof"

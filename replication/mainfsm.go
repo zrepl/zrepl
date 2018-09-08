@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
 	"math/bits"
 	"sync"
 	"time"
@@ -49,6 +50,10 @@ func (s State) rsf() state {
 // It is a state machine that is driven by the Drive method
 // and provides asynchronous reporting via the Report method (i.e. from another goroutine).
 type Replication struct {
+	// not protected by lock
+	promSecsPerState *prometheus.HistogramVec // labels: state
+	promBytesReplicated *prometheus.CounterVec // labels: filesystem
+
 	// lock protects all fields of this struct (but not the fields behind pointers!)
 	lock sync.Mutex
 
@@ -77,9 +82,11 @@ type Report struct {
 	Active    *fsrep.Report
 }
 
-func NewReplication() *Replication {
+func NewReplication(secsPerState *prometheus.HistogramVec, bytesReplicated *prometheus.CounterVec) *Replication {
 	r := Replication{
-		state: Planning,
+		promSecsPerState: secsPerState,
+		promBytesReplicated: bytesReplicated,
+		state:            Planning,
 	}
 	return &r
 }
@@ -142,6 +149,7 @@ func (r *Replication) Drive(ctx context.Context, sender Sender, receiver Receive
 		pre = u(nil)
 		s = s(ctx, sender, receiver, u)
 		delta := time.Now().Sub(preTime)
+		r.promSecsPerState.WithLabelValues(pre.String()).Observe(delta.Seconds())
 		post = u(nil)
 		getLogger(ctx).
 			WithField("transition", fmt.Sprintf("%s => %s", pre, post)).
@@ -262,7 +270,11 @@ func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u upda
 			continue
 		}
 
-		fsrfsm := fsrep.BuildReplication(fs.Path)
+		var promBytesReplicated *prometheus.CounterVec
+		u(func(replication *Replication) { // FIXME args struct like in pruner (also use for sender and receiver)
+			promBytesReplicated = replication.promBytesReplicated
+		})
+		fsrfsm := fsrep.BuildReplication(fs.Path, promBytesReplicated.WithLabelValues(fs.Path))
 		if len(path) == 1 {
 			fsrfsm.AddStep(nil, path[0])
 		} else {

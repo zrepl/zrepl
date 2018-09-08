@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/pruning"
@@ -49,6 +50,7 @@ type args struct {
 	rules                          []pruning.KeepRule
 	retryWait                      time.Duration
 	considerSnapAtCursorReplicated bool
+	promPruneSecs prometheus.Observer
 }
 
 type Pruner struct {
@@ -72,6 +74,7 @@ type PrunerFactory struct {
 	receiverRules                  []pruning.KeepRule
 	retryWait                      time.Duration
 	considerSnapAtCursorReplicated bool
+	promPruneSecs *prometheus.HistogramVec
 }
 
 func checkContainsKeep1(rules []pruning.KeepRule) error {
@@ -87,7 +90,7 @@ func checkContainsKeep1(rules []pruning.KeepRule) error {
 	return errors.New("sender keep rules must contain last_n or be empty so that the last snapshot is definitely kept")
 }
 
-func NewPrunerFactory(in config.PruningSenderReceiver) (*PrunerFactory, error) {
+func NewPrunerFactory(in config.PruningSenderReceiver, promPruneSecs *prometheus.HistogramVec) (*PrunerFactory, error) {
 	keepRulesReceiver, err := pruning.RulesFromConfig(in.KeepReceiver)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot build receiver pruning rules")
@@ -111,6 +114,7 @@ func NewPrunerFactory(in config.PruningSenderReceiver) (*PrunerFactory, error) {
 		keepRulesReceiver,
 		10 * time.Second, //FIXME constant
 		considerSnapAtCursorReplicated,
+		promPruneSecs,
 	}
 	return f, nil
 }
@@ -124,6 +128,7 @@ func (f *PrunerFactory) BuildSenderPruner(ctx context.Context, target Target, re
 			f.senderRules,
 			f.retryWait,
 			f.considerSnapAtCursorReplicated,
+			f.promPruneSecs.WithLabelValues("sender"),
 		},
 		state: Plan,
 	}
@@ -139,6 +144,7 @@ func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, target Target, 
 			f.receiverRules,
 			f.retryWait,
 			false, // senseless here anyways
+			f.promPruneSecs.WithLabelValues("receiver"),
 		},
 		state: Plan,
 	}
