@@ -50,7 +50,7 @@ the left edge of the leftmost (first) interval is the ``creation`` date of the y
 All intervals to its right describe time intervals further in the past.
 
 Each interval carries a maximum number of snapshots to keep.
-It is secified via ``(keep=N)``, where ``N`` is either ``all`` (all snapshots are kept) or a positive integer.
+It is specified via ``(keep=N)``, where ``N`` is either ``all`` (all snapshots are kept) or a positive integer.
 The default value is **1**.
 
 Bookmarks are not affected by the above.
