@@ -13,6 +13,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"time"
 )
 
 type controlJob struct {
@@ -36,7 +37,29 @@ func (j *controlJob) Name() string { return jobNameControl }
 
 func (j *controlJob) Status() interface{} { return nil }
 
-func (j *controlJob) RegisterMetrics(registerer prometheus.Registerer) {}
+var promControl struct {
+	requestBegin *prometheus.CounterVec
+	requestFinished *prometheus.HistogramVec
+}
+
+func (j *controlJob) RegisterMetrics(registerer prometheus.Registerer) {
+	promControl.requestBegin = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace:   "zrepl",
+		Subsystem:   "control",
+		Name:        "request_begin",
+		Help:        "number of request we started to handle",
+	}, []string{"endpoint"})
+
+	promControl.requestFinished = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace:   "zrepl",
+		Subsystem:   "control",
+		Name:        "request_finished",
+		Help:        "time it took a request to finih",
+		Buckets: []float64{1e-6, 10e-6, 100e-6, 500e-6, 1e-3,10e-3, 100e-3, 200e-3,400e-3,800e-3, 1, 10, 20},
+	}, []string{"endpoint"})
+	registerer.MustRegister(promControl.requestBegin)
+	registerer.MustRegister(promControl.requestFinished)
+}
 
 const (
 	ControlJobEndpointPProf   string = "/debug/pprof"
@@ -95,7 +118,12 @@ func (j *controlJob) Run(ctx context.Context) {
 
 			return struct{}{}, err
 		}}})
-	server := http.Server{Handler: mux}
+	server := http.Server{
+		Handler: mux,
+		// control socket is local, 1s timeout should be more than sufficient, even on a loaded system
+		WriteTimeout: 1*time.Second,
+		ReadTimeout: 1*time.Second,
+	}
 
 outer:
 	for {
@@ -189,6 +217,8 @@ type requestLogger struct {
 func (l requestLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log := l.log.WithField("method", r.Method).WithField("url", r.URL)
 	log.Debug("start")
+	promControl.requestBegin.WithLabelValues(r.URL.Path).Inc()
+	defer prometheus.NewTimer(promControl.requestFinished.WithLabelValues(r.URL.Path)).ObserveDuration()
 	if l.handlerFunc != nil {
 		l.handlerFunc(w, r)
 	} else if l.handler != nil {

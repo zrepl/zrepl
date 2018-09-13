@@ -30,7 +30,10 @@ func jsonRequestResponse(c http.Client, endpoint string, req interface{}, res in
 	resp, err := c.Post("http://unix"+endpoint, "application/json", &buf)
 	if err != nil {
 		return err
-	} else if resp.StatusCode != http.StatusOK {
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
 		var msg bytes.Buffer
 		io.CopyN(&msg, resp.Body, 4096)
 		return errors.Errorf("%s", msg.String())
