@@ -76,7 +76,7 @@ outer:
 			connId++
 			connLog := log.
 				WithField("connID", connId)
-			j.handleConnection(WithLogger(ctx, connLog), res.conn)
+			go j.handleConnection(WithLogger(ctx, connLog), res.conn)
 
 		case <-ctx.Done():
 			break outer
