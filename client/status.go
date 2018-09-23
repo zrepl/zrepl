@@ -202,9 +202,9 @@ func (t *tui) draw() {
 				continue
 			}
 
-			pushStatus, ok := v.JobSpecific.(*job.PushStatus)
+			pushStatus, ok := v.JobSpecific.(*job.ActiveSideStatus)
 			if !ok || pushStatus == nil {
-				t.printf("PushStatus is null")
+				t.printf("ActiveSideStatus is null")
 				t.newline()
 				continue
 			}

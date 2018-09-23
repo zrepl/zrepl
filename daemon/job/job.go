@@ -59,6 +59,8 @@ const (
 	TypeInternal Type = "internal"
 	TypePush Type = "push"
 	TypeSink Type = "sink"
+	TypePull Type  = "pull"
+	TypeSource Type = "source"
 )
 
 type Status struct {
@@ -101,11 +103,11 @@ func (s *Status) UnmarshalJSON(in []byte) (err error) {
 	}
 	switch s.Type {
 	case TypePush:
-		var st PushStatus
+		var st ActiveSideStatus
 		err = json.Unmarshal(jobJSON, &st)
 		s.JobSpecific = &st
 	case TypeSink:
-		var st SinkStatus
+		var st PassiveStatus
 		err = json.Unmarshal(jobJSON, &st)
 		s.JobSpecific = &st
 	case TypeInternal:

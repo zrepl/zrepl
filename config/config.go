@@ -21,42 +21,42 @@ type JobEnum struct {
 	Ret interface{}
 }
 
-type PushJob struct {
+type ActiveJob struct {
 	Type         string                `yaml:"type"`
 	Name         string                `yaml:"name"`
 	Connect     ConnectEnum     `yaml:"connect"`
-	Filesystems FilesystemsFilter `yaml:"filesystems"`
-	Snapshotting Snapshotting          `yaml:"snapshotting"`
 	Pruning      PruningSenderReceiver `yaml:"pruning"`
 	Debug        JobDebugSettings      `yaml:"debug,optional"`
 }
 
-type SinkJob struct {
+type PassiveJob struct {
 	Type        string           `yaml:"type"`
 	Name        string           `yaml:"name"`
-	RootDataset string    `yaml:"root_dataset"`
 	Serve       ServeEnum `yaml:"serve"`
 	Debug       JobDebugSettings `yaml:"debug,optional"`
 }
 
+type PushJob struct {
+	ActiveJob `yaml:",inline"`
+	Snapshotting Snapshotting          `yaml:"snapshotting"`
+	Filesystems FilesystemsFilter `yaml:"filesystems"`
+}
+
 type PullJob struct {
-	Type        string                `yaml:"type"`
-	Name        string                `yaml:"name"`
-	Connect     ConnectEnum   `yaml:"connect"`
+	ActiveJob `yaml:",inline"`
 	RootDataset string        `yaml:"root_dataset"`
 	Interval    time.Duration `yaml:"interval,positive"`
-	Pruning     PruningSenderReceiver `yaml:"pruning"`
-	Debug       JobDebugSettings      `yaml:"debug,optional"`
+}
+
+type SinkJob struct {
+	PassiveJob `yaml:",inline"`
+	RootDataset string    `yaml:"root_dataset"`
 }
 
 type SourceJob struct {
-	Type         string            `yaml:"type"`
-	Name         string            `yaml:"name"`
-	Serve       ServeEnum       `yaml:"serve"`
-	Filesystems FilesystemsFilter `yaml:"filesystems"`
+	PassiveJob `yaml:",inline"`
 	Snapshotting Snapshotting      `yaml:"snapshotting"`
-	Pruning      PruningLocal      `yaml:"pruning"`
-	Debug        JobDebugSettings  `yaml:"debug,optional"`
+	Filesystems FilesystemsFilter `yaml:"filesystems"`
 }
 
 type LocalJob struct {

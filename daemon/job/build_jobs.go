@@ -2,8 +2,8 @@ package job
 
 import (
 	"fmt"
-	"github.com/zrepl/zrepl/config"
 	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/config"
 )
 
 func JobsFromConfig(c *config.Config) ([]Job, error) {
@@ -19,19 +19,31 @@ func JobsFromConfig(c *config.Config) ([]Job, error) {
 }
 
 func buildJob(c *config.Global, in config.JobEnum) (j Job, err error) {
+	cannotBuildJob := func(e error, name string) (Job, error) {
+		return nil, errors.Wrapf(err, "cannot build job %q", name)
+	}
 	switch v := in.Ret.(type) {
 	case *config.SinkJob:
-		j, err = SinkFromConfig(c, v)
+		m, err := modeSinkFromConfig(c, v)
 		if err != nil {
-			return nil, errors.Wrapf(err, "cannot build job %q", v.Name)
+			return cannotBuildJob(err, v.Name)
+		}
+		j, err = passiveSideFromConfig(c, &v.PassiveJob, m)
+		if err != nil {
+			return cannotBuildJob(err, v.Name)
 		}
 	case *config.PushJob:
-		j, err = PushFromConfig(c, v)
+		m, err := modePushFromConfig(c, v)
 		if err != nil {
-			return nil, errors.Wrapf(err, "cannot build job %q", v.Name)
+			return cannotBuildJob(err, v.Name)
+		}
+		j, err = activeSide(c, &v.ActiveJob, m)
+		if err != nil {
+			return cannotBuildJob(err, v.Name)
 		}
 	default:
 		panic(fmt.Sprintf("implementation error: unknown job type %T", v))
 	}
-	return j, err
+	return j, nil
+
 }
