@@ -130,6 +130,8 @@ type RPCConfig struct {
 	RxStructuredMaxLen  uint32        `yaml:"rx_structured_max,optional,default=16777216"`
 	RxStreamChunkMaxLen uint32        `yaml:"rx_stream_chunk_max,optional,default=16777216"`
 	RxHeaderMaxLen      uint32        `yaml:"rx_header_max,optional,default=40960"`
+	SendHeartbeatInterval             time.Duration `yaml:"send_heartbeat_interval,optional,positive,default=5s"`
+
 }
 
 type ConnectEnum struct {

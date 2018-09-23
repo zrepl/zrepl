@@ -53,11 +53,24 @@ jobs:
     rpc:
       rx_structured_max: 0x2342
 
+- type: sink
+  name: "other_sink"
+  root_dataset: "pool2/backup_laptops"
+  serve:
+    type: tcp
+    listen: "192.168.122.189:8888"
+    clients: {
+	"10.23.42.23":"client1"
+    }
+    rpc:
+      send_heartbeat_interval: 10s
+
 `)
 
 	assert.Equal(t, 20*time.Second, conf.Jobs[0].Ret.(*PullJob).Connect.Ret.(*TCPConnect).RPC.Timeout)
 	assert.Equal(t, uint32(0xabcd), conf.Jobs[1].Ret.(*PullJob).Connect.Ret.(*TCPConnect).RPC.TxChunkSize)
 	assert.Equal(t, uint32(0x2342), conf.Jobs[2].Ret.(*SinkJob).Serve.Ret.(*TCPServe).RPC.RxStructuredMaxLen)
+	assert.Equal(t, 10*time.Second, conf.Jobs[3].Ret.(*SinkJob).Serve.Ret.(*TCPServe).RPC.SendHeartbeatInterval)
 	defConf := RPCConfig{}
 	Default(&defConf)
 	assert.Equal(t, defConf.Timeout, conf.Global.RPC.Timeout)

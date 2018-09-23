@@ -15,9 +15,8 @@ func FromDaemonConfig(g *config.Global, in *config.RPCConfig) (*streamrpc.ConnCo
 		RxStructuredMaxLen:   conf.RxStructuredMaxLen,
 		RxStreamMaxChunkSize: conf.RxStreamChunkMaxLen,
 		TxChunkSize:          conf.TxChunkSize,
-		Timeout: streamrpc.Timeout{
-			Progress: conf.Timeout,
-		},
+		Timeout: 			  conf.Timeout,
+		SendHeartbeatInterval: conf.SendHeartbeatInterval,
 	}
 	if err := srpcConf.Validate(); err != nil {
 		return nil, err
