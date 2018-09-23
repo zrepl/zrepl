@@ -12,6 +12,9 @@ import (
 	"sort"
 	"sync"
 	"time"
+	"io"
+	"os"
+	"net/http"
 )
 
 type tui struct {
@@ -62,10 +65,31 @@ func (t *tui) addIndent(indent int) {
 	t.moveLine(0, 0)
 }
 
-func RunStatus(config *config.Config, args []string) error {
+type StatusFlags struct {
+	Raw bool
+}
+
+func RunStatus(flags StatusFlags, config *config.Config, args []string) error {
 	httpc, err := controlHttpClient(config.Global.Control.SockPath)
 	if err != nil {
 		return err
+	}
+
+	if flags.Raw {
+		resp, err := httpc.Get("http://unix"+daemon.ControlJobEndpointStatus)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			fmt.Fprintf(os.Stderr, "Received error response:\n")
+			io.CopyN(os.Stderr, resp.Body, 4096)
+			return errors.Errorf("exit")
+		}
+		if _, err := io.Copy(os.Stdout, resp.Body); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	t := newTui()

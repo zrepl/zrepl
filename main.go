@@ -47,6 +47,8 @@ var wakeupCmd = &cobra.Command{
 	},
 }
 
+var statusCmdFlags client.StatusFlags
+
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "status",
@@ -55,7 +57,7 @@ var statusCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return client.RunStatus(conf, args)
+		return client.RunStatus(statusCmdFlags, conf, args)
 	},
 }
 
@@ -158,6 +160,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&rootArgs.configFile, "config", "", "config file path")
 	rootCmd.AddCommand(daemonCmd)
 	rootCmd.AddCommand(wakeupCmd)
+	statusCmd.Flags().BoolVar(&statusCmdFlags.Raw, "raw", false, "dump raw response from zrepl daemon")
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(stdinserverCmd)
 	rootCmd.AddCommand(bashcompCmd)
