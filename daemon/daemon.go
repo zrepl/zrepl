@@ -125,13 +125,13 @@ func (s *jobs) wait() <-chan struct{} {
 	return ch
 }
 
-func (s *jobs) status() map[string]interface{} {
+func (s *jobs) status() map[string]*job.Status {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	type res struct {
 		name   string
-		status interface{}
+		status *job.Status
 	}
 	var wg sync.WaitGroup
 	c := make(chan res, len(s.jobs))
@@ -144,7 +144,7 @@ func (s *jobs) status() map[string]interface{} {
 	}
 	wg.Wait()
 	close(c)
-	ret := make(map[string]interface{}, len(s.jobs))
+	ret := make(map[string]*job.Status, len(s.jobs))
 	for res := range c {
 		ret[res.name] = res.status
 	}

@@ -89,7 +89,11 @@ func (j *Push) RegisterMetrics(registerer prometheus.Registerer) {
 
 func (j *Push) Name() string { return j.name }
 
-func (j *Push) Status() interface{} {
+type PushStatus struct {
+	Replication *replication.Report
+}
+
+func (j *Push) Status() *Status {
 	rep := func() *replication.Replication {
 		j.mtx.Lock()
 		defer j.mtx.Unlock()
@@ -98,10 +102,12 @@ func (j *Push) Status() interface{} {
 		}
 		return j.replication
 	}()
+	s := &PushStatus{}
 	if rep == nil {
-		return nil
+		return &Status{Type: TypePush, JobSpecific: s}
 	}
-	return rep.Report()
+	s.Replication = rep.Report()
+	return &Status{Type: TypePush, JobSpecific: s}
 }
 
 func (j *Push) Run(ctx context.Context) {

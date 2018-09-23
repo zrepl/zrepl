@@ -2,12 +2,12 @@ package client
 
 import (
 	"fmt"
-	"github.com/mitchellh/mapstructure"
 	"github.com/nsf/termbox-go"
 	"github.com/pkg/errors"
+	"github.com/zrepl/yaml-config"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon"
-	"github.com/zrepl/zrepl/replication"
+	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/replication/fsrep"
 	"sort"
 	"sync"
@@ -22,7 +22,7 @@ type tui struct {
 	indent int
 
 	lock   sync.Mutex //For report and error
-	report map[string]interface{}
+	report map[string]job.Status
 	err    error
 }
 
@@ -42,6 +42,10 @@ func (t *tui) moveLine(dl int, col int) {
 
 func (t *tui) write(text string) {
 	for _, c := range text {
+		if c == '\n' {
+			t.newline()
+			continue
+		}
 		termbox.SetCell(t.x, t.y, c, termbox.ColorDefault, termbox.ColorDefault)
 		t.x += 1
 	}
@@ -104,7 +108,7 @@ func RunStatus(flags StatusFlags, config *config.Config, args []string) error {
 	defer termbox.Close()
 
 	update := func() {
-		m := make(map[string]interface{})
+		m := make(map[string]job.Status)
 
 		err2 := jsonRequestResponse(httpc, daemon.ControlJobEndpointStatus,
 			struct{}{},
@@ -172,7 +176,7 @@ func (t *tui) draw() {
 
 		for _, k := range keys {
 			v := t.report[k]
-			if len(k) == 0 || k[0] == '_' { //Internal job
+			if len(k) == 0 || daemon.IsInternalJobName(k) { //Internal job
 				continue
 			}
 			t.setIndent(0)
@@ -180,20 +184,35 @@ func (t *tui) draw() {
 			t.printf("Job: %s", k)
 			t.setIndent(1)
 			t.newline()
+			t.printf("Type: %s", v.Type)
+			t.setIndent(1)
+			t.newline()
 
-			if v == nil {
-				t.printf("No report generated yet")
+			if v.Type != job.TypePush {
+				t.printf("No status representation for job type '%s', dumping as YAML", v.Type)
+				t.newline()
+				asYaml, err := yaml.Marshal(v.JobSpecific)
+				if err != nil {
+					t.printf("Error marshaling status to YAML: %s", err)
+					t.newline()
+					continue
+				}
+				t.write(string(asYaml))
 				t.newline()
 				continue
 			}
-			rep := replication.Report{}
-			err := mapstructure.Decode(v, &rep)
-			if err != nil {
-				t.printf("Failed to decode report: %s", err.Error())
+
+			pushStatus, ok := v.JobSpecific.(*job.PushStatus)
+			if !ok || pushStatus == nil {
+				t.printf("PushStatus is null")
 				t.newline()
 				continue
 			}
-
+			rep := pushStatus.Replication
+			if rep == nil {
+				t.newline()
+				continue
+			}
 
 			all := make([]*fsrep.Report, 0, len(rep.Completed)+len(rep.Pending) + 1)
 			all = append(all, rep.Completed...)

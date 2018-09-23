@@ -39,7 +39,7 @@ func init() {
 
 func (j *prometheusJob) Name() string { return jobNamePrometheus }
 
-func (j *prometheusJob) Status() interface{} { return nil }
+func (j *prometheusJob) Status() *job.Status { return &job.Status{Type: job.TypeInternal} }
 
 func (j *prometheusJob) RegisterMetrics(registerer prometheus.Registerer) {}
 

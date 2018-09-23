@@ -41,9 +41,10 @@ func SinkFromConfig(g *config.Global, in *config.SinkJob) (s *Sink, err error) {
 
 func (j *Sink) Name() string { return j.name }
 
-func (*Sink) Status() interface{} {
-	// FIXME
-	return nil
+type SinkStatus struct {}
+
+func (*Sink) Status() *Status {
+	return &Status{Type: TypeSink} // FIXME SinkStatus
 }
 
 func (*Sink) RegisterMetrics(registerer prometheus.Registerer) {}

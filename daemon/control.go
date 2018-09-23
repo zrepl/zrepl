@@ -35,7 +35,7 @@ func newControlJob(sockpath string, jobs *jobs) (j *controlJob, err error) {
 
 func (j *controlJob) Name() string { return jobNameControl }
 
-func (j *controlJob) Status() interface{} { return nil }
+func (j *controlJob) Status() *job.Status { return &job.Status{Type: job.TypeInternal} }
 
 var promControl struct {
 	requestBegin *prometheus.CounterVec
