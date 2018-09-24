@@ -188,7 +188,7 @@ func (t *tui) draw() {
 			t.setIndent(1)
 			t.newline()
 
-			if v.Type != job.TypePush {
+			if v.Type != job.TypePush && v.Type != job.TypePull {
 				t.printf("No status representation for job type '%s', dumping as YAML", v.Type)
 				t.newline()
 				asYaml, err := yaml.Marshal(v.JobSpecific)

@@ -6,11 +6,13 @@ import (
 	"github.com/problame/go-streamrpc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/daemon/serve"
+	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/endpoint"
-	"path"
 	"github.com/zrepl/zrepl/zfs"
+	"path"
 )
 
 type PassiveSide struct {
@@ -22,6 +24,7 @@ type PassiveSide struct {
 
 type passiveMode interface {
 	ConnHandleFunc(ctx context.Context, conn serve.AuthenticatedConn) streamrpc.HandlerFunc
+	RunPeriodic(ctx context.Context)
 	Type() Type
 }
 
@@ -53,6 +56,8 @@ func (m *modeSink) ConnHandleFunc(ctx context.Context, conn serve.AuthenticatedC
 	return h.Handle
 }
 
+func (m *modeSink) RunPeriodic(_ context.Context) {}
+
 func modeSinkFromConfig(g *config.Global, in *config.SinkJob) (m *modeSink, err error) {
 	m = &modeSink{}
 	m.rootDataset, err = zfs.NewDatasetPath(in.RootDataset)
@@ -63,6 +68,39 @@ func modeSinkFromConfig(g *config.Global, in *config.SinkJob) (m *modeSink, err 
 		return nil, errors.New("root dataset must not be empty") // duplicates error check of receiver
 	}
 	return m, nil
+}
+
+type modeSource struct {
+	fsfilter zfs.DatasetFilter
+	snapper *snapper.Snapper
+}
+
+func modeSourceFromConfig(g *config.Global, in *config.SourceJob) (m *modeSource, err error) {
+	// FIXME exact dedup of modePush
+	m = &modeSource{}
+	fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannnot build filesystem filter")
+	}
+	m.fsfilter = fsf
+
+	if m.snapper, err = snapper.FromConfig(g, fsf, &in.Snapshotting); err != nil {
+		return nil, errors.Wrap(err, "cannot build snapper")
+	}
+
+	return m, nil
+}
+
+func (m *modeSource) Type() Type { return TypeSource }
+
+func (m *modeSource) ConnHandleFunc(ctx context.Context, conn serve.AuthenticatedConn) streamrpc.HandlerFunc {
+	sender := endpoint.NewSender(m.fsfilter)
+	h := endpoint.NewHandler(sender)
+	return h.Handle
+}
+
+func (m *modeSource) RunPeriodic(ctx context.Context) {
+	m.snapper.Run(ctx, nil)
 }
 
 func passiveSideFromConfig(g *config.Global, in *config.PassiveJob, mode passiveMode) (s *PassiveSide, err error) {
@@ -97,10 +135,14 @@ func (j *PassiveSide) Run(ctx context.Context) {
 	}
 	defer l.Close()
 
+	{
+		ctx, cancel := context.WithCancel(logging.WithSubsystemLoggers(ctx, log)) // shadowing
+		defer cancel()
+		go j.mode.RunPeriodic(ctx)
+	}
+
 	log.WithField("addr", l.Addr()).Debug("accepting connections")
-
 	var connId int
-
 outer:
 	for {
 

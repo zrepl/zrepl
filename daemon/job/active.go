@@ -11,9 +11,11 @@ import (
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/replication"
+	"github.com/zrepl/zrepl/zfs"
 	"sync"
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/daemon/snapper"
+	"time"
 )
 
 type ActiveSide struct {
@@ -66,6 +68,57 @@ func modePushFromConfig(g *config.Global, in *config.PushJob) (*modePush, error)
 
 	if m.snapper, err = snapper.FromConfig(g, fsf, &in.Snapshotting); err != nil {
 		return nil, errors.Wrap(err, "cannot build snapper")
+	}
+
+	return m, nil
+}
+
+type modePull struct {
+	rootDataset *zfs.DatasetPath
+	interval time.Duration
+}
+
+func (m *modePull) SenderReceiver(client *streamrpc.Client) (replication.Sender, replication.Receiver, error) {
+	sender := endpoint.NewRemote(client)
+	receiver, err := endpoint.NewReceiver(m.rootDataset)
+	return sender, receiver, err
+}
+
+func (*modePull) Type() Type { return TypePull }
+
+func (m *modePull) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}) {
+	t := time.NewTicker(m.interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			select {
+			case wakeUpCommon <- struct{}{}:
+			default:
+				GetLogger(ctx).
+					WithField("pull_interval", m.interval).
+					Warn("pull job took longer than pull interval")
+				wakeUpCommon <- struct{}{} // block anyways, to queue up the wakeup
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func modePullFromConfig(g *config.Global, in *config.PullJob) (m *modePull, err error) {
+	m = &modePull{}
+	if in.Interval <= 0 {
+		return nil, errors.New("interval must be positive")
+	}
+	m.interval = in.Interval
+
+	m.rootDataset, err = zfs.NewDatasetPath(in.RootDataset)
+	if err != nil {
+		return nil, errors.New("root dataset is not a valid zfs filesystem path")
+	}
+	if m.rootDataset.Length() <= 0 {
+		return nil, errors.New("root dataset must not be empty") // duplicates error check of receiver
 	}
 
 	return m, nil
