@@ -8,7 +8,7 @@ const (
 	_State_name_0 = "SyncUpPlanning"
 	_State_name_1 = "Snapshotting"
 	_State_name_2 = "Waiting"
-	_State_name_3 = "Error"
+	_State_name_3 = "ErrorWait"
 )
 
 var (

@@ -74,7 +74,7 @@ const (
 	Planning
 	Snapshotting
 	Waiting
-	Error
+	ErrorWait
 )
 
 func (s State) sf() state {
@@ -83,7 +83,7 @@ func (s State) sf() state {
 		Planning:     plan,
 		Snapshotting: snapshot,
 		Waiting:      wait,
-		Error:        nil,
+		ErrorWait:    wait,
 	}
 	return m[s]
 }
@@ -163,7 +163,7 @@ func (s *Snapper) Run(ctx context.Context, snapshotsTaken chan<- struct{}) {
 func onErr(err error, u updater) state {
 	return u(func(s *Snapper) {
 		s.err = err
-		s.state = Error
+		s.state = ErrorWait
 	}).sf()
 }
 
@@ -254,13 +254,15 @@ func snapshot(a args, u updater) state {
 	select {
 	case a.snapshotsTaken <- struct{}{}:
 	default:
-		a.log.Warn("callback channel is full, discarding snapshot update event")
+		if a.snapshotsTaken != nil {
+			a.log.Warn("callback channel is full, discarding snapshot update event")
+		}
 	}
 
 	return u(func(snapper *Snapper) {
 		if hadErr {
-			snapper.state = Error
-			snapper.err = errors.New("one or more snapshots could not be created")
+			snapper.state = ErrorWait
+			snapper.err = errors.New("one or more snapshots could not be created, check logs for details")
 		} else {
 			snapper.state = Waiting
 		}
