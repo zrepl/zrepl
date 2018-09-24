@@ -77,6 +77,7 @@ type Replication struct {
 type Report struct {
 	Status    string
 	Problem   string
+	SleepUntil time.Time
 	Completed []*fsrep.Report
 	Pending   []*fsrep.Report
 	Active    *fsrep.Report
@@ -379,6 +380,7 @@ func (r *Replication) Report() *Report {
 
 	rep := Report{
 		Status: r.state.String(),
+		SleepUntil: r.sleepUntil,
 	}
 
 	if r.state&(Planning|PlanningError|ContextDone) != 0 {
