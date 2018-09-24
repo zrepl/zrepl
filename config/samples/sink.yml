@@ -11,19 +11,3 @@ jobs:
       client_cns:
         - "laptop1"
         - "homeserver"
-global:
-  logging:
-    - type: "tcp"
-      address: "123.123.123.123:1234"
-      retry_interval: 10s
-      tls:
-        ca: "ca.pem"
-        cert: "cert.pem"
-        key: "key.pem"
-      level: "warn"
-      format: "human"
-  control:
-    sockpath: /var/run/zrepl/control
-  serve:
-    stdinserver:
-      sockdir: /var/run/zrepl/stdinserver

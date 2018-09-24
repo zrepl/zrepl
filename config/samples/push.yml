@@ -24,17 +24,3 @@ jobs:
         - type: grid
           grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
           keep_bookmarks: all
-global:
-  logging:
-    - type: "stdout"
-      time: true
-      level: "warn"
-      format: "human"
-  monitoring:
-    - type: "prometheus"
-      listen: ":9091"
-  control:
-    sockpath: /var/run/zrepl/control
-  serve:
-    stdinserver:
-      sockdir: /var/run/zrepl/stdinserver
