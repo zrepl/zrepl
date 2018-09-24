@@ -17,6 +17,7 @@ SUBPKGS += daemon/streamrpcconfig
 SUBPKGS += endpoint
 SUBPKGS += logger
 SUBPKGS += pruning
+SUBPKGS += pruning/retentiongrid
 SUBPKGS += replication
 SUBPKGS += replication/fsrep
 SUBPKGS += replication/pdu

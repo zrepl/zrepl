@@ -13,7 +13,7 @@ type RetentionIntervalList []RetentionInterval
 type PruneGrid struct {
 	Type          string                `yaml:"type"`
 	Grid          RetentionIntervalList `yaml:"grid"`
-	KeepBookmarks string                `yaml:"keep_bookmarks"`
+	Regex	      string                `yaml:"regex"`
 }
 
 type RetentionInterval struct {

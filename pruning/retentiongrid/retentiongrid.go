@@ -5,50 +5,50 @@ import (
 	"time"
 )
 
-type RetentionInterval interface {
+type Interval interface {
 	Length() time.Duration
 	KeepCount() int
 }
 
 const RetentionGridKeepCountAll int = -1
 
-type retentionGrid struct {
-	intervals []RetentionInterval
+type Grid struct {
+	intervals []Interval
 }
 
 //A point inside the grid, i.e. a thing the grid can decide to remove
-type RetentionGridEntry interface {
+type Entry interface {
 	Date() time.Time
-	LessThan(b RetentionGridEntry) bool
+	LessThan(b Entry) bool
 }
 
-func dateInInterval(date, startDateInterval time.Time, i RetentionInterval) bool {
+func dateInInterval(date, startDateInterval time.Time, i Interval) bool {
 	return date.After(startDateInterval) && date.Before(startDateInterval.Add(i.Length()))
 }
 
-func newRetentionGrid(l []RetentionInterval) *retentionGrid {
+func NewGrid(l []Interval) *Grid {
 	// TODO Maybe check for ascending interval lengths here, although the algorithm
 	// 		itself doesn't care about that.
-	return &retentionGrid{l}
+	return &Grid{l}
 }
 
-// Partition a list of RetentionGridEntries into the retentionGrid,
+// Partition a list of RetentionGridEntries into the Grid,
 // relative to a given start date `now`.
 //
-// The `keepCount` oldest entries per `RetentionInterval` are kept (`keep`),
+// The `keepCount` oldest entries per `retentiongrid.Interval` are kept (`keep`),
 // the others are removed (`remove`).
 //
 // Entries that are younger than `now` are always kept.
 // Those that are older than the earliest beginning of an interval are removed.
-func (g retentionGrid) FitEntries(now time.Time, entries []RetentionGridEntry) (keep, remove []RetentionGridEntry) {
+func (g Grid) FitEntries(now time.Time, entries []Entry) (keep, remove []Entry) {
 
 	type bucket struct {
-		entries []RetentionGridEntry
+		entries []Entry
 	}
 	buckets := make([]bucket, len(g.intervals))
 
-	keep = make([]RetentionGridEntry, 0)
-	remove = make([]RetentionGridEntry, 0)
+	keep = make([]Entry, 0)
+	remove = make([]Entry, 0)
 
 	oldestIntervalStart := now
 	for i := range g.intervals {

@@ -61,6 +61,8 @@ func RuleFromConfig(in config.PruningEnum) (KeepRule, error) {
 		return NewKeepLastN(v.Count)
 	case *config.PruneKeepRegex:
 		return NewKeepRegex(v.Regex)
+	case *config.PruneGrid:
+		return NewKeepGrid(v)
 	default:
 		return nil, fmt.Errorf("unknown keep rule type %T", v)
 	}

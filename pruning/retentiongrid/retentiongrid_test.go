@@ -22,10 +22,10 @@ func (i *retentionIntervalStub) KeepCount() int {
 	return i.keepCount
 }
 
-func retentionGridFromString(gs string) (g *retentionGrid) {
+func gridFromString(gs string) (g *Grid) {
 	intervals := strings.Split(gs, "|")
-	g = &retentionGrid{
-		intervals: make([]RetentionInterval, len(intervals)),
+	g = &Grid{
+		intervals: make([]Interval, len(intervals)),
 	}
 	for idx, i := range intervals {
 		comps := strings.SplitN(i, ",", 2)
@@ -62,11 +62,11 @@ func (ds dummySnap) Date() time.Time {
 	return ds.date
 }
 
-func (ds dummySnap) LessThan(b RetentionGridEntry) bool {
+func (ds dummySnap) LessThan(b Entry) bool {
 	return ds.date.Before(b.(dummySnap).date) // don't have a txg here
 }
 
-func validateRetentionGridFitEntries(t *testing.T, now time.Time, input, keep, remove []RetentionGridEntry) {
+func validateRetentionGridFitEntries(t *testing.T, now time.Time, input, keep, remove []Entry) {
 
 	snapDescr := func(d dummySnap) string {
 		return fmt.Sprintf("%s@%s", d.Name, d.date.Sub(now))
@@ -101,8 +101,8 @@ func validateRetentionGridFitEntries(t *testing.T, now time.Time, input, keep, r
 }
 
 func TestRetentionGridFitEntriesEmptyInput(t *testing.T) {
-	g := retentionGridFromString("10m|10m|10m|1h")
-	keep, remove := g.FitEntries(time.Now(), []RetentionGridEntry{})
+	g := gridFromString("10m|10m|10m|1h")
+	keep, remove := g.FitEntries(time.Now(), []Entry{})
 	assert.Empty(t, keep)
 	assert.Empty(t, remove)
 }
@@ -111,13 +111,13 @@ func TestRetentionGridFitEntriesIntervalBoundariesAndAlignment(t *testing.T) {
 
 	// Intervals are (duration], i.e. 10min is in the first interval, not in the second
 
-	g := retentionGridFromString("10m|10m|10m")
+	g := gridFromString("10m|10m|10m")
 
 	t.Logf("%#v\n", g)
 
 	now := time.Unix(0, 0)
 
-	snaps := []RetentionGridEntry{
+	snaps := []Entry{
 		dummySnap{"0", true, now.Add(1 * time.Minute)},    // before now
 		dummySnap{"1", true, now},                         // before now
 		dummySnap{"2", true, now.Add(-10 * time.Minute)},  // 1st interval
@@ -133,13 +133,13 @@ func TestRetentionGridFitEntriesIntervalBoundariesAndAlignment(t *testing.T) {
 
 func TestRetentionGridFitEntries(t *testing.T) {
 
-	g := retentionGridFromString("10m,-1|10m|10m,2|1h")
+	g := gridFromString("10m,-1|10m|10m,2|1h")
 
 	t.Logf("%#v\n", g)
 
 	now := time.Unix(0, 0)
 
-	snaps := []RetentionGridEntry{
+	snaps := []Entry{
 		dummySnap{"1", true, now.Add(3 * time.Minute)},   // pre-now must always be kept
 		dummySnap{"b1", true, now.Add(-6 * time.Minute)}, // 1st interval allows unlimited entries
 		dummySnap{"b3", true, now.Add(-8 * time.Minute)}, // 1st interval allows unlimited entries

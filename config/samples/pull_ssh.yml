@@ -19,10 +19,10 @@ jobs:
       count: 10
     - type: grid
       grid: 1x1h(keep=all) | 24x1h | 14x1d
-      keep_bookmarks: all
+      regex: "^zrepl_.*"
     keep_receiver:
     - type: prefix
       prefix: keep_
     - type: grid
       grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
-      keep_bookmarks: all
+      regex: "^zrepl_.*"

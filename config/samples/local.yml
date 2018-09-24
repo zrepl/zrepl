@@ -25,4 +25,4 @@ jobs:
       keep_receiver:
       - type: grid
         grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
-        keep_bookmarks: all
+        regex: "zrepl_.*"
