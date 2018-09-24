@@ -30,8 +30,28 @@ type ActiveSide struct {
 	promPruneSecs *prometheus.HistogramVec // labels: prune_side
 	promBytesReplicated *prometheus.CounterVec // labels: filesystem
 
-	mtx         sync.Mutex
+	tasksMtx sync.Mutex
+	tasks    activeSideTasks
+}
+
+type activeSideTasks struct {
 	replication *replication.Replication
+	prunerSender, prunerReceiver *pruner.Pruner
+}
+
+func (a *ActiveSide) updateTasks(u func(*activeSideTasks)) activeSideTasks {
+	a.tasksMtx.Lock()
+	var copy activeSideTasks
+	copy = a.tasks
+	a.tasksMtx.Unlock()
+	if u == nil {
+		return copy
+	}
+	u(&copy)
+	a.tasksMtx.Lock()
+	a.tasks = copy
+	a.tasksMtx.Unlock()
+	return copy
 }
 
 type activeMode interface {
@@ -176,20 +196,14 @@ type ActiveSideStatus struct {
 }
 
 func (j *ActiveSide) Status() *Status {
-	rep := func() *replication.Replication {
-		j.mtx.Lock()
-		defer j.mtx.Unlock()
-		if j.replication == nil {
-			return nil
-		}
-		return j.replication
-	}()
+	tasks := j.updateTasks(nil)
+
 	s := &ActiveSideStatus{}
 	t := j.mode.Type()
-	if rep == nil {
+	if tasks.replication == nil {
 		return &Status{Type: t, JobSpecific: s}
 	}
-	s.Replication = rep.Report()
+	s.Replication = tasks.replication.Report()
 	return &Status{Type: t, JobSpecific: s}
 }
 
@@ -235,19 +249,21 @@ func (j *ActiveSide) do(ctx context.Context) {
 
 	sender, receiver, err := j.mode.SenderReceiver(client)
 
-	j.mtx.Lock()
-	j.replication = replication.NewReplication(j.promRepStateSecs, j.promBytesReplicated)
-	j.mtx.Unlock()
+	tasks := j.updateTasks(func(tasks *activeSideTasks) {
+		// reset it
+		*tasks = activeSideTasks{}
+		tasks.replication = replication.NewReplication(j.promRepStateSecs, j.promBytesReplicated)
+	})
 
 	log.Info("start replication")
-	j.replication.Drive(ctx, sender, receiver)
+	tasks.replication.Drive(ctx, sender, receiver)
 
+	tasks = j.updateTasks(func(tasks *activeSideTasks) {
+		tasks.prunerSender = j.prunerFactory.BuildSenderPruner(ctx, sender, sender)
+		tasks.prunerReceiver = j.prunerFactory.BuildReceiverPruner(ctx, receiver, sender)
+	})
 	log.Info("start pruning sender")
-	senderPruner := j.prunerFactory.BuildSenderPruner(ctx, sender, sender)
-	senderPruner.Prune()
-
+	tasks.prunerSender.Prune()
 	log.Info("start pruning receiver")
-	receiverPruner := j.prunerFactory.BuildReceiverPruner(ctx, receiver, sender)
-	receiverPruner.Prune()
-
+	tasks.prunerReceiver.Prune()
 }
