@@ -199,13 +199,65 @@ func (p *Pruner) prune(args args) {
 	}
 }
 
-func (p *Pruner) Report() interface{} {
-	return nil // FIXME TODO
+type Report struct {
+	State string
+	SleepUntil time.Time
+	Error string
+	Pending, Completed []FSReport
+}
+
+type FSReport struct {
+	Filesystem string
+	SnapshotList, DestroyList []SnapshotReport
+	Error string
+}
+
+type SnapshotReport struct {
+	Name string
+	Replicated bool
+	Date time.Time
+}
+
+func (p *Pruner) Report() *Report {
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+
+	r := Report{State: p.state.String()}
+
+	if p.state & PlanWait|ExecWait != 0 {
+		r.SleepUntil = p.sleepUntil
+	}
+	if p.state & PlanWait|ExecWait|ErrPerm != 0 {
+		if p.err != nil {
+			r.Error = p.err.Error()
+		}
+	}
+
+	if p.state & Plan|PlanWait == 0 {
+		return &r
+	}
+
+	r.Pending = make([]FSReport, len(p.prunePending))
+	for i, fs := range p.prunePending{
+		r.Pending[i] = fs.Report()
+	}
+	r.Completed = make([]FSReport, len(p.pruneCompleted))
+	for i, fs := range p.pruneCompleted{
+		r.Completed[i] = fs.Report()
+	}
+
+	return &r
 }
 
 type fs struct {
 	path  string
+
+	// snapshots presented by target
+	// (type snapshot)
 	snaps []pruning.Snapshot
+	// destroy list returned by pruning.PruneSnapshots(snaps)
+	// (type snapshot)
+	destroyList []pruning.Snapshot
 
 	mtx sync.RWMutex
 	// for Plan
@@ -218,10 +270,41 @@ func (f *fs) Update(err error) {
 	f.err = err
 }
 
+func (f *fs) Report() FSReport {
+	f.mtx.Lock()
+	defer f.mtx.Unlock()
+
+	r := FSReport{}
+	r.Filesystem = f.path
+	if f.err != nil {
+		r.Error = f.err.Error()
+	}
+
+	r.SnapshotList = make([]SnapshotReport, len(f.snaps))
+	for i, snap := range f.snaps {
+		r.SnapshotList[i] = snap.(snapshot).Report()
+	}
+
+	r.DestroyList = make([]SnapshotReport, len(f.destroyList))
+	for i, snap := range f.destroyList{
+		r.DestroyList[i] = snap.(snapshot).Report()
+	}
+
+	return r
+}
+
 type snapshot struct {
 	replicated bool
 	date       time.Time
 	fsv        *pdu.FilesystemVersion
+}
+
+func (s snapshot) Report() SnapshotReport {
+	return SnapshotReport{
+		Name:       s.Name(),
+		Replicated: s.Replicated(),
+		Date:       s.Date(),
+	}
 }
 
 var _ pruning.Snapshot = snapshot{}
@@ -344,6 +427,9 @@ fsloop:
 			continue fsloop
 		}
 
+		// Apply prune rules
+		pfs.destroyList = pruning.PruneSnapshots(pfs.snaps, a.rules)
+
 	}
 
 	return u(func(pruner *Pruner) {
@@ -378,11 +464,9 @@ func stateExec(a *args, u updater) state {
 		return state.statefunc()
 	}
 
-	GetLogger(a.ctx).Debug(fmt.Sprintf("%#v", a.rules))
-	destroyListI := pruning.PruneSnapshots(pfs.snaps, a.rules)
-	destroyList := make([]*pdu.FilesystemVersion, len(destroyListI))
+	destroyList := make([]*pdu.FilesystemVersion, len(pfs.destroyList))
 	for i := range destroyList {
-		destroyList[i] = destroyListI[i].(snapshot).fsv
+		destroyList[i] = pfs.destroyList[i].(snapshot).fsv
 		GetLogger(a.ctx).
 			WithField("fs", pfs.path).
 			WithField("destroy_snap", destroyList[i].Name).

@@ -193,6 +193,7 @@ func (j *ActiveSide) Name() string { return j.name }
 
 type ActiveSideStatus struct {
 	Replication *replication.Report
+	PruningSender, PruningReceiver *pruner.Report
 }
 
 func (j *ActiveSide) Status() *Status {
@@ -200,10 +201,15 @@ func (j *ActiveSide) Status() *Status {
 
 	s := &ActiveSideStatus{}
 	t := j.mode.Type()
-	if tasks.replication == nil {
-		return &Status{Type: t, JobSpecific: s}
+	if tasks.replication != nil {
+		s.Replication = tasks.replication.Report()
 	}
-	s.Replication = tasks.replication.Report()
+	if tasks.prunerSender != nil {
+		s.PruningSender = tasks.prunerSender.Report()
+	}
+	if tasks.prunerReceiver != nil {
+		s.PruningReceiver = tasks.prunerReceiver.Report()
+	}
 	return &Status{Type: t, JobSpecific: s}
 }
 
