@@ -401,8 +401,12 @@ func (s Remote) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Read
 	if err != nil {
 		return nil, nil, err
 	}
-	if rs == nil {
+	if !r.DryRun && rs == nil {
 		return nil, nil, errors.New("response does not contain a stream")
+	}
+	if r.DryRun && rs != nil {
+		rs.Close()
+		return nil, nil, errors.New("response contains unexpected stream (was dry run)")
 	}
 	var res pdu.SendRes
 	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
