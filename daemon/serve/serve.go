@@ -86,6 +86,9 @@ func FromConfig(g *config.Global, in config.ServeEnum) (lf ListenerFactory, conf
 	case *config.StdinserverServer:
 		lf, lfError = MultiStdinserverListenerFactoryFromConfig(g, v)
 		conf, rpcErr = streamrpcconfig.FromDaemonConfig(g, v.RPC)
+	case *config.LocalServe:
+		lf, lfError = LocalListenerFactoryFromConfig(g, v)
+		conf, rpcErr = streamrpcconfig.FromDaemonConfig(g, v.RPC)
 	default:
 		return nil, nil, errors.Errorf("internal error: unknown serve type %T", v)
 	}

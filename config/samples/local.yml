@@ -1,26 +1,28 @@
 
 jobs:
-- name: mirror_local
-  type: local
-  # snapshot the filesystems matched by the left-hand-side of the mapping
-  # every 10m with zrepl_ as prefix
-  filesystems: {
-    "pool1/var/db<": true,
-    "pool1/usr/home<": true,
-    "pool1/usr/home/paranoid": false, #don't backup paranoid user
-    "pool1/poudriere/ports<": false #don't backup the ports trees
-  }
-  # TODO FIXME enforce that the tree under root_dataset and the trees allowed (true) by filesystems are non-overlapping
-  root_dataset: "pool2/backups/pool1"
+  - type: sink
+    name: "local_sink"
+    root_dataset: "storage/zrepl/sink"
+    serve:
+      type: local
 
-  snapshotting:
-    snapshot_prefix: zrepl_
-    interval: 10m
-
-  pruning:
-    keep_sender:
-    - type: not_replicated
-    keep_receiver:
-    - type: grid
-      grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
-      keep_bookmarks: all
+  - type: push
+    name: "backup_system"
+    connect:
+      type: local
+      client_identity: local_backup
+    filesystems: {
+      "system<": true,
+    }
+    snapshotting:
+      snapshot_prefix: zrepl_
+      interval: 10m
+    pruning:
+      keep_sender:
+      - type: not_replicated
+      - type: last_n
+        count: 10
+      keep_receiver:
+      - type: grid
+        grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
+        keep_bookmarks: all

@@ -59,16 +59,6 @@ type SourceJob struct {
 	Filesystems FilesystemsFilter `yaml:"filesystems"`
 }
 
-type LocalJob struct {
-	Type         string                `yaml:"type"`
-	Name         string                `yaml:"name"`
-	Filesystems FilesystemsFilter `yaml:"filesystems"`
-	RootDataset string          `yaml:"root_dataset"`
-	Snapshotting Snapshotting          `yaml:"snapshotting"`
-	Pruning      PruningSenderReceiver `yaml:"pruning"`
-	Debug        JobDebugSettings      `yaml:"debug,optional"`
-}
-
 type FilesystemsFilter map[string]bool
 
 type Snapshotting struct {
@@ -171,6 +161,11 @@ type SSHStdinserverConnect struct {
 	DialTimeout          time.Duration `yaml:"dial_timeout,positive,default=10s"`
 }
 
+type LocalConnect struct {
+	ConnectCommon `yaml:",inline"`
+	ClientIdentity string `yaml:"client_identity"`
+}
+
 type ServeEnum struct {
 	Ret interface{}
 }
@@ -199,6 +194,10 @@ type TLSServe struct {
 type StdinserverServer struct {
 	ServeCommon    `yaml:",inline"`
 	ClientIdentities []string `yaml:"client_identities"`
+}
+
+type LocalServe struct {
+	ServeCommon `yaml:",inline"`
 }
 
 type PruningEnum struct {
@@ -311,7 +310,6 @@ func (t *JobEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 		"sink":   &SinkJob{},
 		"pull":   &PullJob{},
 		"source": &SourceJob{},
-		"local":  &LocalJob{},
 	})
 	return
 }
@@ -321,6 +319,7 @@ func (t *ConnectEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error)
 		"tcp":             &TCPConnect{},
 		"tls":             &TLSConnect{},
 		"ssh+stdinserver": &SSHStdinserverConnect{},
+		"local": 		   &LocalConnect{},
 	})
 	return
 }
@@ -330,6 +329,7 @@ func (t *ServeEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 		"tcp":         &TCPServe{},
 		"tls":         &TLSServe{},
 		"stdinserver": &StdinserverServer{},
+		"local"      : &LocalServe{},
 	})
 	return
 }

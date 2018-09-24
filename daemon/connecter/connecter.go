@@ -23,6 +23,9 @@ func FromConfig(g *config.Global, in config.ConnectEnum) (*ClientFactory, error)
 	case *config.TLSConnect:
 		connecter, errConnecter = TLSConnecterFromConfig(v)
 		connConf, errRPC = streamrpcconfig.FromDaemonConfig(g, v.RPC)
+	case *config.LocalConnect:
+		connecter, errConnecter = LocalConnecterFromConfig(v)
+		connConf, errRPC = streamrpcconfig.FromDaemonConfig(g, v.RPC)
 	default:
 		panic(fmt.Sprintf("implementation error: unknown connecter type %T", v))
 	}
