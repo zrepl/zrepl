@@ -75,6 +75,7 @@ const (
 	Snapshotting
 	Waiting
 	ErrorWait
+	Stopped
 )
 
 func (s State) sf() state {
@@ -84,6 +85,7 @@ func (s State) sf() state {
 		Snapshotting: snapshot,
 		Waiting:      wait,
 		ErrorWait:    wait,
+		Stopped: 	   nil,
 	}
 	return m[s]
 }
@@ -167,6 +169,13 @@ func onErr(err error, u updater) state {
 	}).sf()
 }
 
+func onMainCtxDone(ctx context.Context, u updater) state {
+	return u(func(s *Snapper) {
+		s.err = ctx.Err()
+		s.state = Stopped
+	}).sf()
+}
+
 func syncUp(a args, u updater) state {
 	fss, err := listFSes(a.fsf)
 	if err != nil {
@@ -187,7 +196,7 @@ func syncUp(a args, u updater) state {
 			s.state = Planning
 		}).sf()
 	case <-a.ctx.Done():
-		return onErr(err, u)
+		return onMainCtxDone(a.ctx, u)
 	}
 }
 
@@ -286,7 +295,7 @@ func wait(a args, u updater) state {
 			snapper.state = Planning
 		}).sf()
 	case <-a.ctx.Done():
-		return onErr(a.ctx.Err(), u)
+		return onMainCtxDone(a.ctx, u)
 	}
 }
 

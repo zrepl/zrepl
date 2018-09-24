@@ -9,6 +9,7 @@ const (
 	_State_name_1 = "Snapshotting"
 	_State_name_2 = "Waiting"
 	_State_name_3 = "ErrorWait"
+	_State_name_4 = "Stopped"
 )
 
 var (
@@ -26,6 +27,8 @@ func (i State) String() string {
 		return _State_name_2
 	case i == 16:
 		return _State_name_3
+	case i == 32:
+		return _State_name_4
 	default:
 		return "State(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
