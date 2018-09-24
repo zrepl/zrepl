@@ -458,6 +458,26 @@ func (s Remote) DestroySnapshots(ctx context.Context, r *pdu.DestroySnapshotsReq
 	return &res, nil
 }
 
+func (s Remote) ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
+	b, err := proto.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	rb, rs, err := s.c.RequestReply(ctx, RPCReplicationCursor, bytes.NewBuffer(b), nil)
+	if err != nil {
+		return nil, err
+	}
+	if rs != nil {
+		rs.Close()
+		return nil, errors.New("response contains unexpected stream")
+	}
+	var res pdu.ReplicationCursorRes
+	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 // Handler implements the server-side streamrpc.HandlerFunc for a Remote endpoint stub.
 type Handler struct {
 	ep replication.Endpoint
