@@ -1,11 +1,38 @@
 package connecter
 
 import (
+	"context"
 	"fmt"
 	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/streamrpcconfig"
+	"github.com/zrepl/zrepl/daemon/transport"
+	"net"
+	"time"
 )
+
+
+type HandshakeConnecter struct {
+	connecter streamrpc.Connecter
+}
+
+func (c HandshakeConnecter) Connect(ctx context.Context) (net.Conn, error) {
+	conn, err := c.connecter.Connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	dl, ok := ctx.Deadline()
+	if !ok {
+		dl = time.Now().Add(10 * time.Second) // FIXME constant
+	}
+	if err := transport.DoHandshakeCurrentVersion(conn, dl); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	return conn, nil
+}
+
+
 
 func FromConfig(g *config.Global, in config.ConnectEnum) (*ClientFactory, error) {
 	var (
@@ -41,6 +68,9 @@ func FromConfig(g *config.Global, in config.ConnectEnum) (*ClientFactory, error)
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
+
+	connecter = HandshakeConnecter{connecter}
+
 	return &ClientFactory{connecter: connecter, config: &config}, nil
 }
 

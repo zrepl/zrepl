@@ -3,12 +3,14 @@ package serve
 import (
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/transport"
 	"net"
 	"github.com/zrepl/zrepl/daemon/streamrpcconfig"
 	"github.com/problame/go-streamrpc"
 	"context"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/zfs"
+	"time"
 )
 
 type contextKey int
@@ -71,6 +73,42 @@ type ListenerFactory interface {
 	Listen() (AuthenticatedListener, error)
 }
 
+type HandshakeListenerFactory struct {
+	lf ListenerFactory
+}
+
+func (lf HandshakeListenerFactory) Listen() (AuthenticatedListener, error) {
+	l, err := lf.lf.Listen()
+	if err != nil {
+		return nil, err
+	}
+	return HandshakeListener{l}, nil
+}
+
+type HandshakeListener struct {
+	l AuthenticatedListener
+}
+
+func (l HandshakeListener) Addr() (net.Addr) { return l.l.Addr() }
+
+func (l HandshakeListener) Close() error { return l.l.Close() }
+
+func (l HandshakeListener) Accept(ctx context.Context) (AuthenticatedConn, error) {
+	conn, err := l.l.Accept(ctx)
+	if err != nil {
+		return nil, err
+	}
+	dl, ok := ctx.Deadline()
+	if !ok {
+		dl = time.Now().Add(10*time.Second) // FIXME constant
+	}
+	if err := transport.DoHandshakeCurrentVersion(conn, dl); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	return conn, nil
+}
+
 func FromConfig(g *config.Global, in config.ServeEnum) (lf ListenerFactory, conf *streamrpc.ConnConfig, _ error) {
 
 	var (
@@ -99,6 +137,8 @@ func FromConfig(g *config.Global, in config.ServeEnum) (lf ListenerFactory, conf
 	if rpcErr != nil {
 		return nil, nil, rpcErr
 	}
+
+	lf = HandshakeListenerFactory{lf}
 
 	return lf, conf, nil
 
