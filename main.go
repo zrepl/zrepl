@@ -14,18 +14,12 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "zrepl",
-	Short: "ZFS dataset replication",
-	Long: `Replicate ZFS filesystems & volumes between pools:
-
-  - push & pull mode
-  - automatic snapshot creation & pruning
-  - local / over the network
-  - ACLs instead of blank SSH access`,
+	Short: "One-stop ZFS replication solution",
 }
 
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
-	Short: "daemon",
+	Short: "run the zrepl daemon",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.ParseConfig(rootArgs.configFile)
 		if err != nil {
@@ -36,8 +30,8 @@ var daemonCmd = &cobra.Command{
 }
 
 var wakeupCmd = &cobra.Command{
-	Use:   "wakeup",
-	Short: "wake up jobs",
+	Use:   "wakeup JOB",
+	Short: "trigger replication and subsequent pruning for a job",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.ParseConfig(rootArgs.configFile)
 		if err != nil {
@@ -51,7 +45,7 @@ var statusCmdFlags client.StatusFlags
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "status",
+	Short: "show job activity or dump as JSON for monitoring",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.ParseConfig(rootArgs.configFile)
 		if err != nil {
@@ -63,7 +57,7 @@ var statusCmd = &cobra.Command{
 
 var stdinserverCmd = &cobra.Command{
 	Use:   "stdinserver CLIENT_IDENTITY",
-	Short: "start in stdinserver mode (from authorized_keys file)",
+	Short: "stdinserver transport mode (started from authorized_keys file as forced command)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.ParseConfig(rootArgs.configFile)
 		if err != nil {
@@ -93,7 +87,7 @@ var bashcompCmd = &cobra.Command{
 
 var configcheckCmd = &cobra.Command{
 	Use: "configcheck",
-	Short: "validate config file",
+	Short: "check if config can be parsed without errors",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.ParseConfig(rootArgs.configFile)
 		if err != nil {
@@ -106,7 +100,7 @@ var configcheckCmd = &cobra.Command{
 var versionCmdArgs client.VersionArgs
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "print version of zrepl binary (for running daemon 'zrepl control version' command)",
+	Short: "print version of zrepl binary and running daemon",
 	Run: func(cmd *cobra.Command, args []string) {
 		conf, err := config.ParseConfig(rootArgs.configFile)
 		if err == nil {
@@ -160,7 +154,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&rootArgs.configFile, "config", "", "config file path")
 	rootCmd.AddCommand(daemonCmd)
 	rootCmd.AddCommand(wakeupCmd)
-	statusCmd.Flags().BoolVar(&statusCmdFlags.Raw, "raw", false, "dump raw response from zrepl daemon")
+	statusCmd.Flags().BoolVar(&statusCmdFlags.Raw, "raw", false, "dump raw status description from zrepl daemon")
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(stdinserverCmd)
 	rootCmd.AddCommand(bashcompCmd)
