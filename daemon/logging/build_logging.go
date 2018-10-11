@@ -15,7 +15,7 @@ import (
 	"github.com/zrepl/zrepl/tlsconf"
 	"os"
 	"github.com/zrepl/zrepl/daemon/snapper"
-	"github.com/zrepl/zrepl/daemon/serve"
+	"github.com/zrepl/zrepl/daemon/transport/serve"
 )
 
 func OutletsFromConfig(in config.LoggingOutletEnumList) (*logger.Outlets, error) {

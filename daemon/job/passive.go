@@ -8,7 +8,7 @@ import (
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/daemon/logging"
-	"github.com/zrepl/zrepl/daemon/serve"
+	"github.com/zrepl/zrepl/daemon/transport/serve"
 	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/zfs"

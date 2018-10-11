@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/serve"
+	"github.com/zrepl/zrepl/daemon/transport/serve"
 	"net"
 )
 
