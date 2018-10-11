@@ -10,8 +10,8 @@ CLI Overview
 
 .. NOTE::
 
-    To avoid duplication, the zrepl binary is self-documenting:
-    invoke any subcommand at any level with the ``--help`` flag to get information on the subcommand, available flags, etc.
+    The zrepl binary is self-documenting:
+    run ``zrepl help`` for an overview of the available subcommands or ``zrepl SUBCOMMAND --help`` for information on available flags, etc.
 
 .. list-table::
     :widths: 30 70
@@ -19,16 +19,18 @@ CLI Overview
 
     * - Subcommand
       - Description
+    * - ``zrepl help``
+      - show subcommand overview
     * - ``zrepl daemon``
       - run the daemon, required for all zrepl functionality
-    * - ``zrepl control``
-      - control / query the daemon
-    * - ``zrepl control status``
-      - show job activity / monitoring (``--format raw``)
-    * - ``zrepl test``
-      - test configuration, try pattern syntax, dry run pruning policy, etc.
+    * - ``zrepl status``
+      - show job activity, or with ``--raw`` for JSON output
     * - ``zrepl stdinserver``
       - see :ref:`transport-ssh+stdinserver`
+    * - ``zrepl wakeup JOB``
+      - manually trigger replication + pruning
+    * - ``zrepl configcheck``
+      - check if config can be parsed without errors
 
 .. _usage-zrepl-daemon:
 

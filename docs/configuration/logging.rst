@@ -8,18 +8,17 @@ Logging
 zrepl uses structured logging to provide users with easily processable log messages.
 
 Logging outlets are configured in the ``global`` section of the |mainconfig|.
-Check out :sampleconf:`random/logging_and_monitoring.yml` for an example on how to configure multiple outlets:
 
 ::
 
     global:
       logging:
     
-        - outlet: OUTLET_TYPE
+        - type: OUTLET_TYPE
           level: MINIMUM_LEVEL
           format: FORMAT
     
-        - outlet: OUTLET_TYPE
+        - type: OUTLET_TYPE
           level: MINIMUM_LEVEL
           format: FORMAT
     
@@ -45,7 +44,7 @@ By default, the following logging configuration is used
     global:
       logging:
     
-        - outlet: "stdout"
+        - type: "stdout"
           level:  "warn"
           format: "human"
 
@@ -93,8 +92,8 @@ Formats
     * - Format
       - Description
     * - ``human``
-      - emphasizes context by putting job, task, step and other context variables into brackets
-        before the actual message, followed by remaining fields in logfmt style|
+      - prints job and subsystem into brackets before the actual message,
+        followed by remaining fields in logfmt style
     * - ``logfmt``
       - `logfmt <https://brandur.org/logfmt>`_ output. zrepl uses `this Go package <https://github.com/go-logfmt/logfmt>`_.
     * - ``json``
@@ -118,7 +117,7 @@ Outlets are the destination for log entries.
 
     * - Parameter
       - Comment
-    * - ``outlet``
+    * - ``type``
       - ``stdout``
     * - ``level``
       -  minimum  :ref:`log level <logging-levels>`
@@ -126,9 +125,11 @@ Outlets are the destination for log entries.
       - output :ref:`format <logging-formats>`
     * - ``time``
       - always include time in output (``true`` or ``false``)
+    * - ``color``
+      - colorize output according to log level (``true`` or ``false``)
 
 Writes all log entries with minimum level ``level`` formatted by ``format`` to stdout.
-If stdout is a tty, interactive usage is assumed and the current time is included in the output.
+If stdout is a tty, interactive usage is assumed and both ``time`` and ``color`` are set to ``true``.
 
 Can only be specified once.
 
@@ -140,7 +141,7 @@ Can only be specified once.
 
     * - Parameter
       - Comment
-    * - ``outlet``
+    * - ``type``
       - ``syslog``
     * - ``level``
       -  minimum  :ref:`log level <logging-levels>`
@@ -163,7 +164,7 @@ Can only be specified once.
 
     * - Parameter
       - Comment
-    * - ``outlet``
+    * - ``type``
       - ``tcp``
     * - ``level``
       -  minimum  :ref:`log level <logging-levels>`
@@ -179,11 +180,9 @@ Can only be specified once.
       - TLS config (see below)
 
 Establishes a TCP connection to ``address`` and sends log messages with minimum level ``level`` formatted by ``format``.
-
 If ``tls`` is not specified, an unencrypted connection is established.
-
 If ``tls`` is specified, the TCP connection is secured with TLS + Client Authentication.
-This is particularly useful in combination with log aggregation services that run on an other machine.
+The latter is particularly useful in combination with log aggregation services.
 
 .. list-table::
     :widths: 10 90

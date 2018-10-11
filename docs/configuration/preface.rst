@@ -15,7 +15,7 @@ zrepl searches for its main configuration file in the following locations (in th
 * ``/etc/zrepl/zrepl.yml``
 * ``/usr/local/etc/zrepl/zrepl.yml``
 
-The examples in the :ref:`tutorial` or the ``cmd/sampleconf`` directory should provide a good starting point.
+The examples in the :ref:`tutorial` or the :sampleconf:`/` directory should provide a good starting point.
 
 -------------------
 Runtime Directories
