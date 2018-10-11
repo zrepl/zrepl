@@ -5,11 +5,13 @@ jobs:
     root_dataset: "storage/zrepl/sink"
     serve:
       type: local
+      listener_name: localsink
 
   - type: push
     name: "backup_system"
     connect:
       type: local
+      listener_name: localsink
       client_identity: local_backup
     filesystems: {
       "system<": true,

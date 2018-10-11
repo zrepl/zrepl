@@ -163,6 +163,7 @@ type SSHStdinserverConnect struct {
 
 type LocalConnect struct {
 	ConnectCommon `yaml:",inline"`
+	ListenerName string `yaml:"listener_name"`
 	ClientIdentity string `yaml:"client_identity"`
 }
 
@@ -198,6 +199,7 @@ type StdinserverServer struct {
 
 type LocalServe struct {
 	ServeCommon `yaml:",inline"`
+	ListenerName string `yaml:"listener_name"`
 }
 
 type PruningEnum struct {
