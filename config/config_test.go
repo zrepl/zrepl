@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/kr/pretty"
+	"path"
 	"path/filepath"
 	"testing"
 	"github.com/stretchr/testify/assert"
@@ -16,6 +17,11 @@ func TestSampleConfigsAreParsedWithoutErrors(t *testing.T) {
 	}
 
 	for _, p := range paths {
+
+		if path.Ext(p) != ".yml" {
+			t.Logf("skipping file %s", p)
+			continue
+		}
 
 		t.Run(p, func(t *testing.T) {
 			c, err := ParseConfig(p)
