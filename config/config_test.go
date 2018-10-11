@@ -2,12 +2,10 @@ package config
 
 import (
 	"github.com/kr/pretty"
+	"github.com/stretchr/testify/require"
 	"path"
 	"path/filepath"
 	"testing"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/zrepl/yaml-config"
 )
 
 func TestSampleConfigsAreParsedWithoutErrors(t *testing.T) {
@@ -35,15 +33,6 @@ func TestSampleConfigsAreParsedWithoutErrors(t *testing.T) {
 
 	}
 
-}
-
-func TestLoggingOutletEnumList_SetDefaults(t *testing.T) {
-	e := &LoggingOutletEnumList{}
-	var i yaml.Defaulter = e
-	require.NotPanics(t, func() {
-		i.SetDefault()
-		assert.Equal(t, "warn", (*e)[0].Ret.(StdoutLoggingOutlet).Level)
-	})
 }
 
 
