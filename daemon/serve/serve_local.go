@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/zrepl/zrepl/config"
-	"golang.org/x/sys/unix"
+	"github.com/zrepl/zrepl/util/socketpair"
 	"net"
-	"os"
 	"sync"
 )
 
@@ -135,7 +134,7 @@ func (l *LocalListener) Accept(ctx context.Context) (AuthenticatedConn, error) {
 	}
 
 	getLogger(ctx).Debug("creating socketpair")
-	left, right, err := makeSocketpairConn()
+	left, right, err := socketpair.SocketPair()
 	if err != nil {
 		res := connectResult{nil, fmt.Errorf("server error: %s", err)}
 		if respErr := respondToRequest(req, res); respErr != nil {
@@ -159,49 +158,6 @@ func (l *LocalListener) Accept(ctx context.Context) (AuthenticatedConn, error) {
 	}
 
 	return localConn{right, req.clientIdentity}, nil
-}
-
-type fileConn struct {
-	net.Conn // net.FileConn
-	f *os.File
-}
-
-func (c fileConn) Close() error {
-	if err := c.Conn.Close(); err != nil {
-		return err
-	}
-	if err := c.f.Close(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func makeSocketpairConn() (a, b net.Conn, err error) {
-	// don't use net.Pipe, as it doesn't implement things like lingering, which our code relies on
-	sockpair, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM, 0)
-	if err != nil {
-		return nil, nil, err
-	}
-	toConn := func(fd int) (net.Conn, error) {
-		f := os.NewFile(uintptr(fd), "fileconn")
-		if f == nil {
-			panic(fd)
-		}
-		c, err := net.FileConn(f)
-		if err != nil {
-			f.Close()
-			return nil, err
-		}
-		return fileConn{Conn: c, f: f}, nil
-	}
-	if a, err = toConn(sockpair[0]); err != nil { // shadowing
-		return nil, nil, err
-	}
-	if b, err = toConn(sockpair[1]); err != nil { // shadowing
-		a.Close()
-		return nil, nil, err
-	}
-	return a, b, nil
 }
 
 func (l *LocalListener) Close() error {
