@@ -62,7 +62,7 @@ type activeMode interface {
 
 type modePush struct {
 	fsfilter         endpoint.FSFilter
-	snapper *snapper.Snapper
+	snapper *snapper.PeriodicOrManual
 }
 
 func (m *modePush) SenderReceiver(client *streamrpc.Client) (replication.Sender, replication.Receiver, error) {
@@ -86,7 +86,7 @@ func modePushFromConfig(g *config.Global, in *config.PushJob) (*modePush, error)
 	}
 	m.fsfilter = fsf
 
-	if m.snapper, err = snapper.FromConfig(g, fsf, &in.Snapshotting); err != nil {
+	if m.snapper, err = snapper.FromConfig(g, fsf, in.Snapshotting); err != nil {
 		return nil, errors.Wrap(err, "cannot build snapper")
 	}
 

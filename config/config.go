@@ -38,7 +38,7 @@ type PassiveJob struct {
 
 type PushJob struct {
 	ActiveJob `yaml:",inline"`
-	Snapshotting Snapshotting          `yaml:"snapshotting"`
+	Snapshotting SnapshottingEnum          `yaml:"snapshotting"`
 	Filesystems FilesystemsFilter `yaml:"filesystems"`
 }
 
@@ -55,15 +55,24 @@ type SinkJob struct {
 
 type SourceJob struct {
 	PassiveJob `yaml:",inline"`
-	Snapshotting Snapshotting      `yaml:"snapshotting"`
+	Snapshotting SnapshottingEnum      `yaml:"snapshotting"`
 	Filesystems FilesystemsFilter `yaml:"filesystems"`
 }
 
 type FilesystemsFilter map[string]bool
 
-type Snapshotting struct {
-	SnapshotPrefix string        `yaml:"snapshot_prefix"`
-	Interval       time.Duration `yaml:"interval,positive"`
+type SnapshottingEnum struct {
+	Ret interface{}
+}
+
+type SnapshottingPeriodic struct {
+	Type string		`yaml:"type"`
+	Prefix string	`yaml:"prefix"`
+	Interval time.Duration `yaml:"interval,positive"`
+}
+
+type SnapshottingManual struct {
+	Type string `yaml:"type"`
 }
 
 type PruningSenderReceiver struct {
@@ -342,6 +351,14 @@ func (t *PruningEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error)
 		"last_n":         &PruneKeepLastN{},
 		"grid":           &PruneGrid{},
 		"regex":          &PruneKeepRegex{},
+	})
+	return
+}
+
+func (t *SnapshottingEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
+	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
+		"periodic": &SnapshottingPeriodic{},
+		"manual": &SnapshottingManual{},
 	})
 	return
 }

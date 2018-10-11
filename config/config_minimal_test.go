@@ -28,8 +28,7 @@ jobs:
     "pool1/poudriere/ports<": false #don't backup the ports trees
   }
   snapshotting:
-    snapshot_prefix: zrepl_
-    interval: 10m
+    type: manual
   pruning:
     keep_sender:
     - type: not_replicated

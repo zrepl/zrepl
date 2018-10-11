@@ -72,7 +72,7 @@ func modeSinkFromConfig(g *config.Global, in *config.SinkJob) (m *modeSink, err 
 
 type modeSource struct {
 	fsfilter zfs.DatasetFilter
-	snapper *snapper.Snapper
+	snapper *snapper.PeriodicOrManual
 }
 
 func modeSourceFromConfig(g *config.Global, in *config.SourceJob) (m *modeSource, err error) {
@@ -84,7 +84,7 @@ func modeSourceFromConfig(g *config.Global, in *config.SourceJob) (m *modeSource
 	}
 	m.fsfilter = fsf
 
-	if m.snapper, err = snapper.FromConfig(g, fsf, &in.Snapshotting); err != nil {
+	if m.snapper, err = snapper.FromConfig(g, fsf, in.Snapshotting); err != nil {
 		return nil, errors.Wrap(err, "cannot build snapper")
 	}
 

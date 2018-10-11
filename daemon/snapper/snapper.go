@@ -112,8 +112,8 @@ func getLogger(ctx context.Context) Logger {
 	return logger.NewNullLogger()
 }
 
-func FromConfig(g *config.Global, fsf *filters.DatasetMapFilter, in *config.Snapshotting) (*Snapper, error) {
-	if in.SnapshotPrefix == "" {
+func PeriodicFromConfig(g *config.Global, fsf *filters.DatasetMapFilter, in *config.SnapshottingPeriodic) (*Snapper, error) {
+	if in.Prefix == "" {
 		return nil, errors.New("prefix must not be empty")
 	}
 	if in.Interval <= 0 {
@@ -121,7 +121,7 @@ func FromConfig(g *config.Global, fsf *filters.DatasetMapFilter, in *config.Snap
 	}
 
 	args := args{
-		prefix: in.SnapshotPrefix,
+		prefix: in.Prefix,
 		interval: in.Interval,
 		fsf: fsf,
 		// ctx and log is set in Run()

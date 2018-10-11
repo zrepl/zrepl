@@ -17,8 +17,9 @@ jobs:
       "system<": true,
     }
     snapshotting:
-      snapshot_prefix: zrepl_
+      type: periodic
       interval: 10m
+      prefix: zrepl_
     pruning:
       keep_sender:
       - type: not_replicated

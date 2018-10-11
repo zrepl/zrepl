@@ -11,5 +11,7 @@ jobs:
     "secret": false
   }
   snapshotting:
-    snapshot_prefix: zrepl_
+    type: periodic
     interval: 10m
+    prefix: zrepl_
+
