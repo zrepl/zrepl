@@ -16,7 +16,7 @@ jobs:
     address: "server1.foo.bar:8888"
     rpc:
       timeout: 20s # different form default, should merge
-  root_dataset: "pool2/backup_servers"
+  root_fs: "pool2/backup_servers"
   interval: 10m
   pruning:
     keep_sender:
@@ -32,7 +32,7 @@ jobs:
     address: "server1.foo.bar:8888"
     rpc:
       tx_chunk_size: 0xabcd # different from default, should merge
-  root_dataset: "pool2/backup_servers"
+  root_fs: "pool2/backup_servers"
   interval: 10m
   pruning:
     keep_sender:
@@ -43,7 +43,7 @@ jobs:
 
 - type: sink
   name: "laptop_sink"
-  root_dataset: "pool2/backup_laptops"
+  root_fs: "pool2/backup_laptops"
   serve:
     type: tcp
     listen: "192.168.122.189:8888"
@@ -55,7 +55,7 @@ jobs:
 
 - type: sink
   name: "other_sink"
-  root_dataset: "pool2/backup_laptops"
+  root_fs: "pool2/backup_laptops"
   serve:
     type: tcp
     listen: "192.168.122.189:8888"

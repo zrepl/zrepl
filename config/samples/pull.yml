@@ -8,7 +8,7 @@ jobs:
     cert: "/certs/cert.crt"
     key: "/certs/key.pem"
     server_cn: "server1"
-  root_dataset: "pool2/backup_servers"
+  root_fs: "pool2/backup_servers"
   interval: 10m
   pruning:
     keep_sender:

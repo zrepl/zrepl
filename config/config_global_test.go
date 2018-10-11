@@ -18,7 +18,7 @@ jobs:
     clients: {
       "10.0.0.1":"foo"
     }
-  root_dataset: zoot/foo
+  root_fs: zoot/foo
 `
 	_, err := ParseConfigBytes([]byte(jobdef))
 	require.NoError(t, err)

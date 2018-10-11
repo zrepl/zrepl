@@ -60,7 +60,7 @@ func (m *modeSink) RunPeriodic(_ context.Context) {}
 
 func modeSinkFromConfig(g *config.Global, in *config.SinkJob) (m *modeSink, err error) {
 	m = &modeSink{}
-	m.rootDataset, err = zfs.NewDatasetPath(in.RootDataset)
+	m.rootDataset, err = zfs.NewDatasetPath(in.RootFS)
 	if err != nil {
 		return nil, errors.New("root dataset is not a valid zfs filesystem path")
 	}

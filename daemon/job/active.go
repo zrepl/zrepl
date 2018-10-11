@@ -94,13 +94,13 @@ func modePushFromConfig(g *config.Global, in *config.PushJob) (*modePush, error)
 }
 
 type modePull struct {
-	rootDataset *zfs.DatasetPath
+	rootFS   *zfs.DatasetPath
 	interval time.Duration
 }
 
 func (m *modePull) SenderReceiver(client *streamrpc.Client) (replication.Sender, replication.Receiver, error) {
 	sender := endpoint.NewRemote(client)
-	receiver, err := endpoint.NewReceiver(m.rootDataset)
+	receiver, err := endpoint.NewReceiver(m.rootFS)
 	return sender, receiver, err
 }
 
@@ -133,12 +133,12 @@ func modePullFromConfig(g *config.Global, in *config.PullJob) (m *modePull, err 
 	}
 	m.interval = in.Interval
 
-	m.rootDataset, err = zfs.NewDatasetPath(in.RootDataset)
+	m.rootFS, err = zfs.NewDatasetPath(in.RootFS)
 	if err != nil {
-		return nil, errors.New("root dataset is not a valid zfs filesystem path")
+		return nil, errors.New("RootFS is not a valid zfs filesystem path")
 	}
-	if m.rootDataset.Length() <= 0 {
-		return nil, errors.New("root dataset must not be empty") // duplicates error check of receiver
+	if m.rootFS.Length() <= 0 {
+		return nil, errors.New("RootFS must not be empty") // duplicates error check of receiver
 	}
 
 	return m, nil

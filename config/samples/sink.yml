@@ -1,7 +1,7 @@
 jobs:
   - type: sink
     name: "laptop_sink"
-    root_dataset: "pool2/backup_laptops"
+    root_fs: "pool2/backup_laptops"
     serve:
       type: tls
       listen: "192.168.122.189:8888"

@@ -2,7 +2,7 @@
 jobs:
   - type: sink
     name: "local_sink"
-    root_dataset: "storage/zrepl/sink"
+    root_fs: "storage/zrepl/sink"
     serve:
       type: local
       listener_name: localsink

@@ -44,13 +44,13 @@ type PushJob struct {
 
 type PullJob struct {
 	ActiveJob `yaml:",inline"`
-	RootDataset string        `yaml:"root_dataset"`
-	Interval    time.Duration `yaml:"interval,positive"`
+	RootFS    string        `yaml:"root_fs"`
+	Interval  time.Duration `yaml:"interval,positive"`
 }
 
 type SinkJob struct {
 	PassiveJob `yaml:",inline"`
-	RootDataset string    `yaml:"root_dataset"`
+	RootFS     string `yaml:"root_fs"`
 }
 
 type SourceJob struct {
