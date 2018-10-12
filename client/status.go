@@ -261,7 +261,9 @@ func (t *tui) renderReplicationReport(rep *replication.Report) {
 	if rep.SleepUntil.After(time.Now()) {
 		t.printf("Sleeping until %s (%s left)\n", rep.SleepUntil, rep.SleepUntil.Sub(time.Now()))
 	}
-	{ // Progress: [---------------]
+	if rep.Status != replication.Planning.String() &&
+		rep.Status != replication.PlanningError.String() {
+		// Progress: [---------------]
 		sumUpFSRep := func(rep *fsrep.Report) (transferred, total int64) {
 			for _, s := range rep.Pending {
 				transferred += s.Bytes
