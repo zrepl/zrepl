@@ -402,7 +402,17 @@ fsloop:
 		sort.Slice(tfsvs, func(i, j int) bool {
 			return tfsvs[i].CreateTXG < tfsvs[j].CreateTXG
 		})
-		preCursor := true
+
+		haveCursorSnapshot := false
+		for _, tfsv := range tfsvs {
+			if tfsv.Type != pdu.FilesystemVersion_Snapshot {
+				continue
+			}
+			if tfsv.Guid == rc.GetGuid() {
+				haveCursorSnapshot = true
+			}
+		}
+		preCursor := haveCursorSnapshot
 		for _, tfsv := range tfsvs {
 			if tfsv.Type != pdu.FilesystemVersion_Snapshot {
 				continue
@@ -413,6 +423,7 @@ fsloop:
 				l.WithError(pfs.err).Error("")
 				continue fsloop
 			}
+			// note that we cannot use CreateTXG because target and receiver could be on different pools
 			atCursor := tfsv.Guid == rc.GetGuid()
 			preCursor = preCursor && !atCursor
 			pfs.snaps = append(pfs.snaps, snapshot{
