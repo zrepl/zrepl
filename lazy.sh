@@ -30,7 +30,8 @@ builddep() {
     go get -u golang.org/x/tools/cmd/stringer
     go get -u github.com/golang/dep/cmd/dep
     go get -u github.com/golang/protobuf/protoc-gen-go
-    if ! type stringer || ! type dep || ! type protoc-gen-go; then
+    go get -u github.com/alvaroloes/enumer
+    if ! type stringer || ! type dep || ! type protoc-gen-go; || ! type enumer then
         echo "Installed dependencies but can't find them in \$PATH, adjust it to contain \$GOPATH/bin" 1>&2
         exit 1
     fi

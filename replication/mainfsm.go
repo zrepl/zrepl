@@ -18,7 +18,7 @@ import (
 	"github.com/zrepl/zrepl/replication/pdu"
 )
 
-//go:generate stringer -type=State
+//go:generate enumer -type=State
 type State uint
 
 const (

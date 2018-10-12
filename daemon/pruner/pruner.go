@@ -151,7 +151,7 @@ func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, target Target, 
 	return p
 }
 
-//go:generate stringer -type=State
+//go:generate enumer -type=State
 type State int
 
 const (

@@ -252,7 +252,13 @@ func (t *tui) renderReplicationReport(rep *replication.Report) {
 		return all[i].Filesystem < all[j].Filesystem
 	})
 
-	t.printf("Status: %s", rep.Status)
+	state, err := replication.StateString(rep.Status)
+	if err != nil {
+		t.printf("Status: %q (parse error: %q)\n", rep.Status, err)
+		return
+	}
+
+	t.printf("Status: %s", state)
 	t.newline()
 	if rep.Problem != "" {
 		t.printf("Problem: %s", rep.Problem)
@@ -261,8 +267,8 @@ func (t *tui) renderReplicationReport(rep *replication.Report) {
 	if rep.SleepUntil.After(time.Now()) {
 		t.printf("Sleeping until %s (%s left)\n", rep.SleepUntil, rep.SleepUntil.Sub(time.Now()))
 	}
-	if rep.Status != replication.Planning.String() &&
-		rep.Status != replication.PlanningError.String() {
+
+	if state != replication.Planning && state != replication.PlanningError {
 		// Progress: [---------------]
 		sumUpFSRep := func(rep *fsrep.Report) (transferred, total int64) {
 			for _, s := range rep.Pending {
@@ -304,7 +310,13 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 		return
 	}
 
-	t.printf("Status: %s", r.State)
+	state, err := pruner.StateString(r.State)
+	if err != nil {
+		t.printf("Status: %q (parse error: %q)\n", r.State, err)
+		return
+	}
+
+	t.printf("Status: %s", state)
 	t.newline()
 
 	if r.Error != "" {
