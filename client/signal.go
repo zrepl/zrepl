@@ -6,9 +6,9 @@ import (
 	"github.com/zrepl/zrepl/daemon"
 )
 
-func RunWakeup(config *config.Config, args []string) error {
-	if len(args) != 1 {
-		return errors.Errorf("Expected 1 argument: job")
+func RunSignal(config *config.Config, args []string) error {
+	if len(args) != 2 {
+		return errors.Errorf("Expected 2 arguments: [wakeup|reset] JOB")
 	}
 
 	httpc, err := controlHttpClient(config.Global.Control.SockPath)
@@ -16,11 +16,13 @@ func RunWakeup(config *config.Config, args []string) error {
 		return err
 	}
 
-	err = jsonRequestResponse(httpc, daemon.ControlJobEndpointWakeup,
+	err = jsonRequestResponse(httpc, daemon.ControlJobEndpointSignal,
 		struct {
 			Name string
+			Op string
 		}{
-			Name: args[0],
+			Name: args[1],
+			Op: args[0],
 		},
 		struct{}{},
 	)

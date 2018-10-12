@@ -29,15 +29,15 @@ var daemonCmd = &cobra.Command{
 	},
 }
 
-var wakeupCmd = &cobra.Command{
-	Use:   "wakeup JOB",
-	Short: "trigger replication and subsequent pruning for a job",
+var signalCmd = &cobra.Command{
+	Use:   "signal [wakeup|reset] JOB",
+	Short: "wake up a job from wait state or abort its current invocation",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.ParseConfig(rootArgs.configFile)
 		if err != nil {
 			return err
 		}
-		return client.RunWakeup(conf, args)
+		return client.RunSignal(conf, args)
 	},
 }
 
@@ -153,7 +153,7 @@ func init() {
 	//cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&rootArgs.configFile, "config", "", "config file path")
 	rootCmd.AddCommand(daemonCmd)
-	rootCmd.AddCommand(wakeupCmd)
+	rootCmd.AddCommand(signalCmd)
 	statusCmd.Flags().BoolVar(&statusCmdFlags.Raw, "raw", false, "dump raw status description from zrepl daemon")
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(stdinserverCmd)

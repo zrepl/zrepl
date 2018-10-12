@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/daemon/job"
@@ -65,7 +66,7 @@ const (
 	ControlJobEndpointPProf   string = "/debug/pprof"
 	ControlJobEndpointVersion string = "/version"
 	ControlJobEndpointStatus  string = "/status"
-	ControlJobEndpointWakeup  string = "/wakeup"
+	ControlJobEndpointSignal  string = "/signal"
 )
 
 func (j *controlJob) Run(ctx context.Context) {
@@ -104,17 +105,26 @@ func (j *controlJob) Run(ctx context.Context) {
 			return s, nil
 		}}})
 
-	mux.Handle(ControlJobEndpointWakeup,
+	mux.Handle(ControlJobEndpointSignal,
 		requestLogger{log: log, handler: jsonRequestResponder{func(decoder jsonDecoder) (interface{}, error) {
 			type reqT struct {
 				Name string
+				Op string
 			}
 			var req reqT
 			if decoder(&req) != nil {
 				return nil, errors.Errorf("decode failed")
 			}
 
-			err := j.jobs.wakeup(req.Name)
+			var err error
+			switch req.Op {
+			case "wakeup":
+				err = j.jobs.wakeup(req.Name)
+			case "reset":
+				err = j.jobs.reset(req.Name)
+			default:
+				err = fmt.Errorf("operation %q is invalid", req.Op)
+			}
 
 			return struct{}{}, err
 		}}})

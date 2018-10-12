@@ -7,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
+	"github.com/zrepl/zrepl/daemon/job/reset"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
@@ -102,12 +103,14 @@ type jobs struct {
 	// m protects all fields below it
 	m       sync.RWMutex
 	wakeups map[string]wakeup.Func // by Job.Name
+	resets map[string]reset.Func // by Job.Name
 	jobs    map[string]job.Job
 }
 
 func newJobs() *jobs {
 	return &jobs{
 		wakeups: make(map[string]wakeup.Func),
+		resets:  make(map[string]reset.Func),
 		jobs:    make(map[string]job.Job),
 	}
 }
@@ -163,6 +166,17 @@ func (s *jobs) wakeup(job string) error {
 	return wu()
 }
 
+func (s *jobs) reset(job string) error {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	wu, ok := s.resets[job]
+	if !ok {
+		return errors.Errorf("Job %s does not exist", job)
+	}
+	return wu()
+}
+
 const (
 	jobNamePrometheus = "_prometheus"
 	jobNameControl    = "_control"
@@ -195,7 +209,9 @@ func (s *jobs) start(ctx context.Context, j job.Job, internal bool) {
 	s.jobs[jobName] = j
 	ctx = job.WithLogger(ctx, jobLog)
 	ctx, wakeup := wakeup.Context(ctx)
+	ctx, resetFunc := reset.Context(ctx)
 	s.wakeups[jobName] = wakeup
+	s.resets[jobName] = resetFunc
 
 	s.wg.Add(1)
 	go func() {

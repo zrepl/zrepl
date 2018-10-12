@@ -6,6 +6,7 @@ import (
 	"github.com/problame/go-streamrpc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/job/reset"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"github.com/zrepl/zrepl/daemon/transport/connecter"
 	"github.com/zrepl/zrepl/daemon/filters"
@@ -247,6 +248,21 @@ func (j *ActiveSide) do(ctx context.Context) {
 
 	log := GetLogger(ctx)
 	ctx = logging.WithSubsystemLoggers(ctx, log)
+
+	// allow cancellation of an invocation (this function)
+	ctx, cancelThisRun := context.WithCancel(ctx)
+	defer cancelThisRun()
+	runDone := make(chan struct{})
+	defer close(runDone)
+	go func() {
+		select {
+		case <-runDone:
+		case <-reset.Wait(ctx):
+			log.Info("reset received, cancelling current invocation")
+			cancelThisRun()
+		case <-ctx.Done():
+		}
+	}()
 
 	client, err := j.clientFactory.NewClient()
 	if err != nil {
