@@ -43,16 +43,14 @@ type activeSideTasks struct {
 
 func (a *ActiveSide) updateTasks(u func(*activeSideTasks)) activeSideTasks {
 	a.tasksMtx.Lock()
+	defer a.tasksMtx.Unlock()
 	var copy activeSideTasks
 	copy = a.tasks
-	a.tasksMtx.Unlock()
 	if u == nil {
 		return copy
 	}
 	u(&copy)
-	a.tasksMtx.Lock()
 	a.tasks = copy
-	a.tasksMtx.Unlock()
 	return copy
 }
 
