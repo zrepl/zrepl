@@ -312,6 +312,13 @@ func (fsr *Replication) Report() *Report {
 	for i := range fsr.pending {
 		rep.Pending[i] = fsr.pending[i].Report()
 	}
+
+	if fsr.state&RetryWait != 0 {
+		if len(rep.Pending) != 0 { // should always be true for RetryWait == true?
+			rep.Problem = rep.Pending[0].Problem
+		}
+	}
+
 	return &rep
 }
 
@@ -509,10 +516,15 @@ func (s *ReplicationStep) Report() *StepReport {
 	if s.byteCounter != nil {
 		bytes = s.byteCounter.Bytes()
 	}
+	problem := ""
+	if s.err != nil {
+		problem = s.err.Error()
+	}
 	rep := StepReport{
 		From:   from,
 		To:     s.to.RelName(),
 		Status: s.state,
+		Problem: problem,
 		Bytes:  bytes,
 		ExpectedBytes: s.expectedSize,
 	}
