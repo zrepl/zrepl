@@ -7,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
+	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/version"
@@ -100,13 +101,13 @@ type jobs struct {
 
 	// m protects all fields below it
 	m       sync.RWMutex
-	wakeups map[string]job.WakeupFunc // by Job.Name
+	wakeups map[string]wakeup.Func // by Job.Name
 	jobs    map[string]job.Job
 }
 
 func newJobs() *jobs {
 	return &jobs{
-		wakeups: make(map[string]job.WakeupFunc),
+		wakeups: make(map[string]wakeup.Func),
 		jobs:    make(map[string]job.Job),
 	}
 }
@@ -193,8 +194,8 @@ func (s *jobs) start(ctx context.Context, j job.Job, internal bool) {
 
 	s.jobs[jobName] = j
 	ctx = job.WithLogger(ctx, jobLog)
-	ctx, wakeupChan := job.WithWakeup(ctx)
-	s.wakeups[jobName] = wakeupChan
+	ctx, wakeup := wakeup.Context(ctx)
+	s.wakeups[jobName] = wakeup
 
 	s.wg.Add(1)
 	go func() {

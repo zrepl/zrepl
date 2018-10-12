@@ -3,7 +3,6 @@ package job
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/logger"
@@ -15,7 +14,6 @@ type contextKey int
 
 const (
 	contextKeyLog contextKey = iota
-	contextKeyWakeup
 )
 
 func GetLogger(ctx context.Context) Logger {
@@ -29,22 +27,6 @@ func WithLogger(ctx context.Context, l Logger) context.Context {
 	return context.WithValue(ctx, contextKeyLog, l)
 }
 
-type WakeupFunc func() error
-
-var AlreadyWokenUp = errors.New("already woken up")
-
-func WithWakeup(ctx context.Context) (context.Context, WakeupFunc) {
-	wc := make(chan struct{})
-	wuf := func() error {
-		select {
-		case wc <- struct{}{}:
-			return nil
-		default:
-			return AlreadyWokenUp
-		}
-	}
-	return context.WithValue(ctx, contextKeyWakeup, wc), wuf
-}
 
 type Job interface {
 	Name() string
@@ -119,12 +101,3 @@ func (s *Status) UnmarshalJSON(in []byte) (err error) {
 	}
 	return err
 }
-
-func WaitWakeup(ctx context.Context) <-chan struct{} {
-	wc, ok := ctx.Value(contextKeyWakeup).(chan struct{})
-	if !ok {
-		wc = make(chan struct{})
-	}
-	return wc
-}
-

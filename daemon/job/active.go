@@ -6,6 +6,7 @@ import (
 	"github.com/problame/go-streamrpc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"github.com/zrepl/zrepl/daemon/transport/connecter"
 	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/daemon/pruner"
@@ -233,7 +234,7 @@ outer:
 			log.WithError(ctx.Err()).Info("context")
 			break outer
 
-		case <-WaitWakeup(ctx):
+		case <-wakeup.Wait(ctx):
 		case <-periodicDone:
 		}
 		invocationCount++
