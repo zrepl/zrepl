@@ -8,11 +8,12 @@ import (
 )
 
 type replicationQueueItem struct {
-	retriesSinceLastError int
 	// duplicates fsr.state to avoid accessing and locking fsr
 	state State
 	// duplicates fsr.current.nextStepDate to avoid accessing & locking fsr
 	nextStepDate time.Time
+	// duplicates fsr.retryWaitUntil to avoid accessing & locking fsr
+	retryWaitUntil time.Time
 
 	fsr *Replication
 }
@@ -42,7 +43,7 @@ var lessmap = map[State]lessmapEntry{
 	RetryWait: {
 		prio: 1,
 		less: func(a, b *replicationQueueItem) bool {
-			return a.retriesSinceLastError < b.retriesSinceLastError
+			return a.retryWaitUntil.Before(b.retryWaitUntil)
 		},
 	},
 }
@@ -113,12 +114,8 @@ func (h ReplicationQueueItemHandle) GetFSReplication() *Replication {
 	return h.i.fsr
 }
 
-func (h ReplicationQueueItemHandle) Update(newState State, nextStepDate time.Time) {
+func (h ReplicationQueueItemHandle) Update(newState State, nextStepDate, retryWaitUntil time.Time) {
 	h.i.state = newState
 	h.i.nextStepDate = nextStepDate
-	if h.i.state&Ready != 0 {
-		h.i.retriesSinceLastError = 0
-	} else if h.i.state&RetryWait != 0 {
-		h.i.retriesSinceLastError++
-	}
+	h.i.retryWaitUntil = retryWaitUntil
 }

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"math/bits"
 	"sync"
 	"time"
@@ -186,6 +187,8 @@ func resolveConflict(conflict error) (path []*pdu.FilesystemVersion, msg string)
 	return nil, "no automated way to handle conflict type"
 }
 
+var PlanningRetryInterval = 10 * time.Second // FIXME make constant onfigurable
+
 func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
 
 	log := getLogger(ctx)
@@ -193,7 +196,9 @@ func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u upda
 	log.Info("start planning")
 
 	handlePlanningError := func(err error) state {
+		// FIXME classify error as temporary or permanent / max retry counter
 		return u(func(r *Replication) {
+			r.sleepUntil = time.Now().Add(PlanningRetryInterval)
 			r.planningError = err
 			r.state = PlanningError
 		}).rsf()
@@ -301,15 +306,12 @@ func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u upda
 	}).rsf()
 }
 
-var RetrySleepDuration = 10 * time.Second // FIXME make constant onfigurable
-
 func statePlanningError(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
-
-	sleepUntil := time.Now().Add(RetrySleepDuration)
+	var sleepUntil time.Time
 	u(func(r *Replication) {
-		r.sleepUntil = sleepUntil
+		sleepUntil = r.sleepUntil
 	})
-	t := time.NewTimer(RetrySleepDuration)
+	t := time.NewTimer(sleepUntil.Sub(time.Now()))
 	getLogger(ctx).WithField("until", sleepUntil).Info("retry wait after planning error")
 	defer t.Stop()
 	select {
@@ -319,10 +321,11 @@ func statePlanningError(ctx context.Context, sender Sender, receiver Receiver, u
 			r.contextError = ctx.Err()
 		}).rsf()
 	case <-t.C:
-		return u(func(r *Replication) {
-			r.state = Planning
-		}).rsf()
+	case <-wakeup.Wait(ctx):
 	}
+	return u(func(r *Replication) {
+		r.state = Planning
+	}).rsf()
 }
 
 func stateWorking(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
@@ -342,21 +345,28 @@ func stateWorking(ctx context.Context, sender Sender, receiver Receiver, u updat
 		return rsfNext
 	}
 
-	state, nextStepDate := active.GetFSReplication().TakeStep(ctx, sender, receiver)
+	retryWaitUntil := active.GetFSReplication().RetryWaitUntil()
+	if retryWaitUntil.After(time.Now()) {
+		return u(func(r *Replication) {
+			r.sleepUntil = retryWaitUntil
+			r.state = WorkingWait
+		}).rsf()
+	}
 
+	state, nextStepDate, retryWaitUntil := active.GetFSReplication().TakeStep(ctx, sender, receiver)
 	return u(func(r *Replication) {
-		active.Update(state, nextStepDate)
+		active.Update(state, nextStepDate, retryWaitUntil)
 		r.active = nil
 	}).rsf()
 }
 
 func stateWorkingWait(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
-	sleepUntil := time.Now().Add(RetrySleepDuration)
+	var sleepUntil time.Time
 	u(func(r *Replication) {
-		r.sleepUntil = sleepUntil
+		sleepUntil = r.sleepUntil
 	})
-	t := time.NewTimer(RetrySleepDuration)
-	getLogger(ctx).WithField("until", sleepUntil).Info("retry wait after send/recv error")
+	t := time.NewTimer(PlanningRetryInterval)
+	getLogger(ctx).WithField("until", sleepUntil).Info("retry wait because no filesystems are ready")
 	defer t.Stop()
 	select {
 	case <-ctx.Done():
@@ -364,11 +374,13 @@ func stateWorkingWait(ctx context.Context, sender Sender, receiver Receiver, u u
 			r.state = ContextDone
 			r.contextError = ctx.Err()
 		}).rsf()
+
 	case <-t.C:
-		return u(func(r *Replication) {
-			r.state = Working
-		}).rsf()
+	case <-wakeup.Wait(ctx):
 	}
+	return u(func(r *Replication) {
+		r.state = Working
+	}).rsf()
 }
 
 // Report provides a summary of the progress of the Replication,

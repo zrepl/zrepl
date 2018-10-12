@@ -191,7 +191,7 @@ type ReplicationStep struct {
 	expectedSize int64 // 0 means no size estimate present / possible
 }
 
-func (f *Replication) TakeStep(ctx context.Context, sender Sender, receiver Receiver) (post State, nextStepDate time.Time) {
+func (f *Replication) TakeStep(ctx context.Context, sender Sender, receiver Receiver) (post State, nextStepDate, retryWaitUntil time.Time) {
 
 	var u updater = func(fu func(*Replication)) State {
 		f.lock.Lock()
@@ -213,6 +213,7 @@ func (f *Replication) TakeStep(ctx context.Context, sender Sender, receiver Rece
 			return
 		}
 		nextStepDate = f.pending[0].to.SnapshotTime()
+		retryWaitUntil = f.retryWaitUntil
 	})
 
 	getLogger(ctx).
@@ -221,7 +222,13 @@ func (f *Replication) TakeStep(ctx context.Context, sender Sender, receiver Rece
 		WithField("duration", delta).
 		Debug("fsr step taken")
 
-	return post, nextStepDate
+	return post, nextStepDate, retryWaitUntil
+}
+
+func (f *Replication) RetryWaitUntil() time.Time {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return f.retryWaitUntil
 }
 
 type updater func(func(fsr *Replication)) State
@@ -275,15 +282,8 @@ func stateRetryWait(ctx context.Context, sender Sender, receiver Receiver, u upd
 	u(func(f *Replication) {
 		sleepUntil = f.retryWaitUntil
 	})
-	t := time.NewTimer(sleepUntil.Sub(time.Now()))
-	defer t.Stop()
-	select {
-	case <-ctx.Done():
-		return u(func(f *Replication) {
-			f.state = PermanentError
-			f.err = ctx.Err()
-		}).fsrsf()
-	case <-t.C:
+	if time.Now().Before(sleepUntil) {
+		return u(nil).fsrsf()
 	}
 	return u(func(f *Replication) {
 		f.state = Ready
