@@ -264,7 +264,8 @@ func (t *tui) renderReplicationReport(rep *replication.Report) {
 		t.printf("Problem: %s", rep.Problem)
 		t.newline()
 	}
-	if rep.SleepUntil.After(time.Now()) {
+	if rep.SleepUntil.After(time.Now()) &&
+		state & ^(replication.ContextDone|replication.Completed) != 0 {
 		t.printf("Sleeping until %s (%s left)\n", rep.SleepUntil, rep.SleepUntil.Sub(time.Now()))
 	}
 
@@ -338,7 +339,10 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 		all = append(all, commonFS{&r.Completed[i], true})
 	}
 
-	if r.State == pruner.Plan.String() {
+	switch state {
+	case pruner.Plan: fallthrough
+	case pruner.PlanWait: fallthrough
+	case pruner.ErrPerm:
 		return
 	}
 
