@@ -175,7 +175,7 @@ func (m DatasetMapFilter) InvertedFilter() (inv *DatasetMapFilter, err error) {
 	for i, e := range m.entries {
 		inv.entries[i].path, err = zfs.NewDatasetPath(e.mapping)
 		if err != nil {
-			err = errors.Wrapf(err, "mapping cannot be inverted: '%s' is not a dataset path: %s", e.mapping)
+			err = errors.Wrapf(err, "mapping cannot be inverted: '%s' is not a dataset path", e.mapping)
 			return
 		}
 		inv.entries[i].mapping = MapFilterResultOk
