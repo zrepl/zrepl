@@ -23,8 +23,8 @@ We use the following annotations for classifying changes:
 * |bugfix| Change that fixes a bug, no regressions or incompatibilities expected.
 * |docs| Change to the documentation.
 
-0.1 (unreleased)
-------------------
+0.1
+---
 
 This release is a milestone for zrepl and required significant refactoring if not rewrites of substantial parts of the application.
 It breaks both configuration and transport format, and thus requires manual intervention and updates on both sides of a replication setup.
