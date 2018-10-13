@@ -15,6 +15,7 @@ func init() {
 	cli.AddSubcommand(client.ConfigcheckCmd)
 	cli.AddSubcommand(client.VersionCmd)
 	cli.AddSubcommand(client.PprofCmd)
+	cli.AddSubcommand(client.TestCmd)
 }
 
 func main() {

@@ -17,8 +17,30 @@ type Config struct {
 	Global *Global   `yaml:"global,optional,fromdefaults"`
 }
 
+func (c *Config) Job(name string) (*JobEnum, error) {
+	for _, j := range c.Jobs {
+		if j.Name() == name {
+			return &j, nil
+		}
+	}
+	return nil, fmt.Errorf("job %q not defined in config", name)
+}
+
 type JobEnum struct {
 	Ret interface{}
+}
+
+func (j JobEnum) Name() string {
+	var name string
+	switch v := j.Ret.(type) {
+	case *PushJob: name = v.Name
+	case *SinkJob: name = v.Name
+	case *PullJob: name = v.Name
+	case *SourceJob: name = v.Name
+	default:
+		panic(fmt.Sprintf("unknownn job type %T", v))
+	}
+	return name
 }
 
 type ActiveJob struct {

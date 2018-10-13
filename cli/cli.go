@@ -45,6 +45,7 @@ type Subcommand struct {
 	NoRequireConfig bool
 	Run             func(subcommand *Subcommand, args []string) error
 	SetupFlags      func(f *pflag.FlagSet)
+	SetupSubcommands  func() []*Subcommand
 
 	config *config.Config
 	configErr error
@@ -86,15 +87,25 @@ func (s *Subcommand) tryParseConfig() {
 }
 
 func AddSubcommand(s *Subcommand) {
+	addSubcommandToCobraCmd(rootCmd, s)
+}
+
+func addSubcommandToCobraCmd(c *cobra.Command, s *Subcommand) {
 	cmd := cobra.Command{
 		Use: s.Use,
 		Short: s.Short,
-		Run: s.run,
+	}
+	if s.SetupSubcommands == nil {
+		cmd.Run = s.run
+	} else {
+		for _, sub := range s.SetupSubcommands() {
+			addSubcommandToCobraCmd(&cmd, sub)
+		}
 	}
 	if s.SetupFlags != nil {
 		s.SetupFlags(cmd.Flags())
 	}
-	rootCmd.AddCommand(&cmd)
+	c.AddCommand(&cmd)
 }
 
 

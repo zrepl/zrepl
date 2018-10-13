@@ -18,7 +18,7 @@ The following rules determine which result is chosen for a given filesystem path
 The **subtree wildcard** ``<`` means "the dataset left of ``<`` and all its children".
    
 .. TIP::
-  You can try out patterns for a configured job using the ``zrepl test`` subcommand.
+  You can try out patterns for a configured job using the ``zrepl test filesystems`` subcommand for push and source jobs.
 
 Examples
 --------
