@@ -10,26 +10,56 @@ type DatasetFilter interface {
 }
 
 func ZFSListMapping(filter DatasetFilter) (datasets []*DatasetPath, err error) {
+	res, err := ZFSListMappingProperties(filter, nil)
+	if err != nil {
+		return nil, err
+	}
+	datasets = make([]*DatasetPath, len(res))
+	for i, r := range res {
+		datasets[i] = r.Path
+	}
+	return datasets, nil
+}
+
+type ZFSListMappingPropertiesResult struct {
+	Path *DatasetPath
+	// Guaranteed to have the same length as properties in the originating call
+	Fields []string
+}
+
+// properties must not contain 'name'
+func ZFSListMappingProperties(filter DatasetFilter, properties []string) (datasets []ZFSListMappingPropertiesResult, err error) {
 
 	if filter == nil {
 		panic("filter must not be nil")
 	}
 
+	for _, p := range properties {
+		if p == "name" {
+			panic("properties must not contain 'name'")
+		}
+	}
+	newProps := make([]string, len(properties)+1)
+	newProps[0] = "name"
+	copy(newProps[1:], properties)
+	properties = newProps
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	rchan := make(chan ZFSListResult)
-	go ZFSListChan(ctx, rchan, []string{"name"}, "-r", "-t", "filesystem,volume")
 
-	datasets = make([]*DatasetPath, 0)
+	go ZFSListChan(ctx, rchan, properties, "-r", "-t", "filesystem,volume")
+
+	datasets = make([]ZFSListMappingPropertiesResult, 0)
 	for r := range rchan {
 
-		if r.err != nil {
-			err = r.err
+		if r.Err != nil {
+			err = r.Err
 			return
 		}
 
 		var path *DatasetPath
-		if path, err = NewDatasetPath(r.fields[0]); err != nil {
+		if path, err = NewDatasetPath(r.Fields[0]); err != nil {
 			return
 		}
 
@@ -38,7 +68,10 @@ func ZFSListMapping(filter DatasetFilter) (datasets []*DatasetPath, err error) {
 			return nil, fmt.Errorf("error calling filter: %s", filterErr)
 		}
 		if pass {
-			datasets = append(datasets, path)
+			datasets = append(datasets, ZFSListMappingPropertiesResult{
+				Path:   path,
+				Fields: r.Fields[1:],
+			})
 		}
 
 	}

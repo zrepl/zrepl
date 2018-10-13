@@ -1,0 +1,28 @@
+jobs:
+
+- name: pull_servers
+  type: pull
+  connect:
+    type: ssh+stdinserver
+    host: app-srv.example.com
+    user: root
+    port: 22
+    identity_file: /etc/zrepl/ssh/identity
+    options: # optional, default [], `-o` arguments passed to ssh
+    - "Compression=on"
+  root_fs: "pool2/backup_servers"
+  interval: 10m
+  pruning:
+    keep_sender:
+    - type: not_replicated
+    - type: last_n
+      count: 10
+    - type: grid
+      grid: 1x1h(keep=all) | 24x1h | 14x1d
+      regex: "^zrepl_.*"
+    keep_receiver:
+    - type: regex
+      regex: keep_
+    - type: grid
+      grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
+      regex: "^zrepl_.*"

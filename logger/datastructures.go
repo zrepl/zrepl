@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/pkg/errors"
 	"sync"
 	"time"
@@ -103,6 +104,21 @@ type Entry struct {
 	Message string
 	Time    time.Time
 	Fields  Fields
+}
+
+func (e Entry) Color() *color.Color {
+	c := color.New()
+	switch e.Level {
+	case Debug:
+		c.Add(color.FgHiBlue)
+	case Info:
+		c.Add(color.FgHiGreen)
+	case Warn:
+		c.Add(color.FgHiYellow)
+	case Error:
+		c.Add(color.FgHiRed)
+	}
+	return c
 }
 
 // An outlet receives log entries produced by the Logger and writes them to some destination.

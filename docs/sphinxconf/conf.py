@@ -101,6 +101,17 @@ html_static_path = ['../_static']
 
 html_logo = '../_static/zrepl.svg'
 
+html_context = {
+  # https://github.com/rtfd/sphinx_rtd_theme/issues/205
+  # Add 'Edit on Github' link instead of 'View page source'
+  "display_github": True, 
+  "github_user": "zrepl",
+  "github_repo": "zrepl",
+  "github_version": "master",
+  "conf_py_path": "/docs/",
+  "source_suffix": source_suffix,
+}
+
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
@@ -162,7 +173,7 @@ texinfo_documents = [
 # http://www.sphinx-doc.org/en/stable/ext/extlinks.html
 extlinks = {
     'issue':('https://github.com/zrepl/zrepl/issues/%s', 'issue #'),
-    'sampleconf':('https://github.com/zrepl/zrepl/blob/master/cmd/sampleconf/%s', 'cmd/sampleconf/'),
+    'sampleconf':('https://github.com/zrepl/zrepl/blob/master/config/samples%s', 'config/samples'),
     'commit':('https://github.com/zrepl/zrepl/commit/%s', 'commit '),
         }
 

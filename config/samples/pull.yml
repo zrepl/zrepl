@@ -1,0 +1,24 @@
+jobs:
+- name: pull_servers
+  type: pull
+  connect:
+    type: tls
+    address: "server1.foo.bar:8888"
+    ca: "/certs/ca.crt"
+    cert: "/certs/cert.crt"
+    key: "/certs/key.pem"
+    server_cn: "server1"
+  root_fs: "pool2/backup_servers"
+  interval: 10m
+  pruning:
+    keep_sender:
+    - type: not_replicated
+    - type: last_n
+      count: 10
+    - type: grid
+      grid: 1x1h(keep=all) | 24x1h | 14x1d
+      regex: "zrepl_.*"
+    keep_receiver:
+    - type: grid
+      grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
+      regex: "zrepl_.*"

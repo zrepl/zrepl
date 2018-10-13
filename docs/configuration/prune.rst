@@ -3,46 +3,93 @@
 Pruning Policies
 ================
 
-In zrepl, *pruning* means *destroying filesystem versions by some policy* where filesystem versions are bookmarks and snapshots.
+In zrepl, *pruning* means *destroying snapshots*.
+Pruning must happen on both sides of a replication or the systems would inevitable run out of disk space at some point.
 
-A *pruning policy* takes a list of filesystem versions and decides for each whether it should be kept or destroyed.
+Typically, the requirements to temporal resolution and maximum retention time differ per side.
+For example, when using zrepl to back up a busy database server, you will want high temporal resolution (snapshots every 10 min) for the last 24h in case of administrative disasters, but cannot afford to store them for much longer because you might have high turnover volume in the database.
+On the receiving side, you may have more disk space available, or need to comply with other backup retention policies.
 
-The job context defines which snapshots are even considered for pruning, for example through the ``snapshot_prefix`` variable.
-Check the respective :ref:`job definition <job>` for details.
+zrepl uses a set of  **keep rules** to determine which snapshots shall be kept per filesystem.
+**A snapshot that is not kept by any rule is destroyed.**
+The keep rules are **evaluated on the active side** (:ref:`push <job-push>` or :ref:`pull job <job-pull>`) of the replication setup, for both active and passive side, after replication completed or was determined to have failed permanently.
 
-Currently, the :ref:`prune-retention-grid` is the only supported pruning policy.
+Example Configuration:
 
-.. TIP::
+::
 
-    You can perform a dry-run of a job's pruning policy using the ``zrepl test`` subcommand.
+   jobs:
+     - type: push
+       name: ...
+       connect: ...
+       filesystems: {
+         "<": true,
+         "tmp": false
+       }
+       snapshotting:
+         type: periodic
+         prefix: zrepl_
+         interval: 10m
+       pruning:
+         keep_sender:
+           - type: not_replicated
+           # make sure manually created snapshots by the administrator are kept
+           - type: regex
+             regex: "^manual_.*"
+           - type: grid
+             grid: 1x1h(keep=all) | 24x1h | 14x1d
+             regex: "^zrepl_.*"
+         keep_receiver:
+           - type: grid
+             grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
+             regex: "^zrepl_.*"
+           # manually created snapshots will be kept forever on receiver
 
-.. _prune-retention-grid:
 
-Retention Grid
---------------
+.. ATTENTION::
+
+    It is currently not possible to define pruning on a source job.
+    The source job creates snapshots, which means that extended replication downtime will fill up the source's zpool with snapshots, since pruning is directed by the corresponding active side (pull job).
+    If this is a potential risk for you, consider using :ref:`push mode <job-push>`.
+
+
+.. _prune-keep-not-replicated:
+
+Policy ``not_replicated``
+-------------------------
+
+::
+
+   jobs:
+   - type: push
+     pruning:
+       keep_sender:
+       - type: not_replicated
+     ...
+
+``not_replicated`` keeps all snapshots that have not been replicated to the receiving side.
+It only makes sense to specify this rule on a sender (source or push job).
+The state required to evaluate this rule is stored in the :ref:`replication cursor bookmark <replication-cursor-bookmark>` on the sending side.
+
+.. _prune-keep-retention-grid:
+
+Policy ``grid``
+---------------
 
 ::
 
     jobs:
-    - name: pull_app-srv
-      type: pull
-      ...
-      prune:
-        policy: grid
-        grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
-                │               │
+    - type: pull
+      pruning:
+        keep_receiver:
+        - type: grid
+          regex: "^zrepl_.*"
+          grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
+                │                │
                 └─ one hour interval
-                                │
-                                └─ 24 adjacent one-hour intervals
-
-    - name: pull_backup
-      type: source
-      interval: 10m
-      prune:
-        policy: grid
-        grid: 1x1d(keep=all)
-        keep_bookmarks: 144
-
+                                 │
+                                 └─ 24 adjacent one-hour intervals
+      ...
 
 The retention grid can be thought of as a time-based sieve:
 The ``grid`` field specifies a list of adjacent time intervals:
@@ -51,16 +98,13 @@ All intervals to its right describe time intervals further in the past.
 
 Each interval carries a maximum number of snapshots to keep.
 It is secified via ``(keep=N)``, where ``N`` is either ``all`` (all snapshots are kept) or a positive integer.
-The default value is **1**.
-
-Bookmarks are not affected by the above.
-Instead, the ``keep_bookmarks`` field specifies the number of bookmarks to be kept per filesystem.
-You only need to specify ``keep_bookmarks`` at the source-side of a replication setup since the destination side does not receive bookmarks.
-You can specify ``all`` as a value to keep all bookmarks, but be warned that you should install some other way to prune unneeded ones then (see below).
+The default value is **keep=1**.
 
 The following procedure happens during pruning:
 
-#. The list of snapshots eligible for pruning is sorted by ``creation``
+#. The list of snapshots is filtered by the regular expression in ``regex``.
+   Only snapshots names that match the regex are considered for this rule, all others are not affected.
+#. The filtered list of snapshots is sorted by ``creation``
 #. The left edge of the first interval is aligned to the ``creation`` date of the youngest snapshot
 #. A list of buckets is created, one for each interval
 #. The list of snapshots is split up into the buckets.
@@ -69,16 +113,42 @@ The following procedure happens during pruning:
    #. the contained snapshot list is sorted by creation.
    #. snapshots from the list, oldest first, are destroyed until the specified ``keep`` count is reached.
    #. all remaining snapshots on the list are kept.
-#. The list of bookmarks eligible for pruning is sorted by ``createtxg`` and the most recent ``keep_bookmarks`` bookmarks are kept.
 
-.. _replication-downtime:
 
-.. ATTENTION::
+.. _prune-keep-last-n:
 
-    Be aware that ``keep_bookmarks x interval`` (interval of the job level) controls the **maximum allowable replication downtime** between source and destination.
-    If replication does not work for whatever reason, source and destination will eventually run out of sync because the source will continue pruning snapshots.
-    The only recovery in that case is full replication, which may not always be viable due to disk space or traffic constraints.
+Policy ``last_n``
+-----------------
 
-    Further note that while bookmarks consume a constant amount of disk space, listing them requires temporary dynamic **kernel memory** proportional to the number of bookmarks.
-    Thus, do not use ``all`` or an inappropriately high value without good reason.
+::
+
+   jobs:
+     - type: push
+       pruning:
+         keep_receiver:
+         - type: last_n
+           count: 10
+     ...
+
+``last_n`` keeps the last ``count`` snapshots (last = youngest = most recent creation date).
+
+.. _prune-keep-regex:
+
+Policy ``regex``
+----------------
+
+::
+
+   jobs:
+     - type: push
+       pruning:
+         keep_receiver:
+         - type: regex
+           regex: "^(zrepl|manual)_.*"
+    ...
+
+``regex`` keeps all snapshots whose names are matched by the regular expressionin ``regex``.
+Like all other regular expression fields in prune policies, zrepl uses Go's `regexp.Regexp <https://golang.org/pkg/regexp/#Compile>`_ Perl-compatible regular expressions (`Syntax <https://golang.org/pkg/regexp/syntax>`_).
+
+
 

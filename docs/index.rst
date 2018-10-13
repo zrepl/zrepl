@@ -8,10 +8,15 @@
 zrepl - ZFS replication
 -----------------------
 
-.. ATTENTION::
-    zrepl as well as this documentation is still under active development.
-    It is neither feature complete nor is there a stability guarantee on the configuration format.
-    Use & test at your own risk ;)
+**zrepl** is a one-stop, integrated solution for ZFS replication.
+
+.. raw:: html
+
+   <div style="margin-bottom: 1em; background: #2e3436; min-height: 6em; max-width: 100%">
+     <a href="https://raw.githubusercontent.com/wiki/zrepl/zrepl/zrepl_0.1_status.mp4" target="_new" >
+       <video title="zrepl status subcommand" loop autoplay style="width: 100%; display: block;" src="https://raw.githubusercontent.com/wiki/zrepl/zrepl/zrepl_0.1_status.mp4"></video>
+     </a>
+   </div>
 
 Getting started
 ~~~~~~~~~~~~~~~
@@ -21,41 +26,46 @@ The :ref:`10 minutes tutorial setup <tutorial>` gives you a first impression.
 Main Features
 ~~~~~~~~~~~~~
 
-* Filesystem Replication
+* **Filesystem replication**
 
-  * [x] Local & Remote
-  * [x] Pull mode
-  * [ ] Push mode
-  * [x] Access control checks when pulling datasets
-  * [x] :ref:`Flexible mapping <pattern-mapping>` rules
-  * [x] Bookmarks support
-  * [ ] Feature-negotiation for
+  * [x] Pull & Push mode
+  * [x] Multiple transport :ref:`transports <transport>`: TCP, TCP + TLS client auth, SSH
 
-    * Resumable `send & receive`
-    * Compressed `send & receive`
-    * Raw encrypted `send & receive` (as soon as it is available)
+  * Advanced replication features
 
-* Automatic snapshot creation
+    * [ ] Resumable send & receive
+    * [ ] Compressed send & receive
+    * [ ] Raw encrypted send & receive
 
-  * [x] Ensure fixed time interval between snapshots
+* **Automatic snapshot management**
 
-* Automatic snapshot :ref:`pruning <prune>`
+  * [x] Periodic filesystem snapshots
+  * [x] Flexible :ref:`pruning rule system <prune>`
 
-  * [x] Age-based fading (grandfathering scheme)
+    * [x] Age-based fading (grandfathering scheme)
+    * [x] Bookmarks to avoid divergence between sender and receiver
 
-* Logging \& Monitoring
+* **Sophisticated Monitoring & Logging**
 
-  * Detailed & structured :ref:`logging <logging>`
+  * [x] Live progress reporting via `zrepl status` :ref:`subcommand <usage>`
+  * [x] Comprehensive, structured :ref:`logging <logging>`
 
     * ``human``, ``logfmt`` and ``json`` formatting
     * stdout, syslog and TCP (+TLS client auth) outlets
 
-  * Prometheus :ref:`monitoring <monitoring>` endpoint
+  * [x] Prometheus :ref:`monitoring <monitoring>` endpoint
 
-* Maintainable implementation in Go
+* **Maintainable implementation in Go**
 
   * [x] Cross platform
   * [x] Type safe & testable code
+
+
+.. ATTENTION::
+    zrepl as well as this documentation is still under active development.
+    There is no stability guarantee on the RPC protocol or configuration format,
+    but we do our best to document breaking changes in the :ref:`changelog`.
+
 
 Contributing
 ~~~~~~~~~~~~
@@ -88,6 +98,7 @@ Table of Contents
    configuration
    usage
    implementation
+   pr
    changelog
    GitHub Repository & Issue Tracker <https://github.com/zrepl/zrepl>
-   pr
+

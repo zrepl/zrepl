@@ -9,165 +9,120 @@ Tutorial
 This tutorial shows how zrepl can be used to implement a ZFS-based pull backup.
 We assume the following scenario:
 
-* Production server ``app-srv`` with filesystems to back up:
+* Production server ``prod`` with filesystems to back up:
 
   * ``zroot/var/db``
   * ``zroot/usr/home`` and all its child filesystems
   * **except** ``zroot/usr/home/paranoid`` belonging to a user doing backups themselves
 
-* Backup server ``backup-srv`` with
+* Backup server ``backups`` with
 
-  * Filesystem ``storage/zrepl/pull/app-srv`` + children dedicated to backups of ``app-srv``
+  * Filesystem ``storage/zrepl/pull/prod`` + children dedicated to backups of ``prod``
 
 Our backup solution should fulfill the following requirements:
 
-* Periodically snapshot the filesystems on ``app-srv`` *every 10 minutes*
-* Incrementally replicate these snapshots to ``storage/zrepl/pull/app-srv/*`` on ``backup-srv``
-* Keep only very few snapshots on ``app-srv`` to save disk space
-* Keep a fading history (24 hourly, 30 daily, 6 monthly) of snapshots on ``backup-srv``
+* Periodically snapshot the filesystems on ``prod`` *every 10 minutes*
+* Incrementally replicate these snapshots to ``storage/zrepl/pull/prod/*`` on ``backups``
+* Keep only very few snapshots on ``prod`` to save disk space
+* Keep a fading history (24 hourly, 30 daily, 6 monthly) of snapshots on ``backups``
 
 Analysis
 --------
 
 We can model this situation as two jobs:
 
-* A **source job** on ``app-srv``
+* A **source job** on ``prod``
 
   * Creates the snapshots
-  * Keeps a short history of snapshots to enable incremental replication to ``backup-srv``
-  * Accepts connections from ``backup-srv``
+  * Keeps a short history of snapshots to enable incremental replication to ``backups``
+  * Accepts connections from ``backups``
 
-* A **pull job** on ``backup-srv``
+* A **pull job** on ``backups``
 
-  * Connects to the ``zrepl daemon`` process on ``app-srv``
-  * Pulls the snapshots to ``storage/zrepl/pull/app-srv/*``
-  * Fades out snapshots in ``storage/zrepl/pull/app-srv/*`` as they age
+  * Connects to the ``zrepl daemon`` process on ``prod``
+  * Pulls the snapshots to ``storage/zrepl/pull/prod/*``
+  * Fades out snapshots in ``storage/zrepl/pull/prod/*`` as they age
 
 
 Why doesn't the **pull job** create the snapshots before pulling?
 
-As is the case with all distributed systems, the link between ``app-srv`` and ``backup-srv`` might be down for an hour or two.
+As is the case with all distributed systems, the link between ``prod`` and ``backups`` might be down for an hour or two.
 We do not want to sacrifice our required backup resolution of 10 minute intervals for a temporary connection outage.
 
-When the link comes up again, ``backup-srv`` will happily catch up the 12 snapshots taken by ``app-srv`` in the meantime, without
-a gap in our backup history.
+When the link comes up again, ``backups`` will catch up with the snapshots taken by ``prod`` in the meantime, without a gap in our backup history.
 
 Install zrepl
 -------------
 
 Follow the :ref:`OS-specific installation instructions <installation>` and come back here.
 
-Configure ``backup-srv``
-------------------------
+Configure server ``backups``
+----------------------------
 
-We define a **pull job** named ``pull_app-srv`` in the |mainconfig| on host ``backup-srv``: ::
+We define a **pull job** named ``pull_prod`` in ``/etc/zrepl/zrepl.yml`` or ``/usr/local/etc/zrepl/zrepl.yml`` on host ``backups`` : ::
 
     jobs:
-    - name: pull_app-srv
+    - name: pull_prod
       type: pull
       connect:
-          type: ssh+stdinserver
-          host: app-srv.example.com
-          user: root
-          port: 22
-          identity_file: /etc/zrepl/ssh/identity
+        type: tcp
+        address: "192.168.2.20:2342"
+      root_fs: "storage/zrepl/pull/prod"
       interval: 10m
-      mapping: {
-          "<":"storage/zrepl/pull/app-srv"
-      }
-      initial_repl_policy: most_recent
-      snapshot_prefix: zrepl_pull_backup_
-      prune:
-          policy: grid
-          grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
+      pruning:
+        keep_sender:
+        - type: not_replicated
+        - type: last_n
+          count: 10
+        keep_receiver:
+        - type: grid
+          grid: 1x1h(keep=all) | 24x1h | 30x1d | 6x30d
+          regex: "^zrepl_"
+          interval: 10m
 
-The ``connect`` section instructs the zrepl daemon to use the ``stdinserver`` transport:
-``backup-srv`` will connect to the specified SSH server and expect ``zrepl stdinserver CLIENT_IDENTITY`` instead of the shell on the other side.
+The ``connect`` section instructs the zrepl daemon to use plain TCP transport.
+Check out the :ref:`transports <transport>` section for alternatives that support encryption.
 
-It uses the private key specified at ``connect.identity_file`` which we still need to create: ::
+.. _tutorial-configure-prod:
 
-    cd /etc/zrepl
-    mkdir -p ssh
-    chmod 0700 ssh
-    ssh-keygen -t ed25519 -N '' -f /etc/zrepl/ssh/identity
+Configure server ``prod``
+-------------------------
 
-Note that most use cases do not benefit from separate keypairs per remote endpoint.
-Thus, it is sufficient to create one keypair and use it for all ``connect`` directives on one host.
-
-zrepl uses ssh's default ``known_hosts`` file, which must contain a host identification entry for ``app-srv.example.com``.
-If that entry does not already exist, we need to generate it.
-Run the following command, compare the host fingerprints, and confirm with yes if they match.
-You will not be able to get a shell with the identity file we just generated, which is fine. ::
-
-    ssh -i /etc/zrepl/ssh/identity root@app-srv.example.com
-
-Learn more about :ref:`transport-ssh+stdinserver` transport and the :ref:`pull job <job-pull>` format.
-
-.. _tutorial-configure-app-srv:
-
-Configure ``app-srv``
----------------------
-
-We define a corresponding **source job** named ``pull_backup`` in the |mainconfig| on host ``app-srv``:  ::
+We define a corresponding **source job** named ``source_backups`` in ``/etc/zrepl/zrepl.yml`` or ``/usr/local/etc/zrepl/zrepl.yml`` on host ``prod`` : ::
 
     jobs:
-    - name: pull_backup
+    - name: source_backups
       type: source
       serve:
-          type: stdinserver
-          client_identity: backup-srv.example.com
+        type: tcp
+        listen: ":2342"
+        clients: {
+          "192.168.2.10" : "backups"
+        }
       filesystems: {
-          "zroot/var/db": "ok",
-          "zroot/usr/home<": "ok",
-          "zroot/usr/home/paranoid": "!",
+        "zroot/var/db:": true,
+        "zroot/usr/home<": true,
+        "zroot/usr/home/paranoid": false
       }
-      snapshot_prefix: zrepl_pull_backup_
-      interval: 10m
-      prune:
-          policy: grid
-          grid: 1x1d(keep=all)
-          keep_bookmarks: 144
+      snapshotting:
+        type: periodic
+        prefix: zrepl_
+        interval: 10m
 
 
-The ``serve`` section corresponds to the ``connect`` section in the configuration of ``backup-srv``.
-
-We now want to authenticate ``backup-srv`` before allowing it to pull data.
-This is done by limiting SSH connections from ``backup-srv`` to execute the ``stdinserver`` subcommand.
-
-Open ``/root/.ssh/authorized_keys`` and add either of the the following lines.::
-
-    # for OpenSSH >= 7.2
-    command="zrepl stdinserver backup-srv.example.com",restrict CLIENT_SSH_KEY
-    # for older OpenSSH versions
-    command="zrepl stdinserver backup-srv.example.com",no-port-forwarding,no-X11-forwarding,no-pty,no-agent-forwarding,no-user-rc  CLIENT_SSH_KEY
-
-.. ATTENTION::
-
-    Replace CLIENT_SSH_KEY with the contents of ``/etc/zrepl/ssh/identity.pub`` from ``app-srv``.
-    Mind the trailing ``.pub`` in the filename.
-    The entries **must** be on a single line, including the replaced CLIENT_SSH_KEY.
-
-
-.. HINT::
-
-    You may need to adjust the ``PermitRootLogin`` option in ``/etc/ssh/sshd_config`` to ``forced-commands-only`` or higher for this to work.
-    Refer to sshd_config(5) for details.
-
-The argument ``backup-srv.example.com`` is the client identity of ``backup-srv`` as defined in ``jobs.serve.client_identity``.
-
-Again, both :ref:`transport-ssh+stdinserver` transport and the :ref:`job-source` format are documented.
+The ``serve`` section whitelists ``backups``'s IP address ``192.168.2.10`` and assigns it the client identity ``backups`` which will show up in the logs.
+Again, check the :ref:`docs for encrypted transports <transport>`.
 
 Apply Configuration Changes
 ---------------------------
 
-We need to restart the zrepl daemon on **both** ``app-srv`` and ``backup-srv``.
+We need to restart the zrepl daemon on **both** ``prod`` and ``backups``.
 This is :ref:`OS-specific <usage-zrepl-daemon-restarting>`.
 
 Watch it Work
 -------------
 
-Run ``zrepl control status`` to view the current activity of the configured jobs.
-If a job encountered problems since it last left idle state, the output contains useful debug log.
+Run ``zrepl status`` on ``prod`` to monitor the replication and pruning activity.
 
 Additionally, you can check the detailed structured logs of the `zrepl daemon` process and use GNU *watch* to view the snapshots present on both machines.
 
@@ -176,7 +131,7 @@ If you like tmux, here is a handy script that works on FreeBSD: ::
     pkg install gnu-watch tmux
     tmux new-window
     tmux split-window "tail -f /var/log/zrepl.log"
-    tmux split-window "gnu-watch 'zfs list -t snapshot -o name,creation -s creation | grep zrepl_pull_backup_'"
+    tmux split-window "gnu-watch 'zfs list -t snapshot -o name,creation -s creation | grep zrepl_'"
     tmux select-layout tiled
 
 The Linux equivalent might look like this: ::
@@ -184,7 +139,7 @@ The Linux equivalent might look like this: ::
     # make sure tmux is installed & let's assume you use systemd + journald
     tmux new-window
     tmux split-window "journalctl -f -u zrepl.service"
-    tmux split-window "watch 'zfs list -t snapshot -o name,creation -s creation | grep zrepl_pull_backup_'"
+    tmux split-window "watch 'zfs list -t snapshot -o name,creation -s creation | grep zrepl_'"
     tmux select-layout tiled
 
 Summary
