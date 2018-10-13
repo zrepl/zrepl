@@ -1,18 +1,26 @@
 package client
 
 import (
+	"github.com/zrepl/zrepl/cli"
 	"os"
 
 	"context"
+	"errors"
 	"github.com/problame/go-netssh"
+	"github.com/zrepl/zrepl/config"
 	"log"
 	"path"
-	"github.com/zrepl/zrepl/config"
-	"errors"
 )
 
+var StdinserverCmd = &cli.Subcommand{
+	Use:   "stdinserver CLIENT_IDENTITY",
+	Short: "stdinserver transport mode (started from authorized_keys file as forced command)",
+	Run: func(subcommand *cli.Subcommand, args []string) error {
+		return runStdinserver(subcommand.Config(), args)
+	},
+}
 
-func RunStdinserver(config *config.Config, args []string) error {
+func runStdinserver(config *config.Config, args []string) error {
 
 	// NOTE: the netssh proxying protocol requires exiting with non-zero status if anything goes wrong
 	defer os.Exit(1)

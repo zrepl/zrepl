@@ -2,27 +2,39 @@ package client
 
 import (
 	"fmt"
+	"github.com/spf13/pflag"
+	"github.com/zrepl/zrepl/cli"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon"
 	"github.com/zrepl/zrepl/version"
 	"os"
 )
 
-type VersionArgs struct {
+var versionArgs struct {
 	Show   string
 	Config *config.Config
+	ConfigErr error
 }
 
-func RunVersion(args VersionArgs) {
+var VersionCmd = &cli.Subcommand{
+	Use:   "version",
+	Short: "print version of zrepl binary and running daemon",
+	NoRequireConfig: true,
+	SetupFlags: func(f *pflag.FlagSet) {
+		f.StringVar(&versionArgs.Show, "show", "", "version info to show (client|daemon)")
+	},
+	Run: func(subcommand *cli.Subcommand, args []string) error {
+		versionArgs.Config = subcommand.Config()
+		versionArgs.ConfigErr = subcommand.ConfigParsingError()
+		return runVersionCmd()
+	},
+}
 
-	die := func() {
-		fmt.Fprintf(os.Stderr, "exiting after error\n")
-		os.Exit(1)
-	}
+func runVersionCmd() error {
+	args := versionArgs
 
 	if args.Show != "daemon" && args.Show != "client" && args.Show != "" {
-		fmt.Fprintf(os.Stderr, "show flag must be 'client' or 'server' or be left empty")
-		die()
+		return fmt.Errorf("show flag must be 'client' or 'server' or be left empty")
 	}
 
 	var clientVersion, daemonVersion *version.ZreplVersionInformation
@@ -32,17 +44,19 @@ func RunVersion(args VersionArgs) {
 	}
 	if args.Show == "daemon" || args.Show == "" {
 
+		if args.ConfigErr != nil {
+			return fmt.Errorf("config parsing error: %s", args.ConfigErr)
+		}
+
 		httpc, err := controlHttpClient(args.Config.Global.Control.SockPath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "server: error: %s\n", err)
-			die()
+			return fmt.Errorf("server: error: %s\n", err)
 		}
 
 		var info version.ZreplVersionInformation
 		err = jsonRequestResponse(httpc, daemon.ControlJobEndpointVersion, "", &info)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "server: error: %s\n", err)
-			die()
+			return fmt.Errorf("server: error: %s\n", err)
 		}
 		daemonVersion = &info
 		fmt.Printf("server: %s\n", daemonVersion.String())
@@ -54,4 +68,5 @@ func RunVersion(args VersionArgs) {
 		}
 	}
 
+	return nil
 }

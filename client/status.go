@@ -4,21 +4,22 @@ import (
 	"fmt"
 	"github.com/nsf/termbox-go"
 	"github.com/pkg/errors"
+	"github.com/spf13/pflag"
 	"github.com/zrepl/yaml-config"
-	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/cli"
 	"github.com/zrepl/zrepl/daemon"
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/replication"
 	"github.com/zrepl/zrepl/replication/fsrep"
+	"io"
 	"math"
+	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"sync"
 	"time"
-	"io"
-	"os"
-	"net/http"
 )
 
 type tui struct {
@@ -73,17 +74,26 @@ func (t *tui) addIndent(indent int) {
 	t.moveLine(0, 0)
 }
 
-type StatusFlags struct {
+var statusFlags struct {
 	Raw bool
 }
 
-func RunStatus(flags StatusFlags, config *config.Config, args []string) error {
-	httpc, err := controlHttpClient(config.Global.Control.SockPath)
+var StatusCmd = &cli.Subcommand{
+	Use:   "status",
+	Short: "show job activity or dump as JSON for monitoring",
+	SetupFlags: func(f *pflag.FlagSet) {
+		f.BoolVar(&statusFlags.Raw, "raw", false, "dump raw status description from zrepl daemon")
+	},
+	Run: runStatus,
+}
+
+func runStatus(s *cli.Subcommand, args []string) error {
+	httpc, err := controlHttpClient(s.Config().Global.Control.SockPath)
 	if err != nil {
 		return err
 	}
 
-	if flags.Raw {
+	if statusFlags.Raw {
 		resp, err := httpc.Get("http://unix"+daemon.ControlJobEndpointStatus)
 		if err != nil {
 			return err
