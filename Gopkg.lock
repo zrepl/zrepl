@@ -34,20 +34,32 @@
   revision = "c6d800382fff6dc1412f34269f71b7f83bd059ad"
 
 [[projects]]
+  branch = "master"
+  digest = "1:4416ad04caf950d004921268f777e418f8c328080ccf6a91e799f977dc128808"
+  name = "github.com/gdamore/encoding"
+  packages = ["."]
+  pruneopts = ""
+  revision = "b23993cbb6353f0e6aa98d0ee318a34728f628b9"
+
+[[projects]]
+  digest = "1:d8088c614a5bffaf38a40c116226e7d230750bafb77942dca25eab779ceeaf1f"
+  name = "github.com/gdamore/tcell"
+  packages = [
+    ".",
+    "termbox",
+    "terminfo",
+  ]
+  pruneopts = ""
+  revision = "de7e78efa4a71b3f36c7154989c529dbdf9ae623"
+  version = "v1.1.0"
+
+[[projects]]
   digest = "1:6a4a01d58b227c4b6b11111b9f172ec5c17682b82724e58e6daf3f19f4faccd8"
   name = "github.com/go-logfmt/logfmt"
   packages = ["."]
   pruneopts = ""
   revision = "390ab7935ee28ec6b286364bba9b4dd6410cb3d5"
   version = "v0.3.0"
-
-[[projects]]
-  branch = "v2"
-  digest = "1:81314a486195626940617e43740b4fa073f265b0715c9f54ce2027fee1cb5f61"
-  name = "github.com/go-yaml/yaml"
-  packages = ["."]
-  pruneopts = ""
-  revision = "eb3733d160e74a9c7e442f435eb3bea458e1d19f"
 
 [[projects]]
   digest = "1:3dd078fda7500c341bc26cfbc6c6a34614f295a2457149fc1045cab767cbcf18"
@@ -90,6 +102,14 @@
   revision = "7cafcd837844e784b526369c9bce262804aebc60"
 
 [[projects]]
+  digest = "1:863ba095ae0954100963826333bd1503c169424bb798d9ce800d9f6651f4c234"
+  name = "github.com/lucasb-eyer/go-colorful"
+  packages = ["."]
+  pruneopts = ""
+  revision = "345fbb3dbcdb252d9985ee899a84963c0fa24c82"
+  version = "v1.0"
+
+[[projects]]
   digest = "1:9ea83adf8e96d6304f394d40436f2eb44c1dc3250d223b74088cc253a6cd0a1c"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
@@ -120,22 +140,6 @@
   pruneopts = ""
   revision = "3247c84500bff8d9fb6d579d800f20b3e091582c"
   version = "v1.0.0"
-
-[[projects]]
-  branch = "master"
-  digest = "1:c9ede10a9ded782d25d1f0be87c680e11409c23554828f19a19d691a95e76130"
-  name = "github.com/mitchellh/mapstructure"
-  packages = ["."]
-  pruneopts = ""
-  revision = "d0303fe809921458f417bcf828397a65db30a7e4"
-
-[[projects]]
-  branch = "master"
-  digest = "1:20a553eff588d7abe1f05addf5f57cdbaef1d0f992427a0099b7eb51274b79cf"
-  name = "github.com/nsf/termbox-go"
-  packages = ["."]
-  pruneopts = ""
-  revision = "b66b20ab708e289ff1eb3e218478302e6aec28ce"
 
 [[projects]]
   digest = "1:7365acd48986e205ccb8652cc746f09c8b7876030d53710ea6ef7d0bd0dcd7ca"
@@ -267,19 +271,31 @@
   pruneopts = ""
   revision = "bf42f188b9bc6f2cf5b8ee5a912ef1aedd0eba4c"
 
+[[projects]]
+  digest = "1:5acd3512b047305d49e8763eef7ba423901e85d5dd2fd1e71778a0ea8de10bd4"
+  name = "golang.org/x/text"
+  packages = [
+    "encoding",
+    "encoding/internal/identifier",
+    "internal/gen",
+    "transform",
+    "unicode/cldr",
+  ]
+  pruneopts = ""
+  revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
+  version = "v0.3.0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
     "github.com/fatih/color",
+    "github.com/gdamore/tcell/termbox",
     "github.com/go-logfmt/logfmt",
-    "github.com/go-yaml/yaml",
     "github.com/golang/protobuf/proto",
     "github.com/jinzhu/copier",
     "github.com/kr/pretty",
     "github.com/mattn/go-isatty",
-    "github.com/mitchellh/mapstructure",
-    "github.com/nsf/termbox-go",
     "github.com/pkg/errors",
     "github.com/problame/go-netssh",
     "github.com/problame/go-rwccmd",
@@ -287,9 +303,11 @@
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/spf13/cobra",
+    "github.com/spf13/pflag",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
     "github.com/zrepl/yaml-config",
+    "golang.org/x/sys/unix",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

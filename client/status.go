@@ -2,7 +2,7 @@ package client
 
 import (
 	"fmt"
-	"github.com/nsf/termbox-go"
+	"github.com/gdamore/tcell/termbox"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"github.com/zrepl/yaml-config"
