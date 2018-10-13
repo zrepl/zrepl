@@ -29,6 +29,14 @@ We use the following annotations for classifying changes:
 This release is a milestone for zrepl and required significant refactoring if not rewrites of substantial parts of the application.
 It breaks both configuration and transport format, and thus requires manual intervention and updates on both sides of a replication setup.
 
+.. DANGER::
+   The changes in the pruning system for this release require you to explicitly define **keep rules**:
+   for any snapshot that you want to keep, at least one rule must match.
+   This is different from previous releases where pruning only affected snapshots with the configured snapshotting prefix.
+   Make sure that snapshots to be kept or ignored by zrepl are covered, e.g. by using the ``regex`` keep rule.
+   :ref:`Learn more in the config docs... <prune>`
+
+
 Notes to Package Maintainers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

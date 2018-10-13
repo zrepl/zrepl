@@ -45,6 +45,9 @@ Example Configuration:
              regex: "^zrepl_.*"
            # manually created snapshots will be kept forever on receiver
 
+.. DANGER::
+    You might have **existing snapshots** of filesystems affected by pruning which you want to keep, i.e. not be destroyed by zrepl.
+    Make sure to actually add the necessary ``regex`` keep rules on both sides, like with ``manual`` in the example above.
 
 .. ATTENTION::
 
