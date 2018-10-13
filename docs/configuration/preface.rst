@@ -35,5 +35,5 @@ Alternatively, for default settings, the following should to the trick.
 Validating
 ----------
 
-The config can be validated using the ``zrepl test`` subcommand.
+The config can be validated using the ``zrepl configcheck`` subcommand.
 
