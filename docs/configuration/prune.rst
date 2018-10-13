@@ -45,9 +45,6 @@ Example Configuration:
              regex: "^zrepl_.*"
            # manually created snapshots will be kept forever on receiver
 
-.. TIP::
-
-    You can perform a dry-run of a job's pruning policy using the ``zrepl test`` subcommand.
 
 .. ATTENTION::
 
