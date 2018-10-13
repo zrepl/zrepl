@@ -43,7 +43,10 @@ GO_LDFLAGS := "-X github.com/zrepl/zrepl/version.zreplVersion=$(ZREPL_VERSION)"
 
 GO_BUILD := go build -ldflags $(GO_LDFLAGS)
 
-RELEASE_BINS := $(ARTIFACTDIR)/zrepl-freebsd-amd64 $(ARTIFACTDIR)/zrepl-linux-amd64
+RELEASE_BINS := $(ARTIFACTDIR)/zrepl-freebsd-amd64
+RELEASE_BINS += $(ARTIFACTDIR)/zrepl-linux-amd64
+RELEASE_BINS += $(ARTIFACTDIR)/zrepl-darwin-amd64
+
 RELEASE_NOARCH := $(ARTIFACTDIR)/zrepl-noarch.tar
 THIS_PLATFORM_RELEASE_BIN := $(shell bash -c 'source <(go env) && echo "zrepl-$${GOOS}-$${GOARCH}"' )
 
