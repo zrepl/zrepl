@@ -286,16 +286,17 @@ func absVersion(fs, v string) (full string, err error) {
 	return fmt.Sprintf("%s%s", fs, v), nil
 }
 
+// from may be "", in which case a full ZFS send is done
 func ZFSSend(fs string, from, to string) (stream io.ReadCloser, err error) {
 
-	fromV, err := absVersion(fs, from)
+	toV, err := absVersion(fs, to)
 	if err != nil {
 		return nil, err
 	}
 
-	toV := ""
-	if to != "" {
-		toV, err = absVersion(fs, to)
+	fromV := ""
+	if from != "" {
+		fromV, err = absVersion(fs, from)
 		if err != nil {
 			return nil, err
 		}
@@ -304,8 +305,8 @@ func ZFSSend(fs string, from, to string) (stream io.ReadCloser, err error) {
 	args := make([]string, 0)
 	args = append(args, "send")
 
-	if toV == "" { // Initial
-		args = append(args, fromV)
+	if fromV == "" { // Initial
+		args = append(args, toV)
 	} else {
 		args = append(args, "-i", fromV, toV)
 	}
@@ -317,17 +318,18 @@ func ZFSSend(fs string, from, to string) (stream io.ReadCloser, err error) {
 
 var BookmarkSizeEstimationNotSupported error = fmt.Errorf("size estimation is not supported for bookmarks")
 
+// from may be "", in which case a full ZFS send is done
 // May return BookmarkSizeEstimationNotSupported as err if from is a bookmark.
 func ZFSSendDry(fs string, from, to string) (size int64, err error) {
 
-	fromV, err := absVersion(fs, from)
+	toV, err := absVersion(fs, to)
 	if err != nil {
 		return 0, err
 	}
 
-	toV := ""
-	if to != "" {
-		toV, err = absVersion(fs, to)
+	fromV := ""
+	if from != "" {
+		fromV, err = absVersion(fs, from)
 		if err != nil {
 			return 0, err
 		}
@@ -346,8 +348,8 @@ func ZFSSendDry(fs string, from, to string) (size int64, err error) {
 	args := make([]string, 0)
 	args = append(args, "send", "-n", "-v", "-P")
 
-	if toV == "" { // Initial
-		args = append(args, fromV)
+	if fromV == "" {
+		args = append(args, toV)
 	} else {
 		args = append(args, "-i", fromV, toV)
 	}

@@ -485,7 +485,7 @@ func (s *ReplicationStep) buildSendRequest(dryRun bool) (sr *pdu.SendReq) {
 	if s.from == nil {
 		sr = &pdu.SendReq{
 			Filesystem: fs,
-			From:       s.to.RelName(), // FIXME fix protocol to use To, like zfs does internally
+			To:         s.to.RelName(),
 			DryRun:     dryRun,
 		}
 	} else {
