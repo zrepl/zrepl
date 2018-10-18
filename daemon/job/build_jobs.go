@@ -13,6 +13,9 @@ func JobsFromConfig(c *config.Config) ([]Job, error) {
 		if err != nil {
 			return nil, err
 		}
+		if j == nil || j.Name() == "" {
+			panic(fmt.Sprintf("implementation error: job builder returned nil job type %T", c.Jobs[i].Ret))
+		}
 		js[i] = j
 	}
 	return js, nil
@@ -20,7 +23,7 @@ func JobsFromConfig(c *config.Config) ([]Job, error) {
 
 func buildJob(c *config.Global, in config.JobEnum) (j Job, err error) {
 	cannotBuildJob := func(e error, name string) (Job, error) {
-		return nil, errors.Wrapf(err, "cannot build job %q", name)
+		return nil, errors.Wrapf(e, "cannot build job %q", name)
 	}
 	// FIXME prettify this
 	switch v := in.Ret.(type) {
