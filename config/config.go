@@ -115,7 +115,7 @@ time: true
 level: "warn"
 format: "human"
 `
-	s := StdoutLoggingOutlet{}
+	s := &StdoutLoggingOutlet{}
 	err := yaml.UnmarshalStrict([]byte(def), &s)
 	if err != nil {
 		panic(err)
