@@ -286,8 +286,12 @@ func absVersion(fs, v string) (full string, err error) {
 	return fmt.Sprintf("%s%s", fs, v), nil
 }
 
-// from may be "", in which case a full ZFS send is done
-func ZFSSend(fs string, from, to string) (stream io.ReadCloser, err error) {
+func buildCommonSendArgs(fs string, from, to string, token string) ([]string, error) {
+	args := make([]string, 0, 3)
+	if token != "" {
+		args = append(args, "-t", token)
+		return args, nil
+	}
 
 	toV, err := absVersion(fs, to)
 	if err != nil {
@@ -302,76 +306,154 @@ func ZFSSend(fs string, from, to string) (stream io.ReadCloser, err error) {
 		}
 	}
 
-	args := make([]string, 0)
-	args = append(args, "send")
-
 	if fromV == "" { // Initial
 		args = append(args, toV)
 	} else {
 		args = append(args, "-i", fromV, toV)
 	}
+	return args, nil
+}
+
+// if token != "", then send -t token is used
+// otherwise send [-i from] to is used
+// (if from is "" a full ZFS send is done)
+func ZFSSend(fs string, from, to string, token string) (stream io.ReadCloser, err error) {
+
+	args := make([]string, 0)
+	args = append(args, "send")
+
+	sargs, err := buildCommonSendArgs(fs, from, to, token)
+	if err != nil {
+		return nil, err
+	}
+	args = append(args, sargs...)
 
 	stream, err = util.RunIOCommand(ZFS_BINARY, args...)
 
 	return
 }
 
-var BookmarkSizeEstimationNotSupported error = fmt.Errorf("size estimation is not supported for bookmarks")
+
+type DrySendType string
+
+const (
+	DrySendTypeFull        DrySendType = "full"
+	DrySendTypeIncremental DrySendType = "incremental"
+)
+
+func DrySendTypeFromString(s string) (DrySendType, error) {
+	switch s {
+	case string(DrySendTypeFull): return DrySendTypeFull, nil
+	case string(DrySendTypeIncremental): return DrySendTypeIncremental, nil
+	default:
+		return "", fmt.Errorf("unknown dry send type %q", s)
+	}
+}
+
+type DrySendInfo struct {
+	Type DrySendType
+	Filesystem string // parsed from To field
+	From, To string // direct copy from ZFS output
+	SizeEstimate int64 // -1 if size estimate is not possible
+}
+
+var sendDryRunInfoLineRegex = regexp.MustCompile(`^(full|incremental)(\t(\S+))?\t(\S+)\t([0-9]+)$`)
+
+// see test cases for example output
+func (s *DrySendInfo) unmarshalZFSOutput(output []byte) (err error) {
+	lines := strings.Split(string(output), "\n")
+	for _, l := range lines {
+		regexMatched, err := s.unmarshalInfoLine(l)
+		if err != nil {
+			return fmt.Errorf("line %q: %s", l, err)
+		}
+		if !regexMatched {
+			continue
+		}
+		return nil
+	}
+	return fmt.Errorf("no match for info line (regex %s)", sendDryRunInfoLineRegex)
+}
+
+
+// unmarshal info line, looks like this:
+//   full	zroot/test/a@1	5389768
+//   incremental	zroot/test/a@1	zroot/test/a@2	5383936
+// => see test cases
+func (s *DrySendInfo) unmarshalInfoLine(l string) (regexMatched bool, err error) {
+
+	m := sendDryRunInfoLineRegex.FindStringSubmatch(l)
+	if m == nil {
+		return false, nil
+	}
+	s.Type, err = DrySendTypeFromString(m[1])
+	if err != nil {
+		return true, err
+	}
+
+	s.From = m[3]
+	s.To = m[4]
+	toFS, _, _ , err := DecomposeVersionString(s.To)
+	if err != nil {
+		return true, fmt.Errorf("'to' is not a valid filesystem version: %s", err)
+	}
+	s.Filesystem = toFS
+
+	s.SizeEstimate, err = strconv.ParseInt(m[5], 10, 64)
+	if err != nil {
+		return true, fmt.Errorf("cannot not parse size: %s", err)
+	}
+
+	return true, nil
+}
 
 // from may be "", in which case a full ZFS send is done
 // May return BookmarkSizeEstimationNotSupported as err if from is a bookmark.
-func ZFSSendDry(fs string, from, to string) (size int64, err error) {
+func ZFSSendDry(fs string, from, to string, token string) (_ *DrySendInfo, err error) {
 
-	toV, err := absVersion(fs, to)
-	if err != nil {
-		return 0, err
-	}
-
-	fromV := ""
-	if from != "" {
-		fromV, err = absVersion(fs, from)
-		if err != nil {
-			return 0, err
-		}
-	}
-
-	if strings.Contains(fromV, "#") {
+	if strings.Contains(from, "#") {
 		/* TODO:
 		 * ZFS at the time of writing does not support dry-run send because size-estimation
 		 * uses fromSnap's deadlist. However, for a bookmark, that deadlist no longer exists.
 		 * Redacted send & recv will bring this functionality, see
 		 * 	https://github.com/openzfs/openzfs/pull/484
 		 */
-		 return 0, BookmarkSizeEstimationNotSupported
+		 fromAbs, err := absVersion(fs, from)
+		 if err != nil {
+		 	return nil, fmt.Errorf("error building abs version for 'from': %s", err)
+		 }
+		 toAbs, err := absVersion(fs, to)
+		 if err != nil {
+		 	return nil, fmt.Errorf("error building abs version for 'to': %s", err)
+		 }
+		 return &DrySendInfo{
+			Type: DrySendTypeIncremental,
+			Filesystem: fs,
+			From: fromAbs,
+			To: toAbs,
+			SizeEstimate: -1}, nil
 	}
 
 	args := make([]string, 0)
 	args = append(args, "send", "-n", "-v", "-P")
-
-	if fromV == "" {
-		args = append(args, toV)
-	} else {
-		args = append(args, "-i", fromV, toV)
+	sargs, err := buildCommonSendArgs(fs, from, to, token)
+	if err != nil {
+		return nil, err
 	}
+	args = append(args, sargs...)
 
 	cmd := exec.Command(ZFS_BINARY, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	o := string(output)
-	lines := strings.Split(o, "\n")
-	if len(lines) < 2 {
-		return 0, errors.New("zfs send -n did not return the expected number of lines")
+	var si DrySendInfo
+	if err := si.unmarshalZFSOutput(output); err != nil {
+		return nil, fmt.Errorf("could not parse zfs send -n output: %s", err)
 	}
-	fields := strings.Fields(lines[1])
-	if len(fields) != 2 {
-		return 0, errors.New("zfs send -n returned unexpexted output")
-	}
-
-	size, err = strconv.ParseInt(fields[1], 10, 64)
-	return size, err
+	return &si, nil
 }
+
 
 func ZFSRecv(fs string, stream io.Reader, additionalArgs ...string) (err error) {
 
@@ -412,6 +494,32 @@ func ZFSRecv(fs string, stream io.Reader, additionalArgs ...string) (err error) 
 		return
 	}
 
+	return nil
+}
+
+type ClearResumeTokenError struct {
+	ZFSOutput []byte
+	CmdError error
+}
+
+func (e ClearResumeTokenError) Error() string {
+	return fmt.Sprintf("could not clear resume token: %q", string(e.ZFSOutput))
+}
+
+// always returns *ClearResumeTokenError
+func ZFSRecvClearResumeToken(fs string) (err error) {
+	if err := validateZFSFilesystem(fs); err != nil {
+		return err
+	}
+
+	cmd := exec.Command(ZFS_BINARY, "recv", "-A", fs)
+	o, err := cmd.CombinedOutput()
+	if err != nil {
+		if bytes.Contains(o, []byte("does not have any resumable receive state to abort")) {
+			return nil
+		}
+		return &ClearResumeTokenError{o, err}
+	}
 	return nil
 }
 

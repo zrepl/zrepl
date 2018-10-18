@@ -79,16 +79,17 @@ func (p *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 	}
 
 	if r.DryRun {
-		size, err := zfs.ZFSSendDry(r.Filesystem, r.From, r.To)
-		if err == zfs.BookmarkSizeEstimationNotSupported {
-			return &pdu.SendRes{ExpectedSize: 0}, nil, nil
-		}
+		si, err := zfs.ZFSSendDry(r.Filesystem, r.From, r.To, "")
 		if err != nil {
 			return nil, nil, err
 		}
-		return &pdu.SendRes{ExpectedSize: size}, nil, nil
+		var expSize int64 = 0 // protocol says 0 means no estimate
+		if si.SizeEstimate != -1 { // but si returns -1 for no size estimate
+			expSize = si.SizeEstimate
+		}
+		return &pdu.SendRes{ExpectedSize: expSize}, nil, nil
 	} else {
-		stream, err := zfs.ZFSSend(r.Filesystem, r.From, r.To)
+		stream, err := zfs.ZFSSend(r.Filesystem, r.From, r.To, "")
 		if err != nil {
 			return nil, nil, err
 		}
