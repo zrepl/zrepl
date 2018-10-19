@@ -9,6 +9,7 @@ import (
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/pruning"
 	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/util/watchdog"
 	"net"
 	"sort"
@@ -113,11 +114,11 @@ func NewPrunerFactory(in config.PruningSenderReceiver, promPruneSecs *prometheus
 		considerSnapAtCursorReplicated = considerSnapAtCursorReplicated || !knr.KeepSnapshotAtCursor
 	}
 	f := &PrunerFactory{
-		keepRulesSender,
-		keepRulesReceiver,
-		10 * time.Second, //FIXME constant
-		considerSnapAtCursorReplicated,
-		promPruneSecs,
+		senderRules: keepRulesSender,
+		receiverRules: keepRulesReceiver,
+		retryWait: envconst.Duration("ZREPL_PRUNER_RETRY_INTERVAL", 4 * time.Second),
+		considerSnapAtCursorReplicated: considerSnapAtCursorReplicated,
+		promPruneSecs: promPruneSecs,
 	}
 	return f, nil
 }
