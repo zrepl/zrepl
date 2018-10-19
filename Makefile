@@ -36,13 +36,16 @@ _TESTPKGS := $(ROOT) $(foreach p,$(SUBPKGS),$(ROOT)/$(p))
 
 ARTIFACTDIR := artifacts
 
-ifndef ZREPL_VERSION
-    ZREPL_VERSION := $(shell git describe --dirty 2>/dev/null || echo "ZREPL_BUILD_INVALID_VERSION" )
-    ifeq ($(ZREPL_VERSION),ZREPL_BUILD_INVALID_VERSION) # can't use .SHELLSTATUS because Debian Stretch is still on gmake 4.1
+ifdef ZREPL_VERSION
+    _ZREPL_VERSION := $(ZREPL_VERSION)
+endif
+ifndef _ZREPL_VERSION
+    _ZREPL_VERSION := $(shell git describe --dirty 2>/dev/null || echo "ZREPL_BUILD_INVALID_VERSION" )
+    ifeq ($(_ZREPL_VERSION),ZREPL_BUILD_INVALID_VERSION) # can't use .SHELLSTATUS because Debian Stretch is still on gmake 4.1
         $(error cannot infer variable ZREPL_VERSION using git and variable is not overriden by make invocation)
     endif
 endif
-GO_LDFLAGS := "-X github.com/zrepl/zrepl/version.zreplVersion=$(ZREPL_VERSION)"
+GO_LDFLAGS := "-X github.com/zrepl/zrepl/version.zreplVersion=$(_ZREPL_VERSION)"
 
 GO_BUILD := go build -ldflags $(GO_LDFLAGS)
 
@@ -118,7 +121,7 @@ $(RELEASE_BINS): $(ARTIFACTDIR)/zrepl-%-amd64: generate $(ARTIFACTDIR) vet test
 
 $(RELEASE_NOARCH): docs $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/go_version.txt
 	tar --mtime='1970-01-01' --sort=name \
-		--transform 's/$(ARTIFACTDIR)/zrepl-$(ZREPL_VERSION)-noarch/' \
+		--transform 's/$(ARTIFACTDIR)/zrepl-$(_ZREPL_VERSION)-noarch/' \
 		-acf $@ \
 		$(ARTIFACTDIR)/docs/html \
 		$(ARTIFACTDIR)/bash_completion \
@@ -129,10 +132,13 @@ release: $(RELEASE_BINS) $(RELEASE_NOARCH)
 	mkdir -p "$(ARTIFACTDIR)/release"
 	cp $^ "$(ARTIFACTDIR)/release"
 	cd "$(ARTIFACTDIR)/release" && sha512sum $$(ls | sort) > sha512sum.txt
-	@if echo "$(ZREPL_VERSION)" | grep dirty > /dev/null; then\
-		echo '[WARN] Do not publish the artifacts, make variable ZREPL_VERSION=$(ZREPL_VERSION) indicates they are dirty!'; \
-		exit 1; \
-	fi
+	@# note that we use ZREPL_VERSION and not _ZREPL_VERSION because we want to detect the override
+	@if git describe --dirty 2>/dev/null | grep dirty >/dev/null; then \
+		if [ "$(ZREPL_VERSION)" == "" ]; then \
+			echo "[WARN] git checkout is dirty and make variable ZREPL_VERSION was not used to override"; \
+			exit 1; \
+		fi; \
+	fi;
 
 clean: docs-clean
 	rm -rf "$(ARTIFACTDIR)"
