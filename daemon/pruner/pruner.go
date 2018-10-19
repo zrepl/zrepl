@@ -9,6 +9,7 @@ import (
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/pruning"
 	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/zrepl/zrepl/util/watchdog"
 	"net"
 	"sort"
 	"sync"
@@ -55,6 +56,8 @@ type args struct {
 
 type Pruner struct {
 	args args
+
+	Progress watchdog.KeepAlive
 
 	mtx sync.RWMutex
 
@@ -175,6 +178,10 @@ func (s State) statefunc() state {
 	return statemap[s]
 }
 
+func (s State) IsTerminal() bool {
+	return s.statefunc() == nil
+}
+
 type updater func(func(*Pruner)) State
 type state func(args *args, u updater) state
 
@@ -247,6 +254,12 @@ func (p *Pruner) Report() *Report {
 	}
 
 	return &r
+}
+
+func (p *Pruner) State() State {
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+	return p.state
 }
 
 type fs struct {

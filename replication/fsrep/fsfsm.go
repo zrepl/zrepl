@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/zrepl/zrepl/util/watchdog"
 	"io"
 	"net"
 	"sync"
@@ -191,7 +192,7 @@ type ReplicationStep struct {
 	expectedSize int64 // 0 means no size estimate present / possible
 }
 
-func (f *Replication) TakeStep(ctx context.Context, sender Sender, receiver Receiver) (post State, nextStepDate, retryWaitUntil time.Time) {
+func (f *Replication) TakeStep(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver) (post State, nextStepDate, retryWaitUntil time.Time) {
 
 	var u updater = func(fu func(*Replication)) State {
 		f.lock.Lock()
@@ -205,7 +206,7 @@ func (f *Replication) TakeStep(ctx context.Context, sender Sender, receiver Rece
 
 	pre := u(nil)
 	preTime := time.Now()
-	s = s(ctx, sender, receiver, u)
+	s = s(ctx, ka, sender, receiver, u)
 	delta := time.Now().Sub(preTime)
 
 	post = u(func(f *Replication) {
@@ -233,11 +234,11 @@ func (f *Replication) RetryWaitUntil() time.Time {
 
 type updater func(func(fsr *Replication)) State
 
-type state func(ctx context.Context, sender Sender, receiver Receiver, u updater) state
+type state func(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state
 
 var RetrySleepDuration = 10 * time.Second // FIXME make configurable
 
-func stateReady(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
+func stateReady(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state {
 
 	var current *ReplicationStep
 	s := u(func(f *Replication) {
@@ -251,7 +252,7 @@ func stateReady(ctx context.Context, sender Sender, receiver Receiver, u updater
 		return s.fsrsf()
 	}
 
-	stepState := current.doReplication(ctx, sender, receiver)
+	stepState := current.doReplication(ctx, ka, sender, receiver)
 
 	return u(func(f *Replication) {
 		switch stepState {
@@ -277,7 +278,7 @@ func stateReady(ctx context.Context, sender Sender, receiver Receiver, u updater
 	}).fsrsf()
 }
 
-func stateRetryWait(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
+func stateRetryWait(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state {
 	var sleepUntil time.Time
 	u(func(f *Replication) {
 		sleepUntil = f.retryWaitUntil
@@ -337,7 +338,7 @@ func shouldRetry(err error) bool {
 	return false
 }
 
-func (s *ReplicationStep) doReplication(ctx context.Context, sender Sender, receiver Receiver) StepState {
+func (s *ReplicationStep) doReplication(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver) StepState {
 
 	fs := s.parent.fs
 
@@ -380,6 +381,9 @@ func (s *ReplicationStep) doReplication(ctx context.Context, sender Sender, rece
 	}
 
 	s.byteCounter = util.NewByteCounterReader(sstream)
+	s.byteCounter.SetCallback(1*time.Second, func(i int64) {
+		ka.MadeProgress()
+	})
 	defer func() {
 		s.parent.promBytesReplicated.Add(float64(s.byteCounter.Bytes()))
 	}()
@@ -404,14 +408,15 @@ func (s *ReplicationStep) doReplication(ctx context.Context, sender Sender, rece
 		return updateStateError(err)
 	}
 	log.Debug("receive finished")
+	ka.MadeProgress()
 
 	updateStateCompleted()
 
-	return s.doMarkReplicated(ctx, sender)
+	return s.doMarkReplicated(ctx, ka, sender)
 
 }
 
-func (s *ReplicationStep) doMarkReplicated(ctx context.Context, sender Sender) StepState {
+func (s *ReplicationStep) doMarkReplicated(ctx context.Context, ka *watchdog.KeepAlive, sender Sender) StepState {
 
 	log := getLogger(ctx).
 		WithField("filesystem", s.parent.fs).
@@ -456,6 +461,7 @@ func (s *ReplicationStep) doMarkReplicated(ctx context.Context, sender Sender) S
 		log.Error(err.Error())
 		return updateStateError(err)
 	}
+	ka.MadeProgress()
 
 	return updateStateCompleted()
 }

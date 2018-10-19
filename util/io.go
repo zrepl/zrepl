@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"sync/atomic"
+	"time"
 )
 
 type NetConnLogger struct {
@@ -101,6 +102,14 @@ func (c *ChainedReader) Read(buf []byte) (n int, err error) {
 
 type ByteCounterReader struct {
 	reader    io.ReadCloser
+
+	// called & accessed synchronously during Read, no external access
+	cb        func(full int64)
+	cbEvery   time.Duration
+	lastCbAt  time.Time
+	bytesSinceLastCb int64
+
+	// set atomically because it may be read by multiple threads
 	bytes     int64
 }
 
@@ -110,13 +119,23 @@ func NewByteCounterReader(reader io.ReadCloser) *ByteCounterReader {
 	}
 }
 
+func (b *ByteCounterReader) SetCallback(every time.Duration, cb func(full int64)) {
+	b.cbEvery = every
+	b.cb = cb
+}
+
 func (b *ByteCounterReader) Close() error {
 	return b.reader.Close()
 }
 
 func (b *ByteCounterReader) Read(p []byte) (n int, err error) {
 	n, err = b.reader.Read(p)
-	atomic.AddInt64(&b.bytes, int64(n))
+	full := atomic.AddInt64(&b.bytes, int64(n))
+	now := time.Now()
+	if b.cb != nil && now.Sub(b.lastCbAt) > b.cbEvery {
+		b.cb(full)
+		b.lastCbAt = now
+	}
 	return n, err
 }
 

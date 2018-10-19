@@ -274,8 +274,7 @@ func (t *tui) renderReplicationReport(rep *replication.Report) {
 		t.printf("Problem: %s", rep.Problem)
 		t.newline()
 	}
-	if rep.SleepUntil.After(time.Now()) &&
-		state & ^(replication.PermanentError|replication.Completed) != 0 {
+	if rep.SleepUntil.After(time.Now()) && !state.IsTerminal() {
 		t.printf("Sleeping until %s (%s left)\n", rep.SleepUntil, rep.SleepUntil.Sub(time.Now()))
 	}
 

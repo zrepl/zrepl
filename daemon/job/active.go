@@ -13,6 +13,8 @@ import (
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/replication"
+	"github.com/zrepl/zrepl/util/envconst"
+	"github.com/zrepl/zrepl/util/watchdog"
 	"github.com/zrepl/zrepl/zfs"
 	"sync"
 	"github.com/zrepl/zrepl/daemon/logging"
@@ -38,7 +40,9 @@ type ActiveSide struct {
 
 type activeSideTasks struct {
 	replication *replication.Replication
+	replicationCancel context.CancelFunc
 	prunerSender, prunerReceiver *pruner.Pruner
+	prunerSenderCancel, prunerReceiverCancel context.CancelFunc
 }
 
 func (a *ActiveSide) updateTasks(u func(*activeSideTasks)) activeSideTasks {
@@ -262,6 +266,57 @@ func (j *ActiveSide) do(ctx context.Context) {
 		}
 	}()
 
+	// watchdog
+	go func() {
+		// if no progress after 1 minute, kill the task
+		wdto := envconst.Duration("ZREPL_JOB_WATCHDOG_TIMEOUT", 1*time.Minute)
+		log.WithField("watchdog_timeout", wdto.String()).Debug("starting watchdog")
+
+		t := time.NewTicker(wdto)
+		defer t.Stop()
+
+		var (
+			rep, prunerSender, prunerReceiver watchdog.Progress
+		)
+		for {
+			select {
+			case <-runDone:
+				return
+			case <-ctx.Done():
+				return
+			case <-t.C: // fall
+			}
+
+			log := log.WithField("watchdog_timeout", wdto.String()) // shadowing!
+
+			j.updateTasks(func(tasks *activeSideTasks) {
+				if tasks.replication != nil &&
+					!tasks.replication.Progress.ExpectProgress(&rep) &&
+					!tasks.replication.State().IsTerminal() {
+					log.Error("replication did not make progress, cancelling")
+					tasks.replicationCancel()
+				}
+				if tasks.prunerSender != nil &&
+					!tasks.prunerSender.Progress.ExpectProgress(&prunerSender) &&
+					!tasks.prunerSender.State().IsTerminal() {
+					log.Error("pruner:sender did not make progress, cancelling")
+					tasks.prunerSenderCancel()
+				}
+				if tasks.prunerReceiver != nil &&
+					!tasks.prunerReceiver.Progress.ExpectProgress(&prunerReceiver) &&
+					!tasks.prunerReceiver.State().IsTerminal() {
+					log.Error("pruner:receiver did not make progress, cancelling")
+					tasks.prunerReceiverCancel()
+				}
+			})
+			log.WithField("replication_progress", rep.String()).
+				WithField("pruner_sender_progress", prunerSender.String()).
+				WithField("pruner_receiver_progress", prunerReceiver.String()).
+				Debug("watchdog did run")
+
+		}
+	}()
+
 	client, err := j.clientFactory.NewClient()
 	if err != nil {
 		log.WithError(err).Error("factory cannot instantiate streamrpc client")
@@ -270,21 +325,52 @@ func (j *ActiveSide) do(ctx context.Context) {
 
 	sender, receiver, err := j.mode.SenderReceiver(client)
 
-	tasks := j.updateTasks(func(tasks *activeSideTasks) {
-		// reset it
-		*tasks = activeSideTasks{}
-		tasks.replication = replication.NewReplication(j.promRepStateSecs, j.promBytesReplicated)
-	})
+	{
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		ctx, repCancel := context.WithCancel(ctx)
+		tasks := j.updateTasks(func(tasks *activeSideTasks) {
+			// reset it
+			*tasks = activeSideTasks{}
+			tasks.replicationCancel = repCancel
+			tasks.replication = replication.NewReplication(j.promRepStateSecs, j.promBytesReplicated)
+		})
+		log.Info("start replication")
+		tasks.replication.Drive(ctx, sender, receiver)
+		repCancel() // always cancel to free up context resources
+	}
 
-	log.Info("start replication")
-	tasks.replication.Drive(ctx, sender, receiver)
-
-	tasks = j.updateTasks(func(tasks *activeSideTasks) {
-		tasks.prunerSender = j.prunerFactory.BuildSenderPruner(ctx, sender, sender)
-		tasks.prunerReceiver = j.prunerFactory.BuildReceiverPruner(ctx, receiver, sender)
-	})
-	log.Info("start pruning sender")
-	tasks.prunerSender.Prune()
-	log.Info("start pruning receiver")
-	tasks.prunerReceiver.Prune()
+	{
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		ctx, senderCancel := context.WithCancel(ctx)
+		tasks := j.updateTasks(func(tasks *activeSideTasks) {
+			tasks.prunerSender = j.prunerFactory.BuildSenderPruner(ctx, sender, sender)
+			tasks.prunerSenderCancel = senderCancel
+		})
+		log.Info("start pruning sender")
+		tasks.prunerSender.Prune()
+		senderCancel()
+	}
+	{
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		ctx, receiverCancel := context.WithCancel(ctx)
+		tasks := j.updateTasks(func(tasks *activeSideTasks) {
+			tasks.prunerReceiver = j.prunerFactory.BuildReceiverPruner(ctx, receiver, sender)
+			tasks.prunerReceiverCancel = receiverCancel
+		})
+		log.Info("start pruning receiver")
+		tasks.prunerReceiver.Prune()
+		receiverCancel()
+	}
 }

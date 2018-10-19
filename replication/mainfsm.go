@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
+	"github.com/zrepl/zrepl/util/watchdog"
 	"math/bits"
 	"net"
 	"sync"
@@ -47,6 +48,10 @@ func (s State) rsf() state {
 	return m[idx]
 }
 
+func (s State) IsTerminal() bool {
+	return s.rsf() == nil
+}
+
 // Replication implements the replication of multiple file systems from a Sender to a Receiver.
 //
 // It is a state machine that is driven by the Drive method
@@ -55,6 +60,8 @@ type Replication struct {
 	// not protected by lock
 	promSecsPerState *prometheus.HistogramVec // labels: state
 	promBytesReplicated *prometheus.CounterVec // labels: filesystem
+
+	Progress watchdog.KeepAlive
 
 	// lock protects all fields of this struct (but not the fields behind pointers!)
 	lock sync.Mutex
@@ -122,7 +129,7 @@ func NewFilteredError(fs string) *FilteredError {
 func (f FilteredError) Error() string { return "endpoint does not allow access to filesystem " + f.fs }
 
 type updater func(func(*Replication)) (newState State)
-type state func(ctx context.Context, sender Sender, receiver Receiver, u updater) state
+type state func(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state
 
 // Drive starts the state machine and returns only after replication has finished (with or without errors).
 // The Logger in ctx is used for both debug and error logging, but is not guaranteed to be stable
@@ -147,7 +154,7 @@ func (r *Replication) Drive(ctx context.Context, sender Sender, receiver Receive
 	for s != nil {
 		preTime := time.Now()
 		pre = u(nil)
-		s = s(ctx, sender, receiver, u)
+		s = s(ctx, &r.Progress, sender, receiver, u)
 		delta := time.Now().Sub(preTime)
 		r.promSecsPerState.WithLabelValues(pre.String()).Observe(delta.Seconds())
 		post = u(nil)
@@ -198,7 +205,7 @@ func isPermanent(err error) bool {
 	return false
 }
 
-func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
+func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state {
 
 	log := getLogger(ctx)
 
@@ -307,8 +314,11 @@ func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u upda
 			log.WithError(err).Error("error computing size estimate")
 			return handlePlanningError(err)
 		}
+
 		q.Add(qitem)
 	}
+
+	ka.MadeProgress()
 
 	return u(func(r *Replication) {
 		r.completed = nil
@@ -318,7 +328,7 @@ func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u upda
 	}).rsf()
 }
 
-func statePlanningError(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
+func statePlanningError(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state {
 	var sleepUntil time.Time
 	u(func(r *Replication) {
 		sleepUntil = r.sleepUntil
@@ -340,7 +350,7 @@ func statePlanningError(ctx context.Context, sender Sender, receiver Receiver, u
 	}).rsf()
 }
 
-func stateWorking(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
+func stateWorking(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state {
 
 	var active *ReplicationQueueItemHandle
 	rsfNext := u(func(r *Replication) {
@@ -365,7 +375,7 @@ func stateWorking(ctx context.Context, sender Sender, receiver Receiver, u updat
 		}).rsf()
 	}
 
-	state, nextStepDate, retryWaitUntil := active.GetFSReplication().TakeStep(ctx, sender, receiver)
+	state, nextStepDate, retryWaitUntil := active.GetFSReplication().TakeStep(ctx, ka, sender, receiver)
 	return u(func(r *Replication) {
 		active.Update(state, nextStepDate, retryWaitUntil)
 		r.active = nil
@@ -383,7 +393,7 @@ func stateWorking(ctx context.Context, sender Sender, receiver Receiver, u updat
 	return u(nil).rsf()
 }
 
-func stateWorkingWait(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
+func stateWorkingWait(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state {
 	var sleepUntil time.Time
 	u(func(r *Replication) {
 		sleepUntil = r.sleepUntil
@@ -444,4 +454,10 @@ func (r *Replication) Report() *Report {
 	}
 
 	return &rep
+}
+
+func (r *Replication) State() State {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	return r.state
 }
