@@ -26,6 +26,9 @@ SUBPKGS += replication/internal/queue
 SUBPKGS += replication/internal/diff
 SUBPKGS += tlsconf
 SUBPKGS += util
+SUBPKGS += util/socketpair
+SUBPKGS += util/watchdog
+SUBPKGS += util/envconst
 SUBPKGS += version
 SUBPKGS += zfs
 
