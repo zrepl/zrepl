@@ -11,7 +11,7 @@ const (
 	_StateName_1 = "Working"
 	_StateName_2 = "WorkingWait"
 	_StateName_3 = "Completed"
-	_StateName_4 = "ContextDone"
+	_StateName_4 = "PermanentError"
 )
 
 var (
@@ -19,7 +19,7 @@ var (
 	_StateIndex_1 = [...]uint8{0, 7}
 	_StateIndex_2 = [...]uint8{0, 11}
 	_StateIndex_3 = [...]uint8{0, 9}
-	_StateIndex_4 = [...]uint8{0, 11}
+	_StateIndex_4 = [...]uint8{0, 14}
 )
 
 func (i State) String() string {
@@ -48,7 +48,7 @@ var _StateNameToValueMap = map[string]State{
 	_StateName_1[0:7]:  4,
 	_StateName_2[0:11]: 8,
 	_StateName_3[0:9]:  16,
-	_StateName_4[0:11]: 32,
+	_StateName_4[0:14]: 32,
 }
 
 // StateString retrieves an enum value from the enum constants string name.

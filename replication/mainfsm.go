@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"math/bits"
+	"net"
 	"sync"
 	"time"
 
@@ -27,7 +28,7 @@ const (
 	Working
 	WorkingWait
 	Completed
-	ContextDone
+	PermanentError
 )
 
 func (s State) rsf() state {
@@ -65,11 +66,8 @@ type Replication struct {
 	completed []*fsrep.Replication
 	active    *ReplicationQueueItemHandle
 
-	// PlanningError
-	planningError error
-
-	// ContextDone
-	contextError error
+	// for PlanningError, WorkingWait and ContextError and Completed
+	err error
 
 	// PlanningError, WorkingWait
 	sleepUntil time.Time
@@ -189,6 +187,17 @@ func resolveConflict(conflict error) (path []*pdu.FilesystemVersion, msg string)
 
 var PlanningRetryInterval = 10 * time.Second // FIXME make constant onfigurable
 
+func isPermanent(err error) bool {
+	switch err {
+	case context.Canceled: return true
+	case context.DeadlineExceeded: return true
+	}
+	if operr, ok := err.(net.Error); ok {
+		return !operr.Temporary()
+	}
+	return false
+}
+
 func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
 
 	log := getLogger(ctx)
@@ -196,11 +205,14 @@ func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u upda
 	log.Info("start planning")
 
 	handlePlanningError := func(err error) state {
-		// FIXME classify error as temporary or permanent / max retry counter
 		return u(func(r *Replication) {
-			r.sleepUntil = time.Now().Add(PlanningRetryInterval)
-			r.planningError = err
-			r.state = PlanningError
+			r.err = err
+			if isPermanent(err) {
+				r.state = PermanentError
+			} else {
+				r.sleepUntil = time.Now().Add(PlanningRetryInterval)
+				r.state = PlanningError
+			}
 		}).rsf()
 	}
 
@@ -301,7 +313,7 @@ func statePlanning(ctx context.Context, sender Sender, receiver Receiver, u upda
 	return u(func(r *Replication) {
 		r.completed = nil
 		r.queue = q
-		r.planningError = nil
+		r.err = nil
 		r.state = Working
 	}).rsf()
 }
@@ -317,8 +329,8 @@ func statePlanningError(ctx context.Context, sender Sender, receiver Receiver, u
 	select {
 	case <-ctx.Done():
 		return u(func(r *Replication) {
-			r.state = ContextDone
-			r.contextError = ctx.Err()
+			r.state = PermanentError
+			r.err = ctx.Err()
 		}).rsf()
 	case <-t.C:
 	case <-wakeup.Wait(ctx):
@@ -358,6 +370,17 @@ func stateWorking(ctx context.Context, sender Sender, receiver Receiver, u updat
 		active.Update(state, nextStepDate, retryWaitUntil)
 		r.active = nil
 	}).rsf()
+
+	select {
+	case <-ctx.Done():
+		return u(func(r *Replication) {
+			r.err = ctx.Err()
+			r.state = PermanentError
+		}).rsf()
+	default:
+	}
+
+	return u(nil).rsf()
 }
 
 func stateWorkingWait(ctx context.Context, sender Sender, receiver Receiver, u updater) state {
@@ -371,8 +394,8 @@ func stateWorkingWait(ctx context.Context, sender Sender, receiver Receiver, u u
 	select {
 	case <-ctx.Done():
 		return u(func(r *Replication) {
-			r.state = ContextDone
-			r.contextError = ctx.Err()
+			r.state = PermanentError
+			r.err = ctx.Err()
 		}).rsf()
 
 	case <-t.C:
@@ -395,12 +418,9 @@ func (r *Replication) Report() *Report {
 		SleepUntil: r.sleepUntil,
 	}
 
-	if r.state&(Planning|PlanningError|ContextDone) != 0 {
-		switch r.state {
-		case PlanningError:
-			rep.Problem = r.planningError.Error()
-		case ContextDone:
-			rep.Problem = r.contextError.Error()
+	if r.state&(Planning|PlanningError|PermanentError) != 0 {
+		if r.err != nil {
+			rep.Problem = r.err.Error()
 		}
 		return &rep
 	}
