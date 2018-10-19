@@ -39,5 +39,9 @@ func TLSConnecterFromConfig(in *config.TLSConnect) (*TLSConnecter, error) {
 }
 
 func (c *TLSConnecter) Connect(dialCtx context.Context) (conn net.Conn, err error) {
-	return tls.DialWithDialer(&c.dialer, "tcp", c.Address, c.tlsConfig)
+	conn, err = c.dialer.DialContext(dialCtx, "tcp", c.Address)
+	if err != nil {
+		return nil, err
+	}
+	return tls.Client(conn, c.tlsConfig), nil
 }
