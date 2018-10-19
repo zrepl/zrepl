@@ -5,13 +5,13 @@ package fsrep
 import "strconv"
 
 const (
-	_State_name_0 = "ReadyRetryWait"
+	_State_name_0 = "ReadyRetry"
 	_State_name_1 = "PermanentError"
 	_State_name_2 = "Completed"
 )
 
 var (
-	_State_index_0 = [...]uint8{0, 5, 14}
+	_State_index_0 = [...]uint8{0, 5, 10}
 )
 
 func (i State) String() string {

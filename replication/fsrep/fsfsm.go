@@ -76,7 +76,7 @@ type State uint
 
 const (
 	Ready State = 1 << iota
-	RetryWait
+	Retry
 	PermanentError
 	Completed
 )
@@ -84,11 +84,15 @@ const (
 func (s State) fsrsf() state {
 	m := map[State]state{
 		Ready:          stateReady,
-		RetryWait:      stateRetryWait,
+		Retry:          stateRetry,
 		PermanentError: nil,
 		Completed:      nil,
 	}
 	return m[s]
+}
+
+func (s State) IsErrorState() bool {
+	return s & (Retry|PermanentError) != 0
 }
 
 type Replication struct {
@@ -99,7 +103,6 @@ type Replication struct {
 	state              State
 	fs                 string
 	err                error
-	retryWaitUntil     time.Time
 	completed, pending []*ReplicationStep
 }
 
@@ -107,6 +110,15 @@ func (f *Replication) State() State {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	return f.state
+}
+
+func (f *Replication) Err() error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if f.state & (Retry|PermanentError) != 0 {
+		return f.err
+	}
+	return nil
 }
 
 func (f *Replication) UpdateSizeEsitmate(ctx context.Context, sender Sender) error {
@@ -192,7 +204,7 @@ type ReplicationStep struct {
 	expectedSize int64 // 0 means no size estimate present / possible
 }
 
-func (f *Replication) TakeStep(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver) (post State, nextStepDate, retryWaitUntil time.Time) {
+func (f *Replication) TakeStep(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver) (post State, nextStepDate time.Time) {
 
 	var u updater = func(fu func(*Replication)) State {
 		f.lock.Lock()
@@ -214,7 +226,6 @@ func (f *Replication) TakeStep(ctx context.Context, ka *watchdog.KeepAlive, send
 			return
 		}
 		nextStepDate = f.pending[0].to.SnapshotTime()
-		retryWaitUntil = f.retryWaitUntil
 	})
 
 	getLogger(ctx).
@@ -223,20 +234,12 @@ func (f *Replication) TakeStep(ctx context.Context, ka *watchdog.KeepAlive, send
 		WithField("duration", delta).
 		Debug("fsr step taken")
 
-	return post, nextStepDate, retryWaitUntil
-}
-
-func (f *Replication) RetryWaitUntil() time.Time {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-	return f.retryWaitUntil
+	return post, nextStepDate
 }
 
 type updater func(func(fsr *Replication)) State
 
 type state func(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state
-
-var RetrySleepDuration = 10 * time.Second // FIXME make configurable
 
 func stateReady(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state {
 
@@ -267,8 +270,7 @@ func stateReady(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, rece
 		case StepReplicationRetry:
 			fallthrough
 		case StepMarkReplicatedRetry:
-			f.retryWaitUntil = time.Now().Add(RetrySleepDuration)
-			f.state = RetryWait
+			f.state = Retry
 		case StepPermanentError:
 			f.state = PermanentError
 			f.err = errors.New("a replication step failed with a permanent error")
@@ -278,16 +280,9 @@ func stateReady(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, rece
 	}).fsrsf()
 }
 
-func stateRetryWait(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state {
-	var sleepUntil time.Time
-	u(func(f *Replication) {
-		sleepUntil = f.retryWaitUntil
-	})
-	if time.Now().Before(sleepUntil) {
-		return u(nil).fsrsf()
-	}
-	return u(func(f *Replication) {
-		f.state = Ready
+func stateRetry(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state {
+	return u(func(fsr *Replication) {
+		fsr.state = Ready
 	}).fsrsf()
 }
 
@@ -314,8 +309,8 @@ func (fsr *Replication) Report() *Report {
 		rep.Pending[i] = fsr.pending[i].Report()
 	}
 
-	if fsr.state&RetryWait != 0 {
-		if len(rep.Pending) != 0 { // should always be true for RetryWait == true?
+	if fsr.state&Retry != 0 {
+		if len(rep.Pending) != 0 { // should always be true for Retry == true?
 			rep.Problem = rep.Pending[0].Problem
 		}
 	}

@@ -11,9 +11,8 @@ type replicationQueueItem struct {
 	// duplicates fsr.state to avoid accessing and locking fsr
 	state State
 	// duplicates fsr.current.nextStepDate to avoid accessing & locking fsr
-	nextStepDate time.Time
-	// duplicates fsr.retryWaitUntil to avoid accessing & locking fsr
-	retryWaitUntil time.Time
+	nextStepDate         time.Time
+	errorStateEnterCount int
 
 	fsr *Replication
 }
@@ -40,10 +39,10 @@ var lessmap = map[State]lessmapEntry{
 			return a.nextStepDate.Before(b.nextStepDate)
 		},
 	},
-	RetryWait: {
+	Retry: {
 		prio: 1,
 		less: func(a, b *replicationQueueItem) bool {
-			return a.retryWaitUntil.Before(b.retryWaitUntil)
+			return a.errorStateEnterCount < b.errorStateEnterCount
 		},
 	},
 }
@@ -114,8 +113,10 @@ func (h ReplicationQueueItemHandle) GetFSReplication() *Replication {
 	return h.i.fsr
 }
 
-func (h ReplicationQueueItemHandle) Update(newState State, nextStepDate, retryWaitUntil time.Time) {
+func (h ReplicationQueueItemHandle) Update(newState State, nextStepDate time.Time) {
 	h.i.state = newState
 	h.i.nextStepDate = nextStepDate
-	h.i.retryWaitUntil = retryWaitUntil
+	if h.i.state.IsErrorState() {
+		h.i.errorStateEnterCount++
+	}
 }

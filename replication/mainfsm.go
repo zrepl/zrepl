@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
+	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/util/watchdog"
 	"math/bits"
 	"net"
@@ -192,7 +193,7 @@ func resolveConflict(conflict error) (path []*pdu.FilesystemVersion, msg string)
 	return nil, "no automated way to handle conflict type"
 }
 
-var PlanningRetryInterval = 10 * time.Second // FIXME make constant onfigurable
+var RetryInterval = envconst.Duration("ZREPL_REPLICATION_RETRY_INTERVAL", 4 * time.Second)
 
 func isPermanent(err error) bool {
 	switch err {
@@ -217,7 +218,7 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 			if isPermanent(err) {
 				r.state = PermanentError
 			} else {
-				r.sleepUntil = time.Now().Add(PlanningRetryInterval)
+				r.sleepUntil = time.Now().Add(RetryInterval)
 				r.state = PlanningError
 			}
 		}).rsf()
@@ -367,17 +368,9 @@ func stateWorking(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, re
 		return rsfNext
 	}
 
-	retryWaitUntil := active.GetFSReplication().RetryWaitUntil()
-	if retryWaitUntil.After(time.Now()) {
-		return u(func(r *Replication) {
-			r.sleepUntil = retryWaitUntil
-			r.state = WorkingWait
-		}).rsf()
-	}
-
-	state, nextStepDate, retryWaitUntil := active.GetFSReplication().TakeStep(ctx, ka, sender, receiver)
-	return u(func(r *Replication) {
-		active.Update(state, nextStepDate, retryWaitUntil)
+	state, nextStepDate := active.GetFSReplication().TakeStep(ctx, ka, sender, receiver)
+	u(func(r *Replication) {
+		active.Update(state, nextStepDate)
 		r.active = nil
 	}).rsf()
 
@@ -390,6 +383,18 @@ func stateWorking(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, re
 	default:
 	}
 
+	if err := active.GetFSReplication().Err(); err != nil {
+		return u(func(r *Replication) {
+			r.err = err
+			if isPermanent(err) {
+				r.state = PermanentError
+			} else {
+				r.sleepUntil = time.Now().Add(RetryInterval)
+				r.state = WorkingWait
+			}
+		}).rsf()
+	}
+
 	return u(nil).rsf()
 }
 
@@ -398,8 +403,8 @@ func stateWorkingWait(ctx context.Context, ka *watchdog.KeepAlive, sender Sender
 	u(func(r *Replication) {
 		sleepUntil = r.sleepUntil
 	})
-	t := time.NewTimer(PlanningRetryInterval)
-	getLogger(ctx).WithField("until", sleepUntil).Info("retry wait because no filesystems are ready")
+	t := time.NewTimer(RetryInterval)
+	getLogger(ctx).WithField("until", sleepUntil).Info("retry wait after replication step error")
 	defer t.Stop()
 	select {
 	case <-ctx.Done():
