@@ -138,6 +138,7 @@ size	10518512
 			name: "fullSend", in: fullSend,
 			exp: &DrySendInfo{
 				Type: DrySendTypeFull,
+				Filesystem: "zroot/test/a",
 				From: "",
 				To: "zroot/test/a@1",
 				SizeEstimate: 5389768,
@@ -147,6 +148,7 @@ size	10518512
 			name: "incSend", in: incSend,
 			exp: &DrySendInfo{
 				Type:         DrySendTypeIncremental,
+				Filesystem: "zroot/test/a",
 				From:         "zroot/test/a@1",
 				To:           "zroot/test/a@2",
 				SizeEstimate: 5383936,
@@ -156,6 +158,7 @@ size	10518512
 			name: "incSendBookmark", in: incSendBookmark,
 			exp: &DrySendInfo{
 				Type:         DrySendTypeIncremental,
+				Filesystem: "zroot/test/a",
 				From:         "zroot/test/a#1",
 				To:           "zroot/test/a@2",
 				SizeEstimate: 5383312,
@@ -163,18 +166,21 @@ size	10518512
 		},
 		{
 			name: "incNoToken", in: incNoToken,
-			//exp: &DrySendInfo{
-			//	Type:         DrySendTypeIncremental,
-			//	From:         "1", // yes, this is actually correct on ZoL 0.7.11
-			//	To:           "zroot/test/a@2",
-			//	SizeEstimate: 10511856,
-			//},
-			expErr: true,
+			exp: &DrySendInfo{
+				Type:         DrySendTypeIncremental,
+				Filesystem: "zroot/test/a",
+				// as can be seen in the string incNoToken,
+				// we cannot infer whether the incremental source is a snapshot or bookmark
+				From:         "1", // yes, this is actually correct on ZoL 0.7.11
+				To:           "zroot/test/a@2",
+				SizeEstimate: 10511856,
+			},
 		},
 		{
 			name: "fullNoToken", in: fullNoToken,
 			exp: &DrySendInfo{
 				Type: DrySendTypeFull,
+				Filesystem: "zroot/test/a",
 				From: "",
 				To: "zroot/test/a@3",
 				SizeEstimate: 10518512,
