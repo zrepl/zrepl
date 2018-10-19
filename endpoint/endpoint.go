@@ -89,7 +89,7 @@ func (p *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 		}
 		return &pdu.SendRes{ExpectedSize: expSize}, nil, nil
 	} else {
-		stream, err := zfs.ZFSSend(r.Filesystem, r.From, r.To, "")
+		stream, err := zfs.ZFSSend(ctx, r.Filesystem, r.From, r.To, "")
 		if err != nil {
 			return nil, nil, err
 		}
@@ -279,7 +279,7 @@ func (e *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, sendStream 
 
 	getLogger(ctx).Debug("start receive command")
 
-	if err := zfs.ZFSRecv(lp.ToString(), sendStream, args...); err != nil {
+	if err := zfs.ZFSRecv(ctx, lp.ToString(), sendStream, args...); err != nil {
 		getLogger(ctx).
 			WithError(err).
 			WithField("args", args).

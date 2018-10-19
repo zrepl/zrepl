@@ -2,6 +2,7 @@ package util
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -34,8 +35,8 @@ func (e IOCommandError) Error() string {
 	return fmt.Sprintf("underlying process exited with error: %s\nstderr: %s\n", e.WaitErr, e.Stderr)
 }
 
-func RunIOCommand(command string, args ...string) (c *IOCommand, err error) {
-	c, err = NewIOCommand(command, args, IOCommandStderrBufSize)
+func RunIOCommand(ctx context.Context, command string, args ...string) (c *IOCommand, err error) {
+	c, err = NewIOCommand(ctx, command, args, IOCommandStderrBufSize)
 	if err != nil {
 		return
 	}
@@ -43,7 +44,7 @@ func RunIOCommand(command string, args ...string) (c *IOCommand, err error) {
 	return
 }
 
-func NewIOCommand(command string, args []string, stderrBufSize int) (c *IOCommand, err error) {
+func NewIOCommand(ctx context.Context, command string, args []string, stderrBufSize int) (c *IOCommand, err error) {
 
 	if stderrBufSize == 0 {
 		stderrBufSize = IOCommandStderrBufSize
@@ -51,7 +52,7 @@ func NewIOCommand(command string, args []string, stderrBufSize int) (c *IOComman
 
 	c = &IOCommand{}
 
-	c.Cmd = exec.Command(command, args...)
+	c.Cmd = exec.CommandContext(ctx, command, args...)
 
 	if c.Stdout, err = c.Cmd.StdoutPipe(); err != nil {
 		return

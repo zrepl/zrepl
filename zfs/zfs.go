@@ -317,7 +317,7 @@ func buildCommonSendArgs(fs string, from, to string, token string) ([]string, er
 // if token != "", then send -t token is used
 // otherwise send [-i from] to is used
 // (if from is "" a full ZFS send is done)
-func ZFSSend(fs string, from, to string, token string) (stream io.ReadCloser, err error) {
+func ZFSSend(ctx context.Context, fs string, from, to string, token string) (stream io.ReadCloser, err error) {
 
 	args := make([]string, 0)
 	args = append(args, "send")
@@ -328,7 +328,7 @@ func ZFSSend(fs string, from, to string, token string) (stream io.ReadCloser, er
 	}
 	args = append(args, sargs...)
 
-	stream, err = util.RunIOCommand(ZFS_BINARY, args...)
+	stream, err = util.RunIOCommand(ctx, ZFS_BINARY, args...)
 
 	return
 }
@@ -455,7 +455,7 @@ func ZFSSendDry(fs string, from, to string, token string) (_ *DrySendInfo, err e
 }
 
 
-func ZFSRecv(fs string, stream io.Reader, additionalArgs ...string) (err error) {
+func ZFSRecv(ctx context.Context, fs string, stream io.Reader, additionalArgs ...string) (err error) {
 
 	if err := validateZFSFilesystem(fs); err != nil {
 		return err
@@ -468,7 +468,7 @@ func ZFSRecv(fs string, stream io.Reader, additionalArgs ...string) (err error) 
 	}
 	args = append(args, fs)
 
-	cmd := exec.Command(ZFS_BINARY, args...)
+	cmd := exec.CommandContext(ctx, ZFS_BINARY, args...)
 
 	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
 	cmd.Stderr = stderr
@@ -521,27 +521,6 @@ func ZFSRecvClearResumeToken(fs string) (err error) {
 		return &ClearResumeTokenError{o, err}
 	}
 	return nil
-}
-
-func ZFSRecvWriter(fs *DatasetPath, additionalArgs ...string) (io.WriteCloser, error) {
-
-	args := make([]string, 0)
-	args = append(args, "recv")
-	if len(args) > 0 {
-		args = append(args, additionalArgs...)
-	}
-	args = append(args, fs.ToString())
-
-	cmd, err := util.NewIOCommand(ZFS_BINARY, args, 1024)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = cmd.Start(); err != nil {
-		return nil, err
-	}
-
-	return cmd.Stdin, nil
 }
 
 type ZFSProperties struct {
