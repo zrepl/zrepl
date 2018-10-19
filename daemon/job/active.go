@@ -356,6 +356,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 		})
 		log.Info("start pruning sender")
 		tasks.prunerSender.Prune()
+		log.Info("finished pruning sender")
 		senderCancel()
 	}
 	{
@@ -371,6 +372,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 		})
 		log.Info("start pruning receiver")
 		tasks.prunerReceiver.Prune()
+		log.Info("finished pruning receiver")
 		receiverCancel()
 	}
 }

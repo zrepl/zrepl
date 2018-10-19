@@ -203,6 +203,12 @@ func (p *Pruner) prune(args args) {
 		GetLogger(args.ctx).
 			WithField("transition", fmt.Sprintf("%s=>%s", pre, post)).
 			Debug("state transition")
+		if err := p.Error(); err != nil {
+			GetLogger(args.ctx).
+				WithError(p.err).
+				WithField("state", post.String()).
+				Error("entering error state after error")
+		}
 	}
 }
 
@@ -260,6 +266,15 @@ func (p *Pruner) State() State {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 	return p.state
+}
+
+func (p *Pruner) Error() error {
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+	if p.state & (PlanWait|ExecWait|ErrPerm) != 0 {
+		return p.err
+	}
+	return nil
 }
 
 type fs struct {
