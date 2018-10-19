@@ -57,7 +57,7 @@ global:
 func TestDefaultLoggingOutlet(t *testing.T) {
 	conf := testValidGlobalSection(t, "")
 	assert.Equal(t, 1, len(*conf.Global.Logging))
-	o := (*conf.Global.Logging)[0].Ret.(StdoutLoggingOutlet)
+	o := (*conf.Global.Logging)[0].Ret.(*StdoutLoggingOutlet)
 	assert.Equal(t, "warn", o.Level)
 	assert.Equal(t, "human", o.Format)
 }
@@ -77,6 +77,6 @@ func TestLoggingOutletEnumList_SetDefaults(t *testing.T) {
 	var i yaml.Defaulter = e
 	require.NotPanics(t, func() {
 		i.SetDefault()
-		assert.Equal(t, "warn", (*e)[0].Ret.(StdoutLoggingOutlet).Level)
+		assert.Equal(t, "warn", (*e)[0].Ret.(*StdoutLoggingOutlet).Level)
 	})
 }
