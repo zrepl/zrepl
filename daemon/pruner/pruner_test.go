@@ -129,12 +129,12 @@ func TestPruner_Prune(t *testing.T) {
 	var _ net.Error = &net.OpError{} // we use it below
 	target := &mockTarget{
 		listFilesystemsErr: []error{
-			stubNetErr{msg: "fakerror0"},
+			stubNetErr{msg: "fakerror0", temporary: true},
 		},
 		listVersionsErrs: map[string][]error{
 			"zroot/foo": {
-				stubNetErr{msg: "fakeerror1"}, // should be classified as temporaty
-				stubNetErr{msg: "fakeerror2"},
+				stubNetErr{msg: "fakeerror1", temporary: true}, // should be classified as temporaty
+				stubNetErr{msg: "fakeerror2", temporary: true,},
 			},
 		},
 		destroyErrs: map[string][]error{
@@ -142,7 +142,7 @@ func TestPruner_Prune(t *testing.T) {
 				fmt.Errorf("permanent error"),
 			},
 			"zroot/bar": {
-				stubNetErr{msg: "fakeerror3"},
+				stubNetErr{msg: "fakeerror3", temporary: true},
 			},
 		},
 		destroyed: make(map[string][]string),
@@ -176,7 +176,7 @@ func TestPruner_Prune(t *testing.T) {
 	history := &mockHistory{
 		errs: map[string][]error{
 			"zroot/foo": {
-				stubNetErr{msg: "fakeerror4"},
+				stubNetErr{msg: "fakeerror4", temporary: true},
 			},
 			"zroot/baz": {
 				fmt.Errorf("permanent error2"),

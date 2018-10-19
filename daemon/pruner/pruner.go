@@ -329,11 +329,8 @@ func (s snapshot) Replicated() bool { return s.replicated }
 func (s snapshot) Date() time.Time { return s.date }
 
 func shouldRetry(e error) bool {
-	switch e.(type) {
-	case nil:
-		return true
-	case net.Error:
-		return true
+	if neterr, ok := e.(net.Error); ok {
+		return neterr.Temporary()
 	}
 	return false
 }
