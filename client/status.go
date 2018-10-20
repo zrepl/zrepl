@@ -391,8 +391,8 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 	for _, fs := range all {
 		t.write(rightPad(fs.Filesystem, maxFSname, " "))
 		t.write(" ")
-		if fs.Error != "" {
-			t.printf("ERROR:    %s\n", fs.Error) // whitespace is padding
+		if fs.LastError != "" {
+			t.printf("ERROR (%d): %s\n", fs.LastError) // whitespace is padding
 			continue
 		}
 
@@ -400,11 +400,11 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 			len(fs.DestroyList), len(fs.SnapshotList))
 
 		if fs.completed {
-			t.printf( "Completed %s\n", pruneRuleActionStr)
+			t.printf( "Completed  %s\n", pruneRuleActionStr)
 			continue
 		}
 
-		t.write("Pending   ") // whitespace is padding 10
+		t.write("Pending    ") // whitespace is padding 10
 		if len(fs.DestroyList) == 1 {
 			t.write(fs.DestroyList[0].Name)
 		} else {

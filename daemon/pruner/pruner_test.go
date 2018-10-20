@@ -133,16 +133,14 @@ func TestPruner_Prune(t *testing.T) {
 		},
 		listVersionsErrs: map[string][]error{
 			"zroot/foo": {
-				stubNetErr{msg: "fakeerror1", temporary: true}, // should be classified as temporaty
+				stubNetErr{msg: "fakeerror1", temporary: true},
 				stubNetErr{msg: "fakeerror2", temporary: true,},
 			},
 		},
 		destroyErrs: map[string][]error{
-			"zroot/foo": {
-				fmt.Errorf("permanent error"),
-			},
-			"zroot/bar": {
-				stubNetErr{msg: "fakeerror3", temporary: true},
+			"zroot/baz": {
+				stubNetErr{msg: "fakeerror3", temporary: true}, // first error puts it back in the queue
+				stubNetErr{msg:"permanent error"}, // so it will be last when pruner gives up due to permanent err
 			},
 		},
 		destroyed: make(map[string][]string),
@@ -178,9 +176,6 @@ func TestPruner_Prune(t *testing.T) {
 			"zroot/foo": {
 				stubNetErr{msg: "fakeerror4", temporary: true},
 			},
-			"zroot/baz": {
-				fmt.Errorf("permanent error2"),
-			},
 		},
 	}
 
@@ -199,9 +194,8 @@ func TestPruner_Prune(t *testing.T) {
 	p.Prune()
 
 	exp := map[string][]string{
+		"zroot/foo": {"drop_c"},
 		"zroot/bar": {"drop_g"},
-		// drop_c is prohibited by failing destroy
-		// drop_i is prohibiteed by failing ReplicationCursor call
 	}
 
 	assert.Equal(t, exp, target.destroyed)

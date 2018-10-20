@@ -13,6 +13,7 @@ import (
 	"github.com/zrepl/zrepl/util/watchdog"
 	"net"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -69,8 +70,7 @@ type Pruner struct {
 	err        error
 
 	// State Exec
-	prunePending   []*fs
-	pruneCompleted []*fs
+	execQueue *execQueue
 }
 
 type PrunerFactory struct {
@@ -223,7 +223,8 @@ type Report struct {
 type FSReport struct {
 	Filesystem string
 	SnapshotList, DestroyList []SnapshotReport
-	Error string
+	ErrorCount int
+	LastError string
 }
 
 type SnapshotReport struct {
@@ -247,17 +248,8 @@ func (p *Pruner) Report() *Report {
 		}
 	}
 
-	if p.state & Plan|PlanWait == 0 {
-		return &r
-	}
-
-	r.Pending = make([]FSReport, len(p.prunePending))
-	for i, fs := range p.prunePending{
-		r.Pending[i] = fs.Report()
-	}
-	r.Completed = make([]FSReport, len(p.pruneCompleted))
-	for i, fs := range p.pruneCompleted{
-		r.Completed[i] = fs.Report()
+	if p.execQueue != nil {
+		r.Pending, r.Completed = p.execQueue.Report()
 	}
 
 	return &r
@@ -289,14 +281,11 @@ type fs struct {
 	destroyList []pruning.Snapshot
 
 	mtx sync.RWMutex
-	// for Plan
-	err error
-}
 
-func (f *fs) Update(err error) {
-	f.mtx.Lock()
-	defer f.mtx.Unlock()
-	f.err = err
+	// only during Exec state, also used by execQueue
+	execErrLast error
+	execErrCount int
+
 }
 
 func (f *fs) Report() FSReport {
@@ -305,8 +294,9 @@ func (f *fs) Report() FSReport {
 
 	r := FSReport{}
 	r.Filesystem = f.path
-	if f.err != nil {
-		r.Error = f.err.Error()
+	r.ErrorCount = f.execErrCount
+	if f.execErrLast != nil {
+		r.LastError = f.execErrLast.Error()
 	}
 
 	r.SnapshotList = make([]SnapshotReport, len(f.snaps))
@@ -379,7 +369,6 @@ func statePlan(a *args, u updater) state {
 	}
 
 	pfss := make([]*fs, len(tfss))
-fsloop:
 	for i, tfs := range tfss {
 
 		l := GetLogger(ctx).WithField("fs", tfs.Path)
@@ -394,11 +383,7 @@ fsloop:
 		tfsvs, err := target.ListFilesystemVersions(ctx, tfs.Path)
 		if err != nil {
 			l.WithError(err).Error("cannot list filesystem versions")
-			if shouldRetry(err) {
-				return onErr(u, err)
-			}
-			pfs.err = err
-			continue fsloop
+			return onErr(u, err)
 		}
 		pfs.snaps = make([]pruning.Snapshot, 0, len(tfsvs))
 
@@ -411,16 +396,11 @@ fsloop:
 		rc, err := receiver.ReplicationCursor(ctx, rcReq)
 		if err != nil {
 			l.WithError(err).Error("cannot get replication cursor")
-			if shouldRetry(err) {
-				return onErr(u, err)
-			}
-			pfs.err = err
-			continue fsloop
+			return onErr(u, err)
 		}
 		if rc.GetError() != "" {
 			l.WithField("reqErr", rc.GetError()).Error("cannot get replication cursor")
-			pfs.err = fmt.Errorf("%s", rc.GetError())
-			continue fsloop
+			return onErr(u, err)
 		}
 
 
@@ -445,9 +425,11 @@ fsloop:
 			}
 			creation, err := tfsv.CreationAsTime()
 			if err != nil {
-				pfs.err = fmt.Errorf("%s%s has invalid creation date: %s", tfs, tfsv.RelName(), err)
-				l.WithError(pfs.err).Error("")
-				continue fsloop
+				err := fmt.Errorf("%s%s has invalid creation date: %s", tfs, tfsv.RelName(), err)
+				l.WithError(err).
+					WithField("tfsv", tfsv.RelName()).
+					Error("error with fileesystem version")
+				return onErr(u, err)
 			}
 			// note that we cannot use CreateTXG because target and receiver could be on different pools
 			atCursor := tfsv.Guid == rc.GetGuid()
@@ -459,9 +441,9 @@ fsloop:
 			})
 		}
 		if preCursor {
-			pfs.err = fmt.Errorf("replication cursor not found in prune target filesystem versions")
-			l.WithError(pfs.err).Error("")
-			continue fsloop
+			err := fmt.Errorf("replication cursor not found in prune target filesystem versions")
+			l.Error(err.Error())
+			return onErr(u, err)
 		}
 
 		// Apply prune rules
@@ -471,12 +453,9 @@ fsloop:
 
 	return u(func(pruner *Pruner) {
 		pruner.Progress.MadeProgress()
+		pruner.execQueue = newExecQueue(len(pfss))
 		for _, pfs := range pfss {
-			if pfs.err != nil {
-				pruner.pruneCompleted = append(pruner.pruneCompleted, pfs)
-			} else {
-				pruner.prunePending = append(pruner.prunePending, pfs)
-			}
+			pruner.execQueue.Put(pfs, nil, false)
 		}
 		pruner.state = Exec
 	}).statefunc()
@@ -486,17 +465,15 @@ func stateExec(a *args, u updater) state {
 
 	var pfs *fs
 	state := u(func(pruner *Pruner) {
-		if len(pruner.prunePending) == 0 {
+		pfs = pruner.execQueue.Pop()
+		if pfs == nil {
 			nextState := Done
-			for _, pfs := range pruner.pruneCompleted {
-				if pfs.err != nil {
-					nextState = ErrPerm
-				}
+			if pruner.execQueue.HasCompletedFSWithErrors() {
+				nextState = ErrPerm
 			}
 			pruner.state = nextState
 			return
 		}
-		pfs = pruner.prunePending[0]
 	})
 	if state != Exec {
 		return state.statefunc()
@@ -510,22 +487,62 @@ func stateExec(a *args, u updater) state {
 			WithField("destroy_snap", destroyList[i].Name).
 			Debug("policy destroys snapshot")
 	}
-	pfs.Update(nil)
 	req := pdu.DestroySnapshotsReq{
 		Filesystem: pfs.path,
 		Snapshots:  destroyList,
 	}
-	_, err := a.target.DestroySnapshots(a.ctx, &req)
-	pfs.Update(err)
-	if err != nil && shouldRetry(err) {
+	GetLogger(a.ctx).WithField("fs", pfs.path).Debug("destroying snapshots")
+	res, err := a.target.DestroySnapshots(a.ctx, &req)
+	if err != nil {
+		u(func(pruner *Pruner) {
+			pruner.execQueue.Put(pfs, err, false)
+		})
 		return onErr(u, err)
 	}
-	// if it's not retryable, treat is like as being done
+	// check if all snapshots were destroyed
+	destroyResults := make(map[string]*pdu.DestroySnapshotRes)
+	for _, fsres := range res.Results {
+		destroyResults[fsres.Snapshot.Name] = fsres
+	}
+	err = nil
+	destroyFails := make([]*pdu.DestroySnapshotRes, 0)
+	for _, reqDestroy := range destroyList {
+		 res, ok := destroyResults[reqDestroy.Name]
+		 if !ok {
+		 	err = fmt.Errorf("missing destroy-result for %s", reqDestroy.RelName())
+		 	break
+		 } else if res.Error != "" {
+		 	destroyFails = append(destroyFails, res)
+		 }
+	}
+	if err == nil && len(destroyFails) > 0 {
+		names := make([]string, len(destroyFails))
+		pairs := make([]string, len(destroyFails))
+		allSame := true
+		lastMsg := destroyFails[0].Error
+		for i := 0; i < len(destroyFails); i++{
+			allSame = allSame && destroyFails[i].Error == lastMsg
+			relname := destroyFails[i].Snapshot.RelName()
+			names[i] = relname
+			pairs[i] = fmt.Sprintf("(%s: %s)", relname, destroyFails[i].Error)
+		}
+		if allSame {
+			err = fmt.Errorf("destroys failed %s: %s",
+				strings.Join(names, ", "), lastMsg)
+		} else {
+			err = fmt.Errorf("destroys failed: %s", strings.Join(pairs, ", "))
+		}
+	}
+	u(func(pruner *Pruner) {
+		pruner.execQueue.Put(pfs, err, err == nil)
+	})
+	if err != nil {
+		GetLogger(a.ctx).WithError(err).Error("target could not destroy snapshots")
+		return onErr(u, err)
+	}
 
 	return u(func(pruner *Pruner) {
 		pruner.Progress.MadeProgress()
-		pruner.pruneCompleted = append(pruner.pruneCompleted, pfs)
-		pruner.prunePending = pruner.prunePending[1:]
 	}).statefunc()
 }
 
