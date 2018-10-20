@@ -100,10 +100,11 @@ func (j *controlJob) Run(ctx context.Context) {
 		}}})
 
 	mux.Handle(ControlJobEndpointStatus,
-		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {
+		// don't log requests to status endpoint, too spammy
+		jsonResponder{func() (interface{}, error) {
 			s := j.jobs.status()
 			return s, nil
-		}}})
+		}})
 
 	mux.Handle(ControlJobEndpointSignal,
 		requestLogger{log: log, handler: jsonRequestResponder{func(decoder jsonDecoder) (interface{}, error) {
