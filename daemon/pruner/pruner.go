@@ -470,6 +470,7 @@ fsloop:
 	}
 
 	return u(func(pruner *Pruner) {
+		pruner.Progress.MadeProgress()
 		for _, pfs := range pfss {
 			if pfs.err != nil {
 				pruner.pruneCompleted = append(pruner.pruneCompleted, pfs)
@@ -522,6 +523,7 @@ func stateExec(a *args, u updater) state {
 	// if it's not retryable, treat is like as being done
 
 	return u(func(pruner *Pruner) {
+		pruner.Progress.MadeProgress()
 		pruner.pruneCompleted = append(pruner.pruneCompleted, pfs)
 		pruner.prunePending = pruner.prunePending[1:]
 	}).statefunc()
