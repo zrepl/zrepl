@@ -239,10 +239,10 @@ func (p *Pruner) Report() *Report {
 
 	r := Report{State: p.state.String()}
 
-	if p.state & PlanWait|ExecWait != 0 {
+	if p.state & (PlanWait|ExecWait) != 0 {
 		r.SleepUntil = p.sleepUntil
 	}
-	if p.state & PlanWait|ExecWait|ErrPerm != 0 {
+	if p.state & (PlanWait|ExecWait|ErrPerm) != 0 {
 		if p.err != nil {
 			r.Error = p.err.Error()
 		}
