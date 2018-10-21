@@ -22,6 +22,41 @@ import (
 	"time"
 )
 
+type bytesProgressHistory struct {
+	changeCounter     int
+	lastChangeAt      time.Time
+	last              int64
+	bpsIncreaseExpAvg float64
+}
+
+func (p *bytesProgressHistory) Update(currentVal int64) (bytesPerSecondAvg int64, changeCount int) {
+	if currentVal < p.last {
+		*p = bytesProgressHistory{
+			last: currentVal,
+			lastChangeAt: time.Now(),
+		}
+	}
+	defer func() {
+		p.last = currentVal
+	}()
+	if time.Now().Sub(p.lastChangeAt) > 3 *time.Second { // FIXME depends on refresh frequency
+		p.changeCounter = 0
+		p.bpsIncreaseExpAvg = 0
+	}
+	if currentVal != p.last {
+		p.changeCounter++
+		p.lastChangeAt = time.Now()
+	}
+
+	byteIncrease := float64(currentVal - p.last)
+	if byteIncrease < 0 {
+		byteIncrease = 0
+	}
+	const factor = 0.1
+	p.bpsIncreaseExpAvg = (1-factor) * p.bpsIncreaseExpAvg + factor *byteIncrease
+	return int64(p.bpsIncreaseExpAvg), p.changeCounter
+}
+
 type tui struct {
 	x, y   int
 	indent int
@@ -29,10 +64,14 @@ type tui struct {
 	lock   sync.Mutex //For report and error
 	report map[string]job.Status
 	err    error
+
+	replicationProgress map[string]*bytesProgressHistory // by job name
 }
 
 func newTui() tui {
-	return tui{}
+	return tui{
+		replicationProgress: make(map[string]*bytesProgressHistory, 0),
+	}
 }
 
 func (t *tui) moveCursor(x, y int) {
@@ -204,6 +243,15 @@ loop:
 
 }
 
+func (t *tui) getReplicationProgresHistory(jobName string) *bytesProgressHistory {
+	p, ok := t.replicationProgress[jobName]
+	if !ok {
+		p = &bytesProgressHistory{}
+		t.replicationProgress[jobName] = p
+	}
+	return p
+}
+
 func (t *tui) draw() {
 	t.lock.Lock()
 	defer t.lock.Unlock()
@@ -263,7 +311,7 @@ func (t *tui) draw() {
 			t.printf("Replication:")
 			t.newline()
 			t.addIndent(1)
-			t.renderReplicationReport(pushStatus.Replication)
+			t.renderReplicationReport(pushStatus.Replication, t.getReplicationProgresHistory(k))
 			t.addIndent(-1)
 
 			t.printf("Pruning Sender:")
@@ -283,7 +331,7 @@ func (t *tui) draw() {
 	termbox.Flush()
 }
 
-func (t *tui) renderReplicationReport(rep *replication.Report) {
+func (t *tui) renderReplicationReport(rep *replication.Report, history *bytesProgressHistory) {
 	if rep == nil {
 		t.printf("...\n")
 		return
@@ -335,9 +383,10 @@ func (t *tui) renderReplicationReport(rep *replication.Report) {
 			transferred += fstx
 			total += fstotal
 		}
+		rate, changeCount := history.Update(transferred)
 		t.write("Progress: ")
-		t.drawBar(80, transferred, total)
-		t.write(fmt.Sprintf(" %s / %s", ByteCountBinary(transferred), ByteCountBinary(total)))
+		t.drawBar(50, transferred, total, changeCount)
+		t.write(fmt.Sprintf(" %s / %s @ %s/s", ByteCountBinary(transferred), ByteCountBinary(total), ByteCountBinary(rate)))
 		t.newline()
 	}
 
@@ -494,7 +543,10 @@ func leftPad(str string, length int, pad string) string {
 	return times(pad, length-len(str)) + str
 }
 
-func (t *tui) drawBar(length int, bytes, totalBytes int64) {
+var arrowPositions = `>\|/`
+
+// changeCount = 0 indicates stall / no progresss
+func (t *tui) drawBar(length int, bytes, totalBytes int64, changeCount int) {
 	var completedLength int
 	if totalBytes > 0 {
 		completedLength = int(int64(length) * bytes / totalBytes)
@@ -507,7 +559,7 @@ func (t *tui) drawBar(length int, bytes, totalBytes int64) {
 
 	t.write("[")
 	t.write(times("=", completedLength))
-	t.write(">")
+	t.write( string(arrowPositions[changeCount%len(arrowPositions)]))
 	t.write(times("-", length-completedLength))
 	t.write("]")
 }
