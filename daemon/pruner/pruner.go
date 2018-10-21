@@ -11,6 +11,7 @@ import (
 	"github.com/zrepl/zrepl/replication/pdu"
 	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/util/watchdog"
+	"github.com/problame/go-streamrpc"
 	"net"
 	"sort"
 	"strings"
@@ -333,6 +334,14 @@ func (s snapshot) Name() string { return s.fsv.Name }
 func (s snapshot) Replicated() bool { return s.replicated }
 
 func (s snapshot) Date() time.Time { return s.date }
+
+type Error interface {
+	error
+	Temporary() bool
+}
+
+var _ Error = net.Error(nil)
+var _ Error = streamrpc.Error(nil)
 
 func shouldRetry(e error) bool {
 	if neterr, ok := e.(net.Error); ok {

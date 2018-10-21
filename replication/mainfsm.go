@@ -10,14 +10,15 @@ import (
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/util/watchdog"
+	"github.com/problame/go-streamrpc"
 	"math/bits"
 	"net"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/zrepl/zrepl/replication/fsrep"
 	. "github.com/zrepl/zrepl/replication/internal/diff"
-	. "github.com/zrepl/zrepl/replication/internal/queue"
 	"github.com/zrepl/zrepl/replication/pdu"
 )
 
@@ -70,9 +71,9 @@ type Replication struct {
 	state State
 
 	// Working, WorkingWait, Completed, ContextDone
-	queue     *ReplicationQueue
+	queue     []*fsrep.Replication
 	completed []*fsrep.Replication
-	active    *ReplicationQueueItemHandle
+	active    *fsrep.Replication // == queue[0] or nil, unlike in Report
 
 	// for PlanningError, WorkingWait and ContextError and Completed
 	err error
@@ -87,7 +88,7 @@ type Report struct {
 	SleepUntil time.Time
 	Completed []*fsrep.Report
 	Pending   []*fsrep.Report
-	Active    *fsrep.Report
+	Active    *fsrep.Report // not contained in Pending, unlike in struct Replication
 }
 
 func NewReplication(secsPerState *prometheus.HistogramVec, bytesReplicated *prometheus.CounterVec) *Replication {
@@ -195,15 +196,20 @@ func resolveConflict(conflict error) (path []*pdu.FilesystemVersion, msg string)
 
 var RetryInterval = envconst.Duration("ZREPL_REPLICATION_RETRY_INTERVAL", 4 * time.Second)
 
+type Error interface {
+	error
+	Temporary() bool
+}
+
+var _ Error = fsrep.Error(nil)
+var _ Error = net.Error(nil)
+var _ Error = streamrpc.Error(nil)
+
 func isPermanent(err error) bool {
-	switch err {
-	case context.Canceled: return true
-	case context.DeadlineExceeded: return true
+	if e, ok := err.(Error); ok {
+		return !e.Temporary()
 	}
-	if operr, ok := err.(net.Error); ok {
-		return !operr.Temporary()
-	}
-	return false
+	return true
 }
 
 func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state {
@@ -214,8 +220,10 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 
 	handlePlanningError := func(err error) state {
 		return u(func(r *Replication) {
-			r.err = err
-			if isPermanent(err) {
+			ge := GlobalError{Err: err, Temporary: !isPermanent(err)}
+			log.WithError(ge).Error("encountered global error while planning replication")
+			r.err = ge
+			if !ge.Temporary {
 				r.state = PermanentError
 			} else {
 				r.sleepUntil = time.Now().Add(RetryInterval)
@@ -239,7 +247,7 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 
 	ka.MadeProgress() // for both sender and receiver
 
-	q := NewReplicationQueue()
+	q := make([]*fsrep.Replication, 0, len(sfss))
 	mainlog := log
 	for _, fs := range sfss {
 
@@ -257,7 +265,7 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 		if len(sfsvs) < 1 {
 			err := errors.New("sender does not have any versions")
 			log.Error(err.Error())
-			q.Add(fsrep.NewReplicationWithPermanentError(fs.Path, err))
+			q = append(q, fsrep.NewReplicationConflictError(fs.Path, err))
 			continue
 		}
 
@@ -298,7 +306,7 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 		}
 		ka.MadeProgress()
 		if path == nil {
-			q.Add(fsrep.NewReplicationWithPermanentError(fs.Path, conflict))
+			q = append(q, fsrep.NewReplicationConflictError(fs.Path, conflict))
 			continue
 		}
 
@@ -324,7 +332,7 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 		}
 		ka.MadeProgress()
 
-		q.Add(qitem)
+		q = append(q, qitem)
 	}
 
 	ka.MadeProgress()
@@ -359,48 +367,118 @@ func statePlanningError(ctx context.Context, ka *watchdog.KeepAlive, sender Send
 	}).rsf()
 }
 
+type GlobalError struct {
+	Err       error
+	Temporary bool
+}
+
+func (e GlobalError) Error() string {
+	errClass := "temporary"
+	if !e.Temporary {
+		errClass = "permanent"
+	}
+	return fmt.Sprintf("%s global error: %s", errClass, e.Err)
+}
+
+type FilesystemsReplicationFailedError struct {
+	FilesystemsWithError []*fsrep.Replication
+}
+
+func (e FilesystemsReplicationFailedError) Error() string {
+	allSame := true
+	lastErr := e.FilesystemsWithError[0].Err().Error()
+	for _, fs := range e.FilesystemsWithError {
+		fsErr := fs.Err().Error()
+		allSame = allSame && lastErr == fsErr
+	}
+
+	fsstr := "multiple filesystems"
+	if len(e.FilesystemsWithError) == 1 {
+		fsstr = fmt.Sprintf("filesystem %s", e.FilesystemsWithError[0].FS())
+	}
+	errorStr := lastErr
+	if !allSame {
+		errorStr = "multiple different errors"
+	}
+	return fmt.Sprintf("%s could not be replicated: %s", fsstr, errorStr)
+}
+
 func stateWorking(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state {
 
-	var active *ReplicationQueueItemHandle
+	var active *fsrep.Replication
 	rsfNext := u(func(r *Replication) {
-		done, next := r.queue.GetNext()
-		r.completed = append(r.completed, done...)
-		if next == nil {
-			r.state = Completed
+
+		r.err = nil
+
+		newq := make([]*fsrep.Replication, 0, len(r.queue))
+		for i := range r.queue {
+			if r.queue[i].CanRetry() {
+				newq = append(newq, r.queue[i])
+			} else {
+				r.completed = append(r.completed, r.queue[i])
+			}
 		}
-		r.active = next
-		active = next
+		sort.SliceStable(newq, func(i, j int) bool {
+			return newq[i].NextStepDate().Before(newq[j].NextStepDate())
+		})
+		r.queue = newq
+
+		if len(r.queue) == 0 {
+			r.state = Completed
+			fsWithErr := FilesystemsReplicationFailedError{ // prepare it
+				FilesystemsWithError: make([]*fsrep.Replication, 0, len(r.completed)),
+			}
+			for _, fs := range r.completed {
+				if fs.CanRetry() {
+					panic(fmt.Sprintf("implementation error: completed contains retryable FS %s %#v",
+						fs.FS(), fs.Err()))
+				}
+				if fs.Err() != nil {
+					fsWithErr.FilesystemsWithError = append(fsWithErr.FilesystemsWithError, fs)
+				}
+			}
+			if len(fsWithErr.FilesystemsWithError) > 0 {
+				r.err = fsWithErr
+				r.state = PermanentError
+			}
+			return
+		}
+
+		active =  r.queue[0] // do not dequeue: if it's done, it will be sorted the next time we check for more work
+		r.active = active
 	}).rsf()
 
 	if active == nil {
 		return rsfNext
 	}
 
-	state, nextStepDate := active.GetFSReplication().TakeStep(ctx, ka, sender, receiver)
+	activeCtx := fsrep.WithLogger(ctx, getLogger(ctx).WithField("fs", active.FS()))
+	err := active.Retry(activeCtx, ka, sender, receiver)
 	u(func(r *Replication) {
-		active.Update(state, nextStepDate)
 		r.active = nil
 	}).rsf()
 
-	select {
-	case <-ctx.Done():
-		return u(func(r *Replication) {
-			r.err = ctx.Err()
-			r.state = PermanentError
-		}).rsf()
-	default:
-	}
-
-	if err := active.GetFSReplication().Err(); err != nil {
-		return u(func(r *Replication) {
-			r.err = err
-			if isPermanent(err) {
-				r.state = PermanentError
-			} else {
+	if err != nil {
+		if err.LocalToFS() {
+			getLogger(ctx).WithError(err).
+				Error("filesystem replication encountered a filesystem-specific error")
+			// we stay in this state and let the queuing logic above de-prioritize this failing FS
+		} else if err.Temporary() {
+			getLogger(ctx).WithError(err).
+				Error("filesystem encountered a non-filesystem-specific temporary error, enter retry-wait")
+			u(func(r *Replication) {
+				r.err = GlobalError{Err: err, Temporary: true}
 				r.sleepUntil = time.Now().Add(RetryInterval)
 				r.state = WorkingWait
-			}
-		}).rsf()
+			}).rsf()
+		} else {
+			getLogger(ctx).WithError(err).
+				Error("encountered a permanent non-filesystem-specific error")
+			u(func(r *Replication) {
+				r.err = GlobalError{Err: err, Temporary: false}
+				r.state = PermanentError
+			}).rsf()
+		}
 	}
 
 	return u(nil).rsf()
@@ -412,7 +490,7 @@ func stateWorkingWait(ctx context.Context, ka *watchdog.KeepAlive, sender Sender
 		sleepUntil = r.sleepUntil
 	})
 	t := time.NewTimer(RetryInterval)
-	getLogger(ctx).WithField("until", sleepUntil).Info("retry wait after replication step error")
+	getLogger(ctx).WithField("until", sleepUntil).Info("retry wait after error")
 	defer t.Stop()
 	select {
 	case <-ctx.Done():
@@ -441,27 +519,26 @@ func (r *Replication) Report() *Report {
 		SleepUntil: r.sleepUntil,
 	}
 
-	if r.state&(Planning|PlanningError|PermanentError) != 0 {
-		if r.err != nil {
-			rep.Problem = r.err.Error()
-		}
+	if r.err != nil {
+		rep.Problem = r.err.Error()
+	}
+
+	if r.state&(Planning|PlanningError) != 0 {
 		return &rep
 	}
 
-	rep.Pending = make([]*fsrep.Report, 0, r.queue.Len())
+	rep.Pending = make([]*fsrep.Report, 0, len(r.queue))
 	rep.Completed = make([]*fsrep.Report, 0, len(r.completed)) // room for active (potentially)
 
-	var active *fsrep.Replication
+	// since r.active == r.queue[0], do not contain it in pending output
+	pending := r.queue
 	if r.active != nil {
-		active = r.active.GetFSReplication()
-		rep.Active = active.Report()
+		rep.Active = r.active.Report()
+		pending = r.queue[1:]
 	}
-	r.queue.Foreach(func(h *ReplicationQueueItemHandle) {
-		fsr := h.GetFSReplication()
-		if active != fsr {
-			rep.Pending = append(rep.Pending, fsr.Report())
-		}
-	})
+	for _, fsr := range pending {
+		rep.Pending= append(rep.Pending, fsr.Report())
+	}
 	for _, fsr := range r.completed {
 		rep.Completed = append(rep.Completed, fsr.Report())
 	}

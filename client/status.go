@@ -110,6 +110,7 @@ func (t *tui) addIndent(indent int) {
 	t.moveLine(0, 0)
 }
 
+
 var statusFlags struct {
 	Raw bool
 }
@@ -514,10 +515,7 @@ func (t *tui) drawBar(length int, bytes, totalBytes int64) {
 func StringStepState(s fsrep.StepState) string {
 	switch s {
 	case fsrep.StepReplicationReady: return "Ready"
-	case fsrep.StepReplicationRetry: return "Retry"
 	case fsrep.StepMarkReplicatedReady: return "MarkReady"
-	case fsrep.StepMarkReplicatedRetry: return "MarkRetry"
-	case fsrep.StepPermanentError: return "PermanentError"
 	case fsrep.StepCompleted: return "Completed"
 	default:
 		return fmt.Sprintf("UNKNOWN %d", s)

@@ -71,38 +71,29 @@ type Report struct {
 	Completed, Pending []*StepReport
 }
 
-//go:generate stringer -type=State
+//go:generate enumer -type=State
 type State uint
 
 const (
 	Ready State = 1 << iota
-	Retry
-	PermanentError
 	Completed
 )
 
-func (s State) fsrsf() state {
-	m := map[State]state{
-		Ready:          stateReady,
-		Retry:          stateRetry,
-		PermanentError: nil,
-		Completed:      nil,
-	}
-	return m[s]
-}
-
-func (s State) IsErrorState() bool {
-	return s & (Retry|PermanentError) != 0
+type Error interface {
+	error
+	Temporary() bool
+	LocalToFS() bool
 }
 
 type Replication struct {
 	promBytesReplicated prometheus.Counter
 
+	fs                 string
+
 	// lock protects all fields below it in this struct, but not the data behind pointers
 	lock               sync.Mutex
 	state              State
-	fs                 string
-	err                error
+	err                Error
 	completed, pending []*ReplicationStep
 }
 
@@ -112,13 +103,35 @@ func (f *Replication) State() State {
 	return f.state
 }
 
-func (f *Replication) Err() error {
+func (f *Replication) FS() string { return f.fs }
+
+// returns zero value time.Time{} if no more pending steps
+func (f *Replication) NextStepDate() time.Time {
+	if len(f.pending) == 0 {
+		return time.Time{}
+	}
+	return f.pending[0].to.SnapshotTime()
+}
+
+func (f *Replication) Err() Error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	if f.state & (Retry|PermanentError) != 0 {
-		return f.err
+	return f.err
+}
+
+func (f *Replication) CanRetry() bool {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if f.state == Completed {
+		return false
 	}
-	return nil
+	if f.state != Ready {
+		panic(fmt.Sprintf("implementation error: %v", f.state))
+	}
+	if f.err == nil {
+		return true
+	}
+	return f.err.Temporary()
 }
 
 func (f *Replication) UpdateSizeEsitmate(ctx context.Context, sender Sender) error {
@@ -162,25 +175,36 @@ func (b *ReplicationBuilder) Done() (r *Replication) {
 	return r
 }
 
-func NewReplicationWithPermanentError(fs string, err error) *Replication {
+type ReplicationConflictError struct {
+	Err error
+}
+
+func (e *ReplicationConflictError) Timeout() bool { return false }
+
+func (e *ReplicationConflictError) Temporary() bool { return false }
+
+func (e *ReplicationConflictError) Error() string { return fmt.Sprintf("permanent error: %s", e.Err.Error()) }
+
+func (e *ReplicationConflictError) LocalToFS() bool { return true }
+
+func NewReplicationConflictError(fs string, err error) *Replication {
 	return &Replication{
-		state: PermanentError,
+		state: Completed,
 		fs:    fs,
-		err:   err,
+		err:   &ReplicationConflictError{Err: err},
 	}
 }
 
-//go:generate stringer -type=StepState
+//go:generate enumer -type=StepState
 type StepState uint
 
 const (
 	StepReplicationReady StepState = 1 << iota
-	StepReplicationRetry
 	StepMarkReplicatedReady
-	StepMarkReplicatedRetry
-	StepPermanentError
 	StepCompleted
 )
+
+func (s StepState) IsTerminal() bool { return s == StepCompleted }
 
 type FilesystemVersion interface {
 	SnapshotTime() time.Time
@@ -204,7 +228,7 @@ type ReplicationStep struct {
 	expectedSize int64 // 0 means no size estimate present / possible
 }
 
-func (f *Replication) TakeStep(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver) (post State, nextStepDate time.Time) {
+func (f *Replication) Retry(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver) Error {
 
 	var u updater = func(fu func(*Replication)) State {
 		f.lock.Lock()
@@ -214,76 +238,98 @@ func (f *Replication) TakeStep(ctx context.Context, ka *watchdog.KeepAlive, send
 		}
 		return f.state
 	}
-	var s state = u(nil).fsrsf()
 
-	pre := u(nil)
-	preTime := time.Now()
-	s = s(ctx, ka, sender, receiver, u)
-	delta := time.Now().Sub(preTime)
-
-	post = u(func(f *Replication) {
-		if len(f.pending) == 0 {
-			return
-		}
-		nextStepDate = f.pending[0].to.SnapshotTime()
-	})
-
-	getLogger(ctx).
-		WithField("fs", f.fs).
-		WithField("transition", fmt.Sprintf("%s => %s", pre, post)).
-		WithField("duration", delta).
-		Debug("fsr step taken")
-
-	return post, nextStepDate
-}
-
-type updater func(func(fsr *Replication)) State
-
-type state func(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state
-
-func stateReady(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state {
 
 	var current *ReplicationStep
-	s := u(func(f *Replication) {
+	pre := u(nil)
+	getLogger(ctx).WithField("fsrep_state", pre).Debug("begin fsrep.Retry")
+	defer func() {
+		post := u(nil)
+		getLogger(ctx).WithField("fsrep_transition", post).Debug("end fsrep.Retry")
+	}()
+
+	st := u(func(f *Replication) {
 		if len(f.pending) == 0 {
 			f.state = Completed
 			return
 		}
 		current = f.pending[0]
 	})
-	if s != Ready {
-		return s.fsrsf()
+	if st == Completed {
+		return nil
+	}
+	if st != Ready {
+		panic(fmt.Sprintf("implementation error: %v", st))
 	}
 
-	stepState := current.doReplication(ctx, ka, sender, receiver)
+	stepCtx := WithLogger(ctx, getLogger(ctx).WithField("step", current))
+	getLogger(stepCtx).Debug("take step")
+	err := current.Retry(stepCtx, ka, sender, receiver)
+	if err != nil {
+		getLogger(stepCtx).WithError(err).Error("step could not be completed")
+	}
 
-	return u(func(f *Replication) {
-		switch stepState {
-		case StepCompleted:
-			f.completed = append(f.completed, current)
-			f.pending = f.pending[1:]
-			if len(f.pending) > 0 {
-				f.state = Ready
-			} else {
-				f.state = Completed
-			}
-		case StepReplicationRetry:
-			fallthrough
-		case StepMarkReplicatedRetry:
-			f.state = Retry
-		case StepPermanentError:
-			f.state = PermanentError
-			f.err = errors.New("a replication step failed with a permanent error")
-		default:
-			panic(f)
+	u(func(fsr *Replication) {
+		if err != nil {
+			f.err = &StepError{stepStr: current.String(), err: err}
+			return
 		}
-	}).fsrsf()
+		if err == nil && current.state != StepCompleted {
+			panic(fmt.Sprintf("implementation error: %v", current.state))
+		}
+		f.err = nil
+		f.completed = append(f.completed, current)
+		f.pending = f.pending[1:]
+		if len(f.pending) > 0 {
+			f.state = Ready
+		} else {
+			f.state = Completed
+		}
+	})
+	var retErr Error = nil
+	u(func(fsr *Replication) {
+		retErr = fsr.err
+	})
+	return retErr
 }
 
-func stateRetry(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state {
-	return u(func(fsr *Replication) {
-		fsr.state = Ready
-	}).fsrsf()
+type updater func(func(fsr *Replication)) State
+
+type state func(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver, u updater) state
+
+type StepError struct {
+	stepStr string
+	err     error
+}
+
+var _ Error = &StepError{}
+
+func (e StepError) Error() string {
+	if e.LocalToFS() {
+		return fmt.Sprintf("step %s failed: %s", e.stepStr, e.err)
+	}
+	return e.err.Error()
+}
+
+func (e StepError) Timeout() bool {
+	if neterr, ok := e.err.(net.Error); ok {
+		return neterr.Timeout()
+	}
+	return false
+}
+
+func (e StepError) Temporary() bool {
+	if neterr, ok := e.err.(net.Error); ok {
+		return neterr.Temporary()
+	}
+	return false
+}
+
+func (e StepError) LocalToFS() bool {
+	if _, ok := e.err.(net.Error); ok {
+		return false
+	}
+	return true // conservative approximation: we'd like to check for specific errors returned over RPC here...
 }
 
 func (fsr *Replication) Report() *Report {
@@ -295,9 +341,8 @@ func (fsr *Replication) Report() *Report {
 		Status:     fsr.state.String(),
 	}
 
-	if fsr.state&PermanentError != 0 {
+	if fsr.err != nil && fsr.err.LocalToFS() {
 		rep.Problem = fsr.err.Error()
-		return &rep
 	}
 
 	rep.Completed = make([]*StepReport, len(fsr.completed))
@@ -309,70 +354,48 @@ func (fsr *Replication) Report() *Report {
 		rep.Pending[i] = fsr.pending[i].Report()
 	}
 
-	if fsr.state&Retry != 0 {
-		if len(rep.Pending) != 0 { // should always be true for Retry == true?
-			rep.Problem = rep.Pending[0].Problem
-		}
-	}
-
 	return &rep
 }
 
-func shouldRetry(err error) bool {
-	switch err {
-	case io.EOF:
-		fallthrough
-	case io.ErrUnexpectedEOF:
-		fallthrough
-	case io.ErrClosedPipe:
-		return true
+func (s *ReplicationStep) Retry(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver) error {
+	switch s.state {
+	case StepReplicationReady:
+		return s.doReplication(ctx, ka, sender, receiver)
+	case StepMarkReplicatedReady:
+		return s.doMarkReplicated(ctx, ka, sender)
+	case StepCompleted:
+		return nil
 	}
-	if _, ok := err.(net.Error); ok {
-		return true
-	}
-	return false
+	panic(fmt.Sprintf("implementation error: %v", s.state))
 }
 
-func (s *ReplicationStep) doReplication(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver) StepState {
+func (s *ReplicationStep) Error() error {
+	if s.state & (StepReplicationReady|StepMarkReplicatedReady) != 0 {
+		return s.err
+	}
+	return nil
+}
+
+func (s *ReplicationStep) doReplication(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, receiver Receiver) error {
+
+	if s.state != StepReplicationReady {
+		panic(fmt.Sprintf("implementation error: %v", s.state))
+	}
 
 	fs := s.parent.fs
 
-	log := getLogger(ctx).
-		WithField("filesystem", fs).
-		WithField("step", s.String())
-
-	updateStateError := func(err error) StepState {
-		s.lock.Lock()
-		defer s.lock.Unlock()
-
-		s.err = err
-		if shouldRetry(s.err) {
-			s.state = StepReplicationRetry
-			return s.state
-		}
-		s.state = StepPermanentError
-		return s.state
-	}
-
-	updateStateCompleted := func() StepState {
-		s.lock.Lock()
-		defer s.lock.Unlock()
-		s.err = nil
-		s.state = StepMarkReplicatedReady
-		return s.state
-	}
-
+	log := getLogger(ctx)
 	sr := s.buildSendRequest(false)
 
 	log.Debug("initiate send request")
 	sres, sstream, err := sender.Send(ctx, sr)
 	if err != nil {
 		log.WithError(err).Error("send request failed")
-		return updateStateError(err)
+		return err
 	}
 	if sstream == nil {
 		err := errors.New("send request did not return a stream, broken endpoint implementation")
-		return updateStateError(err)
+		return err
 	}
 
 	s.byteCounter = util.NewByteCounterReader(sstream)
@@ -400,42 +423,23 @@ func (s *ReplicationStep) doReplication(ctx context.Context, ka *watchdog.KeepAl
 		// 	- an unexpected exit of ZFS on the sending side
 		//  - an unexpected exit of ZFS on the receiving side
 		//  - a connectivity issue
-		return updateStateError(err)
+		return err
 	}
 	log.Debug("receive finished")
 	ka.MadeProgress()
 
-	updateStateCompleted()
-
+	s.state = StepMarkReplicatedReady
 	return s.doMarkReplicated(ctx, ka, sender)
 
 }
 
-func (s *ReplicationStep) doMarkReplicated(ctx context.Context, ka *watchdog.KeepAlive, sender Sender) StepState {
+func (s *ReplicationStep) doMarkReplicated(ctx context.Context, ka *watchdog.KeepAlive, sender Sender) error {
 
-	log := getLogger(ctx).
-		WithField("filesystem", s.parent.fs).
-		WithField("step", s.String())
-
-	updateStateError := func(err error) StepState {
-		s.lock.Lock()
-		defer s.lock.Unlock()
-
-		s.err = err
-		if shouldRetry(s.err) {
-			s.state = StepMarkReplicatedRetry
-			return s.state
-		}
-		s.state = StepPermanentError
-		return s.state
+	if s.state != StepMarkReplicatedReady {
+		panic(fmt.Sprintf("implementation error: %v", s.state))
 	}
 
-	updateStateCompleted := func() StepState {
-		s.lock.Lock()
-		defer s.lock.Unlock()
-		s.state = StepCompleted
-		return s.state
-	}
+	log := getLogger(ctx)
 
 	log.Debug("advance replication cursor")
 	req := &pdu.ReplicationCursorReq{
@@ -449,25 +453,22 @@ func (s *ReplicationStep) doMarkReplicated(ctx context.Context, ka *watchdog.Kee
 	res, err := sender.ReplicationCursor(ctx, req)
 	if err != nil {
 		log.WithError(err).Error("error advancing replication cursor")
-		return updateStateError(err)
+		return err
 	}
 	if res.GetError() != "" {
 		err := fmt.Errorf("cannot advance replication cursor: %s", res.GetError())
 		log.Error(err.Error())
-		return updateStateError(err)
+		return err
 	}
 	ka.MadeProgress()
 
-	return updateStateCompleted()
+	s.state = StepCompleted
+	return err
 }
 
 func (s *ReplicationStep) updateSizeEstimate(ctx context.Context, sender Sender) error {
 
-	fs := s.parent.fs
-
-	log := getLogger(ctx).
-		WithField("filesystem", fs).
-		WithField("step", s.String())
+	log := getLogger(ctx)
 
 	sr := s.buildSendRequest(true)
 

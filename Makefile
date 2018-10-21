@@ -22,7 +22,6 @@ SUBPKGS += pruning/retentiongrid
 SUBPKGS += replication
 SUBPKGS += replication/fsrep
 SUBPKGS += replication/pdu
-SUBPKGS += replication/internal/queue
 SUBPKGS += replication/internal/diff
 SUBPKGS += tlsconf
 SUBPKGS += util
