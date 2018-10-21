@@ -430,7 +430,7 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 		t.write(rightPad(fs.Filesystem, maxFSname, " "))
 		t.write(" ")
 		if fs.LastError != "" {
-			t.printf("ERROR (%d): %s\n", fs.LastError) // whitespace is padding
+			t.printf("ERROR (%d): %s\n", fs.ErrorCount, fs.LastError) // whitespace is padding
 			continue
 		}
 
