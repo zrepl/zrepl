@@ -10,6 +10,8 @@ On the passive (serving) side, the transport also provides the **client identity
 this string is used for access control and separation of filesystem sub-trees in :ref:`sink jobs <job-sink>`.
 Transports are specified in the ``connect`` or ``serve`` section of a job definition.
 
+.. contents::
+
 .. ATTENTION::
 
     The **client identities must be valid ZFS dataset path components**
@@ -73,6 +75,7 @@ Connect
 The ``tls`` transport uses TCP + TLS with client authentication using client certificates.
 The client identity is the common name (CN) presented in the client certificate.
 It is recommended to set up a dedicated CA infrastructure for this transport, e.g. using OpenVPN's `EasyRSA <https://github.com/OpenVPN/easy-rsa>`_.
+For a simple 2-machine setup, see the :ref:`instructions below<transport-tcp+tlsclientauth-2machineopenssl>`.
 
 The implementation uses `Go's TLS library <https://golang.org/pkg/crypto/tls/>`_.
 Since Go binaries are statically linked, you or your distribution need to recompile zrepl when vulnerabilities in that library are disclosed.
@@ -121,6 +124,75 @@ The ``ca`` field specifies the CA which signed the server's certificate (``serve
 The ``server_cn`` specifies the expected common name (CN) of the server's certificate.
 It overrides the hostname specified in ``address``.
 The connection fails if either do not match.
+
+.. _transport-tcp+tlsclientauth-2machineopenssl:
+
+Self-Signed Certificates
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Tools like `EasyRSA <https://github.com/OpenVPN/easy-rsa>`_ make it easy to manage CA infrastructure for multiple clients, e.g. a central zrepl backup server (in sink mode).
+However, for a two-machine setup, self-signed certificates distributed using an out-of-band mechanism will also work just fine:
+
+Suppose you have a push-mode setup, with `backups.example.com` running the :ref:`sink job <job-sink>`, and `prod.example.com` running the :ref:`push job <job-push>`.
+Run the following OpenSSL commands on each host, substituting HOSTNAME in both filenames and the interactive input prompt by OpenSSL:
+
+.. code-block:: bash
+   :emphasize-lines: 1-5,24
+
+   openssl req -x509 -sha256 -nodes \
+      -newkey rsa:4096 \
+      -days 365 \
+      -keyout HOSTNAME.key \
+      -out HOSTNAME.crt
+
+   #Generating a 4096 bit RSA private key
+   #................++++
+   #.++++
+   #writing new private key to 'backups.key'
+   #-----
+   #You are about to be asked to enter information that will be incorporated
+   #into your certificate request.
+   #What you are about to enter is what is called a Distinguished Name or a DN.
+   #There are quite a few fields but you can leave some blank
+   #For some fields there will be a default value,
+   #If you enter '.', the field will be left blank.
+   #-----
+   #Country Name (2 letter code) [XX]:
+   #State or Province Name (full name) []:
+   #Locality Name (eg, city) [Default City]:
+   #Organization Name (eg, company) [Default Company Ltd]:
+   #Organizational Unit Name (eg, section) []:
+   #Common Name (eg, your name or your server's hostname) []:HOSTNAME
+   #Email Address []:
+
+Now copy each machine's ``HOSTNAME.crt`` to the other machine's ``/etc/zrepl/HOSTNAME.crt``, for example using `scp`.
+The serve & connect configuration will thus look like the following:
+
+::
+
+   # on backups.example.com
+   - type: sink
+     serve:
+       type: tls
+       listen: ":8888"
+       ca: "/etc/zrepl/prod.example.com.crt"
+       cert: "/etc/zrepl/backups.example.com.crt"
+       key: "/etc/zrepl/backups.example.com.key"
+       client_cns:
+         - "prod.example.com"
+     ...
+
+   # on prod.example.com
+   - type: push
+     connect:
+       type: tls
+       address:"backups.example.com:8888"
+       ca: /etc/zrepl/backups.example.com.crt
+       cert: /etc/zrepl/prod.example.com.crt
+       key:  /etc/zrepl/prod.example.com.key
+       server_cn: "backups.example.com"
+     ...
+
 
 .. _transport-ssh+stdinserver:
 
