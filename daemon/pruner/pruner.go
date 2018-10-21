@@ -362,6 +362,10 @@ func onErr(u updater, e error) state {
 func statePlan(a *args, u updater) state {
 
 	ctx, target, receiver := a.ctx, a.target, a.receiver
+	var ka *watchdog.KeepAlive
+	u(func(pruner *Pruner) {
+		ka = &pruner.Progress
+	})
 
 	tfss, err := target.ListFilesystems(ctx)
 	if err != nil {
@@ -385,6 +389,8 @@ func statePlan(a *args, u updater) state {
 			l.WithError(err).Error("cannot list filesystem versions")
 			return onErr(u, err)
 		}
+		// no progress here since we could run in a live-lock (must have used target AND receiver before progress)
+
 		pfs.snaps = make([]pruning.Snapshot, 0, len(tfsvs))
 
 		rcReq := &pdu.ReplicationCursorReq{
@@ -402,6 +408,7 @@ func statePlan(a *args, u updater) state {
 			l.WithField("reqErr", rc.GetError()).Error("cannot get replication cursor")
 			return onErr(u, err)
 		}
+		ka.MadeProgress()
 
 
 		// scan from older to newer, all snapshots older than cursor are interpreted as replicated
@@ -448,7 +455,7 @@ func statePlan(a *args, u updater) state {
 
 		// Apply prune rules
 		pfs.destroyList = pruning.PruneSnapshots(pfs.snaps, a.rules)
-
+		ka.MadeProgress()
 	}
 
 	return u(func(pruner *Pruner) {

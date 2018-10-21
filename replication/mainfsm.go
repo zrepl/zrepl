@@ -229,12 +229,15 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 		log.WithError(err).Error("error listing sender filesystems")
 		return handlePlanningError(err)
 	}
+	// no progress here since we could run in a live-lock on connectivity issues
 
 	rfss, err := receiver.ListFilesystems(ctx)
 	if err != nil {
 		log.WithError(err).Error("error listing receiver filesystems")
 		return handlePlanningError(err)
 	}
+
+	ka.MadeProgress() // for both sender and receiver
 
 	q := NewReplicationQueue()
 	mainlog := log
@@ -249,6 +252,7 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 			log.WithError(err).Error("cannot get remote filesystem versions")
 			return handlePlanningError(err)
 		}
+		ka.MadeProgress()
 
 		if len(sfsvs) < 1 {
 			err := errors.New("sender does not have any versions")
@@ -278,6 +282,7 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 		} else {
 			rfsvs = []*pdu.FilesystemVersion{}
 		}
+		ka.MadeProgress()
 
 		path, conflict := IncrementalPath(rfsvs, sfsvs)
 		if conflict != nil {
@@ -291,6 +296,7 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 				log.WithField("problem", msg).Error("cannot resolve conflict")
 			}
 		}
+		ka.MadeProgress()
 		if path == nil {
 			q.Add(fsrep.NewReplicationWithPermanentError(fs.Path, conflict))
 			continue
@@ -309,12 +315,14 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 			}
 		}
 		qitem := fsrfsm.Done()
+		ka.MadeProgress()
 
 		log.Debug("compute send size estimate")
 		if err = qitem.UpdateSizeEsitmate(ctx, sender); err != nil {
 			log.WithError(err).Error("error computing size estimate")
 			return handlePlanningError(err)
 		}
+		ka.MadeProgress()
 
 		q.Add(qitem)
 	}
