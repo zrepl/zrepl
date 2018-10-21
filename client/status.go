@@ -40,9 +40,11 @@ func (t *tui) moveCursor(x, y int) {
 	t.y += y
 }
 
+const INDENT_MULTIPLIER = 4
+
 func (t *tui) moveLine(dl int, col int) {
 	t.y += dl
-	t.x = t.indent*4 + col
+	t.x = t.indent*INDENT_MULTIPLIER + col
 }
 
 func (t *tui) write(text string) {
@@ -58,6 +60,40 @@ func (t *tui) write(text string) {
 
 func (t *tui) printf(text string, a ...interface{}) {
 	t.write(fmt.Sprintf(text, a...))
+}
+
+func wrap(s string, width int) string {
+	var b strings.Builder
+	for len(s) > 0 {
+		rem := width
+		if rem > len(s) {
+			rem = len(s)
+		}
+		if idx := strings.IndexAny(s, "\n\r"); idx != -1 && idx < rem {
+			rem = idx+1
+		}
+		untilNewline := strings.TrimSpace(s[:rem])
+		s = s[rem:]
+		if len(untilNewline) == 0 {
+			continue
+		}
+		b.WriteString(untilNewline)
+		b.WriteString("\n")
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func (t *tui) printfDrawIndentedAndWrappedIfMultiline(format string, a ...interface{}) {
+	whole := fmt.Sprintf(format, a...)
+	width, _ := termbox.Size()
+	if !strings.ContainsAny(whole, "\n\r") && t.x + len(whole) <= width {
+		t.printf(format, a...)
+	} else {
+		t.addIndent(1)
+		t.newline()
+		t.write(wrap(whole, width - INDENT_MULTIPLIER*t.indent))
+		t.addIndent(-1)
+	}
 }
 
 func (t *tui) newline() {
@@ -271,7 +307,8 @@ func (t *tui) renderReplicationReport(rep *replication.Report) {
 	t.printf("Status: %s", state)
 	t.newline()
 	if rep.Problem != "" {
-		t.printf("Problem: %s", rep.Problem)
+		t.printf("Problem: ")
+		t.printfDrawIndentedAndWrappedIfMultiline("%s", rep.Problem)
 		t.newline()
 	}
 	if rep.SleepUntil.After(time.Now()) && !state.IsTerminal() {
@@ -310,7 +347,7 @@ func (t *tui) renderReplicationReport(rep *replication.Report) {
 		}
 	}
 	for _, fs := range all {
-		printFilesystemStatus(fs, t, fs == rep.Active, maxFSLen)
+		t.printFilesystemStatus(fs, fs == rep.Active, maxFSLen)
 	}
 }
 
@@ -487,9 +524,10 @@ func StringStepState(s fsrep.StepState) string {
 	}
 }
 
-func filesystemStatusString(rep *fsrep.Report, active bool, fsWidth int) (line string, bytes, totalBytes int64) {
-	bytes = int64(0)
-	totalBytes = int64(0)
+func (t *tui) printFilesystemStatus(rep *fsrep.Report, active bool, maxFS int) {
+
+	bytes := int64(0)
+	totalBytes := int64(0)
 	for _, s := range rep.Pending {
 		bytes += s.Bytes
 		totalBytes += s.ExpectedBytes
@@ -499,36 +537,35 @@ func filesystemStatusString(rep *fsrep.Report, active bool, fsWidth int) (line s
 		totalBytes += s.ExpectedBytes
 	}
 
-	next := ""
-	if rep.Problem != "" {
-		next = " problem: " + rep.Problem
-	} else if len(rep.Pending) > 0 {
-		if rep.Pending[0].From != "" {
-			next = fmt.Sprintf(" next: %s => %s", rep.Pending[0].From, rep.Pending[0].To)
-		} else {
-			next = fmt.Sprintf(" next: %s (full)", rep.Pending[0].To)
-		}
-	}
-	status := fmt.Sprintf("%s (step %d/%d, %s/%s)%s",
+
+	status := fmt.Sprintf("%s (step %d/%d, %s/%s)",
 		rep.Status,
 		len(rep.Completed), len(rep.Pending) + len(rep.Completed),
 		ByteCountBinary(bytes), ByteCountBinary(totalBytes),
-		next,
+
 	)
+
 	activeIndicator := " "
 	if active {
 		activeIndicator = "*"
 	}
-	line = fmt.Sprintf("%s %s %s",
+	t.printf("%s %s %s ",
 		activeIndicator,
-		rightPad(rep.Filesystem, fsWidth, " "),
+		rightPad(rep.Filesystem, maxFS, " "),
 		status)
-	return line, bytes, totalBytes
-}
 
-func printFilesystemStatus(rep *fsrep.Report, t *tui, active bool, maxFS int) {
-	totalStatus, _, _ := filesystemStatusString(rep, active, maxFS)
-	t.write(totalStatus)
+	next := ""
+	if rep.Problem != "" {
+		next = rep.Problem
+	} else if len(rep.Pending) > 0 {
+		if rep.Pending[0].From != "" {
+			next = fmt.Sprintf("next: %s => %s", rep.Pending[0].From, rep.Pending[0].To)
+		} else {
+			next = fmt.Sprintf("next: %s (full)", rep.Pending[0].To)
+		}
+	}
+	t.printfDrawIndentedAndWrappedIfMultiline("%s", next)
+
 	t.newline()
 }
 
