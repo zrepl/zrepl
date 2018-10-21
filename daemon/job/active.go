@@ -289,7 +289,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 	// and the sequential code above transitions to the next state.
 	go func() {
 
-		wdto := envconst.Duration("ZREPL_JOB_WATCHDOG_TIMEOUT", 1*time.Minute)
+		wdto := envconst.Duration("ZREPL_JOB_WATCHDOG_TIMEOUT", 10*time.Minute)
 		jitter := envconst.Duration("ZREPL_JOB_WATCHDOG_JITTER", 1*time.Second)
 		// shadowing!
 		log := log.WithField("watchdog_timeout", wdto.String())

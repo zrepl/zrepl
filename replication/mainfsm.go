@@ -194,7 +194,7 @@ func resolveConflict(conflict error) (path []*pdu.FilesystemVersion, msg string)
 	return nil, "no automated way to handle conflict type"
 }
 
-var RetryInterval = envconst.Duration("ZREPL_REPLICATION_RETRY_INTERVAL", 4 * time.Second)
+var RetryInterval = envconst.Duration("ZREPL_REPLICATION_RETRY_INTERVAL", 10 * time.Second)
 
 type Error interface {
 	error

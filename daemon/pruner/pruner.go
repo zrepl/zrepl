@@ -117,7 +117,7 @@ func NewPrunerFactory(in config.PruningSenderReceiver, promPruneSecs *prometheus
 	f := &PrunerFactory{
 		senderRules: keepRulesSender,
 		receiverRules: keepRulesReceiver,
-		retryWait: envconst.Duration("ZREPL_PRUNER_RETRY_INTERVAL", 4 * time.Second),
+		retryWait: envconst.Duration("ZREPL_PRUNER_RETRY_INTERVAL", 10 * time.Second),
 		considerSnapAtCursorReplicated: considerSnapAtCursorReplicated,
 		promPruneSecs: promPruneSecs,
 	}
