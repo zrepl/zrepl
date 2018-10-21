@@ -6,19 +6,18 @@ import (
 	"github.com/problame/go-streamrpc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/daemon/job/reset"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
-	"github.com/zrepl/zrepl/daemon/transport/connecter"
-	"github.com/zrepl/zrepl/daemon/filters"
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/daemon/pruner"
+	"github.com/zrepl/zrepl/daemon/snapper"
+	"github.com/zrepl/zrepl/daemon/transport/connecter"
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/replication"
 	"github.com/zrepl/zrepl/util/envconst"
-	"github.com/zrepl/zrepl/util/watchdog"
 	"github.com/zrepl/zrepl/zfs"
 	"sync"
-	"github.com/zrepl/zrepl/daemon/logging"
-	"github.com/zrepl/zrepl/daemon/snapper"
 	"time"
 )
 
@@ -273,11 +272,8 @@ func (j *ActiveSide) do(ctx context.Context) {
 	// allow cancellation of an invocation (this function)
 	ctx, cancelThisRun := context.WithCancel(ctx)
 	defer cancelThisRun()
-	runDone := make(chan struct{})
-	defer close(runDone)
 	go func() {
 		select {
-		case <-runDone:
 		case <-reset.Wait(ctx):
 			log.Info("reset received, cancelling current invocation")
 			cancelThisRun()
@@ -285,53 +281,72 @@ func (j *ActiveSide) do(ctx context.Context) {
 		}
 	}()
 
-	// watchdog
+	// The code after this watchdog goroutine is sequential and transitions the state from
+	//   ActiveSideReplicating -> ActiveSidePruneSender -> ActiveSidePruneReceiver -> ActiveSideDone
+	// If any of those sequential tasks 'gets stuck' (livelock, no progress), the watchdog will eventually
+	// cancel its context.
+	// If the task is written to support context cancellation, it will return immediately (in permanent error state),
+	// and the sequential code above transitions to the next state.
 	go func() {
-		// if no progress after 1 minute, kill the task
+
 		wdto := envconst.Duration("ZREPL_JOB_WATCHDOG_TIMEOUT", 1*time.Minute)
-		log.WithField("watchdog_timeout", wdto.String()).Debug("starting watchdog")
+		jitter := envconst.Duration("ZREPL_JOB_WATCHDOG_JITTER", 1*time.Second)
+		// shadowing!
+		log := log.WithField("watchdog_timeout", wdto.String())
+
+		log.Debug("starting watchdog")
+		defer log.Debug("watchdog stopped")
 
 		t := time.NewTicker(wdto)
 		defer t.Stop()
 
-		var (
-			rep, prunerSender, prunerReceiver watchdog.Progress
-		)
 		for {
 			select {
-			case <-runDone:
-				return
 			case <-ctx.Done():
 				return
 			case <-t.C: // fall
 			}
 
-			log := log.WithField("watchdog_timeout", wdto.String()) // shadowing!
-
 			j.updateTasks(func(tasks *activeSideTasks) {
-				if tasks.replication != nil &&
-					!tasks.replication.Progress.ExpectProgress(&rep) &&
-					!tasks.replication.State().IsTerminal() {
-					log.Error("replication did not make progress, cancelling")
-					tasks.replicationCancel()
-				}
-				if tasks.prunerSender != nil &&
-					!tasks.prunerSender.Progress.ExpectProgress(&prunerSender) &&
-					!tasks.prunerSender.State().IsTerminal() {
-					log.Error("pruner:sender did not make progress, cancelling")
-					tasks.prunerSenderCancel()
-				}
-				if tasks.prunerReceiver != nil &&
-					!tasks.prunerReceiver.Progress.ExpectProgress(&prunerReceiver) &&
-					!tasks.prunerReceiver.State().IsTerminal() {
-					log.Error("pruner:receiver did not make progress, cancelling")
-					tasks.prunerReceiverCancel()
+				// Since cancelling a task will cause the sequential code to transition to the next state immediately,
+				// we cannot check for its progress right then (no fallthrough).
+				// Instead, we return (not continue because we are in a closure) and give the new state another
+				// ZREPL_JOB_WATCHDOG_TIMEOUT interval to try make some progress.
+
+				log.WithField("state", tasks.state).Debug("watchdog firing")
+
+				switch tasks.state {
+				case ActiveSideReplicating:
+					log.WithField("replication_progress", tasks.replication.Progress.String()).
+						Debug("check replication progress")
+					if tasks.replication.Progress.CheckTimeout(wdto, jitter) {
+						log.Error("replication did not make progress, cancelling")
+						tasks.replicationCancel()
+						return
+					}
+				case ActiveSidePruneSender:
+					log.WithField("prune_sender_progress", tasks.replication.Progress.String()).
+						Debug("check pruner_sender progress")
+					if tasks.prunerSender.Progress.CheckTimeout(wdto, jitter) {
+						log.Error("pruner_sender did not make progress, cancelling")
+						tasks.prunerSenderCancel()
+						return
+					}
+				case ActiveSidePruneReceiver:
+					log.WithField("prune_receiver_progress", tasks.replication.Progress.String()).
+						Debug("check pruner_receiver progress")
+					if tasks.prunerReceiver.Progress.CheckTimeout(wdto, jitter) {
+						log.Error("pruner_receiver did not make progress, cancelling")
+						tasks.prunerReceiverCancel()
+						return
+					}
+				case ActiveSideDone:
+					// ignore, ctx will be Done() in a few milliseconds and the watchdog will exit
+				default:
+					log.WithField("state", tasks.state).
+						Error("watchdog implementation error: unknown active side state")
 				}
 			})
-			log.WithField("replication_progress", rep.String()).
-				WithField("pruner_sender_progress", prunerSender.String()).
-				WithField("pruner_receiver_progress", prunerReceiver.String()).
-				Debug("watchdog did run")
 
 		}
 	}()
