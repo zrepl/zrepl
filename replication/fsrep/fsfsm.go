@@ -82,6 +82,7 @@ const (
 type Error interface {
 	error
 	Temporary() bool
+	ContextErr() bool
 	LocalToFS() bool
 }
 
@@ -186,6 +187,8 @@ func (e *ReplicationConflictError) Temporary() bool { return false }
 func (e *ReplicationConflictError) Error() string { return fmt.Sprintf("permanent error: %s", e.Err.Error()) }
 
 func (e *ReplicationConflictError) LocalToFS() bool { return true }
+
+func (e *ReplicationConflictError) ContextErr() bool { return false }
 
 func NewReplicationConflictError(fs string, err error) *Replication {
 	return &Replication{
@@ -330,6 +333,16 @@ func (e StepError) LocalToFS() bool {
 		return false
 	}
 	return true // conservative approximation: we'd like to check for specific errors returned over RPC here...
+}
+
+func (e StepError) ContextErr() bool {
+	switch e.err {
+	case context.Canceled:
+		return true
+	case context.DeadlineExceeded:
+		return true
+	}
+	return false
 }
 
 func (fsr *Replication) Report() *Report {

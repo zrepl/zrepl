@@ -459,7 +459,14 @@ func stateWorking(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, re
 	}).rsf()
 
 	if err != nil {
-		if err.LocalToFS() {
+		if err.ContextErr() && ctx.Err() != nil {
+			getLogger(ctx).WithError(err).
+				Info("filesystem replication was cancelled")
+			u(func(r*Replication) {
+				r.err = GlobalError{Err: err, Temporary: false}
+				r.state = PermanentError
+			})
+		} else if err.LocalToFS() {
 			getLogger(ctx).WithError(err).
 				Error("filesystem replication encountered a filesystem-specific error")
 			// we stay in this state and let the queuing logic above de-prioritize this failing FS
