@@ -38,10 +38,29 @@ type ActiveSide struct {
 	tasks    activeSideTasks
 }
 
+
+//go:generate enumer -type=ActiveSideState
+type ActiveSideState int
+
+const (
+	ActiveSideReplicating ActiveSideState = 1 << iota
+	ActiveSidePruneSender
+	ActiveSidePruneReceiver
+	ActiveSideDone // also errors
+)
+
+
 type activeSideTasks struct {
+	state ActiveSideState
+
+	// valid for state ActiveSideReplicating, ActiveSidePruneSender, ActiveSidePruneReceiver, ActiveSideDone
 	replication *replication.Replication
 	replicationCancel context.CancelFunc
+
+	// valid for state ActiveSidePruneSender, ActiveSidePruneReceiver, ActiveSideDone
 	prunerSender, prunerReceiver *pruner.Pruner
+
+	// valid for state ActiveSidePruneReceiver, ActiveSideDone
 	prunerSenderCancel, prunerReceiverCancel context.CancelFunc
 }
 
@@ -337,6 +356,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 			*tasks = activeSideTasks{}
 			tasks.replicationCancel = repCancel
 			tasks.replication = replication.NewReplication(j.promRepStateSecs, j.promBytesReplicated)
+			tasks.state = ActiveSideReplicating
 		})
 		log.Info("start replication")
 		tasks.replication.Drive(ctx, sender, receiver)
@@ -353,6 +373,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 		tasks := j.updateTasks(func(tasks *activeSideTasks) {
 			tasks.prunerSender = j.prunerFactory.BuildSenderPruner(ctx, sender, sender)
 			tasks.prunerSenderCancel = senderCancel
+			tasks.state = ActiveSidePruneSender
 		})
 		log.Info("start pruning sender")
 		tasks.prunerSender.Prune()
@@ -369,10 +390,16 @@ func (j *ActiveSide) do(ctx context.Context) {
 		tasks := j.updateTasks(func(tasks *activeSideTasks) {
 			tasks.prunerReceiver = j.prunerFactory.BuildReceiverPruner(ctx, receiver, sender)
 			tasks.prunerReceiverCancel = receiverCancel
+			tasks.state = ActiveSidePruneReceiver
 		})
 		log.Info("start pruning receiver")
 		tasks.prunerReceiver.Prune()
 		log.Info("finished pruning receiver")
 		receiverCancel()
 	}
+
+	j.updateTasks(func(tasks *activeSideTasks) {
+		tasks.state = ActiveSideDone
+	})
+
 }
