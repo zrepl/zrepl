@@ -42,8 +42,7 @@ Notes to Package Maintainers
 
 * If the daemon crashes, the stack trace produced by the Go runtime and possibly diagnostic output of zrepl will be written to stderr.
   This behavior is independent from the ``stdout`` outlet type.
-  Please make sure the stderr output of the daemon is captured to a file.
-  Rotation should not be necessary because stderr is not written to under normal circumstances.
+  Please make sure the stderr output of the daemon is captured somewhere.
   To conserve precious stack traces, make sure that multiple service restarts do not directly discard previous stderr output.
 * Make it obvious for users how to set the ``GOTRACEBACK`` environment variable to ``GOTRACEBACK=crash``.
   This functionality will cause SIGABRT on panics and can be used to capture a coredump of the panicking process.
@@ -59,10 +58,10 @@ Changes
 * |feature| :issue:`55` : Push replication (see :ref:`push job <job-push>` and :ref:`sink job <job-sink>`)
 * |feature| :ref:`TCP Transport <transport-tcp>`
 * |feature| :ref:`TCP + TLS client authentication transport <transport-tcp+tlsclientauth>`
-* |feature| :issue:`78` TODO MERGE COMMIT Replication protocol rewrite
+* |feature| :issue:`78` :commit:`074f989` : Replication protocol rewrite
 
   * Uses ``github.com/problame/go-streamrpc`` for RPC layer
-  * |break| zrepl 0.1 and restart on both sides of a replication setup is required
+  * |break| Protocol breakage, update and restart of all zrepl daemons is required
   * |feature| :issue:`83`:  Improved error handling of network-level errors (zrepl retries instead of failing the entire job)
   * |bugfix| :issue:`75` :issue:`81`: use connection timeouts and protocol-level heartbeats
   * |break| |break_config|: mappings are no longer supported
@@ -74,7 +73,8 @@ Changes
 
   * |feature| :issue:`69`: include manually created snapshots in replication
   * |break_config| ``manual`` and ``periodic`` :ref:`snapshotting types <job-snapshotting-spec>`
-  * |feature| ``zrepl wakeup JOB`` subcommand to trigger *just* replication
+  * |feature| ``zrepl signal wakeup JOB`` subcommand to trigger replication + pruning
+  * |feature| ``zrepl signal reset JOB`` subcommand to abort current replication + pruning
 
 * |feature| |break| |break_config| New pruning system
 
@@ -88,7 +88,7 @@ Changes
   * |feature| |break| Bookmark pruning is no longer necessary
 
     * Per filesystem, zrepl creates a single bookmark (``#zrepl_replication_cursor``) and moves it forward with the most recent successfully replicated snapshot on the receiving side.
-    * Old bookmarks created prior to zrepl 0.1 (named like their corresponding snapshot) must be deleted manually.
+    * Old bookmarks created by prior versions of zrepl (named like their corresponding snapshot) must be deleted manually.
     * |break_config| ``keep_bookmarks`` parameter of the ``grid`` keep rule has been removed
 
 * |feature| ``zrepl status`` for live-updating replication progress (it's really cool!)

@@ -140,7 +140,7 @@ There is also a ``manual`` snapshotting type, which covers the following use cas
 * Run scripts before and after taking snapshots (like locking database tables).
   We are working on better integration for this use case: see :issue:`74`.
 
-Note that you will have to trigger replication manually using the ``zrepl wakeup JOB`` subcommand in that case.
+Note that you will have to trigger replication manually using the ``zrepl signal wakeup JOB`` subcommand in that case.
 
 ::
 

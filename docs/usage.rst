@@ -27,8 +27,10 @@ CLI Overview
       - show job activity, or with ``--raw`` for JSON output
     * - ``zrepl stdinserver``
       - see :ref:`transport-ssh+stdinserver`
-    * - ``zrepl wakeup JOB``
-      - manually trigger replication + pruning
+    * - ``zrepl signal wakeup JOB``
+      - manually trigger replication + pruning of JOB
+    * - ``zrepl signal reset JOB``
+      - manually abort current replication + pruning of JOB
     * - ``zrepl configcheck``
       - check if config can be parsed without errors
 
