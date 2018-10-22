@@ -49,6 +49,9 @@ Notes to Package Maintainers
   This functionality will cause SIGABRT on panics and can be used to capture a coredump of the panicking process.
   To that extend, make sure that your package build system, your OS's coredump collection and the Go delve debugger work together.
   Use your build system to package the Go program in `this tutorial on Go coredumps and the delve debugger <https://rakyll.org/coredumps/>`_ , and make sure the symbol resolution etc. work on coredumps captured from the binary produced by your build system. (Special focus on symbol stripping, etc.)
+* Use of ``ssh+stdinserver`` :ref:`transport <transport-ssh+stdinserver>` is no longer encouraged.
+  Please encourage users to use the new ``tcp`` or ``tls`` transports.
+  You might as well mention some of the :ref:`tunneling options listed here <transport-tcp-tunneling>`.
 
 Changes
 ~~~~~~~

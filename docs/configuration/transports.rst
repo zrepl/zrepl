@@ -29,6 +29,8 @@ This transport may also be used in conjunction with network-layer encryption and
 To make the IP-based client authentication effective, such solutions should provide authenticated IP addresses.
 Some options to consider:
 
+.. _transport-tcp-tunneling:
+
 * `WireGuard <https://www.wireguard.com/>`_: Linux-focussed, in-kernel TLS
 * `OpenVPN <https://openvpn.net/>`_: Cross-platform VPN, uses tun on \*nix
 * `IPSec <https://en.wikipedia.org/wiki/IPsec>`_: Properly standardized, in-kernel network-layer VPN
@@ -201,6 +203,11 @@ The serve & connect configuration will thus look like the following:
 
 ``ssh+stdinserver`` is inspired by `git shell <https://git-scm.com/docs/git-shell>`_ and `Borg Backup <https://borgbackup.readthedocs.io/en/stable/deployment.html>`_.
 It is provided by the Go package ``github.com/problame/go-netssh``.
+
+.. ATTENTION::
+
+   ``ssh+stdinserver`` has inferior error detection and handling compared to the ``tcp`` and ``tls`` transports.
+   If you require tested timeout & retry handling, use ``tcp`` or ``tls`` transports, or help improve package go-netssh.
 
 .. _transport-ssh+stdinserver-serve:
 
