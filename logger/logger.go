@@ -14,7 +14,20 @@ const (
 
 const DefaultUserFieldCapacity = 5
 
-type Logger struct {
+type Logger interface {
+	WithOutlet(outlet Outlet, level Level) Logger
+	ReplaceField(field string, val interface{}) Logger
+	WithField(field string, val interface{}) Logger
+	WithFields(fields Fields) Logger
+	WithError(err error) Logger
+	Debug(msg string)
+	Info(msg string)
+	Warn(msg string)
+	Error(msg string)
+	Printf(format string, args ...interface{})
+}
+
+type loggerImpl struct {
 	fields        Fields
 	outlets       *Outlets
 	outletTimeout time.Duration
@@ -22,8 +35,10 @@ type Logger struct {
 	mtx *sync.Mutex
 }
 
-func NewLogger(outlets *Outlets, outletTimeout time.Duration) *Logger {
-	return &Logger{
+var _ Logger = &loggerImpl{}
+
+func NewLogger(outlets *Outlets, outletTimeout time.Duration) Logger {
+	return &loggerImpl{
 		make(Fields, DefaultUserFieldCapacity),
 		outlets,
 		outletTimeout,
@@ -36,7 +51,7 @@ type outletResult struct {
 	Error  error
 }
 
-func (l *Logger) logInternalError(outlet Outlet, err string) {
+func (l *loggerImpl) logInternalError(outlet Outlet, err string) {
 	fields := Fields{}
 	if outlet != nil {
 		if _, ok := outlet.(fmt.Stringer); ok {
@@ -54,7 +69,7 @@ func (l *Logger) logInternalError(outlet Outlet, err string) {
 	l.outlets.GetLoggerErrorOutlet().WriteEntry(entry)
 }
 
-func (l *Logger) log(level Level, msg string) {
+func (l *loggerImpl) log(level Level, msg string) {
 
 	l.mtx.Lock()
 	defer l.mtx.Unlock()
@@ -78,12 +93,12 @@ func (l *Logger) log(level Level, msg string) {
 
 }
 
-func (l *Logger) WithOutlet(outlet Outlet, level Level) *Logger {
+func (l *loggerImpl) WithOutlet(outlet Outlet, level Level) Logger {
 	l.mtx.Lock()
 	defer l.mtx.Unlock()
 	newOutlets := l.outlets.DeepCopy()
 	newOutlets.Add(outlet, level)
-	child := &Logger{
+	child := &loggerImpl{
 		fields:        l.fields,
 		outlets:       newOutlets,
 		outletTimeout: l.outletTimeout,
@@ -93,9 +108,9 @@ func (l *Logger) WithOutlet(outlet Outlet, level Level) *Logger {
 }
 
 // callers must hold l.mtx
-func (l *Logger) forkLogger(field string, val interface{}) *Logger {
+func (l *loggerImpl) forkLogger(field string, val interface{}) *loggerImpl {
 
-	child := &Logger{
+	child := &loggerImpl{
 		fields:        make(Fields, len(l.fields)+1),
 		outlets:       l.outlets,
 		outletTimeout: l.outletTimeout,
@@ -109,13 +124,13 @@ func (l *Logger) forkLogger(field string, val interface{}) *Logger {
 	return child
 }
 
-func (l *Logger) ReplaceField(field string, val interface{}) *Logger {
+func (l *loggerImpl) ReplaceField(field string, val interface{}) Logger {
 	l.mtx.Lock()
 	defer l.mtx.Unlock()
 	return l.forkLogger(field, val)
 }
 
-func (l *Logger) WithField(field string, val interface{}) *Logger {
+func (l *loggerImpl) WithField(field string, val interface{}) Logger {
 	l.mtx.Lock()
 	defer l.mtx.Unlock()
 	if val, ok := l.fields[field]; ok && val != nil {
@@ -125,16 +140,16 @@ func (l *Logger) WithField(field string, val interface{}) *Logger {
 	return l.forkLogger(field, val)
 }
 
-func (l *Logger) WithFields(fields Fields) (ret *Logger) {
+func (l *loggerImpl) WithFields(fields Fields) Logger {
 	// TODO optimize
-	ret = l
+	var ret Logger = l
 	for field, value := range fields {
 		ret = ret.WithField(field, value)
 	}
 	return ret
 }
 
-func (l *Logger) WithError(err error) *Logger {
+func (l *loggerImpl) WithError(err error) Logger {
 	val := interface{}(nil)
 	if err != nil {
 		val = err.Error()
@@ -142,22 +157,22 @@ func (l *Logger) WithError(err error) *Logger {
 	return l.WithField(FieldError, val)
 }
 
-func (l *Logger) Debug(msg string) {
+func (l *loggerImpl) Debug(msg string) {
 	l.log(Debug, msg)
 }
 
-func (l *Logger) Info(msg string) {
+func (l *loggerImpl) Info(msg string) {
 	l.log(Info, msg)
 }
 
-func (l *Logger) Warn(msg string) {
+func (l *loggerImpl) Warn(msg string) {
 	l.log(Warn, msg)
 }
 
-func (l *Logger) Error(msg string) {
+func (l *loggerImpl) Error(msg string) {
 	l.log(Error, msg)
 }
 
-func (l *Logger) Printf(format string, args ...interface{}) {
+func (l *loggerImpl) Printf(format string, args ...interface{}) {
 	l.log(Error, fmt.Sprintf(format, args...))
 }

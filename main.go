@@ -2,14 +2,22 @@
 package main
 
 import (
-	"github.com/zrepl/zrepl/cmd"
-	"log"
-	"os"
+	"github.com/zrepl/zrepl/cli"
+	"github.com/zrepl/zrepl/client"
+	"github.com/zrepl/zrepl/daemon"
 )
 
+func init() {
+	cli.AddSubcommand(daemon.DaemonCmd)
+	cli.AddSubcommand(client.StatusCmd)
+	cli.AddSubcommand(client.SignalCmd)
+	cli.AddSubcommand(client.StdinserverCmd)
+	cli.AddSubcommand(client.ConfigcheckCmd)
+	cli.AddSubcommand(client.VersionCmd)
+	cli.AddSubcommand(client.PprofCmd)
+	cli.AddSubcommand(client.TestCmd)
+}
+
 func main() {
-	if err := cmd.RootCmd.Execute(); err != nil {
-		log.Printf("error executing root command: %s", err)
-		os.Exit(1)
-	}
+	cli.Run()
 }

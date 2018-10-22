@@ -38,7 +38,7 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
 
 [[constraint]]
   branch = "v2"
-  name = "github.com/go-yaml/yaml"
+  name = "github.com/zrepl/yaml-config"
 
 [[constraint]]
   name = "github.com/go-logfmt/logfmt"
@@ -55,3 +55,21 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
 [[constraint]]
   name = "github.com/prometheus/client_golang"
   branch = "master"
+
+[[constraint]]
+  name = "github.com/golang/protobuf"
+  version = "1.2.0"
+
+[[constraint]]
+  name = "github.com/fatih/color"
+  version = "1.7.0"
+
+[[constraint]]
+  name = "github.com/problame/go-streamrpc"
+  version = "0.5.0"
+
+
+
+[[constraint]]
+  name = "github.com/gdamore/tcell"
+  version = "1.0.0"

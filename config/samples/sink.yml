@@ -1,0 +1,13 @@
+jobs:
+  - type: sink
+    name: "laptop_sink"
+    root_fs: "pool2/backup_laptops"
+    serve:
+      type: tls
+      listen: "192.168.122.189:8888"
+      ca: "ca.pem"
+      cert: "cert.pem"
+      key: "key.pem"
+      client_cns:
+        - "laptop1"
+        - "homeserver"

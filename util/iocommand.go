@@ -2,8 +2,10 @@ package util
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"syscall"
 )
@@ -11,8 +13,8 @@ import (
 // An IOCommand exposes a forked process's std(in|out|err) through the io.ReadWriteCloser interface.
 type IOCommand struct {
 	Cmd        *exec.Cmd
-	Stdin      io.Writer
-	Stdout     io.Reader
+	Stdin      io.WriteCloser
+	Stdout     io.ReadCloser
 	StderrBuf  *bytes.Buffer
 	ExitResult *IOCommandExitResult
 }
@@ -33,8 +35,8 @@ func (e IOCommandError) Error() string {
 	return fmt.Sprintf("underlying process exited with error: %s\nstderr: %s\n", e.WaitErr, e.Stderr)
 }
 
-func RunIOCommand(command string, args ...string) (c *IOCommand, err error) {
-	c, err = NewIOCommand(command, args, IOCommandStderrBufSize)
+func RunIOCommand(ctx context.Context, command string, args ...string) (c *IOCommand, err error) {
+	c, err = NewIOCommand(ctx, command, args, IOCommandStderrBufSize)
 	if err != nil {
 		return
 	}
@@ -42,7 +44,7 @@ func RunIOCommand(command string, args ...string) (c *IOCommand, err error) {
 	return
 }
 
-func NewIOCommand(command string, args []string, stderrBufSize int) (c *IOCommand, err error) {
+func NewIOCommand(ctx context.Context, command string, args []string, stderrBufSize int) (c *IOCommand, err error) {
 
 	if stderrBufSize == 0 {
 		stderrBufSize = IOCommandStderrBufSize
@@ -50,7 +52,7 @@ func NewIOCommand(command string, args []string, stderrBufSize int) (c *IOComman
 
 	c = &IOCommand{}
 
-	c.Cmd = exec.Command(command, args...)
+	c.Cmd = exec.CommandContext(ctx, command, args...)
 
 	if c.Stdout, err = c.Cmd.StdoutPipe(); err != nil {
 		return
@@ -88,9 +90,23 @@ func (c *IOCommand) Read(buf []byte) (n int, err error) {
 
 func (c *IOCommand) doWait() (err error) {
 	waitErr := c.Cmd.Wait()
-	waitStatus := c.Cmd.ProcessState.Sys().(syscall.WaitStatus) // Fail hard if we're not on UNIX
+	var wasUs bool = false
+	var waitStatus syscall.WaitStatus
+	if c.Cmd.ProcessState == nil {
+		fmt.Fprintf(os.Stderr, "util.IOCommand: c.Cmd.ProcessState is nil after c.Cmd.Wait()\n")
+	}
+	if c.Cmd.ProcessState != nil {
+		sysSpecific := c.Cmd.ProcessState.Sys()
+		var ok bool
+		waitStatus, ok = sysSpecific.(syscall.WaitStatus)
+		if !ok {
+			fmt.Fprintf(os.Stderr, "util.IOCommand: c.Cmd.ProcessState.Sys() could not be converted to syscall.WaitStatus: %T\n", sysSpecific)
+			os.Stderr.Sync()
+			panic(sysSpecific) // this can only be true if we are not on UNIX, and we don't support that
+		}
+		wasUs = waitStatus.Signaled() && waitStatus.Signal() == syscall.SIGTERM // in Close()
+	}
 
-	wasUs := waitStatus.Signaled() && waitStatus.Signal() == syscall.SIGTERM // in Close()
 	if waitErr != nil && !wasUs {
 		err = IOCommandError{
 			WaitErr: waitErr,

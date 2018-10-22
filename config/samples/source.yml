@@ -1,0 +1,17 @@
+jobs:
+- name: pull_source
+  type: source
+  serve:
+    type: tcp
+    listen: "0.0.0.0:8888"
+    clients: {
+      "192.168.122.123" : "client1"
+    }
+  filesystems: {
+    "<": true,
+    "secret": false
+  }
+  snapshotting:
+    type: periodic
+    interval: 10m
+    prefix: zrepl_
