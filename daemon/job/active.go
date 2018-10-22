@@ -315,12 +315,14 @@ func (j *ActiveSide) do(ctx context.Context) {
 
 				log.WithField("state", tasks.state).Debug("watchdog firing")
 
+				const WATCHDOG_ENVCONST_NOTICE = " (adjust ZREPL_JOB_WATCHDOG_TIMEOUT env variable if inappropriate)"
+
 				switch tasks.state {
 				case ActiveSideReplicating:
 					log.WithField("replication_progress", tasks.replication.Progress.String()).
 						Debug("check replication progress")
 					if tasks.replication.Progress.CheckTimeout(wdto, jitter) {
-						log.Error("replication did not make progress, cancelling")
+						log.Error("replication did not make progress, cancelling" + WATCHDOG_ENVCONST_NOTICE)
 						tasks.replicationCancel()
 						return
 					}
@@ -328,7 +330,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 					log.WithField("prune_sender_progress", tasks.replication.Progress.String()).
 						Debug("check pruner_sender progress")
 					if tasks.prunerSender.Progress.CheckTimeout(wdto, jitter) {
-						log.Error("pruner_sender did not make progress, cancelling")
+						log.Error("pruner_sender did not make progress, cancelling" + WATCHDOG_ENVCONST_NOTICE)
 						tasks.prunerSenderCancel()
 						return
 					}
@@ -336,7 +338,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 					log.WithField("prune_receiver_progress", tasks.replication.Progress.String()).
 						Debug("check pruner_receiver progress")
 					if tasks.prunerReceiver.Progress.CheckTimeout(wdto, jitter) {
-						log.Error("pruner_receiver did not make progress, cancelling")
+						log.Error("pruner_receiver did not make progress, cancelling" + WATCHDOG_ENVCONST_NOTICE)
 						tasks.prunerReceiverCancel()
 						return
 					}
