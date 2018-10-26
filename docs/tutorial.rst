@@ -81,7 +81,7 @@ Again, for convenience, We generate the key pairs on our local machine and distr
 
 
 Configure server ``prod``
-----------------------------
+-------------------------
 
 We define a **push job** named ``prod_to_backups`` in ``/etc/zrepl/zrepl.yml`` on host ``prod`` : ::
 
@@ -116,8 +116,8 @@ We define a **push job** named ``prod_to_backups`` in ``/etc/zrepl/zrepl.yml`` o
 
 .. _tutorial-configure-prod:
 
-Configure server ``prod``
--------------------------
+Configure server ``backups``
+----------------------------
 
 We define a corresponding **sink job** named ``sink`` in ``/etc/zrepl/zrepl.yml`` on host ``prod`` : ::
 
