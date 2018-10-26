@@ -1,3 +1,10 @@
+[![GitHub license](https://img.shields.io/github/license/zrepl/zrepl.svg)](https://github.com/zrepl/zrepl/blob/master/LICENSE)
+[![Language: Go](https://img.shields.io/badge/language-Go-6ad7e5.svg)](https://golang.org/)
+[![User Docs](https://img.shields.io/badge/docs-web-blue.svg)](https://zrepl.github.io)
+[![Donate via PayPal](https://img.shields.io/badge/donate-paypal-yellow.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=R5QSXJVYHGX96)
+[![Donate via Liberapay](https://img.shields.io/badge/donate-liberapay-yellow.svg)](https://liberapay.com/zrepl/donate)
+[![Twitter](https://img.shields.io/twitter/url/https/github.com/zrepl/zrepl.svg?style=social)](https://twitter.com/intent/tweet?text=Wow:&url=https%3A%2F%2Fgithub.com%2Fzrepl%2Fzrepl)
+
 # zrepl
 zrepl is a one-stop ZFS backup & replication solution.
 
