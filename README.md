@@ -45,21 +45,40 @@ Make sure to develop an understanding how zrepl is typically used by studying th
 ### Project Structure
 
 ```
-├── cmd
-│   ├── endpoint            # implementations of endpoints for package replication
-│   ├── sampleconf          # example configuration
+├── artifacts               # build artifcats generate by make
+├── cli                     # wrapper around CLI package cobra
+├── client                  # all subcommands that are not `daemon`
+├── config                  # config data types (=> package yaml-config)
+│   └── samples
+├── daemon                  # the implementation of `zrepl daemon` subcommand
+│   ├── filters
+│   ├── job                 # job implementations
+│   ├── logging             # logging outlets + formatters
+│   ├── nethelpers
+│   ├── prometheus
+│   ├── pruner              # pruner implementation
+│   ├── snapper             # snapshotter implementation
+│   ├── streamrpcconfig     # abstraction for configuration of go-streamrpc
+│   └── transport           # transports implementation
 ├── docs                    # sphinx-based documentation
 │   ├── **/*.rst            # documentation in reStructuredText
 │   ├── sphinxconf
 │   │   └── conf.py         # sphinx config (see commit 445a280 why its not in docs/)
 │   ├── requirements.txt    # pip3 requirements to build documentation
 │   ├── publish.sh          # shell script for automated rendering & deploy to zrepl.github.io repo
-│   ├── public_git          # checkout of zrepl.github.io managed by above shell script
-├── logger                  # logger package used by zrepl
-├── replication             # replication functionality
-├── rpc                     # rpc protocol implementation
+│   └── public_git          # checkout of zrepl.github.io managed by above shell script
+├── endpoint                # implementation of replication endpoints (=> package replication)
+├── logger                  # our own logger package
+├── pruning                 # pruning rules (the logic, not the actual execution)
+│   └── retentiongrid
+├── replication             # the fsm that implements replication of multiple file systems
+│   ├── fsrep               # replication of a single filesystem
+│   └── pdu                 # the protobuf-generated structs + helpers passed to an endpoint
+├── tlsconf                 # abstraction for Go TLS server + client config
 ├── util
-└── zfs                     # ZFS wrappers, filesystemm diffing
+├── vendor                  # managed by dep
+├── version                 # abstraction for versions (filled during build by Makefile)
+└── zfs                     # zfs(8) wrappers
 ```
 
 ### Coding Workflow
