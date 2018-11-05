@@ -22,39 +22,50 @@ import (
 	"time"
 )
 
+type byteProgressMeasurement struct {
+	time time.Time
+	val int64
+}
+
 type bytesProgressHistory struct {
-	changeCounter     int
-	lastChangeAt      time.Time
-	last              int64
-	bpsIncreaseExpAvg float64
+	last   *byteProgressMeasurement // pointer as poor man's optional
+	changeCount int
+	lastChange time.Time
+	bpsAvg float64
 }
 
 func (p *bytesProgressHistory) Update(currentVal int64) (bytesPerSecondAvg int64, changeCount int) {
-	if currentVal < p.last {
-		*p = bytesProgressHistory{
-			last: currentVal,
-			lastChangeAt: time.Now(),
+
+	if p.last == nil {
+		p.last = &byteProgressMeasurement{
+			time: time.Now(),
+			val: currentVal,
 		}
-	}
-	defer func() {
-		p.last = currentVal
-	}()
-	if time.Now().Sub(p.lastChangeAt) > 3 *time.Second { // FIXME depends on refresh frequency
-		p.changeCounter = 0
-		p.bpsIncreaseExpAvg = 0
-	}
-	if currentVal != p.last {
-		p.changeCounter++
-		p.lastChangeAt = time.Now()
+		return 0, 0
 	}
 
-	byteIncrease := float64(currentVal - p.last)
-	if byteIncrease < 0 {
-		byteIncrease = 0
+	if p.last.val != currentVal {
+		p.changeCount++
+		p.lastChange = time.Now()
 	}
-	const factor = 0.1
-	p.bpsIncreaseExpAvg = (1-factor) * p.bpsIncreaseExpAvg + factor *byteIncrease
-	return int64(p.bpsIncreaseExpAvg), p.changeCounter
+
+	if time.Now().Sub(p.lastChange) > 3 * time.Second {
+		p.last = nil
+		return 0, 0
+	}
+
+
+	deltaV := currentVal - p.last.val;
+	deltaT := time.Now().Sub(p.last.time)
+	rate := float64(deltaV) / deltaT.Seconds()
+
+	factor := 0.3
+	p.bpsAvg =  (1-factor) * p.bpsAvg + factor * rate
+
+	p.last.time = time.Now()
+	p.last.val = currentVal
+
+	return int64(p.bpsAvg), p.changeCount
 }
 
 type tui struct {
