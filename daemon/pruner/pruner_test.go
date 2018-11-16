@@ -179,7 +179,7 @@ func TestPruner_Prune(t *testing.T) {
 		},
 	}
 
-	keepRules := []pruning.KeepRule{pruning.MustKeepRegex("^keep")}
+	keepRules := []pruning.KeepRule{pruning.MustKeepRegex("^keep", false)}
 
 	p := Pruner{
 		args: args{

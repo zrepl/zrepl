@@ -146,12 +146,22 @@ Policy ``regex``
      - type: push
        pruning:
          keep_receiver:
+         # keep all snapshots with prefix zrepl_ or manual_
          - type: regex
            regex: "^(zrepl|manual)_.*"
-    ...
+
+     - type: push
+       snapshotting:
+         prefix: zrepl_
+       pruning:
+         keep_sender:
+         # keep all snapshots that were not created by zrepl
+         - type: regex
+           negate: true
+           regex: "^zrepl_.*"
 
 ``regex`` keeps all snapshots whose names are matched by the regular expressionin ``regex``.
 Like all other regular expression fields in prune policies, zrepl uses Go's `regexp.Regexp <https://golang.org/pkg/regexp/#Compile>`_ Perl-compatible regular expressions (`Syntax <https://golang.org/pkg/regexp/syntax>`_).
-
+The optional `negate` boolean field inverts the semantics: Use it if you want to keep all snapshots that *do not* match the given regex.
 
 

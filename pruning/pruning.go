@@ -60,7 +60,7 @@ func RuleFromConfig(in config.PruningEnum) (KeepRule, error) {
 	case *config.PruneKeepLastN:
 		return NewKeepLastN(v.Count)
 	case *config.PruneKeepRegex:
-		return NewKeepRegex(v.Regex)
+		return NewKeepRegex(v.Regex, v.Negate)
 	case *config.PruneGrid:
 		return NewKeepGrid(v)
 	default:

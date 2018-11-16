@@ -24,6 +24,25 @@ type testCase struct {
 	expDestroyAlternatives []map[string]bool
 }
 
+type snapshotList []Snapshot
+
+func (l snapshotList) ContainsName(n string) bool {
+	for _, s := range l {
+		if s.Name() == n {
+			return true
+		}
+	}
+	return false
+}
+
+func (l snapshotList) NameList() []string {
+	res := make([]string, len(l))
+	for i, s := range l {
+		res[i] = s.Name()
+	}
+	return res
+}
+
 func testTable(tcs map[string]testCase, t *testing.T) {
 	mapEqual := func(a, b map[string]bool) bool {
 		if len(a) != len(b) {
@@ -79,7 +98,7 @@ func TestPruneSnapshots(t *testing.T) {
 		"simple": {
 			inputs: inputs["s1"],
 			rules: []KeepRule{
-				MustKeepRegex("foo_"),
+				MustKeepRegex("foo_", false),
 			},
 			expDestroy: map[string]bool{
 				"bar_123": true,
@@ -88,16 +107,16 @@ func TestPruneSnapshots(t *testing.T) {
 		"multipleRules": {
 			inputs: inputs["s1"],
 			rules: []KeepRule{
-				MustKeepRegex("foo_"),
-				MustKeepRegex("bar_"),
+				MustKeepRegex("foo_", false),
+				MustKeepRegex("bar_", false),
 			},
 			expDestroy: map[string]bool{},
 		},
 		"onlyThoseRemovedByAllAreRemoved": {
 			inputs: inputs["s1"],
 			rules: []KeepRule{
-				MustKeepRegex("notInS1"), // would remove all
-				MustKeepRegex("bar_"),    // would remove all but bar_, i.e. foo_.*
+				MustKeepRegex("notInS1", false), // would remove all
+				MustKeepRegex("bar_", false),    // would remove all but bar_, i.e. foo_.*
 			},
 			expDestroy: map[string]bool{
 				"foo_123": true,
@@ -117,7 +136,7 @@ func TestPruneSnapshots(t *testing.T) {
 		"noSnaps": {
 			inputs: []Snapshot{},
 			rules: []KeepRule{
-				MustKeepRegex("foo_"),
+				MustKeepRegex("foo_", false),
 			},
 			expDestroy: map[string]bool{},
 		},

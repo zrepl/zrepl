@@ -250,6 +250,7 @@ type PruneKeepLastN struct {
 type PruneKeepRegex struct { // FIXME rename to KeepRegex
 	Type  string `yaml:"type"`
 	Regex string `yaml:"regex"`
+	Negate bool   `yaml:"negate,optional,default=false"`
 }
 
 type LoggingOutletEnum struct {
