@@ -39,7 +39,8 @@ func TestZFSPropertySource(t *testing.T) {
 	}{
 		{
 			in: sourceAny,
-			exp: []string{"local", "default", "inherited", "-", "temporary"},
+			// although empty prefix matches any source
+			exp: []string{"local", "default", "inherited", "-", "temporary", "received", ""},
 		},
 		{
 			in: sourceTemporary,

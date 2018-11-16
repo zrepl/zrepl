@@ -601,17 +601,20 @@ const (
 	sourceInherited
 	sourceNone
 	sourceTemporary
+	sourceReceived
 
 	sourceAny zfsPropertySource = ^zfsPropertySource(0)
 )
 
 func (s zfsPropertySource) zfsGetSourceFieldPrefixes() []string {
-	prefixes := make([]string, 0, 5)
+	prefixes := make([]string, 0, 7)
 	if s&sourceLocal != 0 {prefixes = append(prefixes, "local")}
 	if s&sourceDefault != 0 {prefixes = append(prefixes, "default")}
 	if s&sourceInherited != 0 {prefixes = append(prefixes, "inherited")}
 	if s&sourceNone != 0 {prefixes = append(prefixes, "-")}
 	if s&sourceTemporary != 0 { prefixes = append(prefixes, "temporary")}
+	if s&sourceReceived != 0 { prefixes = append(prefixes, "received")}
+	if s == sourceAny { prefixes = append(prefixes, "") }
 	return prefixes
 }
 
