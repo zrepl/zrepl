@@ -42,6 +42,7 @@ func init() {
 type Subcommand struct {
 	Use             string
 	Short           string
+	Example 		string
 	NoRequireConfig bool
 	Run             func(subcommand *Subcommand, args []string) error
 	SetupFlags      func(f *pflag.FlagSet)
@@ -94,6 +95,7 @@ func addSubcommandToCobraCmd(c *cobra.Command, s *Subcommand) {
 	cmd := cobra.Command{
 		Use: s.Use,
 		Short: s.Short,
+		Example: s.Example,
 	}
 	if s.SetupSubcommands == nil {
 		cmd.Run = s.run
