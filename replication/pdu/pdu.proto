@@ -113,6 +113,6 @@ message ReplicationCursorReq {
 message ReplicationCursorRes {
     oneof Result {
         uint64 Guid = 1;
-        string Error = 2;
+        bool Notexist = 2;
     }
 }

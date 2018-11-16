@@ -463,14 +463,9 @@ func (s *ReplicationStep) doMarkReplicated(ctx context.Context, ka *watchdog.Kee
 			},
 		},
 	}
-	res, err := sender.ReplicationCursor(ctx, req)
+	_, err := sender.ReplicationCursor(ctx, req)
 	if err != nil {
 		log.WithError(err).Error("error advancing replication cursor")
-		return err
-	}
-	if res.GetError() != "" {
-		err := fmt.Errorf("cannot advance replication cursor: %s", res.GetError())
-		log.Error(err.Error())
 		return err
 	}
 	ka.MadeProgress()

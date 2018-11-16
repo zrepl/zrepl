@@ -274,6 +274,9 @@ func (p *Pruner) Error() error {
 type fs struct {
 	path  string
 
+	// permanent error during planning
+	planErr error
+
 	// snapshots presented by target
 	// (type snapshot)
 	snaps []pruning.Snapshot
@@ -296,7 +299,9 @@ func (f *fs) Report() FSReport {
 	r := FSReport{}
 	r.Filesystem = f.path
 	r.ErrorCount = f.execErrCount
-	if f.execErrLast != nil {
+	if f.planErr != nil {
+		r.LastError = f.planErr.Error()
+	} else  if f.execErrLast != nil {
 		r.LastError = f.execErrLast.Error()
 	}
 
@@ -413,11 +418,13 @@ func statePlan(a *args, u updater) state {
 			l.WithError(err).Error("cannot get replication cursor")
 			return onErr(u, err)
 		}
-		if rc.GetError() != "" {
-			l.WithField("reqErr", rc.GetError()).Error("cannot get replication cursor")
-			return onErr(u, err)
-		}
 		ka.MadeProgress()
+		if rc.GetNotexist()  {
+			l.Error("replication cursor does not exist, skipping")
+			pfs.destroyList = []pruning.Snapshot{}
+			pfs.planErr = fmt.Errorf("replication cursor bookmark does not exist (one successful replication is required before pruning works)")
+			continue
+		}
 
 
 		// scan from older to newer, all snapshots older than cursor are interpreted as replicated
