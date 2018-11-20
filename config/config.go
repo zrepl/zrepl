@@ -33,6 +33,7 @@ type JobEnum struct {
 func (j JobEnum) Name() string {
 	var name string
 	switch v := j.Ret.(type) {
+	case *SnapJob: name = v.Name
 	case *PushJob: name = v.Name
 	case *SinkJob: name = v.Name
 	case *PullJob: name = v.Name
@@ -56,6 +57,15 @@ type PassiveJob struct {
 	Name        string           `yaml:"name"`
 	Serve       ServeEnum `yaml:"serve"`
 	Debug       JobDebugSettings `yaml:"debug,optional"`
+}
+
+type SnapJob struct {
+	Type         string                `yaml:"type"`
+	Name         string                `yaml:"name"`
+	Pruning      PruningLocal	   `yaml:"pruning"`
+	Debug        JobDebugSettings      `yaml:"debug,optional"`
+	Snapshotting SnapshottingEnum      `yaml:"snapshotting"`
+	Filesystems FilesystemsFilter `yaml:"filesystems"`
 }
 
 type PushJob struct {
@@ -340,6 +350,7 @@ func enumUnmarshal(u func(interface{}, bool) error, types map[string]interface{}
 
 func (t *JobEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
+		"snap":   &SnapJob{},
 		"push":   &PushJob{},
 		"sink":   &SinkJob{},
 		"pull":   &PullJob{},
