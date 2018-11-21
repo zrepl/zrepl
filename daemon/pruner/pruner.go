@@ -181,13 +181,13 @@ func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, target Target, 
 func (f *SinglePrunerFactory) BuildSinglePruner(ctx context.Context, target Target, receiver History) *Pruner {
 	p := &Pruner{
 		args: args{
-			WithLogger(ctx, GetLogger(ctx).WithField("prune_side", "sender")),
+			ctx,
 			target,
 			receiver,
 			f.keepRules,
 			f.retryWait,
 			f.considerSnapAtCursorReplicated,
-			f.promPruneSecs.WithLabelValues("sender"),
+			f.promPruneSecs.WithLabelValues(),
 		},
 		state: Plan,
 	}
