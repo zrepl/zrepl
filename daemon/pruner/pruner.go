@@ -17,7 +17,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-//	"github.com/zrepl/zrepl/replication"
 )
 
 // Try to keep it compatible with gitub.com/zrepl/zrepl/replication.Endpoint
