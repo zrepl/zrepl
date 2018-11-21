@@ -82,7 +82,7 @@ func (j *SnapJob) Run(ctx context.Context) {
 	periodicDone := make(chan struct{})
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go 	j.snapper.Run(ctx, periodicDone)
+	go j.snapper.Run(ctx, periodicDone)
 
 	invocationCount := 0
 outer:
@@ -106,7 +106,7 @@ func (j *SnapJob) doPrune(ctx context.Context) {
 	log := GetLogger(ctx)
 	ctx = logging.WithSubsystemLoggers(ctx, log)
 	sender := endpoint.NewSender(j.fsfilter)
-	j.pruner = 	j.prunerFactory.BuildSinglePruner(ctx, sender, sender)
+	j.pruner = j.prunerFactory.BuildSinglePruner(ctx, sender, sender)
 	log.Info("start pruning")
 	j.pruner.Prune()
 	log.Info("finished pruning")
