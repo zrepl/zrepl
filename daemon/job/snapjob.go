@@ -18,9 +18,10 @@ import (
 	"time"
 )
 
-type snap_ActiveSide struct {
-	mode          snap_activeMode
+type SnapJob struct {
 	name          string
+    fsfilter         zfs.DatasetFilter
+    snapper *snapper.PeriodicOrManual
 
 	prunerFactory *pruner.SinglePrunerFactory
 
@@ -39,70 +40,49 @@ type snap_activeSideTasks struct {
 	prunerCancel context.CancelFunc
 }
 
-func (a *snap_ActiveSide) Name() string { return a.name }
+func (j *SnapJob) Name() string { return j.name }
 
-func (a *snap_ActiveSide) GetPruner(ctx context.Context, sender *endpoint.Sender) (*pruner.Pruner) {
-    p := a.prunerFactory.BuildSinglePruner(ctx,sender,sender)
+func (j *SnapJob) GetPruner(ctx context.Context, sender *endpoint.Sender) (*pruner.Pruner) {
+    p := j.prunerFactory.BuildSinglePruner(ctx,sender,sender)
     return p
 }
 
 
-func (a *snap_ActiveSide) updateTasks(u func(*snap_activeSideTasks)) snap_activeSideTasks {
-	a.tasksMtx.Lock()
-	defer a.tasksMtx.Unlock()
+func (j *SnapJob) updateTasks(u func(*snap_activeSideTasks)) snap_activeSideTasks {
+	j.tasksMtx.Lock()
+	defer j.tasksMtx.Unlock()
 	var copy snap_activeSideTasks
-	copy = a.tasks
+	copy = j.tasks
 	if u == nil {
 		return copy
 	}
 	u(&copy)
-	a.tasks = copy
+	j.tasks = copy
 	return copy
 }
 
 
-type snap_activeMode interface {
-	Type() Type
-	RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{})
-	FSFilter() zfs.DatasetFilter
+func (j *SnapJob) Type() Type { return TypeSnap }
+
+func (j *SnapJob) RunPeriodic(ctx context.Context, wakeUpCommon chan <- struct{}) {
+    j.snapper.Run(ctx, wakeUpCommon)
 }
 
-
-
-type modeSnap struct {
-    fsfilter         zfs.DatasetFilter
-    snapper *snapper.PeriodicOrManual
+func (j *SnapJob) FSFilter() zfs.DatasetFilter {
+	return j.fsfilter
 }
 
-func (m *modeSnap) Type() Type { return TypeSnap }
-
-func (m *modeSnap) RunPeriodic(ctx context.Context, wakeUpCommon chan <- struct{}) {
-    m.snapper.Run(ctx, wakeUpCommon)
-}
-
-func (m *modeSnap) FSFilter() zfs.DatasetFilter {
-	return m.fsfilter
-}
-
-func modeSnapFromConfig(g *config.Global, in *config.SnapJob) (*modeSnap, error) {
-    m := &modeSnap{}
+func snapJob(g *config.Global, in *config.SnapJob) (j *SnapJob, err error) {
+	j = &SnapJob{}
     fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
     if err != nil {
         return nil, errors.Wrap(err, "cannnot build filesystem filter")
     }
-    m.fsfilter = fsf
+    j.fsfilter = fsf
 
-    if m.snapper, err = snapper.FromConfig(g, fsf, in.Snapshotting); err != nil {
+    if j.snapper, err = snapper.FromConfig(g, fsf, in.Snapshotting); err != nil {
         return nil, errors.Wrap(err, "cannot build snapper")
     }
-
-    return m, nil
-}
-
-
-func snap_activeSide(g *config.Global, in *config.SnapJob, mode *modeSnap) (j *snap_ActiveSide, err error) {
-
-	j = &snap_ActiveSide{mode: mode}
 	j.name = in.Name
 	j.promPruneSecs = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace:   "zrepl",
@@ -118,22 +98,22 @@ func snap_activeSide(g *config.Global, in *config.SnapJob, mode *modeSnap) (j *s
 	return j, nil
 }
 
-func (j *snap_ActiveSide) RegisterMetrics(registerer prometheus.Registerer) {
+func (j *SnapJob) RegisterMetrics(registerer prometheus.Registerer) {
 	registerer.MustRegister(j.promPruneSecs)
 }
 
-func (j *snap_ActiveSide) Status() *Status {
+func (j *SnapJob) Status() *Status {
 	tasks := j.updateTasks(nil)
 
 	s := &ActiveSideStatus{}
-	t := j.mode.Type()
+	t := j.Type()
 	if tasks.pruner != nil {
 		s.PruningSender = tasks.pruner.Report()
 	}
 	return &Status{Type: t, JobSpecific: s}
 }
 
-func (j *snap_ActiveSide) Run(ctx context.Context) {
+func (j *SnapJob) Run(ctx context.Context) {
 	log := GetLogger(ctx)
 	ctx = logging.WithSubsystemLoggers(ctx, log)
 
@@ -142,7 +122,7 @@ func (j *snap_ActiveSide) Run(ctx context.Context) {
 	periodicDone := make(chan struct{})
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go j.mode.RunPeriodic(ctx, periodicDone)
+	go j.RunPeriodic(ctx, periodicDone)
 
 	invocationCount := 0
 outer:
@@ -162,7 +142,7 @@ outer:
 	}
 }
 
-func (j *snap_ActiveSide) do(ctx context.Context) {
+func (j *SnapJob) do(ctx context.Context) {
 
 	log := GetLogger(ctx)
 	ctx = logging.WithSubsystemLoggers(ctx, log)
@@ -236,7 +216,7 @@ func (j *snap_ActiveSide) do(ctx context.Context) {
 	}()
 
 		ctx, localCancel := context.WithCancel(ctx)
-		sender := endpoint.NewSender(j.mode.FSFilter())
+		sender := endpoint.NewSender(j.FSFilter())
 		tasks := j.updateTasks(func(tasks *snap_activeSideTasks) {
 			tasks.pruner = j.GetPruner(ctx, sender)
 			tasks.prunerCancel = localCancel
