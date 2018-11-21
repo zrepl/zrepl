@@ -28,20 +28,7 @@ type SnapJob struct {
 
 func (j *SnapJob) Name() string { return j.name }
 
-func (j *SnapJob) getPruner(ctx context.Context, sender *endpoint.Sender) *pruner.Pruner {
-	p := j.prunerFactory.BuildSinglePruner(ctx, sender, sender)
-	return p
-}
-
 func (j *SnapJob) Type() Type { return TypeSnap }
-
-func (j *SnapJob) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}) {
-	j.snapper.Run(ctx, wakeUpCommon)
-}
-
-func (j *SnapJob) FSFilter() zfs.DatasetFilter {
-	return j.fsfilter
-}
 
 func snapJob(g *config.Global, in *config.SnapJob) (j *SnapJob, err error) {
 	j = &SnapJob{}
@@ -95,7 +82,7 @@ func (j *SnapJob) Run(ctx context.Context) {
 	periodicDone := make(chan struct{})
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go j.RunPeriodic(ctx, periodicDone)
+	go 	j.snapper.Run(ctx, periodicDone)
 
 	invocationCount := 0
 outer:
@@ -118,8 +105,8 @@ outer:
 func (j *SnapJob) doPrune(ctx context.Context) {
 	log := GetLogger(ctx)
 	ctx = logging.WithSubsystemLoggers(ctx, log)
-	sender := endpoint.NewSender(j.FSFilter())
-	j.pruner = j.getPruner(ctx, sender)
+	sender := endpoint.NewSender(j.fsfilter)
+	j.pruner = 	j.prunerFactory.BuildSinglePruner(ctx, sender, sender)
 	log.Info("start pruning")
 	j.pruner.Prune()
 	log.Info("finished pruning")
