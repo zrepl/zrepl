@@ -29,7 +29,7 @@ type SnapJob struct {
 
 func (j *SnapJob) Name() string { return j.name }
 
-func (j *SnapJob) GetPruner(ctx context.Context, sender *endpoint.Sender) (*pruner.Pruner) {
+func (j *SnapJob) getPruner(ctx context.Context, sender *endpoint.Sender) (*pruner.Pruner) {
     p := j.prunerFactory.BuildSinglePruner(ctx,sender,sender)
     return p
 }
@@ -121,7 +121,7 @@ func (j *SnapJob) doPrune(ctx context.Context) {
 	log := GetLogger(ctx)
 	ctx = logging.WithSubsystemLoggers(ctx, log)
 	sender := endpoint.NewSender(j.FSFilter())
-	j.pruner = j.GetPruner(ctx, sender)
+	j.pruner = j.getPruner(ctx, sender)
 	log.Info("start pruning")
 	j.pruner.Prune()
 	log.Info("finished pruning")
