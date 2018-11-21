@@ -15,9 +15,9 @@ import (
 )
 
 type SnapJob struct {
-	name          string
-    fsfilter         zfs.DatasetFilter
-    snapper *snapper.PeriodicOrManual
+	name     string
+	fsfilter zfs.DatasetFilter
+	snapper  *snapper.PeriodicOrManual
 
 	prunerFactory *pruner.SinglePrunerFactory
 
@@ -26,19 +26,17 @@ type SnapJob struct {
 	pruner *pruner.Pruner
 }
 
-
 func (j *SnapJob) Name() string { return j.name }
 
-func (j *SnapJob) getPruner(ctx context.Context, sender *endpoint.Sender) (*pruner.Pruner) {
-    p := j.prunerFactory.BuildSinglePruner(ctx,sender,sender)
-    return p
+func (j *SnapJob) getPruner(ctx context.Context, sender *endpoint.Sender) *pruner.Pruner {
+	p := j.prunerFactory.BuildSinglePruner(ctx, sender, sender)
+	return p
 }
-
 
 func (j *SnapJob) Type() Type { return TypeSnap }
 
-func (j *SnapJob) RunPeriodic(ctx context.Context, wakeUpCommon chan <- struct{}) {
-    j.snapper.Run(ctx, wakeUpCommon)
+func (j *SnapJob) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}) {
+	j.snapper.Run(ctx, wakeUpCommon)
 }
 
 func (j *SnapJob) FSFilter() zfs.DatasetFilter {
@@ -47,22 +45,22 @@ func (j *SnapJob) FSFilter() zfs.DatasetFilter {
 
 func snapJob(g *config.Global, in *config.SnapJob) (j *SnapJob, err error) {
 	j = &SnapJob{}
-    fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
-    if err != nil {
-        return nil, errors.Wrap(err, "cannnot build filesystem filter")
-    }
-    j.fsfilter = fsf
+	fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannnot build filesystem filter")
+	}
+	j.fsfilter = fsf
 
-    if j.snapper, err = snapper.FromConfig(g, fsf, in.Snapshotting); err != nil {
-        return nil, errors.Wrap(err, "cannot build snapper")
-    }
+	if j.snapper, err = snapper.FromConfig(g, fsf, in.Snapshotting); err != nil {
+		return nil, errors.Wrap(err, "cannot build snapper")
+	}
 	j.name = in.Name
 	j.promPruneSecs = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace:   "zrepl",
 		Subsystem:   "pruning",
 		Name:        "time",
 		Help:        "seconds spent in pruner",
-		ConstLabels: prometheus.Labels{"zrepl_job":j.name},
+		ConstLabels: prometheus.Labels{"zrepl_job": j.name},
 	}, []string{"prune_side"})
 	j.prunerFactory, err = pruner.NewSinglePrunerFactory(in.Pruning, j.promPruneSecs)
 	if err != nil {
@@ -126,4 +124,3 @@ func (j *SnapJob) doPrune(ctx context.Context) {
 	j.pruner.Prune()
 	log.Info("finished pruning")
 }
-
