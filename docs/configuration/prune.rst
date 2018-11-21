@@ -10,9 +10,11 @@ Typically, the requirements to temporal resolution and maximum retention time di
 For example, when using zrepl to back up a busy database server, you will want high temporal resolution (snapshots every 10 min) for the last 24h in case of administrative disasters, but cannot afford to store them for much longer because you might have high turnover volume in the database.
 On the receiving side, you may have more disk space available, or need to comply with other backup retention policies.
 
-zrepl uses a set of  **keep rules** to determine which snapshots shall be kept per filesystem.
+zrepl uses a set of  **keep rules** per replication side to determine which snapshots shall be kept per filesystem.
 **A snapshot that is not kept by any rule is destroyed.**
 The keep rules are **evaluated on the active side** (:ref:`push <job-push>` or :ref:`pull job <job-pull>`) of the replication setup, for both active and passive side, after replication completed or was determined to have failed permanently.
+
+
 
 Example Configuration:
 
@@ -53,14 +55,39 @@ Example Configuration:
 
     It is currently not possible to define pruning on a source job.
     The source job creates snapshots, which means that extended replication downtime will fill up the source's zpool with snapshots, since pruning is directed by the corresponding active side (pull job).
-    If this is a potential risk for you, consider using :ref:`push mode <job-push>`.
+    If this is a potential risk for you, consider using :ref:`push mode <job-push>` or adding a pruning-only :ref:`snap job <job-snap>` to thin out extremely old snapshots in case the pull job doesn't prune for a very long time.
+
+
+.. _prune-local-vs-twosided:
+
+Local vs two-sided ``pruning`` Syntax
+-------------------------------------
+
+Since ``snap`` jobs work locally only, their ``pruning`` field takes a simple ``keep`` instead of ``keep_sender`` and ``keep_receiver``.
+
+::
+
+   jobs:
+   - type: snap
+     pruning:
+       keep:
+       - type: not_replicated
+     ...
+
+   - type: push
+     pruning:
+       keep_sender:
+       - type: not_replicated
+         ...
+       keep_receiver:
+     ...
+
 
 
 .. _prune-keep-not-replicated:
 
 Policy ``not_replicated``
 -------------------------
-
 ::
 
    jobs:

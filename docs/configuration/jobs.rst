@@ -17,7 +17,7 @@ Overview & Terminology
 A *job* is the unit of activity tracked by the zrepl daemon and configured in the |mainconfig|.
 Every job has a unique ``name``, a ``type`` and type-dependent fields which are documented on this page.
 
-Replication always happens between a pair of jobs: one is the **active side**, and one the **passive side**.
+Aside from ``snap`` jobs, which are special jobs only for snapshotting and pruning, replication always happens between a pair of jobs: one is the **active side**, and one the **passive side**.
 The active side executes the replication logic whereas the passive side responds to requests after checking the active side's permissions.
 For communication, the active side connects to the passive side using a :ref:`transport <transport>` and starts issuing remote procedure calls (RPCs).
 
@@ -34,6 +34,12 @@ The following table shows how different job types can be combined to achieve bot
 +-----------------------+--------------+----------------------------------+-----------------------------------------------+
 | Local replication     | | ``push`` + ``sink`` in one config             | * Backup FreeBSD boot pool                    |
 |                       | | with :ref:`local transport <transport-local>` |                                               |
++-----------------------+--------------+----------------------------------+-----------------------------------------------+
+| SnapJob               | ``snap``     | N/A                              | * Data requires versioning but no backups     |
+|                       |              |                                  | * Combined with a  ``push`` or ``pull`` job:  |
+|                       |              |                                  |                                               |
+|                       |              |                                  |   * High frequency local snapshotting         |
+|                       |              |                                  |   * Low frequency replication                 |
 +-----------------------+--------------+----------------------------------+-----------------------------------------------+
 
 How the Active Side Works
@@ -114,7 +120,7 @@ Regardless of whether that keep rule is used, the bookmark ensures that replicat
 Taking Snaphots
 ---------------
 
-The ``push`` and ``source`` jobs can automatically take periodic snapshots of the filesystems matched by the ``filesystems`` filter field.
+The ``push``, ``source`` and ``snap`` jobs can automatically take periodic snapshots of the filesystems matched by the ``filesystems`` filter field.
 The snapshot names are composed of a user-defined prefix followed by a UTC date formatted like ``20060102_150405_000``.
 We use UTC because it will avoid name conflicts when switching time zones or between summer and winter time.
 
@@ -136,7 +142,7 @@ For ``push`` jobs, replication is automatically triggered after all filesystems 
 
 There is also a ``manual`` snapshotting type, which covers the following use cases:
 
-* Existing infrastructure for automatic snapshots: you only want to use zrepl for replication.
+* Separate ``snap`` job or external infrastructures for automatic snapshots: you want to use this zrepl job for replication.
 * Run scripts before and after taking snapshots (like locking database tables).
   We are working on better integration for this use case: see :issue:`74`.
 
@@ -254,6 +260,35 @@ Job Type ``source``
       - |snapshotting-spec|
 
 Example config: :sampleconf:`/source.yml`
+
+.. _job-snap:
+
+Job Type ``snap``
+-----------------
+
+Job type that only takes care of local snapshotting and pruning.
+
+.. list-table::
+    :widths: 20 80
+    :header-rows: 1
+
+    * - Parameter
+      - Comment
+    * - ``type``
+      - = ``snap``
+    * - ``name``
+      - unique name of the job
+    * - ``filesystems``
+      - |filter-spec| for filesystems to be snapshotted
+    * - ``snapshotting``
+      - |snapshotting-spec|
+    * - ``pruning``
+      - |pruning-spec|
+
+Example config: :sampleconf:`/snap.yml`
+
+
+
 
 .. _replication-local:
 
