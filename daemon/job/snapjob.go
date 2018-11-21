@@ -80,8 +80,6 @@ type SnapJobStatus struct {
 }
 
 func (j *SnapJob) Status() *Status {
-	//tasks := j.updateTasks(nil)
-
 	s := &SnapJobStatus{}
 	t := j.Type()
 	if j.pruner != nil {
