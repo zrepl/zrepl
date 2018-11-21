@@ -108,6 +108,13 @@ func NewSinglePrunerFactory(in config.PruningLocal, promPruneSecs *prometheus.Hi
 		return nil, errors.Wrap(err, "cannot build pruning rules")
 	}
 	considerSnapAtCursorReplicated := false
+	for _, r := range in.Keep {
+		knr, ok := r.Ret.(*config.PruneKeepNotReplicated)
+		if !ok {
+			continue
+		}
+		considerSnapAtCursorReplicated = considerSnapAtCursorReplicated || !knr.KeepSnapshotAtCursor
+	}
 	f := &SinglePrunerFactory{
 		keepRules: rules,
 		retryWait: envconst.Duration("ZREPL_PRUNER_RETRY_INTERVAL", 10 * time.Second),
