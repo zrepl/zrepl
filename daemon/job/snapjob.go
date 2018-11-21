@@ -102,13 +102,17 @@ func (j *SnapJob) RegisterMetrics(registerer prometheus.Registerer) {
 	registerer.MustRegister(j.promPruneSecs)
 }
 
+type SnapJobStatus struct {
+	Pruning *pruner.Report
+}
+
 func (j *SnapJob) Status() *Status {
 	tasks := j.updateTasks(nil)
 
-	s := &ActiveSideStatus{}
+	s := &SnapJobStatus{}
 	t := j.Type()
 	if tasks.pruner != nil {
-		s.PruningSender = tasks.pruner.Report()
+		s.Pruning = tasks.pruner.Report()
 	}
 	return &Status{Type: t, JobSpecific: s}
 }
