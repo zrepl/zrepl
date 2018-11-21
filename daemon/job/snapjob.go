@@ -63,7 +63,7 @@ func snapJob(g *config.Global, in *config.SnapJob) (j *SnapJob, err error) {
 		Name:        "time",
 		Help:        "seconds spent in pruner",
 		ConstLabels: prometheus.Labels{"zrepl_job":j.name},
-	}, []string {})
+	}, []string{"prune_side"})
 	j.prunerFactory, err = pruner.NewSinglePrunerFactory(in.Pruning, j.promPruneSecs)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot build snapjob pruning rules")

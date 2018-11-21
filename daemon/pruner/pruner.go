@@ -187,7 +187,7 @@ func (f *SinglePrunerFactory) BuildSinglePruner(ctx context.Context, target Targ
 			f.keepRules,
 			f.retryWait,
 			f.considerSnapAtCursorReplicated,
-			f.promPruneSecs.WithLabelValues(),
+			f.promPruneSecs.WithLabelValues("local"),
 		},
 		state: Plan,
 	}
