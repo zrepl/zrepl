@@ -72,7 +72,7 @@ func (l *ClientAuthListener) Accept() (c net.Conn, clientCN string, err error) {
 	}
 
 	peerCerts = tlsConn.ConnectionState().PeerCertificates
-	if len(peerCerts) != 1 {
+	if len(peerCerts) < 1 {
 		err = errors.New("unexpected number of certificates presented by TLS client")
 		goto CloseAndErr
 	}
