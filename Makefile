@@ -133,8 +133,9 @@ release: $(RELEASE_BINS) $(RELEASE_NOARCH)
 	cd "$(ARTIFACTDIR)/release" && sha512sum $$(ls | sort) > sha512sum.txt
 	@# note that we use ZREPL_VERSION and not _ZREPL_VERSION because we want to detect the override
 	@if git describe --dirty 2>/dev/null | grep dirty >/dev/null; then \
-		if [ "$(ZREPL_VERSION)" == "" ]; then \
-			echo "[WARN] git checkout is dirty and make variable ZREPL_VERSION was not used to override"; \
+        echo '[INFO] either git reports checkout is dirty or git is not installed or this is not a git checkout'; \
+		if [ "$(ZREPL_VERSION)" = "" ]; then \
+			echo '[WARN] git checkout is dirty and make variable ZREPL_VERSION was not used to override'; \
 			exit 1; \
 		fi; \
 	fi;
