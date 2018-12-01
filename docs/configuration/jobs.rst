@@ -57,7 +57,7 @@ using the transport listener type specified in the ``serve`` field of the job co
 Each transport listener provides a client's identity to the passive side job.
 It uses the client identity for access control:
 
-* The ``sink`` job only allows pushes to those ZFS filesystems to the active side that are located below ``root_fs/${client_identity}``.
+* The ``sink`` job maps requests from different client identities to their respective sub-filesystem tree ``root_fs/${client_identity}``.
 * The ``source`` job has a whitelist of client identities that are allowed pull access.
 
 .. TIP::
