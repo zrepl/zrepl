@@ -25,21 +25,24 @@ fi
 
 CHECKOUTPATH="${GOPATH}/src/github.com/zrepl/zrepl"
 
-builddep() {
-    step "Install build depdencies using 'go get' to \$GOPATH/bin"
-    go get -u golang.org/x/tools/cmd/stringer
+godep() {
+    step "Install go dep using 'go get' to \$GOPATH/bin"
     go get -u github.com/golang/dep/cmd/dep
-    go get -u github.com/golang/protobuf/protoc-gen-go
-    go get -u github.com/alvaroloes/enumer
-    if ! type stringer || ! type dep || ! type protoc-gen-go || ! type enumer ; then
+    if ! type dep ; then
+        echo "Unable to install go dep" 1>&2
+        exit 1
+    fi
+    step "Fetching dependencies using 'dep ensure'"
+    dep ensure -v -vendor-only
+    step "go install build dependencies fetched using dep"
+    # these will be in the vendor directory
+    go build -o "$GOPATH/bin/stringer"      ./vendor/golang.org/x/tools/cmd/stringer
+    go build -o "$GOPATH/bin/protoc-gen-go" ./vendor/github.com/golang/protobuf/protoc-gen-go
+    go build -o "$GOPATH/bin/enumer"        ./vendor/github.com/alvaroloes/enumer
+    if ! type stringer || ! type protoc-gen-go || ! type enumer ; then
         echo "Installed dependencies but can't find them in \$PATH, adjust it to contain \$GOPATH/bin" 1>&2
         exit 1
     fi
-}
-
-godep() {
-    step "Fetching dependencies using 'dep ensure'"
-    dep ensure
 }
 
 docdep() {
@@ -62,13 +65,13 @@ release() {
 
 for cmd in "$@"; do
     case "$cmd" in
-        builddep|godep|docdep|release_bins|docs)
+        godep|docdep|release_bins|docs)
             eval $cmd
             continue
             ;;
         devsetup)
             step "Installing development dependencies"
-            builddep
+            godep
             docdep
             step "Development dependencies installed"
             continue
