@@ -167,7 +167,7 @@ type ConnectCommon struct {
 type TCPConnect struct {
 	ConnectCommon `yaml:",inline"`
 	Address       string        `yaml:"address"`
-	DialTimeout   time.Duration `yaml:"dial_timeout,positive,default=10s"`
+	DialTimeout   time.Duration `yaml:"dial_timeout,zeropositive,default=10s"`
 }
 
 type TLSConnect struct {
@@ -177,7 +177,7 @@ type TLSConnect struct {
 	Cert          string        `yaml:"cert"`
 	Key           string        `yaml:"key"`
 	ServerCN      string        `yaml:"server_cn"`
-	DialTimeout   time.Duration `yaml:"dial_timeout,positive,default=10s"`
+	DialTimeout   time.Duration `yaml:"dial_timeout,zeropositive,default=10s"`
 }
 
 type SSHStdinserverConnect struct {
@@ -189,7 +189,7 @@ type SSHStdinserverConnect struct {
 	TransportOpenCommand []string      `yaml:"transport_open_command,optional"` //TODO unused
 	SSHCommand           string        `yaml:"ssh_command,optional"`            //TODO unused
 	Options              []string      `yaml:"options,optional"`
-	DialTimeout          time.Duration `yaml:"dial_timeout,positive,default=10s"`
+	DialTimeout          time.Duration `yaml:"dial_timeout,zeropositive,default=10s"`
 }
 
 type LocalConnect struct {
@@ -220,7 +220,7 @@ type TLSServe struct {
 	Cert             string        `yaml:"cert"`
 	Key              string        `yaml:"key"`
 	ClientCNs        []string      `yaml:"client_cns"`
-	HandshakeTimeout time.Duration `yaml:"handshake_timeout,positive,default=10s"`
+	HandshakeTimeout time.Duration `yaml:"handshake_timeout,zeropositive,default=10s"`
 }
 
 type StdinserverServer struct {
