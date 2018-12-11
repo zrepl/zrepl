@@ -70,6 +70,7 @@ func (l *ClientAuthListener) Accept() (c net.Conn, clientCN string, err error) {
 	if err = tlsConn.Handshake(); err != nil {
 		goto CloseAndErr
 	}
+	tlsConn.SetDeadline(time.Time{})
 
 	peerCerts = tlsConn.ConnectionState().PeerCertificates
 	if len(peerCerts) != 1 {
