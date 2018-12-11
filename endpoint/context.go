@@ -9,6 +9,7 @@ type contextKey int
 
 const (
 	contextKeyLogger contextKey = iota
+	ClientIdentityKey
 )
 
 type Logger = logger.Logger

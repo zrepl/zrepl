@@ -6,16 +6,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/zrepl/zrepl/util/watchdog"
-	"io"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/replication/pdu"
-	"github.com/zrepl/zrepl/util"
+	"github.com/zrepl/zrepl/util/bytecounter"
+	"github.com/zrepl/zrepl/util/watchdog"
+	"github.com/zrepl/zrepl/zfs"
 )
 
 type contextKey int
@@ -43,7 +43,7 @@ type Sender interface {
 	// If a non-nil io.ReadCloser is returned, it is guaranteed to be closed before
 	// any next call to the parent github.com/zrepl/zrepl/replication.Endpoint.
 	// If the send request is for dry run the io.ReadCloser will be nil
-	Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error)
+	Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error)
 	ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error)
 }
 
@@ -51,9 +51,7 @@ type Sender interface {
 type Receiver interface {
 	// Receive sends r and sendStream (the latter containing a ZFS send stream)
 	// to the parent github.com/zrepl/zrepl/replication.Endpoint.
-	// Implementors must guarantee that Close was called on sendStream before
-	// the call to Receive returns.
-	Receive(ctx context.Context, r *pdu.ReceiveReq, sendStream io.ReadCloser) error
+	Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs.StreamCopier) (*pdu.ReceiveRes, error)
 }
 
 type StepReport struct {
@@ -227,7 +225,7 @@ type ReplicationStep struct {
 	// both retry and permanent error
 	err error
 
-	byteCounter  *util.ByteCounterReader
+	byteCounter  bytecounter.StreamCopier
 	expectedSize int64 // 0 means no size estimate present / possible
 }
 
@@ -401,37 +399,54 @@ func (s *ReplicationStep) doReplication(ctx context.Context, ka *watchdog.KeepAl
 	sr := s.buildSendRequest(false)
 
 	log.Debug("initiate send request")
-	sres, sstream, err := sender.Send(ctx, sr)
+	sres, sstreamCopier, err := sender.Send(ctx, sr)
 	if err != nil {
 		log.WithError(err).Error("send request failed")
 		return err
 	}
-	if sstream == nil {
+	if sstreamCopier == nil {
 		err := errors.New("send request did not return a stream, broken endpoint implementation")
 		return err
 	}
+	defer sstreamCopier.Close()
 
-	s.byteCounter = util.NewByteCounterReader(sstream)
-	s.byteCounter.SetCallback(1*time.Second, func(i int64) {
-		ka.MadeProgress()
-	})
-	defer func() {
-		s.parent.promBytesReplicated.Add(float64(s.byteCounter.Bytes()))
+	// Install a byte counter to track progress + for status report
+	s.byteCounter = bytecounter.NewStreamCopier(sstreamCopier)
+	byteCounterStopProgress := make(chan struct{})
+	defer close(byteCounterStopProgress)
+	go func() {
+		var lastCount int64
+		t := time.NewTicker(1 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-byteCounterStopProgress:
+				return
+			case <-t.C:
+				newCount := s.byteCounter.Count()
+				if lastCount != newCount {
+					ka.MadeProgress()
+				} else {
+					lastCount = newCount
+				}
+			}
+		}
 	}()
-	sstream = s.byteCounter
+	defer func() {
+		s.parent.promBytesReplicated.Add(float64(s.byteCounter.Count()))
+	}()
 
 	rr := &pdu.ReceiveReq{
 		Filesystem:       fs,
 		ClearResumeToken: !sres.UsedResumeToken,
 	}
 	log.Debug("initiate receive request")
-	err = receiver.Receive(ctx, rr, sstream)
+	_, err = receiver.Receive(ctx, rr, s.byteCounter)
 	if err != nil {
 		log.
 			WithError(err).
 			WithField("errType", fmt.Sprintf("%T", err)).
 			Error("receive request failed (might also be error on sender)")
-		sstream.Close()
 		// This failure could be due to
 		// 	- an unexpected exit of ZFS on the sending side
 		//  - an unexpected exit of ZFS on the receiving side
@@ -524,7 +539,7 @@ func (s *ReplicationStep) Report() *StepReport {
 	}
 	bytes := int64(0)
 	if s.byteCounter != nil {
-		bytes = s.byteCounter.Bytes()
+		bytes = s.byteCounter.Count()
 	}
 	problem := ""
 	if s.err != nil {

@@ -1,0 +1,54 @@
+---
+
+- name: compile binary and any key files required
+  local_action: command ./gen_files.sh
+
+- name: Kill test binary
+  shell: "killall -9 wireevaluator || true"
+- name: Deploy new binary
+  copy:
+    src: "files/wireevaluator"
+    dest: "/opt/wireevaluator"
+    mode: 0755
+
+- set_fact:
+    wireevaluator_connect_ip: "{{hostvars['connect'].ansible_host}}"
+    wireevaluator_serve_ip: "{{hostvars['serve'].ansible_host}}"
+
+- name: Deploy config
+  template:
+    src: "templates/{{wireevaluator_transport}}.yml.j2"
+    dest: "/opt/wireevaluator.yml"
+
+- name: Deploy client identity
+  copy:
+    src: "files/wireevaluator.{{item}}"
+    dest: "/opt/wireevaluator.{{item}}"
+    mode: 0400
+  with_items:
+    - ssh_client_identity
+    - ssh_client_identity.pub
+    - tls.ca.key
+    - tls.ca.crt
+    - tls.theserver.key
+    - tls.theserver.crt
+    - tls.theclient.key
+    - tls.theclient.crt
+
+- name: Setup server ssh client identity access
+  when: inventory_hostname == "serve"
+  block:
+  - authorized_key:
+      user: root
+      state: present
+      key: "{{ lookup('file', 'files/wireevaluator.ssh_client_identity.pub') }}"
+      key_options: 'command="/opt/wireevaluator -mode stdinserver -config /opt/wireevaluator.yml client1"'
+  - file:
+      state: directory
+      mode: 0700
+      path: /tmp/wireevaluator_stdinserver
+
+- name: repeated test 
+  include: internal_run_test_prepared_single.yml
+  with_sequence: start=1 end={{wireevaluator_repeat}}
+

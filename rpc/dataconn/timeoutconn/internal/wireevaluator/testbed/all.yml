@@ -1,0 +1,17 @@
+- hosts: connect,serve
+  tasks:
+    
+    - name: "run test"
+      include: internal_prepare_and_run_repeated.yml
+      wireevaluator_transport: "{{config.0}}"
+      wireevaluator_case: "{{config.1}}"
+      wireevaluator_repeat: "{{wireevaluator_repeat}}"
+      with_cartesian:
+        - [ tls, ssh, tcp ]
+        -
+          - closewrite_server
+          - closewrite_client
+          - readdeadline_server
+          - readdeadline_client
+      loop_control:
+        loop_var: config

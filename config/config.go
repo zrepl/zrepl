@@ -130,7 +130,6 @@ type Global struct {
 	Monitoring []MonitoringEnum       `yaml:"monitoring,optional"`
 	Control    *GlobalControl         `yaml:"control,optional,fromdefaults"`
 	Serve      *GlobalServe           `yaml:"serve,optional,fromdefaults"`
-	RPC        *RPCConfig             `yaml:"rpc,optional,fromdefaults"`
 }
 
 func Default(i interface{}) {
@@ -145,23 +144,12 @@ func Default(i interface{}) {
 	}
 }
 
-type RPCConfig struct {
-	Timeout             time.Duration `yaml:"timeout,optional,positive,default=10s"`
-	TxChunkSize         uint32        `yaml:"tx_chunk_size,optional,default=32768"`
-	RxStructuredMaxLen  uint32        `yaml:"rx_structured_max,optional,default=16777216"`
-	RxStreamChunkMaxLen uint32        `yaml:"rx_stream_chunk_max,optional,default=16777216"`
-	RxHeaderMaxLen      uint32        `yaml:"rx_header_max,optional,default=40960"`
-	SendHeartbeatInterval             time.Duration `yaml:"send_heartbeat_interval,optional,positive,default=5s"`
-
-}
-
 type ConnectEnum struct {
 	Ret interface{}
 }
 
 type ConnectCommon struct {
-	Type string     `yaml:"type"`
-	RPC  *RPCConfig `yaml:"rpc,optional"`
+	Type string            `yaml:"type"`
 }
 
 type TCPConnect struct {
@@ -203,8 +191,7 @@ type ServeEnum struct {
 }
 
 type ServeCommon struct {
-	Type string     `yaml:"type"`
-	RPC  *RPCConfig `yaml:"rpc,optional"`
+	Type string            `yaml:"type"`
 }
 
 type TCPServe struct {

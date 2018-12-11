@@ -1,11 +1,19 @@
 syntax = "proto3";
+option go_package = "pdu";
 
-package pdu;
+service Replication {
+    rpc ListFilesystems (ListFilesystemReq) returns (ListFilesystemRes);
+    rpc ListFilesystemVersions (ListFilesystemVersionsReq) returns (ListFilesystemVersionsRes);
+    rpc DestroySnapshots (DestroySnapshotsReq) returns (DestroySnapshotsRes);
+    rpc ReplicationCursor (ReplicationCursorReq) returns (ReplicationCursorRes);
+    // for Send and Recv, see package rpc
+}
 
 message ListFilesystemReq {}
 
 message ListFilesystemRes {
     repeated Filesystem Filesystems = 1;
+    bool Empty = 2;
 }
 
 message Filesystem {
@@ -60,22 +68,18 @@ message Property {
 }
 
 message SendRes {
-    // The actual stream is in the stream part of the streamrpc response
-
     // Whether the resume token provided in the request has been used or not.
-    bool UsedResumeToken = 1;
+    bool UsedResumeToken = 2;
 
     // Expected stream size determined by dry run, not exact.
     // 0 indicates that for the given SendReq, no size estimate could be made.
-    int64 ExpectedSize = 2;
+    int64 ExpectedSize = 3;
 
-    repeated Property Properties = 3;
+    repeated Property Properties = 4;
 }
 
 message ReceiveReq {
-    // The stream part of the streamrpc request contains the zfs send stream
-
-    string Filesystem = 1;
+    string Filesystem = 1; // FIXME should be snapshot name, we can enforce that on recv
 
     // If true, the receiver should clear the resume token before perfoming the zfs recv of the stream in the request
     bool ClearResumeToken = 2;

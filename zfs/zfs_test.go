@@ -15,7 +15,7 @@ func TestZFSListHandlesProducesZFSErrorOnNonZeroExit(t *testing.T) {
 	_, err = ZFSList([]string{"fictionalprop"}, "nonexistent/dataset")
 
 	assert.Error(t, err)
-	zfsError, ok := err.(ZFSError)
+	zfsError, ok := err.(*ZFSError)
 	assert.True(t, ok)
 	assert.Equal(t, "error: this is a mock\n", string(zfsError.Stderr))
 }

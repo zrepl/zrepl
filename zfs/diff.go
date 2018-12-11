@@ -274,7 +274,7 @@ func ZFSCreatePlaceholderFilesystem(p *DatasetPath) (err error) {
 	}
 
 	if err = cmd.Wait(); err != nil {
-		err = ZFSError{
+		err = &ZFSError{
 			Stderr:  stderr.Bytes(),
 			WaitErr: err,
 		}

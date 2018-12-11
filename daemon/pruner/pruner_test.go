@@ -44,7 +44,7 @@ type mockTarget struct {
 	destroyErrs        map[string][]error
 }
 
-func (t *mockTarget) ListFilesystems(ctx context.Context) ([]*pdu.Filesystem, error) {
+func (t *mockTarget) ListFilesystems(ctx context.Context, req *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error) {
 	if len(t.listFilesystemsErr) > 0 {
 		e := t.listFilesystemsErr[0]
 		t.listFilesystemsErr = t.listFilesystemsErr[1:]
@@ -54,10 +54,11 @@ func (t *mockTarget) ListFilesystems(ctx context.Context) ([]*pdu.Filesystem, er
 	for i := range fss {
 		fss[i] = t.fss[i].Filesystem()
 	}
-	return fss, nil
+	return &pdu.ListFilesystemRes{Filesystems: fss}, nil
 }
 
-func (t *mockTarget) ListFilesystemVersions(ctx context.Context, fs string) ([]*pdu.FilesystemVersion, error) {
+func (t *mockTarget) ListFilesystemVersions(ctx context.Context, req *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error) {
+	fs := req.Filesystem
 	if len(t.listVersionsErrs[fs]) != 0 {
 		e := t.listVersionsErrs[fs][0]
 		t.listVersionsErrs[fs] = t.listVersionsErrs[fs][1:]
@@ -68,7 +69,7 @@ func (t *mockTarget) ListFilesystemVersions(ctx context.Context, fs string) ([]*
 		if mfs.path != fs {
 			continue
 		}
-		return mfs.FilesystemVersions(), nil
+		return &pdu.ListFilesystemVersionsRes{Versions: mfs.FilesystemVersions()}, nil
 	}
 	return nil, fmt.Errorf("filesystem %s does not exist", fs)
 }

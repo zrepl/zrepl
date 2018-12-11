@@ -2,21 +2,19 @@
 package endpoint
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"github.com/golang/protobuf/proto"
+	"path"
+
 	"github.com/pkg/errors"
-	"github.com/problame/go-streamrpc"
 	"github.com/zrepl/zrepl/replication"
 	"github.com/zrepl/zrepl/replication/pdu"
 	"github.com/zrepl/zrepl/zfs"
-	"io"
 )
 
 // Sender implements replication.ReplicationEndpoint for a sending side
 type Sender struct {
-	FSFilter                zfs.DatasetFilter
+	FSFilter zfs.DatasetFilter
 }
 
 func NewSender(fsf zfs.DatasetFilter) *Sender {
@@ -41,8 +39,8 @@ func (s *Sender) filterCheckFS(fs string) (*zfs.DatasetPath, error) {
 	return dp, nil
 }
 
-func (p *Sender) ListFilesystems(ctx context.Context) ([]*pdu.Filesystem, error) {
-	fss, err := zfs.ZFSListMapping(p.FSFilter)
+func (s *Sender) ListFilesystems(ctx context.Context, r *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error) {
+	fss, err := zfs.ZFSListMapping(ctx, s.FSFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -53,11 +51,12 @@ func (p *Sender) ListFilesystems(ctx context.Context) ([]*pdu.Filesystem, error)
 			// FIXME: not supporting ResumeToken yet
 		}
 	}
-	return rfss, nil
+	res := &pdu.ListFilesystemRes{Filesystems: rfss, Empty: len(rfss) == 0}
+	return res, nil
 }
 
-func (p *Sender) ListFilesystemVersions(ctx context.Context, fs string) ([]*pdu.FilesystemVersion, error) {
-	lp, err := p.filterCheckFS(fs)
+func (s *Sender) ListFilesystemVersions(ctx context.Context, r *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error) {
+	lp, err := s.filterCheckFS(r.GetFilesystem())
 	if err != nil {
 		return nil, err
 	}
@@ -69,32 +68,36 @@ func (p *Sender) ListFilesystemVersions(ctx context.Context, fs string) ([]*pdu.
 	for i := range fsvs {
 		rfsvs[i] = pdu.FilesystemVersionFromZFS(&fsvs[i])
 	}
-	return rfsvs, nil
+	res := &pdu.ListFilesystemVersionsRes{Versions: rfsvs}
+	return res, nil
+
 }
 
-func (p *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
-	_, err := p.filterCheckFS(r.Filesystem)
+func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error) {
+	_, err := s.filterCheckFS(r.Filesystem)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if r.DryRun {
-		si, err := zfs.ZFSSendDry(r.Filesystem, r.From, r.To, "")
-		if err != nil {
-			return nil, nil, err
-		}
-		var expSize int64 = 0 // protocol says 0 means no estimate
-		if si.SizeEstimate != -1 { // but si returns -1 for no size estimate
-			expSize = si.SizeEstimate
-		}
-		return &pdu.SendRes{ExpectedSize: expSize}, nil, nil
-	} else {
-		stream, err := zfs.ZFSSend(ctx, r.Filesystem, r.From, r.To, "")
-		if err != nil {
-			return nil, nil, err
-		}
-		return &pdu.SendRes{}, stream, nil
+	si, err := zfs.ZFSSendDry(r.Filesystem, r.From, r.To, "")
+	if err != nil {
+		return nil, nil, err
 	}
+	var expSize int64 = 0      // protocol says 0 means no estimate
+	if si.SizeEstimate != -1 { // but si returns -1 for no size estimate
+		expSize = si.SizeEstimate
+	}
+	res := &pdu.SendRes{ExpectedSize: expSize}
+
+	if r.DryRun {
+		return res, nil, nil
+	}
+
+	streamCopier, err := zfs.ZFSSend(ctx, r.Filesystem, r.From, r.To, "")
+	if err != nil {
+		return nil, nil, err
+	}
+	return res, streamCopier, nil
 }
 
 func (p *Sender) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error) {
@@ -132,6 +135,10 @@ func (p *Sender) ReplicationCursor(ctx context.Context, req *pdu.ReplicationCurs
 	}
 }
 
+func (p *Sender) Receive(ctx context.Context, r *pdu.ReceiveReq, receive zfs.StreamCopier) (*pdu.ReceiveRes, error) {
+	return nil, fmt.Errorf("sender does not implement Receive()")
+}
+
 type FSFilter interface { // FIXME unused
 	Filter(path *zfs.DatasetPath) (pass bool, err error)
 }
@@ -146,14 +153,50 @@ type FSMap interface { // FIXME unused
 
 // Receiver implements replication.ReplicationEndpoint for a receiving side
 type Receiver struct {
-	root *zfs.DatasetPath
+	rootWithoutClientComponent *zfs.DatasetPath
+	appendClientIdentity       bool
 }
 
-func NewReceiver(rootDataset *zfs.DatasetPath) (*Receiver, error) {
+func NewReceiver(rootDataset *zfs.DatasetPath, appendClientIdentity bool) *Receiver {
 	if rootDataset.Length() <= 0 {
-		return nil, errors.New("root dataset must not be an empty path")
+		panic(fmt.Sprintf("root dataset must not be an empty path: %v", rootDataset))
 	}
-	return &Receiver{root: rootDataset.Copy()}, nil
+	return &Receiver{rootWithoutClientComponent: rootDataset.Copy(), appendClientIdentity: appendClientIdentity}
+}
+
+func TestClientIdentity(rootFS *zfs.DatasetPath, clientIdentity string) error {
+	_, err := clientRoot(rootFS, clientIdentity)
+	return err
+}
+
+func clientRoot(rootFS *zfs.DatasetPath, clientIdentity string) (*zfs.DatasetPath, error) {
+	rootFSLen := rootFS.Length()
+	clientRootStr := path.Join(rootFS.ToString(), clientIdentity)
+	clientRoot, err := zfs.NewDatasetPath(clientRootStr)
+	if err != nil {
+		return nil, err
+	}
+	if rootFSLen+1 != clientRoot.Length() {
+		return nil, fmt.Errorf("client identity must be a single ZFS filesystem path component")
+	}
+	return clientRoot, nil
+}
+
+func (s *Receiver) clientRootFromCtx(ctx context.Context) *zfs.DatasetPath {
+	if !s.appendClientIdentity {
+		return s.rootWithoutClientComponent.Copy()
+	}
+
+	clientIdentity, ok := ctx.Value(ClientIdentityKey).(string)
+	if !ok {
+		panic(fmt.Sprintf("ClientIdentityKey context value must be set"))
+	}
+
+	clientRoot, err := clientRoot(s.rootWithoutClientComponent, clientIdentity)
+	if err != nil {
+		panic(fmt.Sprintf("ClientIdentityContextKey must have been validated before invoking Receiver: %s", err))
+	}
+	return clientRoot
 }
 
 type subroot struct {
@@ -180,8 +223,9 @@ func (f subroot) MapToLocal(fs string) (*zfs.DatasetPath, error) {
 	return c, nil
 }
 
-func (e *Receiver) ListFilesystems(ctx context.Context) ([]*pdu.Filesystem, error) {
-	filtered, err := zfs.ZFSListMapping(subroot{e.root})
+func (s *Receiver) ListFilesystems(ctx context.Context, req *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error) {
+	root := s.clientRootFromCtx(ctx)
+	filtered, err := zfs.ZFSListMapping(ctx, subroot{root})
 	if err != nil {
 		return nil, err
 	}
@@ -194,19 +238,30 @@ func (e *Receiver) ListFilesystems(ctx context.Context) ([]*pdu.Filesystem, erro
 				WithError(err).
 				WithField("fs", a).
 				Error("inconsistent placeholder property")
-			return nil, errors.New("server error, see logs") // don't leak path
+			return nil, errors.New("server error: inconsistent placeholder property") // don't leak path
 		}
 		if ph {
+			getLogger(ctx).
+				WithField("fs", a.ToString()).
+				Debug("ignoring placeholder filesystem")
 			continue
 		}
-		a.TrimPrefix(e.root)
+		getLogger(ctx).
+			WithField("fs", a.ToString()).
+			Debug("non-placeholder filesystem")
+		a.TrimPrefix(root)
 		fss = append(fss, &pdu.Filesystem{Path: a.ToString()})
 	}
-	return fss, nil
+	if len(fss) == 0 {
+		getLogger(ctx).Debug("no non-placeholder filesystems")
+		return &pdu.ListFilesystemRes{Empty: true}, nil
+	}
+	return &pdu.ListFilesystemRes{Filesystems: fss}, nil
 }
 
-func (e *Receiver) ListFilesystemVersions(ctx context.Context, fs string) ([]*pdu.FilesystemVersion, error) {
-	lp, err := subroot{e.root}.MapToLocal(fs)
+func (s *Receiver) ListFilesystemVersions(ctx context.Context, req *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error) {
+	root := s.clientRootFromCtx(ctx)
+	lp, err := subroot{root}.MapToLocal(req.GetFilesystem())
 	if err != nil {
 		return nil, err
 	}
@@ -221,18 +276,26 @@ func (e *Receiver) ListFilesystemVersions(ctx context.Context, fs string) ([]*pd
 		rfsvs[i] = pdu.FilesystemVersionFromZFS(&fsvs[i])
 	}
 
-	return rfsvs, nil
+	return &pdu.ListFilesystemVersionsRes{Versions: rfsvs}, nil
 }
 
-func (e *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, sendStream io.ReadCloser) error {
-	defer sendStream.Close()
+func (s *Receiver) ReplicationCursor(context.Context, *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
+	return nil, fmt.Errorf("ReplicationCursor not implemented for Receiver")
+}
 
-	lp, err := subroot{e.root}.MapToLocal(req.Filesystem)
-	if err != nil {
-		return err
-	}
+func (s *Receiver) Send(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error) {
+	return nil, nil, fmt.Errorf("receiver does not implement Send()")
+}
 
+func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs.StreamCopier) (*pdu.ReceiveRes, error) {
 	getLogger(ctx).Debug("incoming Receive")
+	defer receive.Close()
+
+	root := s.clientRootFromCtx(ctx)
+	lp, err := subroot{root}.MapToLocal(req.Filesystem)
+	if err != nil {
+		return nil, err
+	}
 
 	// create placeholder parent filesystems as appropriate
 	var visitErr error
@@ -261,7 +324,7 @@ func (e *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, sendStream 
 	getLogger(ctx).WithField("visitErr", visitErr).Debug("complete tree-walk")
 
 	if visitErr != nil {
-		return visitErr
+		return nil, err
 	}
 
 	needForceRecv := false
@@ -279,19 +342,19 @@ func (e *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, sendStream 
 
 	getLogger(ctx).Debug("start receive command")
 
-	if err := zfs.ZFSRecv(ctx, lp.ToString(), sendStream, args...); err != nil {
+	if err := zfs.ZFSRecv(ctx, lp.ToString(), receive, args...); err != nil {
 		getLogger(ctx).
 			WithError(err).
 			WithField("args", args).
 			Error("zfs receive failed")
-		sendStream.Close()
-		return err
+		return nil, err
 	}
-	return nil
+	return &pdu.ReceiveRes{}, nil
 }
 
-func (e *Receiver) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error) {
-	lp, err := subroot{e.root}.MapToLocal(req.Filesystem)
+func (s *Receiver) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error) {
+	root := s.clientRootFromCtx(ctx)
+	lp, err := subroot{root}.MapToLocal(req.Filesystem)
 	if err != nil {
 		return nil, err
 	}
@@ -325,290 +388,4 @@ func doDestroySnapshots(ctx context.Context, lp *zfs.DatasetPath, snaps []*pdu.F
 		}
 	}
 	return res, nil
-}
-
-// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-// RPC STUBS
-// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-const (
-	RPCListFilesystems        = "ListFilesystems"
-	RPCListFilesystemVersions = "ListFilesystemVersions"
-	RPCReceive                = "Receive"
-	RPCSend                   = "Send"
-	RPCSDestroySnapshots      = "DestroySnapshots"
-	RPCReplicationCursor      = "ReplicationCursor"
-)
-
-// Remote implements an endpoint stub that uses streamrpc as a transport.
-type Remote struct {
-	c *streamrpc.Client
-}
-
-func NewRemote(c *streamrpc.Client) Remote {
-	return Remote{c}
-}
-
-func (s Remote) ListFilesystems(ctx context.Context) ([]*pdu.Filesystem, error) {
-	req := pdu.ListFilesystemReq{}
-	b, err := proto.Marshal(&req)
-	if err != nil {
-		return nil, err
-	}
-	rb, rs, err := s.c.RequestReply(ctx, RPCListFilesystems, bytes.NewBuffer(b), nil)
-	if err != nil {
-		return nil, err
-	}
-	if rs != nil {
-		rs.Close()
-		return nil, errors.New("response contains unexpected stream")
-	}
-	var res pdu.ListFilesystemRes
-	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
-		return nil, err
-	}
-	return res.Filesystems, nil
-}
-
-func (s Remote) ListFilesystemVersions(ctx context.Context, fs string) ([]*pdu.FilesystemVersion, error) {
-	req := pdu.ListFilesystemVersionsReq{
-		Filesystem: fs,
-	}
-	b, err := proto.Marshal(&req)
-	if err != nil {
-		return nil, err
-	}
-	rb, rs, err := s.c.RequestReply(ctx, RPCListFilesystemVersions, bytes.NewBuffer(b), nil)
-	if err != nil {
-		return nil, err
-	}
-	if rs != nil {
-		rs.Close()
-		return nil, errors.New("response contains unexpected stream")
-	}
-	var res pdu.ListFilesystemVersionsRes
-	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
-		return nil, err
-	}
-	return res.Versions, nil
-}
-
-func (s Remote) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
-	b, err := proto.Marshal(r)
-	if err != nil {
-		return nil, nil, err
-	}
-	rb, rs, err := s.c.RequestReply(ctx, RPCSend, bytes.NewBuffer(b), nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	if !r.DryRun && rs == nil {
-		return nil, nil, errors.New("response does not contain a stream")
-	}
-	if r.DryRun && rs != nil {
-		rs.Close()
-		return nil, nil, errors.New("response contains unexpected stream (was dry run)")
-	}
-	var res pdu.SendRes
-	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
-		rs.Close()
-		return nil, nil, err
-	}
-	return &res, rs, nil
-}
-
-func (s Remote) Receive(ctx context.Context, r *pdu.ReceiveReq, sendStream io.ReadCloser) error {
-	defer sendStream.Close()
-	b, err := proto.Marshal(r)
-	if err != nil {
-		return err
-	}
-	rb, rs, err := s.c.RequestReply(ctx, RPCReceive, bytes.NewBuffer(b), sendStream)
-	getLogger(ctx).WithField("err", err).Debug("Remote.Receive RequestReplyReturned")
-	if err != nil {
-		return err
-	}
-	if rs != nil {
-		rs.Close()
-		return errors.New("response contains unexpected stream")
-	}
-	var res pdu.ReceiveRes
-	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s Remote) DestroySnapshots(ctx context.Context, r *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error) {
-	b, err := proto.Marshal(r)
-	if err != nil {
-		return nil, err
-	}
-	rb, rs, err := s.c.RequestReply(ctx, RPCSDestroySnapshots, bytes.NewBuffer(b), nil)
-	if err != nil {
-		return nil, err
-	}
-	if rs != nil {
-		rs.Close()
-		return nil, errors.New("response contains unexpected stream")
-	}
-	var res pdu.DestroySnapshotsRes
-	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
-		return nil, err
-	}
-	return &res, nil
-}
-
-func (s Remote) ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
-	b, err := proto.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-	rb, rs, err := s.c.RequestReply(ctx, RPCReplicationCursor, bytes.NewBuffer(b), nil)
-	if err != nil {
-		return nil, err
-	}
-	if rs != nil {
-		rs.Close()
-		return nil, errors.New("response contains unexpected stream")
-	}
-	var res pdu.ReplicationCursorRes
-	if err := proto.Unmarshal(rb.Bytes(), &res); err != nil {
-		return nil, err
-	}
-	return &res, nil
-}
-
-// Handler implements the server-side streamrpc.HandlerFunc for a Remote endpoint stub.
-type Handler struct {
-	ep replication.Endpoint
-}
-
-func NewHandler(ep replication.Endpoint) Handler {
-	return Handler{ep}
-}
-
-func (a *Handler) Handle(ctx context.Context, endpoint string, reqStructured *bytes.Buffer, reqStream io.ReadCloser) (resStructured *bytes.Buffer, resStream io.ReadCloser, err error) {
-
-	switch endpoint {
-	case RPCListFilesystems:
-		var req pdu.ListFilesystemReq
-		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
-			return nil, nil, err
-		}
-		fsses, err := a.ep.ListFilesystems(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-		res := &pdu.ListFilesystemRes{
-			Filesystems: fsses,
-		}
-		b, err := proto.Marshal(res)
-		if err != nil {
-			return nil, nil, err
-		}
-		return bytes.NewBuffer(b), nil, nil
-
-	case RPCListFilesystemVersions:
-
-		var req pdu.ListFilesystemVersionsReq
-		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
-			return nil, nil, err
-		}
-		fsvs, err := a.ep.ListFilesystemVersions(ctx, req.Filesystem)
-		if err != nil {
-			return nil, nil, err
-		}
-		res := &pdu.ListFilesystemVersionsRes{
-			Versions: fsvs,
-		}
-		b, err := proto.Marshal(res)
-		if err != nil {
-			return nil, nil, err
-		}
-		return bytes.NewBuffer(b), nil, nil
-
-	case RPCSend:
-
-		sender, ok := a.ep.(replication.Sender)
-		if !ok {
-			goto Err
-		}
-
-		var req pdu.SendReq
-		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
-			return nil, nil, err
-		}
-		res, sendStream, err := sender.Send(ctx, &req)
-		if err != nil {
-			return nil, nil, err
-		}
-		b, err := proto.Marshal(res)
-		if err != nil {
-			return nil, nil, err
-		}
-		return bytes.NewBuffer(b), sendStream, err
-
-	case RPCReceive:
-
-		receiver, ok := a.ep.(replication.Receiver)
-		if !ok {
-			goto Err
-		}
-
-		var req pdu.ReceiveReq
-		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
-			return nil, nil, err
-		}
-		err := receiver.Receive(ctx, &req, reqStream)
-		if err != nil {
-			return nil, nil, err
-		}
-		b, err := proto.Marshal(&pdu.ReceiveRes{})
-		if err != nil {
-			return nil, nil, err
-		}
-		return bytes.NewBuffer(b), nil, err
-
-	case RPCSDestroySnapshots:
-
-		var req pdu.DestroySnapshotsReq
-		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
-			return nil, nil, err
-		}
-
-		res, err := a.ep.DestroySnapshots(ctx, &req)
-		if err != nil {
-			return nil, nil, err
-		}
-		b, err := proto.Marshal(res)
-		if err != nil {
-			return nil, nil, err
-		}
-		return bytes.NewBuffer(b), nil, nil
-
-	case RPCReplicationCursor:
-
-		sender, ok := a.ep.(replication.Sender)
-		if !ok {
-			goto Err
-		}
-
-		var req pdu.ReplicationCursorReq
-		if err := proto.Unmarshal(reqStructured.Bytes(), &req); err != nil {
-			return nil, nil, err
-		}
-		res, err := sender.ReplicationCursor(ctx, &req)
-		if err != nil {
-			return nil, nil, err
-		}
-		b, err := proto.Marshal(res)
-		if err != nil {
-			return nil, nil, err
-		}
-		return bytes.NewBuffer(b), nil, nil
-
-	}
-Err:
-	return nil, nil, errors.New("no handler for given endpoint")
 }

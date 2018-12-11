@@ -9,8 +9,8 @@ type DatasetFilter interface {
 	Filter(p *DatasetPath) (pass bool, err error)
 }
 
-func ZFSListMapping(filter DatasetFilter) (datasets []*DatasetPath, err error) {
-	res, err := ZFSListMappingProperties(filter, nil)
+func ZFSListMapping(ctx context.Context, filter DatasetFilter) (datasets []*DatasetPath, err error) {
+	res, err := ZFSListMappingProperties(ctx, filter, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +28,7 @@ type ZFSListMappingPropertiesResult struct {
 }
 
 // properties must not contain 'name'
-func ZFSListMappingProperties(filter DatasetFilter, properties []string) (datasets []ZFSListMappingPropertiesResult, err error) {
+func ZFSListMappingProperties(ctx context.Context, filter DatasetFilter, properties []string) (datasets []ZFSListMappingPropertiesResult, err error) {
 
 	if filter == nil {
 		panic("filter must not be nil")
@@ -44,7 +44,7 @@ func ZFSListMappingProperties(filter DatasetFilter, properties []string) (datase
 	copy(newProps[1:], properties)
 	properties = newProps
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	rchan := make(chan ZFSListResult)
 
