@@ -1,5 +1,10 @@
 ignored = [ "github.com/inconshreveable/mousetrap" ]
 
+required = [
+    "golang.org/x/tools/cmd/stringer",
+    "github.com/alvaroloes/enumer",
+]
+
 [[constraint]]
   branch = "master"
   name = "github.com/ftrvxmtrx/fd"
@@ -73,11 +78,3 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
 [[constraint]]
   name = "github.com/gdamore/tcell"
   version = "1.0.0"
-
-[[constraint]]
-  branch = "master"
-  name = "golang.org/x/tools"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/alvaroloes/enumer"
