@@ -1,38 +1,6 @@
 .PHONY: generate build test vet cover release docs docs-clean clean vendordeps
 .DEFAULT_GOAL := build
 
-ROOT := github.com/zrepl/zrepl
-SUBPKGS += client
-SUBPKGS += config
-SUBPKGS += daemon
-SUBPKGS += daemon/filters
-SUBPKGS += daemon/job
-SUBPKGS += daemon/logging
-SUBPKGS += daemon/nethelpers
-SUBPKGS += daemon/pruner
-SUBPKGS += daemon/snapper
-SUBPKGS += daemon/streamrpcconfig
-SUBPKGS += daemon/transport
-SUBPKGS += daemon/transport/connecter
-SUBPKGS += daemon/transport/serve
-SUBPKGS += endpoint
-SUBPKGS += logger
-SUBPKGS += pruning
-SUBPKGS += pruning/retentiongrid
-SUBPKGS += replication
-SUBPKGS += replication/fsrep
-SUBPKGS += replication/pdu
-SUBPKGS += replication/internal/diff
-SUBPKGS += tlsconf
-SUBPKGS += util
-SUBPKGS += util/socketpair
-SUBPKGS += util/watchdog
-SUBPKGS += util/envconst
-SUBPKGS += version
-SUBPKGS += zfs
-
-_TESTPKGS := $(ROOT) $(foreach p,$(SUBPKGS),$(ROOT)/$(p))
-
 ARTIFACTDIR := artifacts
 
 ifdef ZREPL_VERSION
@@ -60,34 +28,17 @@ vendordeps:
 
 generate: #not part of the build, must do that manually
 	protoc -I=replication/pdu --go_out=replication/pdu replication/pdu/pdu.proto
-	@for pkg in $(_TESTPKGS); do\
-		go generate "$$pkg" || exit 1; \
-	done;
+	go generate -x ./...
 
 build:
 	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"
 	$(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl"
 
 test:
-	@for pkg in $(_TESTPKGS); do \
-		echo "Testing $$pkg"; \
-		go test "$$pkg" || exit 1; \
-	done;
+	go test ./...
 
 vet:
-	@for pkg in $(_TESTPKGS); do \
-		echo "Vetting $$pkg"; \
-		go vet "$$pkg" || exit 1; \
-	done;
-
-cover: artifacts
-	@for pkg in $(_TESTPKGS); do \
-		profile="$(ARTIFACTDIR)/cover-$$(basename $$pkg).out"; \
-		go test -coverprofile "$$profile" $$pkg || exit 1; \
-		if [ -f "$$profile" ]; then \
-   			go tool cover -html="$$profile" -o "$${profile}.html" || exit 2; \
-		fi; \
-	done;
+	go vet ./...
 
 $(ARTIFACTDIR):
 	mkdir -p "$@"
