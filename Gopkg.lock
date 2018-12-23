@@ -178,6 +178,14 @@
   version = "v0.8.0"
 
 [[projects]]
+  digest = "1:1cbc6b98173422a756ae79e485952cb37a0a460c710541c75d3e9961c5a60782"
+  name = "github.com/pkg/profile"
+  packages = ["."]
+  pruneopts = ""
+  revision = "5b67d428864e92711fcbd2f8629456121a56d91f"
+  version = "v1.2.1"
+
+[[projects]]
   digest = "1:256484dbbcd271f9ecebc6795b2df8cad4c458dd0f5fd82a8c2fa0c29f233411"
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
@@ -399,6 +407,7 @@
     "github.com/kr/pretty",
     "github.com/mattn/go-isatty",
     "github.com/pkg/errors",
+    "github.com/pkg/profile",
     "github.com/problame/go-netssh",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
