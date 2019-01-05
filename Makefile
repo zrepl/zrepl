@@ -7,7 +7,7 @@ ifdef ZREPL_VERSION
     _ZREPL_VERSION := $(ZREPL_VERSION)
 endif
 ifndef _ZREPL_VERSION
-    _ZREPL_VERSION := $(shell git describe --dirty 2>/dev/null || echo "ZREPL_BUILD_INVALID_VERSION" )
+    _ZREPL_VERSION := $(shell git describe --always --dirty 2>/dev/null || echo "ZREPL_BUILD_INVALID_VERSION" )
     ifeq ($(_ZREPL_VERSION),ZREPL_BUILD_INVALID_VERSION) # can't use .SHELLSTATUS because Debian Stretch is still on gmake 4.1
         $(error cannot infer variable ZREPL_VERSION using git and variable is not overriden by make invocation)
     endif
@@ -83,7 +83,7 @@ release: $(RELEASE_BINS) $(RELEASE_NOARCH)
 	cp $^ "$(ARTIFACTDIR)/release"
 	cd "$(ARTIFACTDIR)/release" && sha512sum $$(ls | sort) > sha512sum.txt
 	@# note that we use ZREPL_VERSION and not _ZREPL_VERSION because we want to detect the override
-	@if git describe --dirty 2>/dev/null | grep dirty >/dev/null; then \
+	@if git describe --always --dirty 2>/dev/null | grep dirty >/dev/null; then \
         echo '[INFO] either git reports checkout is dirty or git is not installed or this is not a git checkout'; \
 		if [ "$(ZREPL_VERSION)" = "" ]; then \
 			echo '[WARN] git checkout is dirty and make variable ZREPL_VERSION was not used to override'; \
