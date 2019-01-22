@@ -77,6 +77,8 @@ Connect
 The ``tls`` transport uses TCP + TLS with client authentication using client certificates.
 The client identity is the common name (CN) presented in the client certificate.
 It is recommended to set up a dedicated CA infrastructure for this transport, e.g. using OpenVPN's `EasyRSA <https://github.com/OpenVPN/easy-rsa>`_.
+When utilizing a CA infrastructure, provide a full chain certificate with the sender's certificate first in the list, with each following certificate directly certifying the one preceding it, per `TLS's specification<https://tools.ietf.org/html/rfc5246#section-7.4.2>`.
+
 For a simple 2-machine setup, see the :ref:`instructions below<transport-tcp+tlsclientauth-2machineopenssl>`.
 
 The implementation uses `Go's TLS library <https://golang.org/pkg/crypto/tls/>`_.
