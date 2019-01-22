@@ -10,7 +10,7 @@ Typically, the requirements to temporal resolution and maximum retention time di
 For example, when using zrepl to back up a busy database server, you will want high temporal resolution (snapshots every 10 min) for the last 24h in case of administrative disasters, but cannot afford to store them for much longer because you might have high turnover volume in the database.
 On the receiving side, you may have more disk space available, or need to comply with other backup retention policies.
 
-zrepl uses a set of  **keep rules** per replication side to determine which snapshots shall be kept per filesystem.
+zrepl uses a set of  **keep rules** per sending and receiving side to determine which snapshots shall be kept per filesystem.
 **A snapshot that is not kept by any rule is destroyed.**
 The keep rules are **evaluated on the active side** (:ref:`push <job-push>` or :ref:`pull job <job-pull>`) of the replication setup, for both active and passive side, after replication completed or was determined to have failed permanently.
 
@@ -51,37 +51,15 @@ Example Configuration:
     You might have **existing snapshots** of filesystems affected by pruning which you want to keep, i.e. not be destroyed by zrepl.
     Make sure to actually add the necessary ``regex`` keep rules on both sides, like with ``manual`` in the example above.
 
+.. _prune-attention-issue-102:
+
 .. ATTENTION::
 
     It is currently not possible to define pruning on a source job.
     The source job creates snapshots, which means that extended replication downtime will fill up the source's zpool with snapshots, since pruning is directed by the corresponding active side (pull job).
-    If this is a potential risk for you, consider using :ref:`push mode <job-push>` or adding a pruning-only :ref:`snap job <job-snap>` to thin out extremely old snapshots in case the pull job doesn't prune for a very long time.
-
-
-.. _prune-local-vs-twosided:
-
-Local vs two-sided ``pruning`` Syntax
--------------------------------------
-
-Since ``snap`` jobs work locally only, their ``pruning`` field takes a simple ``keep`` instead of ``keep_sender`` and ``keep_receiver``.
-
-::
-
-   jobs:
-   - type: snap
-     pruning:
-       keep:
-       - type: not_replicated
-     ...
-
-   - type: push
-     pruning:
-       keep_sender:
-       - type: not_replicated
-         ...
-       keep_receiver:
-     ...
-
+    If this is a potential risk for you, consider using :ref:`push mode <job-push>`.
+    As a :ref:`temporary workaround<prune-workaround-issue-102>` for :issue:`102` you can define a pruning-only :ref:`snap job <job-snap>` to thin out extremely old snapshots in case the active side doesn't prune for a very long time.
+    **Note**: Since jobs run in parallel, it is possible for a ``snap`` job to prune snapshots that are queued to be replicated or destroyed by the remote ``pull`` job.
 
 
 .. _prune-keep-not-replicated:
@@ -191,4 +169,26 @@ Policy ``regex``
 Like all other regular expression fields in prune policies, zrepl uses Go's `regexp.Regexp <https://golang.org/pkg/regexp/#Compile>`_ Perl-compatible regular expressions (`Syntax <https://golang.org/pkg/regexp/syntax>`_).
 The optional `negate` boolean field inverts the semantics: Use it if you want to keep all snapshots that *do not* match the given regex.
 
+.. _prune-workaround-issue-102:
 
+Workaround for Source-side snapshot pruning
+-------------------------------------------
+
+Using the ``snap`` job type as a workaround for :issue:`102` as mentioned :ref:`here <prune-attention-issue-102>`:
+
+::
+
+   jobs:
+   - type: snap
+     pruning:
+       keep:
+       - type: grid
+     ...
+
+   - type: pull
+     pruning:
+       keep_sender:
+       - type: not_replicated
+         ...
+       keep_receiver:
+     ...

@@ -17,7 +17,7 @@ Overview & Terminology
 A *job* is the unit of activity tracked by the zrepl daemon and configured in the |mainconfig|.
 Every job has a unique ``name``, a ``type`` and type-dependent fields which are documented on this page.
 
-Aside from ``snap`` jobs, which are special jobs only for snapshotting and pruning, replication always happens between a pair of jobs: one is the **active side**, and one the **passive side**.
+Replication always happens between a pair of jobs: one is the **active side**, and one the **passive side**.
 The active side executes the replication logic whereas the passive side responds to requests after checking the active side's permissions.
 For communication, the active side connects to the passive side using a :ref:`transport <transport>` and starts issuing remote procedure calls (RPCs).
 
@@ -142,9 +142,10 @@ For ``push`` jobs, replication is automatically triggered after all filesystems 
 
 There is also a ``manual`` snapshotting type, which covers the following use cases:
 
-* Separate ``snap`` job or external infrastructures for automatic snapshots: you want to use this zrepl job for replication.
+* Existing infrastructure for automatic snapshots: you only want to use this zrepl job for replication.
 * Run scripts before and after taking snapshots (like locking database tables).
   We are working on better integration for this use case: see :issue:`74`.
+* Handling snapshotting through a separate ``snap`` job.
 
 Note that you will have to trigger replication manually using the ``zrepl signal wakeup JOB`` subcommand in that case.
 
