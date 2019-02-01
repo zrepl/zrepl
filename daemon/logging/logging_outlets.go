@@ -124,6 +124,7 @@ func (h *TCPOutlet) WriteEntry(e logger.Entry) error {
 type SyslogOutlet struct {
 	Formatter          EntryFormatter
 	RetryInterval      time.Duration
+	Facility           syslog.Priority
 	writer             *syslog.Writer
 	lastConnectAttempt time.Time
 }
@@ -142,7 +143,29 @@ func (o *SyslogOutlet) WriteEntry(entry logger.Entry) error {
 		if now.Sub(o.lastConnectAttempt) < o.RetryInterval {
 			return nil // not an error toward logger
 		}
-		o.writer, err = syslog.New(syslog.LOG_LOCAL0, "zrepl")
+		fac := syslog.LOG_LOCAL0
+		switch o.Facility {
+			case "kern":     fac = syslog.LOG_KERN
+			case "user":     fac = syslog.LOG_USER
+			case "mail":     fac = syslog.LOG_MAIL
+			case "daemon":   fac = syslog.LOG_DAEMON
+			case "auth":     fac = syslog.LOG_AUTH
+			case "syslog":   fac = syslog.LOG_SYSLOG
+			case "lpr":      fac = syslog.LOG_LPR
+			case "news":     fac = syslog.LOG_NEWS
+			case "uucp":     fac = syslog.LOG_UUCP
+			case "cron":     fac = syslog.LOG_CRON
+			case "authpriv": fac = syslog.LOG_AUTHPRIV
+			case "ftp":      fac = syslog.LOG_FTP
+			case "local1":   fac = syslog.LOG_LOCAL1
+			case "local2":   fac = syslog.LOG_LOCAL2
+			case "local3":   fac = syslog.LOG_LOCAL3
+			case "local4":   fac = syslog.LOG_LOCAL4
+			case "local5":   fac = syslog.LOG_LOCAL5
+			case "local6":   fac = syslog.LOG_LOCAL6
+			case "local7":   fac = syslog.LOG_LOCAL7
+		}
+		o.writer, err = syslog.New(fac, "zrepl")
 		o.lastConnectAttempt = time.Now()
 		if err != nil {
 			o.writer = nil
