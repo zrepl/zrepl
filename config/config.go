@@ -271,6 +271,7 @@ type StdoutLoggingOutlet struct {
 
 type SyslogLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
+	Facility            string `yaml:"facility,optional,default=local0"`
 	RetryInterval       time.Duration `yaml:"retry_interval,positive,default=10s"`
 }
 
