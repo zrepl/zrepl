@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zrepl/yaml-config"
 	"io/ioutil"
+	"log/syslog"
 	"os"
 	"reflect"
 	"regexp"
@@ -38,7 +39,7 @@ func (j JobEnum) Name() string {
 	case *PullJob: name = v.Name
 	case *SourceJob: name = v.Name
 	default:
-		panic(fmt.Sprintf("unknownn job type %T", v))
+		panic(fmt.Sprintf("unknown job type %T", v))
 	}
 	return name
 }
@@ -258,6 +259,7 @@ type StdoutLoggingOutlet struct {
 
 type SyslogLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
+	Facility            syslog.Priority `yaml:"facility,default=local0"`
 	RetryInterval       time.Duration `yaml:"retry_interval,positive,default=10s"`
 }
 
@@ -282,6 +284,16 @@ type MonitoringEnum struct {
 type PrometheusMonitoring struct {
 	Type   string `yaml:"type"`
 	Listen string `yaml:"listen"`
+}
+
+type SyslogFacilityEnum struct {
+	Ret interface{}
+}
+
+type SyslogFacilityEnumList []SyslogFacilityEnum
+
+type SyslogFacility struct {
+	Facility syslog.Priority
 }
 
 type GlobalControl struct {
@@ -385,6 +397,32 @@ func (t *LoggingOutletEnum) UnmarshalYAML(u func(interface{}, bool) error) (err 
 func (t *MonitoringEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
 		"prometheus": &PrometheusMonitoring{},
+	})
+	return
+}
+
+func (t *SyslogFacilityEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
+	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
+		"kern":     &SyslogFacility{syslog.LOG_KERN},
+		"user":     &SyslogFacility{syslog.LOG_USER},
+		"mail":     &SyslogFacility{syslog.LOG_MAIL},
+		"daemon":   &SyslogFacility{syslog.LOG_DAEMON},
+		"auth":     &SyslogFacility{syslog.LOG_AUTH},
+		"syslog":   &SyslogFacility{syslog.LOG_SYSLOG},
+		"lpr":      &SyslogFacility{syslog.LOG_LPR},
+		"news":     &SyslogFacility{syslog.LOG_NEWS},
+		"uucp":     &SyslogFacility{syslog.LOG_UUCP},
+		"cron":     &SyslogFacility{syslog.LOG_CRON},
+		"authpriv": &SyslogFacility{syslog.LOG_AUTHPRIV},
+		"ftp":      &SyslogFacility{syslog.LOG_FTP},
+		"local0":   &SyslogFacility{syslog.LOG_LOCAL0},
+		"local1":   &SyslogFacility{syslog.LOG_LOCAL1},
+		"local2":   &SyslogFacility{syslog.LOG_LOCAL2},
+		"local3":   &SyslogFacility{syslog.LOG_LOCAL3},
+		"local4":   &SyslogFacility{syslog.LOG_LOCAL4},
+		"local5":   &SyslogFacility{syslog.LOG_LOCAL5},
+		"local6":   &SyslogFacility{syslog.LOG_LOCAL6},
+		"local7":   &SyslogFacility{syslog.LOG_LOCAL7},
 	})
 	return
 }

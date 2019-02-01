@@ -222,6 +222,7 @@ func parseSyslogOutlet(in *config.SyslogLoggingOutlet, formatter EntryFormatter)
 	out = &SyslogOutlet{}
 	out.Formatter = formatter
 	out.Formatter.SetMetadataFlags(MetadataNone)
+	out.Facility = in.Facility
 	out.RetryInterval = in.RetryInterval
 	return out, nil
 }

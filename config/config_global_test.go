@@ -1,9 +1,11 @@
 package config
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zrepl/yaml-config"
+	"log/syslog"
 	"testing"
 )
 
@@ -70,6 +72,35 @@ global:
       listen: ':9091'
 `)
 	assert.Equal(t, ":9091", conf.Global.Monitoring[0].Ret.(*PrometheusMonitoring).Listen)	
+}
+
+func TestSyslogLoggingOutletFacility(t *testing.T) {
+	type SyslogFacilityPriority struct {
+		Facility string
+		Priority syslog.Priority
+	}
+	syslogFacilitiesPriorities := []SyslogFacilityPriority{
+		{"kern", syslog.LOG_KERN}, {"daemon", syslog.LOG_DAEMON}, {"auth", syslog.LOG_AUTH},
+		{"syslog", syslog.LOG_SYSLOG}, {"lpr", syslog.LOG_LPR}, {"news", syslog.LOG_NEWS},
+		{"uucp", syslog.LOG_UUCP}, {"cron", syslog.LOG_CRON}, {"authpriv", syslog.LOG_AUTHPRIV},
+		{"ftp", syslog.LOG_FTP}, {"local0", syslog.LOG_LOCAL0}, {"local1", syslog.LOG_LOCAL1},
+		{"local2", syslog.LOG_LOCAL2}, {"local3", syslog.LOG_LOCAL3}, {"local4", syslog.LOG_LOCAL4},
+		{"local5", syslog.LOG_LOCAL5}, {"local6", syslog.LOG_LOCAL6}, {"local7", syslog.LOG_LOCAL7},
+	}
+
+	for _, sFP := range syslogFacilitiesPriorities {
+		logcfg := fmt.Sprintf(`
+global:
+  logging:
+  - type: syslog
+    level: info
+    format: human
+    facility: %s
+`, sFP.Facility)
+		conf := testValidGlobalSection(t, logcfg)
+		assert.Equal(t, 1, len(*conf.Global.Logging))
+		assert.Equal(t, sFP.Priority, (*conf.Global.Logging)[0].Ret.(*SyslogLoggingOutlet).Facility)
+	}
 }
 
 func TestLoggingOutletEnumList_SetDefaults(t *testing.T) {
