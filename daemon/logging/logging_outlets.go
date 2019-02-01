@@ -124,7 +124,7 @@ func (h *TCPOutlet) WriteEntry(e logger.Entry) error {
 type SyslogOutlet struct {
 	Formatter          EntryFormatter
 	RetryInterval      time.Duration
-	Facility           syslog.Priority
+	Facility           string
 	writer             *syslog.Writer
 	lastConnectAttempt time.Time
 }
