@@ -3,7 +3,7 @@ package mainfsm
 import (
 	"sort"
 
-	. "github.com/zrepl/zrepl/replication/pdu"
+	. "github.com/zrepl/zrepl/replication/logic/pdu"
 )
 
 type ConflictNoCommonAncestor struct {

@@ -10,8 +10,7 @@ import (
 	"github.com/zrepl/zrepl/daemon"
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/daemon/pruner"
-	"github.com/zrepl/zrepl/replication"
-	"github.com/zrepl/zrepl/replication/fsrep"
+	"github.com/zrepl/zrepl/replication/report"
 	"io"
 	"math"
 	"net/http"
@@ -342,74 +341,58 @@ func (t *tui) draw() {
 	termbox.Flush()
 }
 
-func (t *tui) renderReplicationReport(rep *replication.Report, history *bytesProgressHistory) {
+func (t *tui) renderReplicationReport(rep *report.Report, history *bytesProgressHistory) {
 	if rep == nil {
 		t.printf("...\n")
 		return
 	}
 
-	all := make([]*fsrep.Report, 0, len(rep.Completed)+len(rep.Pending) + 1)
-	all = append(all, rep.Completed...)
-	all = append(all, rep.Pending...)
-	if rep.Active != nil {
-		all = append(all, rep.Active)
-	}
-	sort.Slice(all, func(i, j int) bool {
-		return all[i].Filesystem < all[j].Filesystem
-	})
-
-	state, err := replication.StateString(rep.Status)
-	if err != nil {
-		t.printf("Status: %q (parse error: %q)\n", rep.Status, err)
+	// TODO visualize more than the latest attempt by folding all attempts into one
+	if len(rep.Attempts) == 0 {
+		t.printf("no attempts made yet")
 		return
 	}
 
-	t.printf("Status: %s", state)
+	latest := rep.Attempts[len(rep.Attempts)-1]
+	sort.Slice(latest.Filesystems, func(i, j int) bool {
+		return latest.Filesystems[i].Info.Name < latest.Filesystems[j].Info.Name
+	})
+
+	t.printf("Status: %s", latest.State)
 	t.newline()
-	if rep.Problem != "" {
+	if latest.State == report.AttemptPlanningError {
 		t.printf("Problem: ")
-		t.printfDrawIndentedAndWrappedIfMultiline("%s", rep.Problem)
+		t.printfDrawIndentedAndWrappedIfMultiline("%s", latest.PlanError)
+		t.newline()
+	} else if latest.State == report.AttemptFanOutError {
+		t.printf("Problem: one or more of the filesystems encountered errors")
 		t.newline()
 	}
-	if rep.SleepUntil.After(time.Now()) && !state.IsTerminal() {
-		t.printf("Sleeping until %s (%s left)\n", rep.SleepUntil, rep.SleepUntil.Sub(time.Now()))
-	}
 
-	if state != replication.Planning && state != replication.PlanningError {
+	// TODO report sleep time between retry attempts once that is implemented
+
+	if latest.State != report.AttemptPlanning && latest.State != report.AttemptPlanningError {
+		// Draw global progress bar
 		// Progress: [---------------]
-		sumUpFSRep := func(rep *fsrep.Report) (transferred, total int64) {
-			for _, s := range rep.Pending {
-				transferred += s.Bytes
-				total  += s.ExpectedBytes
-			}
-			for _, s := range rep.Completed {
-				transferred += s.Bytes
-				total += s.ExpectedBytes
-			}
-			return
-		}
-		var transferred, total int64
-		for _, fs := range all {
-			fstx, fstotal := sumUpFSRep(fs)
-			transferred += fstx
-			total += fstotal
-		}
-		rate, changeCount := history.Update(transferred)
+		expected, replicated := latest.BytesSum()
+		rate, changeCount := history.Update(replicated)
 		t.write("Progress: ")
-		t.drawBar(50, transferred, total, changeCount)
-		t.write(fmt.Sprintf(" %s / %s @ %s/s", ByteCountBinary(transferred), ByteCountBinary(total), ByteCountBinary(rate)))
+		t.drawBar(50, replicated, expected, changeCount)
+		t.write(fmt.Sprintf(" %s / %s @ %s/s", ByteCountBinary(replicated), ByteCountBinary(expected), ByteCountBinary(rate)))
 		t.newline()
+
+		var maxFSLen int
+		for _, fs := range latest.Filesystems {
+			if len(fs.Info.Name) > maxFSLen {
+				maxFSLen = len(fs.Info.Name)
+			}
+		}
+		for _, fs := range latest.Filesystems {
+			t.printFilesystemStatus(fs, false, maxFSLen) // FIXME bring 'active' flag back
+		}
+
 	}
 
-	var maxFSLen int
-	for _, fs := range all {
-		if len(fs.Filesystem) > maxFSLen {
-			maxFSLen = len(fs.Filesystem)
-		}
-	}
-	for _, fs := range all {
-		t.printFilesystemStatus(fs, fs == rep.Active, maxFSLen)
-	}
 }
 
 func (t *tui) renderPrunerReport(r *pruner.Report) {
@@ -513,25 +496,6 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 
 }
 
-const snapshotIndent = 1
-func calculateMaxFSLength(all []*fsrep.Report) (maxFS, maxStatus int) {
-	for _, e := range all {
-		if len(e.Filesystem) > maxFS {
-			maxFS = len(e.Filesystem)
-		}
-		all2 := make([]*fsrep.StepReport, 0, len(e.Pending) + len(e.Completed))
-		all2 = append(all2, e.Pending...)
-		all2 = append(all2, e.Completed...)
-		for _, e2 := range all2 {
-			elen := len(e2.Problem) + len(e2.From) + len(e2.To) + 60 // random spacing, units, labels, etc
-			if elen > maxStatus {
-				maxStatus = elen
-			}
-		}
-	}
-	return
-}
-
 func times(str string, n int) (out string) {
 	for i := 0; i < n; i++ {
 		out += str
@@ -575,35 +539,13 @@ func (t *tui) drawBar(length int, bytes, totalBytes int64, changeCount int) {
 	t.write("]")
 }
 
-func StringStepState(s fsrep.StepState) string {
-	switch s {
-	case fsrep.StepReplicationReady: return "Ready"
-	case fsrep.StepMarkReplicatedReady: return "MarkReady"
-	case fsrep.StepCompleted: return "Completed"
-	default:
-		return fmt.Sprintf("UNKNOWN %d", s)
-	}
-}
+func (t *tui) printFilesystemStatus(rep *report.FilesystemReport, active bool, maxFS int) {
 
-func (t *tui) printFilesystemStatus(rep *fsrep.Report, active bool, maxFS int) {
-
-	bytes := int64(0)
-	totalBytes := int64(0)
-	for _, s := range rep.Pending {
-		bytes += s.Bytes
-		totalBytes += s.ExpectedBytes
-	}
-	for _, s := range rep.Completed {
-		bytes += s.Bytes
-		totalBytes += s.ExpectedBytes
-	}
-
-
+	expected, replicated := rep.BytesSum()
 	status := fmt.Sprintf("%s (step %d/%d, %s/%s)",
-		rep.Status,
-		len(rep.Completed), len(rep.Pending) + len(rep.Completed),
-		ByteCountBinary(bytes), ByteCountBinary(totalBytes),
-
+		strings.ToUpper(string(rep.State)),
+		rep.CurrentStep, len(rep.Steps),
+		ByteCountBinary(replicated), ByteCountBinary(expected),
 	)
 
 	activeIndicator := " "
@@ -612,18 +554,23 @@ func (t *tui) printFilesystemStatus(rep *fsrep.Report, active bool, maxFS int) {
 	}
 	t.printf("%s %s %s ",
 		activeIndicator,
-		rightPad(rep.Filesystem, maxFS, " "),
+		rightPad(rep.Info.Name, maxFS, " "),
 		status)
 
 	next := ""
-	if rep.Problem != "" {
-		next = rep.Problem
-	} else if len(rep.Pending) > 0 {
-		if rep.Pending[0].From != "" {
-			next = fmt.Sprintf("next: %s => %s", rep.Pending[0].From, rep.Pending[0].To)
+	if err := rep.Error(); err != nil {
+		next = err.Err
+	} else if rep.State != report.FilesystemDone {
+		if nextStep := rep.NextStep(); nextStep != nil {
+			if nextStep.IsIncremental() {
+				next = fmt.Sprintf("next: %s => %s", nextStep.Info.From, nextStep.Info.To)
+			} else {
+				next = fmt.Sprintf("next: %s (full)", nextStep.Info.To)
+			}
 		} else {
-			next = fmt.Sprintf("next: %s (full)", rep.Pending[0].To)
+			next = "" // individual FSes may still be in planning state
 		}
+
 	}
 	t.printfDrawIndentedAndWrappedIfMultiline("%s", next)
 

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/pruning"
-	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"net"
 	"testing"
 	"time"

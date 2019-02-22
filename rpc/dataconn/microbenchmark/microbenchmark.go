@@ -24,7 +24,7 @@ import (
 	"github.com/pkg/profile"
 
 	"github.com/zrepl/zrepl/logger"
-	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn"
 	"github.com/zrepl/zrepl/rpc/dataconn/timeoutconn"
 	"github.com/zrepl/zrepl/transport"

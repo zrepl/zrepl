@@ -7,8 +7,7 @@ import (
 	"path"
 
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/replication"
-	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -34,7 +33,7 @@ func (s *Sender) filterCheckFS(fs string) (*zfs.DatasetPath, error) {
 		return nil, err
 	}
 	if !pass {
-		return nil, replication.NewFilteredError(fs)
+		return nil, fmt.Errorf("endpoint does not allow access to filesystem %s", fs)
 	}
 	return dp, nil
 }
