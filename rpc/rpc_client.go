@@ -7,8 +7,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/zrepl/zrepl/replication"
-	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/zrepl/zrepl/replication/logic"
+	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn"
 	"github.com/zrepl/zrepl/rpc/grpcclientidentity/grpchelper"
 	"github.com/zrepl/zrepl/rpc/versionhandshake"
@@ -26,9 +26,9 @@ type Client struct {
 	loggers       Loggers
 }
 
-var _ replication.Endpoint = &Client{}
-var _ replication.Sender = &Client{}
-var _ replication.Receiver = &Client{}
+var _ logic.Endpoint = &Client{}
+var _ logic.Sender = &Client{}
+var _ logic.Receiver = &Client{}
 
 type DialContextFunc = func(ctx context.Context, network string, addr string) (net.Conn, error)
 

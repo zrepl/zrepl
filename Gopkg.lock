@@ -162,6 +162,14 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:4ff67dde814694496d7aa31be44b900f9717a10c8bc9136b13f49c8ef97f439a"
+  name = "github.com/montanaflynn/stats"
+  packages = ["."]
+  pruneopts = ""
+  revision = "63fbb2597b7a13043b453a4b819945badb8f8926"
+  version = "v0.5.0"
+
+[[projects]]
   branch = "master"
   digest = "1:f60ff065b58bd53e641112b38bbda9d2684deb828393c7ffb89c69a1ee301d17"
   name = "github.com/pascaldekloe/name"
@@ -246,6 +254,14 @@
   revision = "8b1c2da0d56deffdbb9e48d4414b4e674bd8083e"
 
 [[projects]]
+  digest = "1:3962f553b77bf6c03fc07cd687a22dd3b00fe11aa14d31194f5505f5bb65cdc8"
+  name = "github.com/sergi/go-diff"
+  packages = ["diffmatchpatch"]
+  pruneopts = ""
+  revision = "1744e2970ca51c86172c8190fadad617561ed6e7"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   digest = "1:146327ce93be37e68bd3ff8541090d96da8cb3adc9e35d57570e9170a29f6bf6"
   name = "github.com/spf13/cobra"
@@ -279,6 +295,25 @@
   pruneopts = ""
   revision = "93babf24513d0e8277635da8169fcc5a46ae3f6a"
   version = "v1.11.0"
+
+[[projects]]
+  digest = "1:529ed3f98838f69e13761788d0cc71b44e130058fab13bae2ce09f7a176bced4"
+  name = "github.com/yudai/gojsondiff"
+  packages = [
+    ".",
+    "formatter",
+  ]
+  pruneopts = ""
+  revision = "7b1b7adf999dab73a6eb02669c3d82dbb27a3dd6"
+  version = "1.0.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:9857bb2293f372b2181004d8b62179bbdb4ab0982ec6f762abe6cf2bfedaff85"
+  name = "github.com/yudai/golcs"
+  packages = ["."]
+  pruneopts = ""
+  revision = "ecda9a501e8220fae3b4b600c3db4b0ba22cfc68"
 
 [[projects]]
   branch = "v2"
@@ -406,6 +441,7 @@
     "github.com/jinzhu/copier",
     "github.com/kr/pretty",
     "github.com/mattn/go-isatty",
+    "github.com/montanaflynn/stats",
     "github.com/pkg/errors",
     "github.com/pkg/profile",
     "github.com/problame/go-netssh",
@@ -415,6 +451,8 @@
     "github.com/spf13/pflag",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
+    "github.com/yudai/gojsondiff",
+    "github.com/yudai/gojsondiff/formatter",
     "github.com/zrepl/yaml-config",
     "golang.org/x/net/context",
     "golang.org/x/sys/unix",

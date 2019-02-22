@@ -7,7 +7,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/zrepl/zrepl/logger"
-	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn/stream"
 	"github.com/zrepl/zrepl/transport"
 	"github.com/zrepl/zrepl/zfs"
