@@ -2,6 +2,7 @@ syntax = "proto3";
 option go_package = "pdu";
 
 service Replication {
+    rpc Ping (PingReq) returns (PingRes);
     rpc ListFilesystems (ListFilesystemReq) returns (ListFilesystemRes);
     rpc ListFilesystemVersions (ListFilesystemVersionsReq) returns (ListFilesystemVersionsRes);
     rpc DestroySnapshots (DestroySnapshotsReq) returns (DestroySnapshotsRes);
@@ -119,4 +120,13 @@ message ReplicationCursorRes {
         uint64 Guid = 1;
         bool Notexist = 2;
     }
+}
+
+message PingReq {
+    string Message = 1;
+}
+
+message PingRes {
+    // Echo must be PingReq.Message
+    string Echo = 1;
 }

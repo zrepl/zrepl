@@ -107,6 +107,21 @@ func (p *Sender) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshots
 	return doDestroySnapshots(ctx, dp, req.Snapshots)
 }
 
+func (p *Sender) Ping(ctx context.Context, req *pdu.PingReq) (*pdu.PingRes, error) {
+	res := pdu.PingRes{
+		Echo: req.GetMessage(),
+	}
+	return &res, nil
+}
+
+func (p *Sender) PingDataconn(ctx context.Context, req *pdu.PingReq) (*pdu.PingRes, error) {
+	return p.Ping(ctx, req)
+}
+
+func (p *Sender) WaitForConnectivity(ctx context.Context) (error) {
+	return nil
+}
+
 func (p *Sender) ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
 	dp, err := p.filterCheckFS(req.Filesystem)
 	if err != nil {
@@ -278,6 +293,21 @@ func (s *Receiver) ListFilesystemVersions(ctx context.Context, req *pdu.ListFile
 	return &pdu.ListFilesystemVersionsRes{Versions: rfsvs}, nil
 }
 
+func (s *Receiver) Ping(ctx context.Context, req *pdu.PingReq) (*pdu.PingRes, error) {
+	res := pdu.PingRes{
+		Echo: req.GetMessage(),
+	}
+	return &res, nil
+}
+
+func (s *Receiver) PingDataconn(ctx context.Context, req *pdu.PingReq) (*pdu.PingRes, error) {
+	return s.Ping(ctx, req)
+}
+
+func (s *Receiver) WaitForConnectivity(ctx context.Context) (error) {
+	return nil
+}
+
 func (s *Receiver) ReplicationCursor(context.Context, *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
 	return nil, fmt.Errorf("ReplicationCursor not implemented for Receiver")
 }
@@ -285,6 +315,7 @@ func (s *Receiver) ReplicationCursor(context.Context, *pdu.ReplicationCursorReq)
 func (s *Receiver) Send(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error) {
 	return nil, nil, fmt.Errorf("receiver does not implement Send()")
 }
+
 
 func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs.StreamCopier) (*pdu.ReceiveRes, error) {
 	getLogger(ctx).Debug("incoming Receive")

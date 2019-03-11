@@ -2,11 +2,16 @@ package rpc
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"google.golang.org/grpc"
 
+	"github.com/google/uuid"
 	"github.com/zrepl/zrepl/replication/logic"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn"
@@ -99,6 +104,67 @@ func (c *Client) DestroySnapshots(ctx context.Context, in *pdu.DestroySnapshotsR
 
 func (c *Client) ReplicationCursor(ctx context.Context, in *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
 	return c.controlClient.ReplicationCursor(ctx, in)
+}
+
+func (c *Client) WaitForConnectivity(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	msg := uuid.New().String()
+	req := pdu.PingReq{Message: msg}
+	var ctrlOk, dataOk int32
+	loggers := GetLoggersOrPanic(ctx)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	checkRes := func(res *pdu.PingRes, err error, logger Logger, okVar *int32) {
+		if err == nil && res.GetEcho() != req.GetMessage() {
+			err = errors.New("pilot message not echoed correctly")
+		}
+		if err == context.Canceled {
+			err = nil
+		}
+		if err != nil {
+			logger.WithError(err).Error("ping failed")
+			atomic.StoreInt32(okVar, 0)
+			cancel()
+		} else {
+			atomic.StoreInt32(okVar, 1)
+		}
+	}
+	go func() {
+		defer wg.Done()
+		ctrl, ctrlErr := c.controlClient.Ping(ctx, &req, grpc.FailFast(false))
+		checkRes(ctrl, ctrlErr, loggers.Control, &ctrlOk)
+	}()
+	go func() {
+		defer wg.Done()
+		for ctx.Err() == nil {
+			data, dataErr := c.dataClient.ReqPing(ctx, &req)
+			// dataClient uses transport.Connecter, which doesn't expose FailFast(false)
+			// => we need to mask dial timeouts
+			if err, ok := dataErr.(interface{ Temporary() bool }); ok && err.Temporary() {
+				continue
+			}
+			// it's not a dial timeout, 
+			checkRes(data, dataErr, loggers.Data, &dataOk)
+			return
+		}
+	}()
+	wg.Wait()
+	var what string
+	if ctrlOk == 1 && dataOk == 1 {
+		return nil
+	}
+	if ctrlOk == 0 {
+		what += "control"
+	}
+	if dataOk == 0 {
+		if len(what) > 0 {
+			what += " and data"
+		} else {
+			what += "data"
+		}
+	}
+	return fmt.Errorf("%s rpc failed to respond to ping rpcs", what)
 }
 
 func (c *Client) ResetConnectBackoff() {

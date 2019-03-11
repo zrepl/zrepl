@@ -77,6 +77,12 @@ func (devNullHandler) Receive(ctx context.Context, r *pdu.ReceiveReq, stream zfs
 	return &res, err
 }
 
+func (devNullHandler) PingDataconn(ctx context.Context, r *pdu.PingReq) (*pdu.PingRes, error) {
+	return &pdu.PingRes{
+		Echo: r.GetMessage(),
+	}, nil
+}
+
 type tcpConnecter struct {
 	addr string
 }

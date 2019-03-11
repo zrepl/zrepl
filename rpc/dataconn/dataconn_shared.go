@@ -10,6 +10,7 @@ import (
 )
 
 const (
+	EndpointPing string = "/v1/ping"
 	EndpointSend string = "/v1/send"
 	EndpointRecv string = "/v1/recv"
 )

@@ -26,6 +26,7 @@ type Endpoint interface {
 	ListFilesystems(ctx context.Context, req *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error)
 	ListFilesystemVersions(ctx context.Context, req *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error)
 	DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error)
+	WaitForConnectivity(ctx context.Context) (error)
 }
 
 type Sender interface {
@@ -64,6 +65,44 @@ func (p *Planner) Plan(ctx context.Context) ([]driver.FS, error) {
 	return dfss, nil
 }
 
+func (p *Planner) WaitForConnectivity(ctx context.Context) error {
+	var wg sync.WaitGroup
+	doPing := func(endpoint Endpoint, errOut *error) {
+		defer wg.Done()
+		err := endpoint.WaitForConnectivity(ctx)
+		if err != nil {
+			*errOut = err
+		} else {
+			*errOut = nil
+		}
+	}
+	wg.Add(2)
+	var senderErr, receiverErr error
+	go doPing(p.sender, &senderErr)
+	go doPing(p.receiver, &receiverErr)
+	wg.Wait()
+	if senderErr == nil && receiverErr == nil {
+		return nil
+	} else if senderErr != nil && receiverErr != nil {
+		if senderErr.Error() == receiverErr.Error() {
+			return fmt.Errorf("sender and receiver are not reachable: %s", senderErr.Error())
+		} else {
+			return fmt.Errorf("sender and receiver are not reachable:\n  sender: %s\n  receiver: %s", senderErr, receiverErr)
+		}
+	} else {
+		var side string
+		var err *error
+		if senderErr != nil {
+			side = "sender"
+			err = &senderErr
+		} else {
+			side = "receiver"
+			err = &receiverErr
+		}
+		return fmt.Errorf("%s is not reachable: %s", side, *err)
+	}
+}
+
 type Filesystem struct {
 	sender   Sender
 	receiver Receiver
@@ -71,6 +110,15 @@ type Filesystem struct {
 	Path                string             // compat
 	receiverFSExists    bool               // compat
 	promBytesReplicated prometheus.Counter // compat
+}
+
+func (f *Filesystem) EqualToPreviousAttempt(other driver.FS) bool {
+	g, ok := other.(*Filesystem)
+	if !ok {
+		return false
+	}
+	// TODO: use GUIDs (issued by zrepl, not those from ZFS)
+	return f.Path == g.Path
 }
 
 func (f *Filesystem) PlanFS(ctx context.Context) ([]driver.Step, error) {
@@ -99,6 +147,18 @@ type Step struct {
 	expectedSize int64 // 0 means no size estimate present / possible
 }
 
+func (s *Step) TargetEquals(other driver.Step) bool {
+	t, ok := other.(*Step)
+	if !ok {
+		return false
+	}
+	if !s.parent.EqualToPreviousAttempt(t.parent) {
+		panic("Step interface promise broken: parent filesystems must be same")
+	}
+	return s.from.GetGuid() == t.from.GetGuid() &&
+		s.to.GetGuid() == t.to.GetGuid()
+}
+
 func (s *Step) TargetDate() time.Time {
 	return s.to.SnapshotTime() // FIXME compat name
 }
@@ -112,8 +172,13 @@ func (s *Step) ReportInfo() *report.StepInfo {
 	if s.byteCounter != nil {
 		byteCounter = s.byteCounter.Count()
 	}
+	// FIXME stick to zfs convention of from and to
+	from := ""
+	if s.from != nil {
+		from = s.from.RelName()
+	}
 	return &report.StepInfo{
-		From:            s.from.RelName(),
+		From:            from,
 		To:              s.to.RelName(),
 		BytesExpected:   s.expectedSize,
 		BytesReplicated: byteCounter,
