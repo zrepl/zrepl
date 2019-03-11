@@ -40,10 +40,18 @@ func (p *mockPlanner) Plan(ctx context.Context) ([]FS, error) {
 	return p.fss, nil
 }
 
+func (p *mockPlanner) WaitForConnectivity(context.Context) error {
+	return nil
+}
+
 type mockFS struct {
 	globalStepCounter *uint32
 	name              string
 	steps             []Step
+}
+
+func (f *mockFS) EqualToPreviousAttempt(other FS) bool {
+	return f.name == other.(*mockFS).name
 }
 
 func (f *mockFS) PlanFS(ctx context.Context) ([]Step, error) {
@@ -118,6 +126,10 @@ func (f *mockStep) Step(ctx context.Context) error {
 	return nil
 }
 
+func (f *mockStep) TargetEquals(s Step) bool {
+	return f.ident == s.(*mockStep).ident
+}
+
 func (f *mockStep) TargetDate() time.Time {
 	return f.targetDate
 }
@@ -172,8 +184,7 @@ func TestReplication(t *testing.T) {
 		diff, err := differ.Compare(prev, this)
 		require.NoError(t, err)
 		df := jsondiffformatter.NewDeltaFormatter()
-		res, err := df.Format(diff)
-		res = res
+		_, err = df.Format(diff)
 		require.NoError(t, err)
 		// uncomment the following line to get json diffs between each captured step
 		// t.Logf("%s", res)

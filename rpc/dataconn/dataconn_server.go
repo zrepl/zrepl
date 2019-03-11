@@ -25,6 +25,8 @@ type Handler interface {
 	// It is guaranteed that Server calls Receive with a stream that holds the IdleConnTimeout
 	// configured in ServerConfig.Shared.IdleConnTimeout.
 	Receive(ctx context.Context, r *pdu.ReceiveReq, receive zfs.StreamCopier) (*pdu.ReceiveRes, error)
+	// PingDataconn handles a PingReq
+	PingDataconn(ctx context.Context, r *pdu.PingReq) (*pdu.PingRes, error)
 }
 
 type Logger = logger.Logger
@@ -125,6 +127,13 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 			return
 		}
 		res, handlerErr = s.h.Receive(ctx, &req, &streamCopier{streamConn: c, closeStreamOnClose: false}) // SHADOWING
+	case EndpointPing:
+		var req pdu.PingReq
+		if err := proto.Unmarshal(reqStructured, &req); err != nil {
+			s.log.WithError(err).Error("cannot unmarshal ping request")
+			return
+		}
+		res, handlerErr = s.h.PingDataconn(ctx, &req) // SHADOWING
 	default:
 		s.log.WithField("endpoint", endpoint).Error("unknown endpoint")
 		handlerErr = fmt.Errorf("requested endpoint does not exist")

@@ -6,8 +6,10 @@ import (
 )
 
 type Report struct {
-	StartAt, FinishAt time.Time
-	Attempts          []*AttemptReport
+	StartAt, FinishAt                      time.Time
+	WaitReconnectSince, WaitReconnectUntil time.Time
+	WaitReconnectError                     *TimedError
+	Attempts                               []*AttemptReport
 }
 
 var _, _ = json.Marshal(&Report{})

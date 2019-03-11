@@ -347,10 +347,45 @@ func (t *tui) renderReplicationReport(rep *report.Report, history *bytesProgress
 		return
 	}
 
+	if rep.WaitReconnectError != nil {
+		t.printfDrawIndentedAndWrappedIfMultiline("Connectivity: %s", rep.WaitReconnectError)
+		t.newline()
+	}
+	if !rep.WaitReconnectSince.IsZero() {
+		delta := rep.WaitReconnectUntil.Sub(time.Now()).Round(time.Second)
+		if rep.WaitReconnectUntil.IsZero() || delta > 0 {
+			var until string
+			if rep.WaitReconnectUntil.IsZero() {
+				until = "waiting indefinitely"
+			} else {
+				until = fmt.Sprintf("hard fail in %s @ %s", delta, rep.WaitReconnectUntil)
+			}
+			t.printfDrawIndentedAndWrappedIfMultiline("Connectivity: reconnecting with exponential backoff (since %s) (%s)",
+				rep.WaitReconnectSince, until)
+		} else {
+			t.printfDrawIndentedAndWrappedIfMultiline("Connectivity: reconnects reached hard-fail timeout @ %s", rep.WaitReconnectUntil)
+		}
+		t.newline()
+	}
+
 	// TODO visualize more than the latest attempt by folding all attempts into one
 	if len(rep.Attempts) == 0 {
 		t.printf("no attempts made yet")
 		return
+	} else {
+		t.printf("Attempt #%d", len(rep.Attempts))
+		if len(rep.Attempts) > 1 {
+			t.printf(". Previous attempts failed with the follwing statuses:")
+			t.newline()
+			t.addIndent(1)
+			for i, a := range rep.Attempts[:len(rep.Attempts)-1] {
+				t.printfDrawIndentedAndWrappedIfMultiline("#%d: %s (failed at %s) (ran %s)", i + 1, a.State, a.FinishAt, a.FinishAt.Sub(a.StartAt))
+				t.newline()
+			}
+			t.addIndent(-1)
+		} else {
+			t.newline()
+		}
 	}
 
 	latest := rep.Attempts[len(rep.Attempts)-1]
@@ -368,8 +403,6 @@ func (t *tui) renderReplicationReport(rep *report.Report, history *bytesProgress
 		t.printf("Problem: one or more of the filesystems encountered errors")
 		t.newline()
 	}
-
-	// TODO report sleep time between retry attempts once that is implemented
 
 	if latest.State != report.AttemptPlanning && latest.State != report.AttemptPlanningError {
 		// Draw global progress bar
