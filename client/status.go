@@ -446,9 +446,6 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 	if r.Error != "" {
 		t.printf("Error: %s\n", r.Error)
 	}
-	if r.SleepUntil.After(time.Now()) {
-		t.printf("Sleeping until %s (%s left)\n", r.SleepUntil, r.SleepUntil.Sub(time.Now()))
-	}
 
 	type commonFS struct {
 		*pruner.FSReport
@@ -464,8 +461,7 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 
 	switch state {
 	case pruner.Plan: fallthrough
-	case pruner.PlanWait: fallthrough
-	case pruner.ErrPerm:
+	case pruner.PlanErr:
 		return
 	}
 
@@ -510,7 +506,13 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 			continue
 		}
 		if fs.LastError != "" {
-			t.printf("ERROR (%d): %s\n", fs.ErrorCount, fs.LastError) // whitespace is padding
+			if strings.ContainsAny(fs.LastError, "\r\n") {
+				t.printf("ERROR:")
+				t.printfDrawIndentedAndWrappedIfMultiline("%s\n", fs.LastError) 
+			} else {
+				t.printfDrawIndentedAndWrappedIfMultiline("ERROR: %s\n", fs.LastError) 
+			}
+			t.newline()
 			continue
 		}
 

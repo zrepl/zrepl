@@ -11,7 +11,6 @@ import (
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/util/watchdog"
-	"net"
 	"sort"
 	"strings"
 	"sync"
@@ -67,8 +66,7 @@ type Pruner struct {
 
 	state State
 
-	// State ErrWait|ErrPerm
-	sleepUntil time.Time
+	// State PlanErr
 	err        error
 
 	// State Exec
@@ -162,71 +160,42 @@ type State int
 
 const (
 	Plan State = 1 << iota
-	PlanWait
+	PlanErr
 	Exec
-	ExecWait
-	ErrPerm
+	ExecErr
 	Done
 )
 
-func (s State) statefunc() state {
-	var statemap = map[State]state{
-		Plan:     statePlan,
-		PlanWait: statePlanWait,
-		Exec:     stateExec,
-		ExecWait: stateExecWait,
-		ErrPerm:  nil,
-		Done:     nil,
-	}
-	return statemap[s]
-}
-
-func (s State) IsTerminal() bool {
-	return s.statefunc() == nil
-}
-
-type updater func(func(*Pruner)) State
-type state func(args *args, u updater) state
+type updater func(func(*Pruner))
 
 func (p *Pruner) Prune() {
 	p.prune(p.args)
 }
 
 func (p *Pruner) prune(args args) {
-	s := p.state.statefunc()
-	for s != nil {
-		pre := p.state
-		s = s(&args, func(f func(*Pruner)) State {
+	u := func(f func(*Pruner)) {
 			p.mtx.Lock()
 			defer p.mtx.Unlock()
 			f(p)
-			return p.state
-		})
-		post := p.state
-		GetLogger(args.ctx).
-			WithField("transition", fmt.Sprintf("%s=>%s", pre, post)).
-			Debug("state transition")
-		if err := p.Error(); err != nil {
-			GetLogger(args.ctx).
-				WithError(p.err).
-				WithField("state", post.String()).
-				Error("entering error state after error")
 		}
+	// TODO support automatic retries
+	// It is advisable to merge this code with package replication/driver before
+	// That will likely require re-modelling struct fs like replication/driver.attempt,
+	// including figuring out how to resume a plan after being interrupted by network errors
+	// The non-retrying code in this package should move straight to replication/logic.
+	doOneAttempt(&args, u)
 	}
-}
 
 type Report struct {
-	State string
-	SleepUntil time.Time
-	Error string
+	State              string
+	Error              string
 	Pending, Completed []FSReport
 }
 
 type FSReport struct {
 	Filesystem                string
 	SnapshotList, DestroyList []SnapshotReport
-	ErrorCount                int
-	SkipReason 				  FSSkipReason
+	SkipReason                FSSkipReason
 	LastError                 string
 }
 
@@ -242,14 +211,9 @@ func (p *Pruner) Report() *Report {
 
 	r := Report{State: p.state.String()}
 
-	if p.state & (PlanWait|ExecWait) != 0 {
-		r.SleepUntil = p.sleepUntil
-	}
-	if p.state & (PlanWait|ExecWait|ErrPerm) != 0 {
 		if p.err != nil {
 			r.Error = p.err.Error()
 		}
-	}
 
 	if p.execQueue != nil {
 		r.Pending, r.Completed = p.execQueue.Report()
@@ -264,20 +228,12 @@ func (p *Pruner) State() State {
 	return p.state
 }
 
-func (p *Pruner) Error() error {
-	p.mtx.Lock()
-	defer p.mtx.Unlock()
-	if p.state & (PlanWait|ExecWait|ErrPerm) != 0 {
-		return p.err
-	}
-	return nil
-}
-
 type fs struct {
 	path  string
 
 	// permanent error during planning
-	planErr error
+	planErr        error
+	planErrContext string
 
 	// if != "", the fs was skipped for planning and the field
 	// contains the reason
@@ -294,14 +250,13 @@ type fs struct {
 
 	// only during Exec state, also used by execQueue
 	execErrLast error
-	execErrCount int
 }
 
 type FSSkipReason string
 
 const (
-	NotSkipped = ""
-	SkipPlaceholder = "filesystem is placeholder"
+	NotSkipped                   = ""
+	SkipPlaceholder              = "filesystem is placeholder"
 	SkipNoCorrespondenceOnSender = "filesystem has no correspondence on sender"
 )
 
@@ -315,7 +270,6 @@ func (f *fs) Report() FSReport {
 
 	r := FSReport{}
 	r.Filesystem = f.path
-	r.ErrorCount = f.execErrCount
 	r.SkipReason = f.skipReason
 	if !r.SkipReason.NotSkipped() {
 		return r
@@ -362,39 +316,7 @@ func (s snapshot) Replicated() bool { return s.replicated }
 
 func (s snapshot) Date() time.Time { return s.date }
 
-type Error interface {
-	error
-	Temporary() bool
-}
-
-var _ Error = net.Error(nil)
-
-func shouldRetry(e error) bool {
-	if neterr, ok := e.(net.Error); ok {
-		return neterr.Temporary()
-	}
-	return false
-}
-
-func onErr(u updater, e error) state {
-	return u(func(p *Pruner) {
-		p.err = e
-		if !shouldRetry(e) {
-			p.state = ErrPerm
-			return
-		}
-		switch p.state {
-		case Plan:
-			p.state = PlanWait
-		case Exec:
-			p.state = ExecWait
-		default:
-			panic(p.state)
-		}
-	}).statefunc()
-}
-
-func statePlan(a *args, u updater) state {
+func doOneAttempt(a *args, u updater) {
 
 	ctx, target, receiver := a.ctx, a.target, a.receiver
 	var ka *watchdog.KeepAlive
@@ -404,7 +326,11 @@ func statePlan(a *args, u updater) state {
 
 	sfssres, err := receiver.ListFilesystems(ctx, &pdu.ListFilesystemReq{})
 	if err != nil {
-		return onErr(u, err)
+		u(func(p *Pruner) {
+			p.state = PlanErr
+			p.err = err
+		})
+		return
 	}
 	sfss := make(map[string]*pdu.Filesystem)
 	for _, sfs := range sfssres.GetFilesystems() {
@@ -413,19 +339,23 @@ func statePlan(a *args, u updater) state {
 
 	tfssres, err := target.ListFilesystems(ctx, &pdu.ListFilesystemReq{})
 	if err != nil {
-		return onErr(u, err)
+		u(func(p *Pruner) {
+			p.state = PlanErr
+			p.err = err
+		})
+		return
 	}
 	tfss := tfssres.GetFilesystems()
 
 	pfss := make([]*fs, len(tfss))
+tfss_loop:
 	for i, tfs := range tfss {
 
 		l := GetLogger(ctx).WithField("fs", tfs.Path)
 		l.Debug("plan filesystem")
 
-
 		pfs := &fs{
-			path:  tfs.Path,
+			path: tfs.Path,
 		}
 		pfss[i] = pfs
 
@@ -439,10 +369,17 @@ func statePlan(a *args, u updater) state {
 			continue
 		}
 
+		pfsPlanErrAndLog := func(err error, message string) {
+			t := fmt.Sprintf("%T", err)
+			pfs.planErr = err
+			pfs.planErrContext = message
+			l.WithField("orig_err_type", t).WithError(err).Error(fmt.Sprintf("%s: plan error, skipping filesystem", message))
+		}
+
 		tfsvsres, err := target.ListFilesystemVersions(ctx, &pdu.ListFilesystemVersionsReq{Filesystem: tfs.Path})
 		if err != nil {
-			l.WithError(err).Error("cannot list filesystem versions")
-			return onErr(u, err)
+			pfsPlanErrAndLog(err, "cannot list filesystem versions")
+			continue tfss_loop
 		}
 		tfsvs := tfsvsres.GetVersions()
 		// no progress here since we could run in a live-lock (must have used target AND receiver before progress)
@@ -451,23 +388,21 @@ func statePlan(a *args, u updater) state {
 
 		rcReq := &pdu.ReplicationCursorReq{
 			Filesystem: tfs.Path,
-			Op:         &pdu.ReplicationCursorReq_Get{
+			Op: &pdu.ReplicationCursorReq_Get{
 				Get: &pdu.ReplicationCursorReq_GetOp{},
 			},
 		}
 		rc, err := receiver.ReplicationCursor(ctx, rcReq)
 		if err != nil {
-			l.WithError(err).Error("cannot get replication cursor")
-			return onErr(u, err)
+			pfsPlanErrAndLog(err, "cannot get replication cursor bookmark")
+			continue tfss_loop
 		}
 		ka.MadeProgress()
-		if rc.GetNotexist()  {
-			l.Error("replication cursor does not exist, skipping")
-			pfs.destroyList = []pruning.Snapshot{}
-			pfs.planErr = fmt.Errorf("replication cursor bookmark does not exist (one successful replication is required before pruning works)")
-			continue
+		if rc.GetNotexist() {
+			err := errors.New("replication cursor bookmark does not exist (one successful replication is required before pruning works)")
+			pfsPlanErrAndLog(err, "")
+			continue tfss_loop
 		}
-
 
 		// scan from older to newer, all snapshots older than cursor are interpreted as replicated
 		sort.Slice(tfsvs, func(i, j int) bool {
@@ -490,11 +425,9 @@ func statePlan(a *args, u updater) state {
 			}
 			creation, err := tfsv.CreationAsTime()
 			if err != nil {
-				err := fmt.Errorf("%s%s has invalid creation date: %s", tfs, tfsv.RelName(), err)
-				l.WithError(err).
-					WithField("tfsv", tfsv.RelName()).
-					Error("error with fileesystem version")
-				return onErr(u, err)
+				err := fmt.Errorf("%s: %s", tfsv.RelName(), err)
+				pfsPlanErrAndLog(err, "fs version with invalid creation date")
+				continue tfss_loop
 			}
 			// note that we cannot use CreateTXG because target and receiver could be on different pools
 			atCursor := tfsv.Guid == rc.GetGuid()
@@ -506,9 +439,8 @@ func statePlan(a *args, u updater) state {
 			})
 		}
 		if preCursor {
-			err := fmt.Errorf("replication cursor not found in prune target filesystem versions")
-			l.Error(err.Error())
-			return onErr(u, err)
+			pfsPlanErrAndLog(fmt.Errorf("replication cursor not found in prune target filesystem versions"), "")
+			continue tfss_loop
 		}
 
 		// Apply prune rules
@@ -516,33 +448,55 @@ func statePlan(a *args, u updater) state {
 		ka.MadeProgress()
 	}
 
-	return u(func(pruner *Pruner) {
+	u(func(pruner *Pruner) {
 		pruner.Progress.MadeProgress()
 		pruner.execQueue = newExecQueue(len(pfss))
 		for _, pfs := range pfss {
 			pruner.execQueue.Put(pfs, nil, false)
 		}
 		pruner.state = Exec
-	}).statefunc()
-}
+	})
 
-func stateExec(a *args, u updater) state {
-
+	for {
 	var pfs *fs
-	state := u(func(pruner *Pruner) {
+		u(func(pruner *Pruner) {
 		pfs = pruner.execQueue.Pop()
+		})
 		if pfs == nil {
-			nextState := Done
-			if pruner.execQueue.HasCompletedFSWithErrors() {
-				nextState = ErrPerm
+			break
+		}
+		doOneAttemptExec(a, u, pfs)
+	}
+
+	var rep *Report
+	{
+		// must not hold lock for report
+		var pruner *Pruner
+		u(func(p *Pruner) {
+			pruner = p
+		})
+		rep = pruner.Report()
+	}
+	u(func(p *Pruner) {
+		if len(rep.Pending) > 0 {
+			panic("queue should not have pending items at this point")
+		}
+		hadErr := false
+		for _, fsr := range rep.Completed {
+			hadErr = hadErr || fsr.SkipReason.NotSkipped() && fsr.LastError != ""
 			}
-			pruner.state = nextState
-			return
+		if hadErr {
+			p.state = ExecErr
+		} else {
+			p.state = Done
 		}
 	})
-	if state != Exec {
-		return state.statefunc()
+	
+
 	}
+
+// attempts to exec pfs, puts it back into the queue with the result
+func doOneAttemptExec(a *args, u updater, pfs *fs) {
 
 	destroyList := make([]*pdu.FilesystemVersion, len(pfs.destroyList))
 	for i := range destroyList {
@@ -562,7 +516,7 @@ func stateExec(a *args, u updater) state {
 		u(func(pruner *Pruner) {
 			pruner.execQueue.Put(pfs, err, false)
 		})
-		return onErr(u, err)
+		return
 	}
 	// check if all snapshots were destroyed
 	destroyResults := make(map[string]*pdu.DestroySnapshotRes)
@@ -603,31 +557,6 @@ func stateExec(a *args, u updater) state {
 	})
 	if err != nil {
 		GetLogger(a.ctx).WithError(err).Error("target could not destroy snapshots")
-		return onErr(u, err)
-	}
-
-	return u(func(pruner *Pruner) {
-		pruner.Progress.MadeProgress()
-	}).statefunc()
-}
-
-func stateExecWait(a *args, u updater) state {
-	return doWait(Exec, a, u)
-}
-
-func statePlanWait(a *args, u updater) state {
-	return doWait(Plan, a, u)
-}
-
-func doWait(goback State, a *args, u updater) state {
-	timer := time.NewTimer(a.retryWait)
-	defer timer.Stop()
-	select {
-	case <-timer.C:
-		return u(func(pruner *Pruner) {
-			pruner.state = goback
-		}).statefunc()
-	case <-a.ctx.Done():
-		return onErr(u, a.ctx.Err())
+		return
 	}
 }

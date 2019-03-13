@@ -7,19 +7,17 @@ import (
 )
 
 const (
-	_StateName_0 = "PlanPlanWait"
+	_StateName_0 = "PlanPlanErr"
 	_StateName_1 = "Exec"
-	_StateName_2 = "ExecWait"
-	_StateName_3 = "ErrPerm"
-	_StateName_4 = "Done"
+	_StateName_2 = "ExecErr"
+	_StateName_3 = "Done"
 )
 
 var (
-	_StateIndex_0 = [...]uint8{0, 4, 12}
+	_StateIndex_0 = [...]uint8{0, 4, 11}
 	_StateIndex_1 = [...]uint8{0, 4}
-	_StateIndex_2 = [...]uint8{0, 8}
-	_StateIndex_3 = [...]uint8{0, 7}
-	_StateIndex_4 = [...]uint8{0, 4}
+	_StateIndex_2 = [...]uint8{0, 7}
+	_StateIndex_3 = [...]uint8{0, 4}
 )
 
 func (i State) String() string {
@@ -33,22 +31,19 @@ func (i State) String() string {
 		return _StateName_2
 	case i == 16:
 		return _StateName_3
-	case i == 32:
-		return _StateName_4
 	default:
 		return fmt.Sprintf("State(%d)", i)
 	}
 }
 
-var _StateValues = []State{1, 2, 4, 8, 16, 32}
+var _StateValues = []State{1, 2, 4, 8, 16}
 
 var _StateNameToValueMap = map[string]State{
 	_StateName_0[0:4]:  1,
-	_StateName_0[4:12]: 2,
+	_StateName_0[4:11]: 2,
 	_StateName_1[0:4]:  4,
-	_StateName_2[0:8]:  8,
-	_StateName_3[0:7]:  16,
-	_StateName_4[0:4]:  32,
+	_StateName_2[0:7]:  8,
+	_StateName_3[0:4]:  16,
 }
 
 // StateString retrieves an enum value from the enum constants string name.
