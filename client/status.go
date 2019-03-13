@@ -505,6 +505,10 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 	for _, fs := range all {
 		t.write(rightPad(fs.Filesystem, maxFSname, " "))
 		t.write(" ")
+		if !fs.SkipReason.NotSkipped() {
+			t.printf("skipped: %s\n", fs.SkipReason)
+			continue
+		}
 		if fs.LastError != "" {
 			t.printf("ERROR (%d): %s\n", fs.ErrorCount, fs.LastError) // whitespace is padding
 			continue

@@ -21,6 +21,7 @@ import (
 // Try to keep it compatible with gitub.com/zrepl/zrepl/endpoint.Endpoint
 type History interface {
 	ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error)
+	ListFilesystems(ctx context.Context, req *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error)
 }
 
 // Try to keep it compatible with gitub.com/zrepl/zrepl/endpoint.Endpoint
@@ -222,10 +223,11 @@ type Report struct {
 }
 
 type FSReport struct {
-	Filesystem string
+	Filesystem                string
 	SnapshotList, DestroyList []SnapshotReport
-	ErrorCount int
-	LastError string
+	ErrorCount                int
+	SkipReason 				  FSSkipReason
+	LastError                 string
 }
 
 type SnapshotReport struct {
@@ -277,6 +279,10 @@ type fs struct {
 	// permanent error during planning
 	planErr error
 
+	// if != "", the fs was skipped for planning and the field
+	// contains the reason
+	skipReason FSSkipReason
+
 	// snapshots presented by target
 	// (type snapshot)
 	snaps []pruning.Snapshot
@@ -289,7 +295,18 @@ type fs struct {
 	// only during Exec state, also used by execQueue
 	execErrLast error
 	execErrCount int
+}
 
+type FSSkipReason string
+
+const (
+	NotSkipped = ""
+	SkipPlaceholder = "filesystem is placeholder"
+	SkipNoCorrespondenceOnSender = "filesystem has no correspondence on sender"
+)
+
+func (r FSSkipReason) NotSkipped() bool {
+	return r == NotSkipped
 }
 
 func (f *fs) Report() FSReport {
@@ -299,6 +316,11 @@ func (f *fs) Report() FSReport {
 	r := FSReport{}
 	r.Filesystem = f.path
 	r.ErrorCount = f.execErrCount
+	r.SkipReason = f.skipReason
+	if !r.SkipReason.NotSkipped() {
+		return r
+	}
+
 	if f.planErr != nil {
 		r.LastError = f.planErr.Error()
 	} else  if f.execErrLast != nil {
@@ -380,6 +402,15 @@ func statePlan(a *args, u updater) state {
 		ka = &pruner.Progress
 	})
 
+	sfssres, err := receiver.ListFilesystems(ctx, &pdu.ListFilesystemReq{})
+	if err != nil {
+		return onErr(u, err)
+	}
+	sfss := make(map[string]*pdu.Filesystem)
+	for _, sfs := range sfssres.GetFilesystems() {
+		sfss[sfs.GetPath()] = sfs
+	}
+
 	tfssres, err := target.ListFilesystems(ctx, &pdu.ListFilesystemReq{})
 	if err != nil {
 		return onErr(u, err)
@@ -397,6 +428,16 @@ func statePlan(a *args, u updater) state {
 			path:  tfs.Path,
 		}
 		pfss[i] = pfs
+
+		if tfs.GetIsPlaceholder() {
+			pfs.skipReason = SkipPlaceholder
+			l.WithField("skip_reason", pfs.skipReason).Debug("skipping filesystem")
+			continue
+		} else if sfs := sfss[tfs.GetPath()]; sfs == nil {
+			pfs.skipReason = SkipNoCorrespondenceOnSender
+			l.WithField("skip_reason", pfs.skipReason).WithField("sfs", sfs.GetPath()).Debug("skipping filesystem")
+			continue
+		}
 
 		tfsvsres, err := target.ListFilesystemVersions(ctx, &pdu.ListFilesystemVersionsReq{Filesystem: tfs.Path})
 		if err != nil {
