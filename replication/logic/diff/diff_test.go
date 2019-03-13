@@ -96,6 +96,14 @@ func TestIncrementalPath_SnapshotsOnly(t *testing.T) {
 		assert.Equal(t, l("@c,3", "@d,4"), path)
 	})
 
+	// sender with earlier but also current version as sender is not a conflict
+	doTest(l("@c,3"), l("@a,1", "@b,2", "@c,3") , func(path []*FilesystemVersion, conflict error) {
+		t.Logf("path: %#v", path)
+		t.Logf("conflict: %#v", conflict)
+		assert.Empty(t, path)
+		assert.Nil(t, conflict)
+	})
+
 }
 
 func TestIncrementalPath_BookmarkSupport(t *testing.T) {
