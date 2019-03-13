@@ -121,7 +121,7 @@ func wrap(s string, width int) string {
 		if idx := strings.IndexAny(s, "\n\r"); idx != -1 && idx < rem {
 			rem = idx+1
 		}
-		untilNewline := strings.TrimSpace(s[:rem])
+		untilNewline := strings.TrimRight(s[:rem], "\n\r")
 		s = s[rem:]
 		if len(untilNewline) == 0 {
 			continue
@@ -129,7 +129,7 @@ func wrap(s string, width int) string {
 		b.WriteString(untilNewline)
 		b.WriteString("\n")
 	}
-	return strings.TrimSpace(b.String())
+	return strings.TrimRight(b.String(), "\n\r")
 }
 
 func (t *tui) printfDrawIndentedAndWrappedIfMultiline(format string, a ...interface{}) {
