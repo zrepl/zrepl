@@ -1,4 +1,4 @@
-package mainfsm
+package diff
 
 import (
 	"sort"
