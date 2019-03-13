@@ -14,12 +14,12 @@ message ListFilesystemReq {}
 
 message ListFilesystemRes {
     repeated Filesystem Filesystems = 1;
-    bool Empty = 2;
 }
 
 message Filesystem {
     string Path = 1;
     string ResumeToken = 2;
+    bool IsPlaceholder = 3;
 }
 
 message ListFilesystemVersionsReq {

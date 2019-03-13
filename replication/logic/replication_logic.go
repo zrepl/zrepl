@@ -108,7 +108,7 @@ type Filesystem struct {
 	receiver Receiver
 
 	Path                string             // compat
-	receiverFSExists    bool               // compat
+	receiverFS          *pdu.Filesystem
 	promBytesReplicated prometheus.Counter // compat
 }
 
@@ -237,10 +237,10 @@ func (p *Planner) doPlanning(ctx context.Context) ([]*Filesystem, error) {
 	q := make([]*Filesystem, 0, len(sfss))
 	for _, fs := range sfss {
 
-		receiverFSExists := false
+		var receiverFS *pdu.Filesystem
 		for _, rfs := range rfss {
 			if rfs.Path == fs.Path {
-				receiverFSExists = true
+				receiverFS = rfs
 			}
 		}
 
@@ -250,7 +250,7 @@ func (p *Planner) doPlanning(ctx context.Context) ([]*Filesystem, error) {
 			sender:              p.sender,
 			receiver:            p.receiver,
 			Path:                fs.Path,
-			receiverFSExists:    receiverFSExists,
+			receiverFS:          receiverFS,
 			promBytesReplicated: ctr,
 		})
 	}
@@ -278,7 +278,7 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 	}
 
 	var rfsvs []*pdu.FilesystemVersion
-	if fs.receiverFSExists {
+	if fs.receiverFS != nil && !fs.receiverFS.GetIsPlaceholder() {
 		rfsvsres, err := fs.receiver.ListFilesystemVersions(ctx, &pdu.ListFilesystemVersionsReq{Filesystem: fs.Path})
 		if err != nil {
 			log.WithError(err).Error("receiver error")
@@ -301,7 +301,7 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 			log.WithField("problem", msg).Error("cannot resolve conflict")
 		}
 	}
-	if path == nil {
+	if len(path) == 0 {
 		return nil, conflict
 	}
 

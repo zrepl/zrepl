@@ -48,9 +48,10 @@ func (s *Sender) ListFilesystems(ctx context.Context, r *pdu.ListFilesystemReq) 
 		rfss[i] = &pdu.Filesystem{
 			Path: fss[i].ToString(),
 			// FIXME: not supporting ResumeToken yet
+			IsPlaceholder: false, // sender FSs are never placeholders
 		}
 	}
-	res := &pdu.ListFilesystemRes{Filesystems: rfss, Empty: len(rfss) == 0}
+	res := &pdu.ListFilesystemRes{Filesystems: rfss}
 	return res, nil
 }
 
@@ -118,7 +119,7 @@ func (p *Sender) PingDataconn(ctx context.Context, req *pdu.PingReq) (*pdu.PingR
 	return p.Ping(ctx, req)
 }
 
-func (p *Sender) WaitForConnectivity(ctx context.Context) (error) {
+func (p *Sender) WaitForConnectivity(ctx context.Context) error {
 	return nil
 }
 
@@ -243,7 +244,7 @@ func (s *Receiver) ListFilesystems(ctx context.Context, req *pdu.ListFilesystemR
 	if err != nil {
 		return nil, err
 	}
-	// present without prefix, and only those that are not placeholders
+	// present filesystem without the root_fs prefix
 	fss := make([]*pdu.Filesystem, 0, len(filtered))
 	for _, a := range filtered {
 		ph, err := zfs.ZFSIsPlaceholderFilesystem(a)
@@ -254,21 +255,16 @@ func (s *Receiver) ListFilesystems(ctx context.Context, req *pdu.ListFilesystemR
 				Error("inconsistent placeholder property")
 			return nil, errors.New("server error: inconsistent placeholder property") // don't leak path
 		}
-		if ph {
-			getLogger(ctx).
-				WithField("fs", a.ToString()).
-				Debug("ignoring placeholder filesystem")
-			continue
-		}
 		getLogger(ctx).
 			WithField("fs", a.ToString()).
-			Debug("non-placeholder filesystem")
+			WithField("is_placeholder", ph).
+			Debug("filesystem")
 		a.TrimPrefix(root)
-		fss = append(fss, &pdu.Filesystem{Path: a.ToString()})
+		fss = append(fss, &pdu.Filesystem{Path: a.ToString(), IsPlaceholder: ph})
 	}
 	if len(fss) == 0 {
-		getLogger(ctx).Debug("no non-placeholder filesystems")
-		return &pdu.ListFilesystemRes{Empty: true}, nil
+		getLogger(ctx).Debug("no filesystems found")
+		return &pdu.ListFilesystemRes{}, nil
 	}
 	return &pdu.ListFilesystemRes{Filesystems: fss}, nil
 }
@@ -304,7 +300,7 @@ func (s *Receiver) PingDataconn(ctx context.Context, req *pdu.PingReq) (*pdu.Pin
 	return s.Ping(ctx, req)
 }
 
-func (s *Receiver) WaitForConnectivity(ctx context.Context) (error) {
+func (s *Receiver) WaitForConnectivity(ctx context.Context) error {
 	return nil
 }
 
@@ -315,7 +311,6 @@ func (s *Receiver) ReplicationCursor(context.Context, *pdu.ReplicationCursorReq)
 func (s *Receiver) Send(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error) {
 	return nil, nil, fmt.Errorf("receiver does not implement Send()")
 }
-
 
 func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs.StreamCopier) (*pdu.ReceiveRes, error) {
 	getLogger(ctx).Debug("incoming Receive")
@@ -357,25 +352,27 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs
 		return nil, err
 	}
 
-	needForceRecv := false
+	var clearPlaceholderProperty bool
+	var recvOpts zfs.RecvOptions
 	props, err := zfs.ZFSGet(lp, []string{zfs.ZREPL_PLACEHOLDER_PROPERTY_NAME})
 	if err == nil {
 		if isPlaceholder, _ := zfs.IsPlaceholder(lp, props.Get(zfs.ZREPL_PLACEHOLDER_PROPERTY_NAME)); isPlaceholder {
-			needForceRecv = true
+			recvOpts.RollbackAndForceRecv = true
+			clearPlaceholderProperty = true
+		}
+	}
+	if clearPlaceholderProperty {
+		if err := zfs.ZFSSetNoPlaceholder(lp); err != nil {
+			return nil, fmt.Errorf("cannot clear placeholder property for forced receive: %s", err)
 		}
 	}
 
-	args := make([]string, 0, 1)
-	if needForceRecv {
-		args = append(args, "-F")
-	}
+	getLogger(ctx).WithField("opts", fmt.Sprintf("%#v", recvOpts)).Debug("start receive command")
 
-	getLogger(ctx).Debug("start receive command")
-
-	if err := zfs.ZFSRecv(ctx, lp.ToString(), receive, args...); err != nil {
+	if err := zfs.ZFSRecv(ctx, lp.ToString(), receive, recvOpts); err != nil {
 		getLogger(ctx).
 			WithError(err).
-			WithField("args", args).
+			WithField("opts", recvOpts).
 			Error("zfs receive failed")
 		return nil, err
 	}

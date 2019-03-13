@@ -105,3 +105,9 @@ func ZFSCreatePlaceholderFilesystem(p *DatasetPath) (err error) {
 
 	return
 }
+
+func ZFSSetNoPlaceholder(p *DatasetPath) error {
+	props := NewZFSProperties()
+	props.Set(ZREPL_PLACEHOLDER_PROPERTY_NAME, "off")
+	return zfsSet(p.ToString(), props)
+}
