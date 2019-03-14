@@ -1,0 +1,79 @@
+version: 2.0
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build-1.11
+      - build-1.12
+      - build-latest
+jobs:
+  # build-latest serves as the template
+  # we use YAML anchors & aliases to exchange the docker image (and hence Go version used for the build)
+  build-latest: &build-latest
+    description: Builds zrepl
+    parameters:
+      image:
+        description: "the docker image that the job should use"
+        type: string
+    docker:
+      - image: circleci/golang:latest
+    environment:
+      # required by lazy.sh
+      TERM: xterm
+    working_directory: /go/src/github.com/zrepl/zrepl
+    steps:
+      - run:
+          name: Setup environment variables
+          command: |
+            # used by pip (for docs)
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> $BASH_ENV
+
+      - restore_cache:
+          keys:
+            - source
+            - vendor
+            - protobuf
+
+      - checkout
+
+      - save_cache:
+          key: source
+          paths:
+            - ".git"
+      
+      # install deps
+      - run: wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip
+      - run: echo "6003de742ea3fcf703cfec1cd4a3380fd143081a2eb0e559065563496af27807  protoc-3.6.1-linux-x86_64.zip" | sha256sum -c
+      - run: sudo unzip -d /usr protoc-3.6.1-linux-x86_64.zip
+      - save_cache:
+          key: protobuf
+          paths:
+            - "/usr/include/google/protobuf"
+            
+      - run: sudo apt install python3 python3-pip libgirepository1.0-dev
+      - run: ./lazy.sh devsetup
+
+      - run: make vendordeps
+      - save_cache:
+          key: vendor
+          paths:
+            - "./vendor"
+            
+      - run: make
+      - run: make vet
+      - run: make test
+      - run: make release
+
+      - store_artifacts:
+          path: ./artifacts/release
+          when: always
+
+
+  build-1.11:
+    <<: *build-latest
+    docker:
+      - image: circleci/golang:1.11
+  build-1.12:
+    <<: *build-latest
+    docker:
+    - image: circleci/golang:1.12
