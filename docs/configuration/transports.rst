@@ -203,13 +203,17 @@ The serve & connect configuration will thus look like the following:
 ``ssh+stdinserver`` Transport
 -----------------------------
 
-``ssh+stdinserver`` is inspired by `git shell <https://git-scm.com/docs/git-shell>`_ and `Borg Backup <https://borgbackup.readthedocs.io/en/stable/deployment.html>`_.
-It is provided by the Go package ``github.com/problame/go-netssh``.
+``ssh+stdinserver`` uses the ``ssh`` command and some features of the server-side SSH ``authorized_keys`` file.
+It is less efficient than other transports because the data passes through two more pipes.
+However, it is fairly convenient to set up and allows the zrepl daemon to not be directly exposed to the internet, because all traffic passes through the system's SSH server.
 
-.. ATTENTION::
+The concept is inspired by `git shell <https://git-scm.com/docs/git-shell>`_ and `Borg Backup <https://borgbackup.readthedocs.io/en/stable/deployment.html>`_.
+The implementation is provided by the Go package ``github.com/problame/go-netssh``.
 
-   ``ssh+stdinserver`` has inferior error detection and handling compared to the ``tcp`` and ``tls`` transports.
-   If you require tested timeout & retry handling, use ``tcp`` or ``tls`` transports, or help improve package go-netssh.
+.. NOTE::
+
+   ``ssh+stdinserver`` generally provides inferior error detection and handling compared to the ``tcp`` and ``tls`` transports.
+   When encountering such problems, consider using  ``tcp`` or ``tls`` transports, or help improve package go-netssh.
 
 .. _transport-ssh+stdinserver-serve:
 

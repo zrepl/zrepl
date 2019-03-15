@@ -130,7 +130,6 @@ type Global struct {
 	Monitoring []MonitoringEnum       `yaml:"monitoring,optional"`
 	Control    *GlobalControl         `yaml:"control,optional,fromdefaults"`
 	Serve      *GlobalServe           `yaml:"serve,optional,fromdefaults"`
-	RPC        *RPCConfig             `yaml:"rpc,optional,fromdefaults"`
 }
 
 func Default(i interface{}) {
@@ -145,29 +144,18 @@ func Default(i interface{}) {
 	}
 }
 
-type RPCConfig struct {
-	Timeout             time.Duration `yaml:"timeout,optional,positive,default=10s"`
-	TxChunkSize         uint32        `yaml:"tx_chunk_size,optional,default=32768"`
-	RxStructuredMaxLen  uint32        `yaml:"rx_structured_max,optional,default=16777216"`
-	RxStreamChunkMaxLen uint32        `yaml:"rx_stream_chunk_max,optional,default=16777216"`
-	RxHeaderMaxLen      uint32        `yaml:"rx_header_max,optional,default=40960"`
-	SendHeartbeatInterval             time.Duration `yaml:"send_heartbeat_interval,optional,positive,default=5s"`
-
-}
-
 type ConnectEnum struct {
 	Ret interface{}
 }
 
 type ConnectCommon struct {
-	Type string     `yaml:"type"`
-	RPC  *RPCConfig `yaml:"rpc,optional"`
+	Type string            `yaml:"type"`
 }
 
 type TCPConnect struct {
 	ConnectCommon `yaml:",inline"`
 	Address       string        `yaml:"address"`
-	DialTimeout   time.Duration `yaml:"dial_timeout,positive,default=10s"`
+	DialTimeout   time.Duration `yaml:"dial_timeout,zeropositive,default=10s"`
 }
 
 type TLSConnect struct {
@@ -177,7 +165,7 @@ type TLSConnect struct {
 	Cert          string        `yaml:"cert"`
 	Key           string        `yaml:"key"`
 	ServerCN      string        `yaml:"server_cn"`
-	DialTimeout   time.Duration `yaml:"dial_timeout,positive,default=10s"`
+	DialTimeout   time.Duration `yaml:"dial_timeout,zeropositive,default=10s"`
 }
 
 type SSHStdinserverConnect struct {
@@ -189,7 +177,7 @@ type SSHStdinserverConnect struct {
 	TransportOpenCommand []string      `yaml:"transport_open_command,optional"` //TODO unused
 	SSHCommand           string        `yaml:"ssh_command,optional"`            //TODO unused
 	Options              []string      `yaml:"options,optional"`
-	DialTimeout          time.Duration `yaml:"dial_timeout,positive,default=10s"`
+	DialTimeout          time.Duration `yaml:"dial_timeout,zeropositive,default=10s"`
 }
 
 type LocalConnect struct {
@@ -203,8 +191,7 @@ type ServeEnum struct {
 }
 
 type ServeCommon struct {
-	Type string     `yaml:"type"`
-	RPC  *RPCConfig `yaml:"rpc,optional"`
+	Type string            `yaml:"type"`
 }
 
 type TCPServe struct {
@@ -220,7 +207,7 @@ type TLSServe struct {
 	Cert             string        `yaml:"cert"`
 	Key              string        `yaml:"key"`
 	ClientCNs        []string      `yaml:"client_cns"`
-	HandshakeTimeout time.Duration `yaml:"handshake_timeout,positive,default=10s"`
+	HandshakeTimeout time.Duration `yaml:"handshake_timeout,zeropositive,default=10s"`
 }
 
 type StdinserverServer struct {

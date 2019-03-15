@@ -1,0 +1,2 @@
+connect ansible_user=root ansible_host=192.168.122.128 wireevaluator_mode="connect"
+serve   ansible_user=root ansible_host=192.168.122.129 wireevaluator_mode="serve"

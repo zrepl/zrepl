@@ -1,8 +1,11 @@
-ignored = [ "github.com/inconshreveable/mousetrap" ]
+ignored = [
+    "github.com/inconshreveable/mousetrap",
+]
 
-[[constraint]]
-  branch = "master"
-  name = "github.com/ftrvxmtrx/fd"
+required = [
+    "golang.org/x/tools/cmd/stringer",
+    "github.com/alvaroloes/enumer",
+]
 
 [[constraint]]
   branch = "master"
@@ -13,24 +16,12 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
   name = "github.com/kr/pretty"
 
 [[constraint]]
-  branch = "master"
-  name = "github.com/mitchellh/go-homedir"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/mitchellh/mapstructure"
-
-[[constraint]]
   name = "github.com/pkg/errors"
   version = "0.8.0"
 
 [[constraint]]
   branch = "master"
   name = "github.com/spf13/cobra"
-
-[[constraint]]
-  name = "github.com/spf13/viper"
-  version = "1.0.0"
 
 [[constraint]]
   name = "github.com/stretchr/testify"
@@ -45,10 +36,6 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
   version = "*"
 
 [[constraint]]
-  name = "github.com/problame/go-rwccmd"
-  branch = "master"
-
-[[constraint]]
   name = "github.com/problame/go-netssh"
   branch = "master"
 
@@ -58,16 +45,11 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
 
 [[constraint]]
   name = "github.com/golang/protobuf"
-  version = "1.2.0"
+  version = "1"
 
 [[constraint]]
   name = "github.com/fatih/color"
   version = "1.7.0"
-
-[[constraint]]
-  name = "github.com/problame/go-streamrpc"
-  version = "0.5.0"
-
 
 
 [[constraint]]
@@ -75,9 +57,5 @@ ignored = [ "github.com/inconshreveable/mousetrap" ]
   version = "1.0.0"
 
 [[constraint]]
-  branch = "master"
-  name = "golang.org/x/tools"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/alvaroloes/enumer"
+  name = "google.golang.org/grpc"
+  version = "1"

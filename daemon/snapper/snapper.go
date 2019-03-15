@@ -177,7 +177,7 @@ func onMainCtxDone(ctx context.Context, u updater) state {
 }
 
 func syncUp(a args, u updater) state {
-	fss, err := listFSes(a.fsf)
+	fss, err := listFSes(a.ctx, a.fsf)
 	if err != nil {
 		return onErr(err, u)
 	}
@@ -204,7 +204,7 @@ func plan(a args, u updater) state {
 	u(func(snapper *Snapper) {
 		snapper.lastInvocation = time.Now()
 	})
-	fss, err := listFSes(a.fsf)
+	fss, err := listFSes(a.ctx, a.fsf)
 	if err != nil {
 		return onErr(err, u)
 	}
@@ -299,8 +299,8 @@ func wait(a args, u updater) state {
 	}
 }
 
-func listFSes(mf *filters.DatasetMapFilter) (fss []*zfs.DatasetPath, err error) {
-	return zfs.ZFSListMapping(mf)
+func listFSes(ctx context.Context, mf *filters.DatasetMapFilter) (fss []*zfs.DatasetPath, err error) {
+	return zfs.ZFSListMapping(ctx, mf)
 }
 
 func findSyncPoint(log Logger, fss []*zfs.DatasetPath, prefix string, interval time.Duration) (syncPoint time.Time, err error) {

@@ -4,8 +4,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
+	"os"
 	"time"
 )
 
@@ -22,12 +25,13 @@ func ParseCAFile(certfile string) (*x509.CertPool, error) {
 }
 
 type ClientAuthListener struct {
-	l                net.Listener
+	l                *net.TCPListener
+	c                *tls.Config
 	handshakeTimeout time.Duration
 }
 
 func NewClientAuthListener(
-	l net.Listener, ca *x509.CertPool, serverCert tls.Certificate,
+	l *net.TCPListener, ca *x509.CertPool, serverCert tls.Certificate,
 	handshakeTimeout time.Duration) *ClientAuthListener {
 
 	if ca == nil {
@@ -37,29 +41,35 @@ func NewClientAuthListener(
 		panic(serverCert)
 	}
 
-	tlsConf := tls.Config{
+	tlsConf := &tls.Config{
 		Certificates:             []tls.Certificate{serverCert},
 		ClientCAs:                ca,
 		ClientAuth:               tls.RequireAndVerifyClientCert,
 		PreferServerCipherSuites: true,
+		KeyLogWriter:             keylogFromEnv(),
 	}
-	l = tls.NewListener(l, &tlsConf)
 	return &ClientAuthListener{
 		l,
+		tlsConf,
 		handshakeTimeout,
 	}
 }
 
-func (l *ClientAuthListener) Accept() (c net.Conn, clientCN string, err error) {
-	c, err = l.l.Accept()
+// Accept() accepts a connection from the *net.TCPListener passed to the constructor
+// and sets up the TLS connection, including handshake and peer CommmonName validation
+// within the specified handshakeTimeout.
+//
+// It returns both the raw TCP connection (tcpConn) and the TLS connection (tlsConn) on top of it.
+// Access to the raw tcpConn might be necessary if CloseWrite semantics are desired:
+// tlsConn.CloseWrite does NOT call tcpConn.CloseWrite, hence we provide access to tcpConn to
+// allow the caller to do this by themselves.
+func (l *ClientAuthListener) Accept() (tcpConn *net.TCPConn, tlsConn *tls.Conn, clientCN string, err error) {
+	tcpConn, err = l.l.AcceptTCP()
 	if err != nil {
-		return nil, "", err
-	}
-	tlsConn, ok := c.(*tls.Conn)
-	if !ok {
-		return c, "", err
+		return nil, nil, "", err
 	}
 
+	tlsConn = tls.Server(tcpConn, l.c)
 	var (
 		cn        string
 		peerCerts []*x509.Certificate
@@ -70,6 +80,7 @@ func (l *ClientAuthListener) Accept() (c net.Conn, clientCN string, err error) {
 	if err = tlsConn.Handshake(); err != nil {
 		goto CloseAndErr
 	}
+	tlsConn.SetDeadline(time.Time{})
 
 	peerCerts = tlsConn.ConnectionState().PeerCertificates
 	if len(peerCerts) < 1 {
@@ -77,10 +88,11 @@ func (l *ClientAuthListener) Accept() (c net.Conn, clientCN string, err error) {
 		goto CloseAndErr
 	}
 	cn = peerCerts[0].Subject.CommonName
-	return c, cn, nil
+	return tcpConn, tlsConn, cn, nil
 CloseAndErr:
-	c.Close()
-	return nil, "", err
+	// unlike CloseWrite, Close on *tls.Conn actually closes the underlying connection
+	tlsConn.Close() // TODO log error
+	return nil, nil, "", err
 }
 
 func (l *ClientAuthListener) Addr() net.Addr {
@@ -105,7 +117,21 @@ func ClientAuthClient(serverName string, rootCA *x509.CertPool, clientCert tls.C
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      rootCA,
 		ServerName:   serverName,
+		KeyLogWriter: keylogFromEnv(),
 	}
 	tlsConfig.BuildNameToCertificate()
 	return tlsConfig, nil
+}
+
+func keylogFromEnv() io.Writer {
+	var keyLog io.Writer = nil
+	if outfile := os.Getenv("ZREPL_KEYLOG_FILE"); outfile != "" {
+		fmt.Fprintf(os.Stderr, "writing to key log %s\n", outfile)
+		var err error
+		keyLog, err = os.OpenFile(outfile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return keyLog
 }

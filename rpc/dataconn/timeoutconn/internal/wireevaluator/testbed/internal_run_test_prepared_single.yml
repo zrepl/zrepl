@@ -1,0 +1,38 @@
+---
+
+- debug:
+    msg: "run test transport={{wireevaluator_transport}} case={{wireevaluator_case}} repeatedly"
+
+- name: Run Server
+  when: inventory_hostname == "serve"
+  command: /opt/wireevaluator -config /opt/wireevaluator.yml -mode serve -testcase {{wireevaluator_case}}
+  register: spawn_servers
+  async: 60
+  poll: 0
+
+- name: Run Client
+  when: inventory_hostname == "connect"
+  command: /opt/wireevaluator -config /opt/wireevaluator.yml -mode connect -testcase {{wireevaluator_case}}
+  register: spawn_clients
+  async: 60
+  poll: 0
+
+- name: Wait for server shutdown
+  when: inventory_hostname == "serve"
+  async_status:
+    jid: "{{ spawn_servers.ansible_job_id}}"
+  delay: 0.5
+  retries: 10
+
+- name: Wait for client shutdown
+  when: inventory_hostname == "connect"
+  async_status:
+    jid: "{{ spawn_clients.ansible_job_id}}"
+  delay: 0.5
+  retries: 10
+
+- name: Wait for connections to die (TIME_WAIT conns)
+  command: sleep 4
+  changed_when: false
+
+

@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package pdu;
+
+
+service Greeter {
+    rpc Greet(GreetRequest) returns (GreetResponse) {}
+}
+
+message GreetRequest {
+    string name = 1;
+}
+
+message GreetResponse {
+    string msg = 1;
+}
