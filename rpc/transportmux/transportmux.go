@@ -7,10 +7,10 @@ package transportmux
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"time"
-	"fmt"
 
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/transport"
@@ -111,7 +111,7 @@ func Demux(ctx context.Context, rawListener transport.AuthenticatedListener, lab
 				if ctx.Err() != nil {
 					return
 				}
-				getLog(ctx).WithError(err).Error("accept error")
+				getLog(ctx).WithError(err).WithField("errType", fmt.Sprintf("%T", err)).Error("accept error")
 				continue
 			}
 			closeConn := func() {

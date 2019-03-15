@@ -142,6 +142,11 @@ func (c *Client) WaitForConnectivity(ctx context.Context) error {
 			// dataClient uses transport.Connecter, which doesn't expose FailFast(false)
 			// => we need to mask dial timeouts
 			if err, ok := dataErr.(interface{ Temporary() bool }); ok && err.Temporary() {
+				// Rate-limit pings here in case Temporary() is a mis-classification
+				// or returns immediately (this is a tight loop in that case)
+				// TODO keep this in lockstep with controlClient
+				// 		=> don't use FailFast for control, but check that both control and data worked
+				time.Sleep(envconst.Duration("ZREPL_RPC_DATACONN_PING_SLEEP", 1*time.Second))
 				continue
 			}
 			// it's not a dial timeout, 
