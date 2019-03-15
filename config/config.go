@@ -259,7 +259,7 @@ type StdoutLoggingOutlet struct {
 
 type SyslogLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
-	Facility            syslog.Priority `yaml:"facility,default=local0"`
+	Facility            *SyslogFacility `yaml:"facility,optional,fromdefaults"`
 	RetryInterval       time.Duration `yaml:"retry_interval,positive,default=10s"`
 }
 
@@ -286,15 +286,13 @@ type PrometheusMonitoring struct {
 	Listen string `yaml:"listen"`
 }
 
-type SyslogFacilityEnum struct {
-	Ret interface{}
+type SyslogFacility syslog.Priority
+
+func (f *SyslogFacility) SetDefault() {
+	*f = SyslogFacility(syslog.LOG_LOCAL0)
 }
 
-type SyslogFacilityEnumList []SyslogFacilityEnum
-
-type SyslogFacility struct {
-	Facility syslog.Priority
-}
+var _ yaml.Defaulter = (*SyslogFacility)(nil)
 
 type GlobalControl struct {
 	SockPath string `yaml:"sockpath,default=/var/run/zrepl/control"`
@@ -401,30 +399,38 @@ func (t *MonitoringEnum) UnmarshalYAML(u func(interface{}, bool) error) (err err
 	return
 }
 
-func (t *SyslogFacilityEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
-	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
-		"kern":     &SyslogFacility{syslog.LOG_KERN},
-		"user":     &SyslogFacility{syslog.LOG_USER},
-		"mail":     &SyslogFacility{syslog.LOG_MAIL},
-		"daemon":   &SyslogFacility{syslog.LOG_DAEMON},
-		"auth":     &SyslogFacility{syslog.LOG_AUTH},
-		"syslog":   &SyslogFacility{syslog.LOG_SYSLOG},
-		"lpr":      &SyslogFacility{syslog.LOG_LPR},
-		"news":     &SyslogFacility{syslog.LOG_NEWS},
-		"uucp":     &SyslogFacility{syslog.LOG_UUCP},
-		"cron":     &SyslogFacility{syslog.LOG_CRON},
-		"authpriv": &SyslogFacility{syslog.LOG_AUTHPRIV},
-		"ftp":      &SyslogFacility{syslog.LOG_FTP},
-		"local0":   &SyslogFacility{syslog.LOG_LOCAL0},
-		"local1":   &SyslogFacility{syslog.LOG_LOCAL1},
-		"local2":   &SyslogFacility{syslog.LOG_LOCAL2},
-		"local3":   &SyslogFacility{syslog.LOG_LOCAL3},
-		"local4":   &SyslogFacility{syslog.LOG_LOCAL4},
-		"local5":   &SyslogFacility{syslog.LOG_LOCAL5},
-		"local6":   &SyslogFacility{syslog.LOG_LOCAL6},
-		"local7":   &SyslogFacility{syslog.LOG_LOCAL7},
-	})
-	return
+func (t *SyslogFacility) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
+	var s string
+	if err := u(&s, true); err != nil {
+		return err
+	}
+	var level syslog.Priority
+	switch s {
+		case "kern":     level = syslog.LOG_KERN
+		case "user":     level = syslog.LOG_USER
+		case "mail":     level = syslog.LOG_MAIL
+		case "daemon":   level = syslog.LOG_DAEMON
+		case "auth":     level = syslog.LOG_AUTH
+		case "syslog":   level = syslog.LOG_SYSLOG
+		case "lpr":      level = syslog.LOG_LPR
+		case "news":     level = syslog.LOG_NEWS
+		case "uucp":     level = syslog.LOG_UUCP
+		case "cron":     level = syslog.LOG_CRON
+		case "authpriv": level = syslog.LOG_AUTHPRIV
+		case "ftp":      level = syslog.LOG_FTP
+		case "local0":   level = syslog.LOG_LOCAL0
+		case "local1":   level = syslog.LOG_LOCAL1
+		case "local2":   level = syslog.LOG_LOCAL2
+		case "local3":   level = syslog.LOG_LOCAL3
+		case "local4":   level = syslog.LOG_LOCAL4
+		case "local5":   level = syslog.LOG_LOCAL5
+		case "local6":   level = syslog.LOG_LOCAL6
+		case "local7":   level = syslog.LOG_LOCAL7
+	default:
+		return fmt.Errorf("invalid syslog level: %q", s)
+	}
+	*t = SyslogFacility(level)
+	return  nil
 }
 
 var ConfigFileDefaultLocations = []string{

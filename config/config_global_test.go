@@ -80,6 +80,7 @@ func TestSyslogLoggingOutletFacility(t *testing.T) {
 		Priority syslog.Priority
 	}
 	syslogFacilitiesPriorities := []SyslogFacilityPriority{
+		{"", syslog.LOG_LOCAL0}, // default
 		{"kern", syslog.LOG_KERN}, {"daemon", syslog.LOG_DAEMON}, {"auth", syslog.LOG_AUTH},
 		{"syslog", syslog.LOG_SYSLOG}, {"lpr", syslog.LOG_LPR}, {"news", syslog.LOG_NEWS},
 		{"uucp", syslog.LOG_UUCP}, {"cron", syslog.LOG_CRON}, {"authpriv", syslog.LOG_AUTHPRIV},
@@ -99,7 +100,7 @@ global:
 `, sFP.Facility)
 		conf := testValidGlobalSection(t, logcfg)
 		assert.Equal(t, 1, len(*conf.Global.Logging))
-		assert.Equal(t, sFP.Priority, (*conf.Global.Logging)[0].Ret.(*SyslogLoggingOutlet).Facility)
+		assert.True(t, SyslogFacility(sFP.Priority) == *(*conf.Global.Logging)[0].Ret.(*SyslogLoggingOutlet).Facility)
 	}
 }
 

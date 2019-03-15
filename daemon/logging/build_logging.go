@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"log/syslog"
 	"os"
 
 	"github.com/mattn/go-isatty"
@@ -222,7 +223,7 @@ func parseSyslogOutlet(in *config.SyslogLoggingOutlet, formatter EntryFormatter)
 	out = &SyslogOutlet{}
 	out.Formatter = formatter
 	out.Formatter.SetMetadataFlags(MetadataNone)
-	out.Facility = in.Facility
+	out.Facility = syslog.Priority(*in.Facility)
 	out.RetryInterval = in.RetryInterval
 	return out, nil
 }
