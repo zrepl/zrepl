@@ -71,6 +71,7 @@ type State uint
 
 const (
 	SyncUp State = 1<<iota
+	SyncUpErrWait
 	Planning
 	Snapshotting
 	Waiting
@@ -81,6 +82,7 @@ const (
 func (s State) sf() state {
 	m := map[State]state{
 		SyncUp:       syncUp,
+		SyncUpErrWait: wait,
 		Planning:     plan,
 		Snapshotting: snapshot,
 		Waiting:      wait,
@@ -165,7 +167,16 @@ func (s *Snapper) Run(ctx context.Context, snapshotsTaken chan<- struct{}) {
 func onErr(err error, u updater) state {
 	return u(func(s *Snapper) {
 		s.err = err
-		s.state = ErrorWait
+		preState := s.state
+		switch s.state {
+		case SyncUp:
+			s.state = SyncUpErrWait
+		case Planning:
+			fallthrough
+		case Snapshotting:
+			s.state = ErrorWait
+		}
+		s.args.log.WithError(err).WithField("pre_state", preState).WithField("post_state", s.state).Error("snapshotting error")
 	}).sf()
 }
 
@@ -177,6 +188,9 @@ func onMainCtxDone(ctx context.Context, u updater) state {
 }
 
 func syncUp(a args, u updater) state {
+	u(func(snapper *Snapper) {
+		snapper.lastInvocation = time.Now()
+	})
 	fss, err := listFSes(a.ctx, a.fsf)
 	if err != nil {
 		return onErr(err, u)
@@ -284,6 +298,12 @@ func wait(a args, u updater) state {
 		lastTick := snapper.lastInvocation
 		snapper.sleepUntil = lastTick.Add(a.interval)
 		sleepUntil = snapper.sleepUntil
+		log := a.log.WithField("sleep_until", sleepUntil).WithField("duration", a.interval)
+		logFunc := log.Debug
+		if snapper.state == ErrorWait || snapper.state == SyncUpErrWait {
+			logFunc = log.Error
+		}
+		logFunc("enter wait-state after error")
 	})
 
 	t := time.NewTimer(sleepUntil.Sub(time.Now()))

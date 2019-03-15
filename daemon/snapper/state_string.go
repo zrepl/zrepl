@@ -5,15 +5,16 @@ package snapper
 import "strconv"
 
 const (
-	_State_name_0 = "SyncUpPlanning"
-	_State_name_1 = "Snapshotting"
-	_State_name_2 = "Waiting"
-	_State_name_3 = "ErrorWait"
-	_State_name_4 = "Stopped"
+	_State_name_0 = "SyncUpSyncUpErrWait"
+	_State_name_1 = "Planning"
+	_State_name_2 = "Snapshotting"
+	_State_name_3 = "Waiting"
+	_State_name_4 = "ErrorWait"
+	_State_name_5 = "Stopped"
 )
 
 var (
-	_State_index_0 = [...]uint8{0, 6, 14}
+	_State_index_0 = [...]uint8{0, 6, 19}
 )
 
 func (i State) String() string {
@@ -29,6 +30,8 @@ func (i State) String() string {
 		return _State_name_3
 	case i == 32:
 		return _State_name_4
+	case i == 64:
+		return _State_name_5
 	default:
 		return "State(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
