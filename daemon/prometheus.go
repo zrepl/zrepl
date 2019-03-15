@@ -7,6 +7,7 @@ import (
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/logger"
+	"github.com/zrepl/zrepl/rpc/dataconn/frameconn"
 	"github.com/zrepl/zrepl/zfs"
 	"net"
 	"net/http"
@@ -46,6 +47,10 @@ func (j *prometheusJob) RegisterMetrics(registerer prometheus.Registerer) {}
 func (j *prometheusJob) Run(ctx context.Context) {
 
 	if err := zfs.PrometheusRegister(prometheus.DefaultRegisterer); err != nil {
+		panic(err)
+	}
+
+	if err := frameconn.PrometheusRegister(prometheus.DefaultRegisterer); err != nil {
 		panic(err)
 	}
 

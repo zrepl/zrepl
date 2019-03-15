@@ -124,6 +124,7 @@ func (h *TCPOutlet) WriteEntry(e logger.Entry) error {
 type SyslogOutlet struct {
 	Formatter          EntryFormatter
 	RetryInterval      time.Duration
+	Facility           syslog.Priority
 	writer             *syslog.Writer
 	lastConnectAttempt time.Time
 }
@@ -142,7 +143,7 @@ func (o *SyslogOutlet) WriteEntry(entry logger.Entry) error {
 		if now.Sub(o.lastConnectAttempt) < o.RetryInterval {
 			return nil // not an error toward logger
 		}
-		o.writer, err = syslog.New(syslog.LOG_LOCAL0, "zrepl")
+		o.writer, err = syslog.New(o.Facility, "zrepl")
 		o.lastConnectAttempt = time.Now()
 		if err != nil {
 			o.writer = nil

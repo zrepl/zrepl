@@ -1,42 +1,32 @@
 package socketpair
 
 import (
-	"golang.org/x/sys/unix"
 	"net"
 	"os"
+
+	"golang.org/x/sys/unix"
 )
-type fileConn struct {
-	net.Conn // net.FileConn
-	f *os.File
-}
 
-func (c fileConn) Close() error {
-	if err := c.Conn.Close(); err != nil {
-		return err
-	}
-	if err := c.f.Close(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func SocketPair() (a, b net.Conn, err error) {
+func SocketPair() (a, b *net.UnixConn, err error) {
 	// don't use net.Pipe, as it doesn't implement things like lingering, which our code relies on
 	sockpair, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM, 0)
 	if err != nil {
 		return nil, nil, err
 	}
-	toConn := func(fd int) (net.Conn, error) {
+	toConn := func(fd int) (*net.UnixConn, error) {
 		f := os.NewFile(uintptr(fd), "fileconn")
 		if f == nil {
 			panic(fd)
 		}
 		c, err := net.FileConn(f)
+		f.Close() // net.FileConn uses dup under the hood
 		if err != nil {
-			f.Close()
 			return nil, err
 		}
-		return fileConn{Conn: c, f: f}, nil
+		// strictly, the following type assertion is an implementation detail
+		// however, will be caught by test TestSocketPairWorks
+		fileConnIsUnixConn := c.(*net.UnixConn)
+		return fileConnIsUnixConn, nil
 	}
 	if a, err = toConn(sockpair[0]); err != nil { // shadowing
 		return nil, nil, err

@@ -1,0 +1,13 @@
+connect:
+  type: ssh+stdinserver
+  host: {{wireevaluator_serve_ip}}
+  user: root
+  port: 22
+  identity_file: /opt/wireevaluator.ssh_client_identity
+  options: # optional, default [], `-o` arguments passed to ssh
+  - "Compression=yes"
+serve:
+  type: stdinserver
+  client_identities:
+    - "client1"
+

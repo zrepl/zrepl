@@ -66,10 +66,14 @@ Alternatively, you can install build dependencies on your local system and then 
     mkdir -p "${GOPATH}/src/github.com/zrepl/zrepl"
     git clone https://github.com/zrepl/zrepl.git "${GOPATH}/src/github.com/zrepl/zrepl"
     cd "${GOPATH}/src/github.com/zrepl/zrepl"
+    python3 -m venv3
+    source venv3/bin/activate
     ./lazy.sh devsetup
     make vendordeps release
 
-Build results are located in the ``artifacts/`` directory.
+The Python venv is used for the documentation build dependencies.
+If you just want to build the zrepl binary, leave it out and use `./lazy.sh godep` instead.
+Either way, all build results are located in the ``artifacts/`` directory.
 
 .. NOTE::
 

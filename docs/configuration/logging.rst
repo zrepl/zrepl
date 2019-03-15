@@ -147,6 +147,8 @@ Can only be specified once.
       -  minimum  :ref:`log level <logging-levels>`
     * - ``format``
       - output :ref:`format <logging-formats>`
+    * - ``facility``
+      - Which syslog facility to use (default = ``local0``)
     * - ``retry_interval``
       - Interval between reconnection attempts to syslog (default = 0)
 

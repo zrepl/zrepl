@@ -10,7 +10,6 @@ import (
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/util/watchdog"
-	"github.com/problame/go-streamrpc"
 	"math/bits"
 	"net"
 	"sort"
@@ -106,9 +105,8 @@ func NewReplication(secsPerState *prometheus.HistogramVec, bytesReplicated *prom
 // named interfaces defined in this package.
 type Endpoint interface {
 	// Does not include placeholder filesystems
-	ListFilesystems(ctx context.Context) ([]*pdu.Filesystem, error)
-	// FIXME document FilteredError handling
-	ListFilesystemVersions(ctx context.Context, fs string) ([]*pdu.FilesystemVersion, error) // fix depS
+	ListFilesystems(ctx context.Context, req *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error)
+	ListFilesystemVersions(ctx context.Context, req *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error)
 	DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error)
 }
 
@@ -203,7 +201,6 @@ type Error interface {
 
 var _ Error = fsrep.Error(nil)
 var _ Error = net.Error(nil)
-var _ Error = streamrpc.Error(nil)
 
 func isPermanent(err error) bool {
 	if e, ok := err.(Error); ok {
@@ -232,19 +229,20 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 		}).rsf()
 	}
 
-	sfss, err := sender.ListFilesystems(ctx)
+	slfssres, err := sender.ListFilesystems(ctx, &pdu.ListFilesystemReq{})
 	if err != nil {
-		log.WithError(err).Error("error listing sender filesystems")
+		log.WithError(err).WithField("errType", fmt.Sprintf("%T", err)).Error("error listing sender filesystems")
 		return handlePlanningError(err)
 	}
+	sfss := slfssres.GetFilesystems()
 	// no progress here since we could run in a live-lock on connectivity issues
 
-	rfss, err := receiver.ListFilesystems(ctx)
+	rlfssres, err := receiver.ListFilesystems(ctx, &pdu.ListFilesystemReq{})
 	if err != nil {
-		log.WithError(err).Error("error listing receiver filesystems")
+		log.WithError(err).WithField("errType", fmt.Sprintf("%T", err)).Error("error listing receiver filesystems")
 		return handlePlanningError(err)
 	}
-
+	rfss := rlfssres.GetFilesystems()
 	ka.MadeProgress() // for both sender and receiver
 
 	q := make([]*fsrep.Replication, 0, len(sfss))
@@ -255,11 +253,12 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 
 		log.Debug("assessing filesystem")
 
-		sfsvs, err := sender.ListFilesystemVersions(ctx, fs.Path)
+		sfsvsres, err := sender.ListFilesystemVersions(ctx, &pdu.ListFilesystemVersionsReq{Filesystem: fs.Path})
 		if err != nil {
 			log.WithError(err).Error("cannot get remote filesystem versions")
 			return handlePlanningError(err)
 		}
+		sfsvs := sfsvsres.GetVersions()
 		ka.MadeProgress()
 
 		if len(sfsvs) < 1 {
@@ -278,7 +277,7 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 
 		var rfsvs []*pdu.FilesystemVersion
 		if receiverFSExists {
-			rfsvs, err = receiver.ListFilesystemVersions(ctx, fs.Path)
+			rfsvsres, err := receiver.ListFilesystemVersions(ctx, &pdu.ListFilesystemVersionsReq{Filesystem: fs.Path})
 			if err != nil {
 				if _, ok := err.(*FilteredError); ok {
 					log.Info("receiver ignores filesystem")
@@ -287,6 +286,7 @@ func statePlanning(ctx context.Context, ka *watchdog.KeepAlive, sender Sender, r
 				log.WithError(err).Error("receiver error")
 				return handlePlanningError(err)
 			}
+			rfsvs = rfsvsres.GetVersions()
 		} else {
 			rfsvs = []*pdu.FilesystemVersion{}
 		}

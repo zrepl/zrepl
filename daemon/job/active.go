@@ -2,9 +2,12 @@ package job
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
-	"github.com/problame/go-streamrpc"
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/daemon/job/reset"
@@ -12,31 +15,29 @@ import (
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
-	"github.com/zrepl/zrepl/daemon/transport/connecter"
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/replication"
+	"github.com/zrepl/zrepl/rpc"
+	"github.com/zrepl/zrepl/transport"
+	"github.com/zrepl/zrepl/transport/fromconfig"
 	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/zfs"
-	"sync"
-	"time"
 )
 
 type ActiveSide struct {
-	mode          activeMode
-	name          string
-	clientFactory *connecter.ClientFactory
+	mode      activeMode
+	name      string
+	connecter transport.Connecter
 
 	prunerFactory *pruner.PrunerFactory
 
-
-	promRepStateSecs *prometheus.HistogramVec // labels: state
-	promPruneSecs *prometheus.HistogramVec // labels: prune_side
-	promBytesReplicated *prometheus.CounterVec // labels: filesystem
+	promRepStateSecs    *prometheus.HistogramVec // labels: state
+	promPruneSecs       *prometheus.HistogramVec // labels: prune_side
+	promBytesReplicated *prometheus.CounterVec   // labels: filesystem
 
 	tasksMtx sync.Mutex
 	tasks    activeSideTasks
 }
-
 
 //go:generate enumer -type=ActiveSideState
 type ActiveSideState int
@@ -48,12 +49,11 @@ const (
 	ActiveSideDone // also errors
 )
 
-
 type activeSideTasks struct {
 	state ActiveSideState
 
 	// valid for state ActiveSideReplicating, ActiveSidePruneSender, ActiveSidePruneReceiver, ActiveSideDone
-	replication *replication.Replication
+	replication       *replication.Replication
 	replicationCancel context.CancelFunc
 
 	// valid for state ActiveSidePruneSender, ActiveSidePruneReceiver, ActiveSideDone
@@ -77,28 +77,59 @@ func (a *ActiveSide) updateTasks(u func(*activeSideTasks)) activeSideTasks {
 }
 
 type activeMode interface {
-	SenderReceiver(client *streamrpc.Client) (replication.Sender, replication.Receiver, error)
+	ConnectEndpoints(rpcLoggers rpc.Loggers, connecter transport.Connecter)
+	DisconnectEndpoints()
+	SenderReceiver() (replication.Sender, replication.Receiver)
 	Type() Type
 	RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{})
+	ResetConnectBackoff()
 }
 
 type modePush struct {
-	fsfilter         endpoint.FSFilter
-	snapper *snapper.PeriodicOrManual
+	setupMtx sync.Mutex
+	sender   *endpoint.Sender
+	receiver *rpc.Client
+	fsfilter endpoint.FSFilter
+	snapper  *snapper.PeriodicOrManual
 }
 
-func (m *modePush) SenderReceiver(client *streamrpc.Client) (replication.Sender, replication.Receiver, error) {
-	sender := endpoint.NewSender(m.fsfilter)
-	receiver := endpoint.NewRemote(client)
-	return sender, receiver, nil
+func (m *modePush) ConnectEndpoints(loggers rpc.Loggers, connecter transport.Connecter) {
+	m.setupMtx.Lock()
+	defer m.setupMtx.Unlock()
+	if m.receiver != nil || m.sender != nil {
+		panic("inconsistent use of ConnectEndpoints and DisconnectEndpoints")
+	}
+	m.sender = endpoint.NewSender(m.fsfilter)
+	m.receiver = rpc.NewClient(connecter, loggers)
+}
+
+func (m *modePush) DisconnectEndpoints() {
+	m.setupMtx.Lock()
+	defer m.setupMtx.Unlock()
+	m.receiver.Close()
+	m.sender = nil
+	m.receiver = nil
+}
+
+func (m *modePush) SenderReceiver() (replication.Sender, replication.Receiver) {
+	m.setupMtx.Lock()
+	defer m.setupMtx.Unlock()
+	return m.sender, m.receiver
 }
 
 func (m *modePush) Type() Type { return TypePush }
 
-func (m *modePush) RunPeriodic(ctx context.Context, wakeUpCommon chan <- struct{}) {
+func (m *modePush) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}) {
 	m.snapper.Run(ctx, wakeUpCommon)
 }
 
+func (m *modePush) ResetConnectBackoff() {
+	m.setupMtx.Lock()
+	defer m.setupMtx.Unlock()
+	if m.receiver != nil {
+		m.receiver.ResetConnectBackoff()
+	}
+}
 
 func modePushFromConfig(g *config.Global, in *config.PushJob) (*modePush, error) {
 	m := &modePush{}
@@ -116,14 +147,35 @@ func modePushFromConfig(g *config.Global, in *config.PushJob) (*modePush, error)
 }
 
 type modePull struct {
+	setupMtx sync.Mutex
+	receiver *endpoint.Receiver
+	sender   *rpc.Client
 	rootFS   *zfs.DatasetPath
 	interval time.Duration
 }
 
-func (m *modePull) SenderReceiver(client *streamrpc.Client) (replication.Sender, replication.Receiver, error) {
-	sender := endpoint.NewRemote(client)
-	receiver, err := endpoint.NewReceiver(m.rootFS)
-	return sender, receiver, err
+func (m *modePull) ConnectEndpoints(loggers rpc.Loggers, connecter transport.Connecter) {
+	m.setupMtx.Lock()
+	defer m.setupMtx.Unlock()
+	if m.receiver != nil || m.sender != nil {
+		panic("inconsistent use of ConnectEndpoints and DisconnectEndpoints")
+	}
+	m.receiver = endpoint.NewReceiver(m.rootFS, false)
+	m.sender = rpc.NewClient(connecter, loggers)
+}
+
+func (m *modePull) DisconnectEndpoints() {
+	m.setupMtx.Lock()
+	defer m.setupMtx.Unlock()
+	m.sender.Close()
+	m.sender = nil
+	m.receiver = nil
+}
+
+func (m *modePull) SenderReceiver() (replication.Sender, replication.Receiver) {
+	m.setupMtx.Lock()
+	defer m.setupMtx.Unlock()
+	return m.sender, m.receiver
 }
 
 func (*modePull) Type() Type { return TypePull }
@@ -145,6 +197,14 @@ func (m *modePull) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}
 		case <-ctx.Done():
 			return
 		}
+	}
+}
+
+func (m *modePull) ResetConnectBackoff() {
+	m.setupMtx.Lock()
+	defer m.setupMtx.Unlock()
+	if m.sender != nil {
+		m.sender.ResetConnectBackoff()
 	}
 }
 
@@ -175,17 +235,17 @@ func activeSide(g *config.Global, in *config.ActiveJob, mode activeMode) (j *Act
 		Subsystem:   "replication",
 		Name:        "state_time",
 		Help:        "seconds spent during replication",
-		ConstLabels: prometheus.Labels{"zrepl_job":j.name},
+		ConstLabels: prometheus.Labels{"zrepl_job": j.name},
 	}, []string{"state"})
 	j.promBytesReplicated = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace:   "zrepl",
 		Subsystem:   "replication",
 		Name:        "bytes_replicated",
 		Help:        "number of bytes replicated from sender to receiver per filesystem",
-		ConstLabels: prometheus.Labels{"zrepl_job":j.name},
+		ConstLabels: prometheus.Labels{"zrepl_job": j.name},
 	}, []string{"filesystem"})
 
-	j.clientFactory, err = connecter.FromConfig(g, in.Connect)
+	j.connecter, err = fromconfig.ConnecterFromConfig(g, in.Connect)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot build client")
 	}
@@ -195,7 +255,7 @@ func activeSide(g *config.Global, in *config.ActiveJob, mode activeMode) (j *Act
 		Subsystem:   "pruning",
 		Name:        "time",
 		Help:        "seconds spent in pruner",
-		ConstLabels: prometheus.Labels{"zrepl_job":j.name},
+		ConstLabels: prometheus.Labels{"zrepl_job": j.name},
 	}, []string{"prune_side"})
 	j.prunerFactory, err = pruner.NewPrunerFactory(in.Pruning, j.promPruneSecs)
 	if err != nil {
@@ -214,7 +274,7 @@ func (j *ActiveSide) RegisterMetrics(registerer prometheus.Registerer) {
 func (j *ActiveSide) Name() string { return j.name }
 
 type ActiveSideStatus struct {
-	Replication *replication.Report
+	Replication                    *replication.Report
 	PruningSender, PruningReceiver *pruner.Report
 }
 
@@ -256,6 +316,7 @@ outer:
 			break outer
 
 		case <-wakeup.Wait(ctx):
+			j.mode.ResetConnectBackoff()
 		case <-periodicDone:
 		}
 		invocationCount++
@@ -268,6 +329,9 @@ func (j *ActiveSide) do(ctx context.Context) {
 
 	log := GetLogger(ctx)
 	ctx = logging.WithSubsystemLoggers(ctx, log)
+	loggers := rpc.GetLoggersOrPanic(ctx) // filled by WithSubsystemLoggers
+	j.mode.ConnectEndpoints(loggers, j.connecter)
+	defer j.mode.DisconnectEndpoints()
 
 	// allow cancellation of an invocation (this function)
 	ctx, cancelThisRun := context.WithCancel(ctx)
@@ -353,13 +417,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 		}
 	}()
 
-	client, err := j.clientFactory.NewClient()
-	if err != nil {
-		log.WithError(err).Error("factory cannot instantiate streamrpc client")
-	}
-	defer client.Close(ctx)
-
-	sender, receiver, err := j.mode.SenderReceiver(client)
+	sender, receiver := j.mode.SenderReceiver()
 
 	{
 		select {

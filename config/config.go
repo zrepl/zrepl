@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zrepl/yaml-config"
 	"io/ioutil"
+	"log/syslog"
 	"os"
 	"reflect"
 	"regexp"
@@ -39,7 +40,7 @@ func (j JobEnum) Name() string {
 	case *PullJob: name = v.Name
 	case *SourceJob: name = v.Name
 	default:
-		panic(fmt.Sprintf("unknownn job type %T", v))
+		panic(fmt.Sprintf("unknown job type %T", v))
 	}
 	return name
 }
@@ -140,7 +141,6 @@ type Global struct {
 	Monitoring []MonitoringEnum       `yaml:"monitoring,optional"`
 	Control    *GlobalControl         `yaml:"control,optional,fromdefaults"`
 	Serve      *GlobalServe           `yaml:"serve,optional,fromdefaults"`
-	RPC        *RPCConfig             `yaml:"rpc,optional,fromdefaults"`
 }
 
 func Default(i interface{}) {
@@ -155,29 +155,18 @@ func Default(i interface{}) {
 	}
 }
 
-type RPCConfig struct {
-	Timeout             time.Duration `yaml:"timeout,optional,positive,default=10s"`
-	TxChunkSize         uint32        `yaml:"tx_chunk_size,optional,default=32768"`
-	RxStructuredMaxLen  uint32        `yaml:"rx_structured_max,optional,default=16777216"`
-	RxStreamChunkMaxLen uint32        `yaml:"rx_stream_chunk_max,optional,default=16777216"`
-	RxHeaderMaxLen      uint32        `yaml:"rx_header_max,optional,default=40960"`
-	SendHeartbeatInterval             time.Duration `yaml:"send_heartbeat_interval,optional,positive,default=5s"`
-
-}
-
 type ConnectEnum struct {
 	Ret interface{}
 }
 
 type ConnectCommon struct {
-	Type string     `yaml:"type"`
-	RPC  *RPCConfig `yaml:"rpc,optional"`
+	Type string            `yaml:"type"`
 }
 
 type TCPConnect struct {
 	ConnectCommon `yaml:",inline"`
 	Address       string        `yaml:"address"`
-	DialTimeout   time.Duration `yaml:"dial_timeout,positive,default=10s"`
+	DialTimeout   time.Duration `yaml:"dial_timeout,zeropositive,default=10s"`
 }
 
 type TLSConnect struct {
@@ -187,7 +176,7 @@ type TLSConnect struct {
 	Cert          string        `yaml:"cert"`
 	Key           string        `yaml:"key"`
 	ServerCN      string        `yaml:"server_cn"`
-	DialTimeout   time.Duration `yaml:"dial_timeout,positive,default=10s"`
+	DialTimeout   time.Duration `yaml:"dial_timeout,zeropositive,default=10s"`
 }
 
 type SSHStdinserverConnect struct {
@@ -199,7 +188,7 @@ type SSHStdinserverConnect struct {
 	TransportOpenCommand []string      `yaml:"transport_open_command,optional"` //TODO unused
 	SSHCommand           string        `yaml:"ssh_command,optional"`            //TODO unused
 	Options              []string      `yaml:"options,optional"`
-	DialTimeout          time.Duration `yaml:"dial_timeout,positive,default=10s"`
+	DialTimeout          time.Duration `yaml:"dial_timeout,zeropositive,default=10s"`
 }
 
 type LocalConnect struct {
@@ -213,8 +202,7 @@ type ServeEnum struct {
 }
 
 type ServeCommon struct {
-	Type string     `yaml:"type"`
-	RPC  *RPCConfig `yaml:"rpc,optional"`
+	Type string            `yaml:"type"`
 }
 
 type TCPServe struct {
@@ -230,7 +218,7 @@ type TLSServe struct {
 	Cert             string        `yaml:"cert"`
 	Key              string        `yaml:"key"`
 	ClientCNs        []string      `yaml:"client_cns"`
-	HandshakeTimeout time.Duration `yaml:"handshake_timeout,positive,default=10s"`
+	HandshakeTimeout time.Duration `yaml:"handshake_timeout,zeropositive,default=10s"`
 }
 
 type StdinserverServer struct {
@@ -281,6 +269,7 @@ type StdoutLoggingOutlet struct {
 
 type SyslogLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
+	Facility            *SyslogFacility `yaml:"facility,optional,fromdefaults"`
 	RetryInterval       time.Duration `yaml:"retry_interval,positive,default=10s"`
 }
 
@@ -306,6 +295,14 @@ type PrometheusMonitoring struct {
 	Type   string `yaml:"type"`
 	Listen string `yaml:"listen"`
 }
+
+type SyslogFacility syslog.Priority
+
+func (f *SyslogFacility) SetDefault() {
+	*f = SyslogFacility(syslog.LOG_LOCAL0)
+}
+
+var _ yaml.Defaulter = (*SyslogFacility)(nil)
 
 type GlobalControl struct {
 	SockPath string `yaml:"sockpath,default=/var/run/zrepl/control"`
@@ -411,6 +408,40 @@ func (t *MonitoringEnum) UnmarshalYAML(u func(interface{}, bool) error) (err err
 		"prometheus": &PrometheusMonitoring{},
 	})
 	return
+}
+
+func (t *SyslogFacility) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
+	var s string
+	if err := u(&s, true); err != nil {
+		return err
+	}
+	var level syslog.Priority
+	switch s {
+		case "kern":     level = syslog.LOG_KERN
+		case "user":     level = syslog.LOG_USER
+		case "mail":     level = syslog.LOG_MAIL
+		case "daemon":   level = syslog.LOG_DAEMON
+		case "auth":     level = syslog.LOG_AUTH
+		case "syslog":   level = syslog.LOG_SYSLOG
+		case "lpr":      level = syslog.LOG_LPR
+		case "news":     level = syslog.LOG_NEWS
+		case "uucp":     level = syslog.LOG_UUCP
+		case "cron":     level = syslog.LOG_CRON
+		case "authpriv": level = syslog.LOG_AUTHPRIV
+		case "ftp":      level = syslog.LOG_FTP
+		case "local0":   level = syslog.LOG_LOCAL0
+		case "local1":   level = syslog.LOG_LOCAL1
+		case "local2":   level = syslog.LOG_LOCAL2
+		case "local3":   level = syslog.LOG_LOCAL3
+		case "local4":   level = syslog.LOG_LOCAL4
+		case "local5":   level = syslog.LOG_LOCAL5
+		case "local6":   level = syslog.LOG_LOCAL6
+		case "local7":   level = syslog.LOG_LOCAL7
+	default:
+		return fmt.Errorf("invalid syslog level: %q", s)
+	}
+	*t = SyslogFacility(level)
+	return  nil
 }
 
 var ConfigFileDefaultLocations = []string{

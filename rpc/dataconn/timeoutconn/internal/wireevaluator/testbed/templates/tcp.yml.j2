@@ -1,0 +1,10 @@
+connect:
+    type: tcp
+    address: "{{wireevaluator_serve_ip}}:8888"
+serve:
+    type: tcp
+    listen: ":8888"
+    clients: {
+        "{{wireevaluator_connect_ip}}" : "client1"
+    }
+

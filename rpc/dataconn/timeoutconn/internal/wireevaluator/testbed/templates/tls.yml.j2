@@ -1,0 +1,16 @@
+connect:
+  type: tls
+  address: "{{wireevaluator_serve_ip}}:8888"
+  ca: "/opt/wireevaluator.tls.ca.crt"
+  cert: "/opt/wireevaluator.tls.theclient.crt"
+  key: "/opt/wireevaluator.tls.theclient.key"
+  server_cn: "theserver"
+
+serve:
+  type: tls
+  listen: ":8888"
+  ca: "/opt/wireevaluator.tls.ca.crt"
+  cert: "/opt/wireevaluator.tls.theserver.crt"
+  key: "/opt/wireevaluator.tls.theserver.key"
+  client_cns:
+    - "theclient"
