@@ -84,7 +84,7 @@ func (l *ClientAuthListener) Accept() (tcpConn *net.TCPConn, tlsConn *tls.Conn, 
 
 	peerCerts = tlsConn.ConnectionState().PeerCertificates
 	if len(peerCerts) < 1 {
-		err = errors.New("unexpected number of certificates presented by TLS client")
+		err = errors.New("client must present full RFC5246:7.4.2 TLS client certificate chain")
 		goto CloseAndErr
 	}
 	cn = peerCerts[0].Subject.CommonName
