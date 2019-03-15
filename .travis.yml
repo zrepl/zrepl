@@ -2,6 +2,7 @@ dist: xenial
 services:
 - docker
 
+env: # for allow_failures: https://docs.travis-ci.com/user/customizing-the-build/
 matrix:
   include:
 
@@ -34,7 +35,8 @@ matrix:
       - make artifacts/zrepl-linux-amd64
       - make artifacts/zrepl-darwin-amd64
 
-  - language: go
+  - &go_master
+    language: go 
     go:
     - "master"
     go_import_path: github.com/zrepl/zrepl
@@ -86,4 +88,5 @@ matrix:
     script:
     - make docs
 
-
+  allow_failures:
+  - *go_master
