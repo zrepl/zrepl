@@ -262,12 +262,23 @@ Job Type ``source``
 
 Example config: :sampleconf:`/source.yml`
 
-.. _job-snap:
 
-Job Type ``snap``
+.. _replication-local:
+
+Local replication
 -----------------
 
-Job type that only takes care of local snapshotting and pruning.
+If you have the need for local replication (most likely between two local storage pools), you can use the :ref:`local transport type <transport-local>` to connect a local push job to a local sink job.
+
+Example config: :sampleconf:`/local.yml`.
+
+
+.. _job-snap:
+
+Job Type ``snap`` (snapshot & prune only)
+-----------------------------------------
+
+Job type that only takes snapshots and pruning on the local machine.
 
 .. list-table::
     :widths: 20 80
@@ -287,17 +298,3 @@ Job type that only takes care of local snapshotting and pruning.
       - |pruning-spec|
 
 Example config: :sampleconf:`/snap.yml`
-
-
-
-
-.. _replication-local:
-
-Local replication
------------------
-
-If you have the need for local replication (most likely between two local storage pools), you can use the :ref:`local transport type <transport-local>` to connect a local push job to a local sink job.
-
-Example config: :sampleconf:`/local.yml`.
-
-
