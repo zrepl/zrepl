@@ -76,6 +76,7 @@ Connect
 
 The ``tls`` transport uses TCP + TLS with client authentication using client certificates.
 The client identity is the common name (CN) presented in the client certificate.
+
 It is recommended to set up a dedicated CA infrastructure for this transport, e.g. using OpenVPN's `EasyRSA <https://github.com/OpenVPN/easy-rsa>`_.
 For a simple 2-machine setup, see the :ref:`instructions below<transport-tcp+tlsclientauth-2machineopenssl>`.
 
@@ -84,6 +85,10 @@ Since Go binaries are statically linked, you or your distribution need to recomp
 
 All file paths are resolved relative to the zrepl daemon's working directory.
 Specify absolute paths if you are unsure what directory that is (or find out from your init system).
+
+If intermediate CAs are used, the **full chain** must be present in either in the ``ca`` file or the individual ``cert`` files.
+Regardless, the client's certificate must be first in the ``cert`` file, with each following certificate directly certifying the one preceding it (see `TLS's specification <https://tools.ietf.org/html/rfc5246#section-7.4.2>`_).
+This is the common default when using a CA management tool.
 
 Serve
 ~~~~~
@@ -96,9 +101,9 @@ Serve
         serve:
           type: tls
           listen: ":8888"
-          ca: /etc/zrepl/ca.crt
-          cert: /etc/zrepl/prod.crt
-          key: /etc/zrepl/prod.key
+          ca:   /etc/zrepl/ca.crt
+          cert: /etc/zrepl/prod.fullchain
+          key:  /etc/zrepl/prod.key
           client_cns:
             - "laptop1"
             - "homeserver"
@@ -116,8 +121,8 @@ Connect
       connect:
         type: tls
         address: "server1.foo.bar:8888"
-        ca: /etc/zrepl/ca.crt
-        cert: /etc/zrepl/backupserver.crt
+        ca:   /etc/zrepl/ca.crt
+        cert: /etc/zrepl/backupserver.fullchain
         key:  /etc/zrepl/backupserver.key
         server_cn: "server1"
         dial_timeout: # optional, default 10s
