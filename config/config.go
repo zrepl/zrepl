@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zrepl/yaml-config"
 	"io/ioutil"
+	"log/syslog"
 	"os"
 	"reflect"
 	"regexp"
@@ -38,7 +39,7 @@ func (j JobEnum) Name() string {
 	case *PullJob: name = v.Name
 	case *SourceJob: name = v.Name
 	default:
-		panic(fmt.Sprintf("unknownn job type %T", v))
+		panic(fmt.Sprintf("unknown job type %T", v))
 	}
 	return name
 }
@@ -258,6 +259,7 @@ type StdoutLoggingOutlet struct {
 
 type SyslogLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
+	Facility            *SyslogFacility `yaml:"facility,optional,fromdefaults"`
 	RetryInterval       time.Duration `yaml:"retry_interval,positive,default=10s"`
 }
 
@@ -283,6 +285,14 @@ type PrometheusMonitoring struct {
 	Type   string `yaml:"type"`
 	Listen string `yaml:"listen"`
 }
+
+type SyslogFacility syslog.Priority
+
+func (f *SyslogFacility) SetDefault() {
+	*f = SyslogFacility(syslog.LOG_LOCAL0)
+}
+
+var _ yaml.Defaulter = (*SyslogFacility)(nil)
 
 type GlobalControl struct {
 	SockPath string `yaml:"sockpath,default=/var/run/zrepl/control"`
@@ -387,6 +397,40 @@ func (t *MonitoringEnum) UnmarshalYAML(u func(interface{}, bool) error) (err err
 		"prometheus": &PrometheusMonitoring{},
 	})
 	return
+}
+
+func (t *SyslogFacility) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
+	var s string
+	if err := u(&s, true); err != nil {
+		return err
+	}
+	var level syslog.Priority
+	switch s {
+		case "kern":     level = syslog.LOG_KERN
+		case "user":     level = syslog.LOG_USER
+		case "mail":     level = syslog.LOG_MAIL
+		case "daemon":   level = syslog.LOG_DAEMON
+		case "auth":     level = syslog.LOG_AUTH
+		case "syslog":   level = syslog.LOG_SYSLOG
+		case "lpr":      level = syslog.LOG_LPR
+		case "news":     level = syslog.LOG_NEWS
+		case "uucp":     level = syslog.LOG_UUCP
+		case "cron":     level = syslog.LOG_CRON
+		case "authpriv": level = syslog.LOG_AUTHPRIV
+		case "ftp":      level = syslog.LOG_FTP
+		case "local0":   level = syslog.LOG_LOCAL0
+		case "local1":   level = syslog.LOG_LOCAL1
+		case "local2":   level = syslog.LOG_LOCAL2
+		case "local3":   level = syslog.LOG_LOCAL3
+		case "local4":   level = syslog.LOG_LOCAL4
+		case "local5":   level = syslog.LOG_LOCAL5
+		case "local6":   level = syslog.LOG_LOCAL6
+		case "local7":   level = syslog.LOG_LOCAL7
+	default:
+		return fmt.Errorf("invalid syslog level: %q", s)
+	}
+	*t = SyslogFacility(level)
+	return  nil
 }
 
 var ConfigFileDefaultLocations = []string{
