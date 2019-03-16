@@ -146,12 +146,17 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 	// if marshaling fails. We consider failed marshaling a handler error
 	var protobuf *bytes.Buffer
 	if handlerErr == nil {
-		protobufBytes, err := proto.Marshal(res)
-		if err != nil {
-			s.log.WithError(err).Error("cannot marshal handler protobuf")
-			handlerErr = err
+		if res == nil {
+			handlerErr = fmt.Errorf("implementation error: handler for endpoint %q returns nil error and nil result", endpoint)
+			s.log.WithError(err).Error("handle implementation error")
+		} else {
+			protobufBytes, err := proto.Marshal(res)
+			if err != nil {
+				s.log.WithError(err).Error("cannot marshal handler protobuf")
+				handlerErr = err
+			}
+			protobuf = bytes.NewBuffer(protobufBytes) // SHADOWING
 		}
-		protobuf = bytes.NewBuffer(protobufBytes) // SHADOWING
 	}
 
 	var resHeaderBuf bytes.Buffer
