@@ -153,7 +153,7 @@ type modePull struct {
 	receiver *endpoint.Receiver
 	sender   *rpc.Client
 	rootFS   *zfs.DatasetPath
-	interval time.Duration
+	interval config.PositiveDurationOrManual
 }
 
 func (m *modePull) ConnectEndpoints(loggers rpc.Loggers, connecter transport.Connecter) {
@@ -183,7 +183,12 @@ func (m *modePull) SenderReceiver() (logic.Sender, logic.Receiver) {
 func (*modePull) Type() Type { return TypePull }
 
 func (m *modePull) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}) {
-	t := time.NewTicker(m.interval)
+	if m.interval.Manual {
+		GetLogger(ctx).Info("manual pull configured, periodic pull disabled")
+		// "waiting for wakeups" is printed in common ActiveSide.do
+		return
+	}
+	t := time.NewTicker(m.interval.Interval)
 	defer t.Stop()
 	for {
 		select {
@@ -212,9 +217,6 @@ func (m *modePull) ResetConnectBackoff() {
 
 func modePullFromConfig(g *config.Global, in *config.PullJob) (m *modePull, err error) {
 	m = &modePull{}
-	if in.Interval <= 0 {
-		return nil, errors.New("interval must be positive")
-	}
 	m.interval = in.Interval
 
 	m.rootFS, err = zfs.NewDatasetPath(in.RootFS)
