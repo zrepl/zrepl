@@ -349,7 +349,7 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs
 	getLogger(ctx).WithField("visitErr", visitErr).Debug("complete tree-walk")
 
 	if visitErr != nil {
-		return nil, err
+		return nil, visitErr
 	}
 
 	var clearPlaceholderProperty bool
