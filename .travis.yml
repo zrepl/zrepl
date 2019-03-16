@@ -16,46 +16,35 @@ matrix:
         --user "$(id -u):$(id -g)" \
         zrepl_build make vendordeps release
 
-  # all go entries vary only by go version
-  - language: go
+  - &zrepl_build_template
+    language: go
+    go_import_path: github.com/zrepl/zrepl
+    before_install:
+        - wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip
+        - echo "6003de742ea3fcf703cfec1cd4a3380fd143081a2eb0e559065563496af27807  protoc-3.6.1-linux-x86_64.zip" | sha256sum -c
+        - sudo unzip -d /usr protoc-3.6.1-linux-x86_64.zip
+        - ./lazy.sh godep
+        - make vendordeps
+    script:
+      - make
+      - make vet
+      - make test
+      - make artifacts/zrepl-freebsd-amd64
+      - make artifacts/zrepl-linux-amd64
+      - make artifacts/zrepl-darwin-amd64
     go:
     - "1.11"
-    go_import_path: github.com/zrepl/zrepl
-    before_install:
-        - wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip
-        - echo "6003de742ea3fcf703cfec1cd4a3380fd143081a2eb0e559065563496af27807  protoc-3.6.1-linux-x86_64.zip" | sha256sum -c
-        - sudo unzip -d /usr protoc-3.6.1-linux-x86_64.zip
-        - ./lazy.sh godep
-        - make vendordeps
-    script:
-      - make
-      - make vet
-      - make test
-      - make artifacts/zrepl-freebsd-amd64
-      - make artifacts/zrepl-linux-amd64
-      - make artifacts/zrepl-darwin-amd64
 
-  - &go_master
-    language: go 
+  - <<: *zrepl_build_template
+    go:
+    - "1.12"
+
+  - <<: *zrepl_build_template
     go:
     - "master"
-    go_import_path: github.com/zrepl/zrepl
-    before_install:
-        - wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip
-        - echo "6003de742ea3fcf703cfec1cd4a3380fd143081a2eb0e559065563496af27807  protoc-3.6.1-linux-x86_64.zip" | sha256sum -c
-        - sudo unzip -d /usr protoc-3.6.1-linux-x86_64.zip
-        - ./lazy.sh godep
-        - make vendordeps
-    script:
-      - make
-      - make vet
-      - make test
-      - make artifacts/zrepl-freebsd-amd64
-      - make artifacts/zrepl-linux-amd64
-      - make artifacts/zrepl-darwin-amd64
 
-  # all python entries vary only by python version
-  - language: python
+  - &zrepl_docs_template 
+    language: python
     python:
     - "3.4"
     install:
@@ -63,30 +52,18 @@ matrix:
     - pip install -r docs/requirements.txt
     script:
     - make docs
-  - language: python
+  - <<: *zrepl_docs_template
     python:
     - "3.5"
-    install:
-    - sudo apt-get install libgirepository1.0-dev
-    - pip install -r docs/requirements.txt
-    script:
-    - make docs
-  - language: python
+  - <<: *zrepl_docs_template
     python:
     - "3.6"
-    install:
-    - sudo apt-get install libgirepository1.0-dev
-    - pip install -r docs/requirements.txt
-    script:
-    - make docs
-  - language: python
+  - <<: *zrepl_docs_template
     python:
     - "3.7"
-    install:
-    - sudo apt-get install libgirepository1.0-dev
-    - pip install -r docs/requirements.txt
-    script:
-    - make docs
+  
 
   allow_failures:
-  - *go_master
+  - <<: *zrepl_build_template
+    go:
+    - "master"
