@@ -23,24 +23,22 @@ For communication, the active side connects to the passive side using a :ref:`tr
 
 The following table shows how different job types can be combined to achieve both push and pull mode setups:
 
-+-----------------------+--------------+----------------------------------+-----------------------------------------------+
-| Setup name            | active side  | passive side                     | use case                                      |
-+=======================+==============+==================================+===============================================+
-| Push mode             | ``push``     | ``sink``                         | * Laptop backup                               |
-|                       |              |                                  | * NAS behind NAT to offsite                   |
-+-----------------------+--------------+----------------------------------+-----------------------------------------------+
-| Pull mode             | ``pull``     | ``source``                       | * Central backup-server for many nodes        |
-|                       |              |                                  | * Remote server to NAS behind NAT             |
-+-----------------------+--------------+----------------------------------+-----------------------------------------------+
-| Local replication     | | ``push`` + ``sink`` in one config             | * Backup FreeBSD boot pool                    |
-|                       | | with :ref:`local transport <transport-local>` |                                               |
-+-----------------------+--------------+----------------------------------+-----------------------------------------------+
-| SnapJob               | ``snap``     | N/A                              | * Data requires versioning but no backups     |
-|                       |              |                                  | * Combined with a  ``push`` or ``pull`` job:  |
-|                       |              |                                  |                                               |
-|                       |              |                                  |   * High frequency local snapshotting         |
-|                       |              |                                  |   * Low frequency replication                 |
-+-----------------------+--------------+----------------------------------+-----------------------------------------------+
++-----------------------+--------------+----------------------------------+------------------------------------------------------------------------------------+
+| Setup name            | active side  | passive side                     | use case                                                                           |
++=======================+==============+==================================+====================================================================================+
+| Push mode             | ``push``     | ``sink``                         | * Laptop backup                                                                    |
+|                       |              |                                  | * NAS behind NAT to offsite                                                        |
++-----------------------+--------------+----------------------------------+------------------------------------------------------------------------------------+
+| Pull mode             | ``pull``     | ``source``                       | * Central backup-server for many nodes                                             |
+|                       |              |                                  | * Remote server to NAS behind NAT                                                  |
++-----------------------+--------------+----------------------------------+------------------------------------------------------------------------------------+
+| Local replication     | | ``push`` + ``sink`` in one config             | * Backup FreeBSD boot pool                                                         |
+|                       | | with :ref:`local transport <transport-local>` |                                                                                    |
++-----------------------+--------------+----------------------------------+------------------------------------------------------------------------------------+
+| Snap & prune-only     | ``snap``     | N/A                              | * | Snapshots & pruning but no replication                                         |
+|                       |              |                                  |   | required                                                                       |
+|                       |              |                                  | * Workaround for :ref:`source-side pruning <prune-workaround-source-side-pruning>` |
++-----------------------+--------------+----------------------------------+------------------------------------------------------------------------------------+
 
 How the Active Side Works
 ~~~~~~~~~~~~~~~~~~~~~~~~~
