@@ -82,9 +82,8 @@ type PrunerFactory struct {
 }
 
 type SinglePrunerFactory struct {
-	keepRules                         []pruning.KeepRule
-	retryWait                      time.Duration
-	considerSnapAtCursorReplicated bool
+	keepRules     []pruning.KeepRule
+	retryWait     time.Duration
 	promPruneSecs *prometheus.HistogramVec
 }
 
@@ -106,18 +105,16 @@ func NewSinglePrunerFactory(in config.PruningLocal, promPruneSecs *prometheus.Hi
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot build pruning rules")
 	}
-	considerSnapAtCursorReplicated := false
 	for _, r := range in.Keep {
-		knr, ok := r.Ret.(*config.PruneKeepNotReplicated)
-		if !ok {
-			continue
+		if _, ok := r.Ret.(*config.PruneKeepNotReplicated); ok {
+			// rule NotReplicated  for a local pruner doesn't make sense
+			// because no replication happens with that job type
+			return nil, fmt.Errorf("single-site pruner cannot support `not_replicated` keep rule")
 		}
-		considerSnapAtCursorReplicated = considerSnapAtCursorReplicated || !knr.KeepSnapshotAtCursor
 	}
 	f := &SinglePrunerFactory{
-		keepRules: rules,
-		retryWait: envconst.Duration("ZREPL_PRUNER_RETRY_INTERVAL", 10 * time.Second),
-		considerSnapAtCursorReplicated: considerSnapAtCursorReplicated,
+		keepRules:     rules,
+		retryWait:     envconst.Duration("ZREPL_PRUNER_RETRY_INTERVAL", 10*time.Second),
 		promPruneSecs: promPruneSecs,
 	}
 	return f, nil
@@ -192,7 +189,7 @@ func (f *SinglePrunerFactory) BuildSinglePruner(ctx context.Context, target Targ
 			receiver,
 			f.keepRules,
 			f.retryWait,
-			f.considerSnapAtCursorReplicated,
+			false, // considerSnapAtCursorReplicated is not relevant for local pruning
 			f.promPruneSecs.WithLabelValues("local"),
 		},
 		state: Plan,
