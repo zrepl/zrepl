@@ -36,7 +36,7 @@ func ClientConn(cn transport.Connecter, log Logger) *grpc.ClientConn {
 	})
 	dialerOption := grpc.WithDialer(grpcclientidentity.NewDialer(log, cn))
 	cred := grpc.WithTransportCredentials(grpcclientidentity.NewTransportCredentials(log))
-	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second) // FIXME constant
 	defer cancel()
 	cc, err := grpc.DialContext(ctx, "doesn't matter done by dialer", dialerOption, cred, ka)
 	if err != nil {

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn/stream"
 	"github.com/zrepl/zrepl/transport"
 	"github.com/zrepl/zrepl/zfs"
@@ -212,4 +212,24 @@ func (c *Client) ReqRecv(ctx context.Context, req *pdu.ReceiveReq, streamCopier 
 	}
 
 	return res.res, cause
+}
+
+
+func (c *Client) ReqPing(ctx context.Context, req *pdu.PingReq) (*pdu.PingRes, error) {
+	conn, err := c.getWire(ctx)
+	if err != nil {
+		return nil, err
+	}
+			defer c.putWire(conn)
+
+	if err := c.send(ctx, conn, EndpointPing, req, nil); err != nil {
+		return nil, err
+	}
+
+	var res pdu.PingRes
+	if err := c.recv(ctx, conn, &res); err != nil {
+		return nil, err
+	}
+
+	return &res, nil
 }

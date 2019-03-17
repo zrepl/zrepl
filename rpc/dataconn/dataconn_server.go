@@ -7,7 +7,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/zrepl/zrepl/logger"
-	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn/stream"
 	"github.com/zrepl/zrepl/transport"
 	"github.com/zrepl/zrepl/zfs"
@@ -25,6 +25,8 @@ type Handler interface {
 	// It is guaranteed that Server calls Receive with a stream that holds the IdleConnTimeout
 	// configured in ServerConfig.Shared.IdleConnTimeout.
 	Receive(ctx context.Context, r *pdu.ReceiveReq, receive zfs.StreamCopier) (*pdu.ReceiveRes, error)
+	// PingDataconn handles a PingReq
+	PingDataconn(ctx context.Context, r *pdu.PingReq) (*pdu.PingRes, error)
 }
 
 type Logger = logger.Logger
@@ -125,6 +127,13 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 			return
 		}
 		res, handlerErr = s.h.Receive(ctx, &req, &streamCopier{streamConn: c, closeStreamOnClose: false}) // SHADOWING
+	case EndpointPing:
+		var req pdu.PingReq
+		if err := proto.Unmarshal(reqStructured, &req); err != nil {
+			s.log.WithError(err).Error("cannot unmarshal ping request")
+			return
+		}
+		res, handlerErr = s.h.PingDataconn(ctx, &req) // SHADOWING
 	default:
 		s.log.WithField("endpoint", endpoint).Error("unknown endpoint")
 		handlerErr = fmt.Errorf("requested endpoint does not exist")
@@ -137,12 +146,17 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 	// if marshaling fails. We consider failed marshaling a handler error
 	var protobuf *bytes.Buffer
 	if handlerErr == nil {
-		protobufBytes, err := proto.Marshal(res)
-		if err != nil {
-			s.log.WithError(err).Error("cannot marshal handler protobuf")
-			handlerErr = err
+		if res == nil {
+			handlerErr = fmt.Errorf("implementation error: handler for endpoint %q returns nil error and nil result", endpoint)
+			s.log.WithError(err).Error("handle implementation error")
+		} else {
+			protobufBytes, err := proto.Marshal(res)
+			if err != nil {
+				s.log.WithError(err).Error("cannot marshal handler protobuf")
+				handlerErr = err
+			}
+			protobuf = bytes.NewBuffer(protobufBytes) // SHADOWING
 		}
-		protobuf = bytes.NewBuffer(protobufBytes) // SHADOWING
 	}
 
 	var resHeaderBuf bytes.Buffer

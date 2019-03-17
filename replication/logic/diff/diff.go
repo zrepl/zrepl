@@ -1,9 +1,11 @@
-package mainfsm
+package diff
 
 import (
+	"fmt"
 	"sort"
+	"strings"
 
-	. "github.com/zrepl/zrepl/replication/pdu"
+	. "github.com/zrepl/zrepl/replication/logic/pdu"
 )
 
 type ConflictNoCommonAncestor struct {
@@ -11,7 +13,19 @@ type ConflictNoCommonAncestor struct {
 }
 
 func (c *ConflictNoCommonAncestor) Error() string {
-	return "no common snapshot or suitable bookmark between sender and receiver"
+	var buf strings.Builder
+	buf.WriteString("no common snapshot or suitable bookmark between sender and receiver")
+	if len(c.SortedReceiverVersions) > 0 || len(c.SortedSenderVersions) > 0 {
+		buf.WriteString(":\n  sorted sender versions:\n")
+		for _, v := range c.SortedSenderVersions {
+			fmt.Fprintf(&buf, "    %s\n", v.RelName())
+		}
+		buf.WriteString("  sorted receiver versions:\n")
+		for _, v := range c.SortedReceiverVersions {
+			fmt.Fprintf(&buf, "    %s\n", v.RelName())
+		}
+	}
+	return buf.String()
 }
 
 type ConflictDiverged struct {
@@ -21,7 +35,18 @@ type ConflictDiverged struct {
 }
 
 func (c *ConflictDiverged) Error() string {
-	return "the receiver's latest snapshot is not present on sender"
+	var buf strings.Builder
+	buf.WriteString("the receiver's latest snapshot is not present on sender:\n")
+	fmt.Fprintf(&buf, "  last common: %s\n", c.CommonAncestor.RelName())
+	fmt.Fprintf(&buf, "  sender-only:\n")
+	for _, v := range c.SenderOnly {
+		fmt.Fprintf(&buf, "    %s\n", v.RelName())
+	}
+	fmt.Fprintf(&buf, "  receiver-only:\n")
+	for _, v := range c.ReceiverOnly {
+		fmt.Fprintf(&buf, "    %s\n", v.RelName())
+	}
+	return buf.String()
 }
 
 func SortVersionListByCreateTXGThenBookmarkLTSnapshot(fsvslice []*FilesystemVersion) []*FilesystemVersion {

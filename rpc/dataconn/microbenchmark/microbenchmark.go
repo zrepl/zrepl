@@ -24,7 +24,7 @@ import (
 	"github.com/pkg/profile"
 
 	"github.com/zrepl/zrepl/logger"
-	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn"
 	"github.com/zrepl/zrepl/rpc/dataconn/timeoutconn"
 	"github.com/zrepl/zrepl/transport"
@@ -75,6 +75,12 @@ func (devNullHandler) Receive(ctx context.Context, r *pdu.ReceiveReq, stream zfs
 	err := stream.WriteStreamTo(out)
 	var res pdu.ReceiveRes
 	return &res, err
+}
+
+func (devNullHandler) PingDataconn(ctx context.Context, r *pdu.PingReq) (*pdu.PingRes, error) {
+	return &pdu.PingRes{
+		Echo: r.GetMessage(),
+	}, nil
 }
 
 type tcpConnecter struct {

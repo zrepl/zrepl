@@ -58,10 +58,7 @@ func (q *execQueue) Pop() *fs {
 func(q *execQueue) Put(fs *fs, err error, done bool) {
 	fs.mtx.Lock()
 	fs.execErrLast = err
-	if err != nil {
-		fs.execErrCount++
-	}
-	if done || (err != nil && !shouldRetry(fs.execErrLast)) {
+	if done || err != nil {
 		fs.mtx.Unlock()
 		q.mtx.Lock()
 		q.completed = append(q.completed, fs)
@@ -78,9 +75,6 @@ func(q *execQueue) Put(fs *fs, err error, done bool) {
 		defer q.pending[i].mtx.Unlock()
 		q.pending[j].mtx.Lock()
 		defer q.pending[j].mtx.Unlock()
-		if q.pending[i].execErrCount != q.pending[j].execErrCount {
-			return q.pending[i].execErrCount < q.pending[j].execErrCount
-		}
 		return strings.Compare(q.pending[i].path, q.pending[j].path) == -1
 	})
 	q.mtx.Unlock()

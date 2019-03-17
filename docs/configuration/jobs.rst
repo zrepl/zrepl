@@ -232,7 +232,8 @@ Job Type ``pull``
       - ZFS dataset path are received to
         ``$root_fs/$client_identity``
     * - ``interval``
-      - Interval at which to pull from the source job
+      - | Interval at which to pull from the source job (e.g. ``10m``).
+        | ``manual`` disables periodic pulling, replication then only happens on :ref:`wakeup <cli-signal-wakeup>`.
     * - ``pruning``
       - |pruning-spec|
 

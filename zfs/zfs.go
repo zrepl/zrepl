@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -691,17 +692,62 @@ type StreamCopier interface {
 	Close() error
 }
 
+type RecvOptions struct {
+	// Rollback to the oldest snapshot, destroy it, then perform `recv -F`.
+	// Note that this doesn't change property values, i.e. an existing local property value will be kept.
+	RollbackAndForceRecv bool
+}
 
-func ZFSRecv(ctx context.Context, fs string, streamCopier StreamCopier, additionalArgs ...string) (err error) {
+func ZFSRecv(ctx context.Context, fs string, streamCopier StreamCopier, opts RecvOptions) (err error) {
 
 	if err := validateZFSFilesystem(fs); err != nil {
 		return err
 	}
+	fsdp, err := NewDatasetPath(fs)
+	if err != nil {
+		return err
+	}
+
+	if opts.RollbackAndForceRecv {
+		// destroy all snapshots before `recv -F` because `recv -F`
+		// does not perform a rollback unless `send -R` was used (which we assume hasn't been the case)
+		var snaps []FilesystemVersion
+		{
+			vs, err := ZFSListFilesystemVersions(fsdp, nil)
+			if err != nil {
+				err = fmt.Errorf("cannot list versions to rollback is required: %s", err)
+			}
+			for _, v := range vs {
+				if v.Type == Snapshot {
+					snaps = append(snaps, v)
+				}
+			}
+			sort.Slice(snaps, func(i, j int) bool {
+				return snaps[i].CreateTXG < snaps[j].CreateTXG
+			})
+		}
+		// bookmarks are rolled back automatically
+		if len(snaps) > 0 {
+			// use rollback to efficiently destroy all but the earliest snapshot
+			// then destroy that earliest snapshot
+			// afterwards, `recv -F` will work
+			rollbackTarget := snaps[0]
+			rollbackTargetAbs := rollbackTarget.ToAbsPath(fsdp)
+			debug("recv: rollback to %q", rollbackTargetAbs)
+			if err := ZFSRollback(fsdp, rollbackTarget, "-r"); err != nil {
+				return fmt.Errorf("cannot rollback %s to %s for forced receive: %s", fsdp.ToString(), rollbackTarget, err)
+			}
+			debug("recv: destroy %q", rollbackTargetAbs)
+			if err := ZFSDestroy(rollbackTargetAbs); err != nil {
+				return fmt.Errorf("cannot destroy %s for forced receive: %s", rollbackTargetAbs, err)
+			}
+		}
+	}
 
 	args := make([]string, 0)
 	args = append(args, "recv")
-	if len(args) > 0 {
-		args = append(args, additionalArgs...)
+	if opts.RollbackAndForceRecv {
+		args = append(args, "-F")
 	}
 	args = append(args, fs)
 
@@ -1037,4 +1083,34 @@ func ZFSBookmark(fs *DatasetPath, snapshot, bookmark string) (err error) {
 
 	return
 
+}
+
+func ZFSRollback(fs *DatasetPath, snapshot FilesystemVersion, rollbackArgs ...string) (err error) {
+
+	snapabs := snapshot.ToAbsPath(fs)
+	if snapshot.Type != Snapshot {
+		return fmt.Errorf("can only rollback to snapshots, got %s", snapabs)
+	}
+
+	args := []string{"rollback"}
+	args = append(args, rollbackArgs...)
+	args = append(args, snapabs)
+
+	cmd := exec.Command(ZFS_BINARY, args...)
+
+	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
+	cmd.Stderr = stderr
+
+	if err = cmd.Start(); err != nil {
+		return err
+	}
+
+	if err = cmd.Wait(); err != nil {
+		err = &ZFSError{
+			Stderr:  stderr.Bytes(),
+			WaitErr: err,
+		}
+	}
+
+	return err
 }

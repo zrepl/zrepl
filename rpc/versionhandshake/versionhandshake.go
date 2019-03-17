@@ -26,14 +26,22 @@ type HandshakeError struct {
 	msg string
 	// If not nil, the underlying IO error that caused the handshake to fail.
 	IOError error
+	isAcceptError bool
 }
 
 var _ net.Error = &HandshakeError{}
 
 func (e HandshakeError) Error() string { return e.msg }
 
-// Always true to enable usage in a net.Listener.
-func (e HandshakeError) Temporary() bool { return true }
+// Like with net.OpErr (Go issue 6163), a client failing to handshake
+// should be a temporary Accept error toward the Listener .
+func (e HandshakeError) Temporary() bool {
+	if  e.isAcceptError {
+		return true
+	}
+	te, ok := e.IOError.(interface{ Temporary() bool });
+	return ok && te.Temporary()
+}
 
 // If the underlying IOError was net.Error.Timeout(), Timeout() returns that value.
 // Otherwise false.
@@ -142,14 +150,14 @@ func (m *HandshakeMessage) DecodeReader(r io.Reader, maxLen int) error {
 	return nil
 }
 
-func DoHandshakeCurrentVersion(conn net.Conn, deadline time.Time) error {
+func DoHandshakeCurrentVersion(conn net.Conn, deadline time.Time) *HandshakeError {
 	// current protocol version is hardcoded here
 	return DoHandshakeVersion(conn, deadline, 1)
 }
 
 const HandshakeMessageMaxLen = 16 * 4096
 
-func DoHandshakeVersion(conn net.Conn, deadline time.Time, version int) error {
+func DoHandshakeVersion(conn net.Conn, deadline time.Time, version int) *HandshakeError {
 	ours := HandshakeMessage{
 		ProtocolVersion: version,
 		Extensions: nil,

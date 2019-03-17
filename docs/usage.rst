@@ -13,6 +13,8 @@ CLI Overview
     The zrepl binary is self-documenting:
     run ``zrepl help`` for an overview of the available subcommands or ``zrepl SUBCOMMAND --help`` for information on available flags, etc.
 
+.. _cli-signal-wakeup:
+
 .. list-table::
     :widths: 30 70
     :header-rows: 1

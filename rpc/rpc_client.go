@@ -2,13 +2,18 @@ package rpc
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"google.golang.org/grpc"
 
-	"github.com/zrepl/zrepl/replication"
-	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/google/uuid"
+	"github.com/zrepl/zrepl/replication/logic"
+	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn"
 	"github.com/zrepl/zrepl/rpc/grpcclientidentity/grpchelper"
 	"github.com/zrepl/zrepl/rpc/versionhandshake"
@@ -24,11 +29,12 @@ type Client struct {
 	controlClient pdu.ReplicationClient // this the grpc client instance, see constructor
 	controlConn   *grpc.ClientConn
 	loggers       Loggers
+	closed        chan struct{}
 }
 
-var _ replication.Endpoint = &Client{}
-var _ replication.Sender = &Client{}
-var _ replication.Receiver = &Client{}
+var _ logic.Endpoint = &Client{}
+var _ logic.Sender = &Client{}
+var _ logic.Receiver = &Client{}
 
 type DialContextFunc = func(ctx context.Context, network string, addr string) (net.Conn, error)
 
@@ -41,14 +47,21 @@ func NewClient(cn transport.Connecter, loggers Loggers) *Client {
 
 	c := &Client{
 		loggers: loggers,
+		closed:  make(chan struct{}),
 	}
 	grpcConn := grpchelper.ClientConn(muxedConnecter.control, loggers.Control)
 
 	go func() {
-		for {
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			<-c.closed
+			cancel()
+		}()
+		defer cancel()
+		for ctx.Err() == nil {
 			state := grpcConn.GetState()
 			loggers.General.WithField("grpc_state", state.String()).Debug("grpc state change")
-			grpcConn.WaitForStateChange(context.TODO(), state)
+			grpcConn.WaitForStateChange(ctx, state)
 		}
 	}()
 	c.controlClient = pdu.NewReplicationClient(grpcConn)
@@ -59,8 +72,9 @@ func NewClient(cn transport.Connecter, loggers Loggers) *Client {
 }
 
 func (c *Client) Close() {
+	close(c.closed)
 	if err := c.controlConn.Close(); err != nil {
-		c.loggers.General.WithError(err).Error("cannot cloe control connection")
+		c.loggers.General.WithError(err).Error("cannot close control connection")
 	}
 	// TODO c.dataClient should have Close()
 }
@@ -99,6 +113,72 @@ func (c *Client) DestroySnapshots(ctx context.Context, in *pdu.DestroySnapshotsR
 
 func (c *Client) ReplicationCursor(ctx context.Context, in *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
 	return c.controlClient.ReplicationCursor(ctx, in)
+}
+
+func (c *Client) WaitForConnectivity(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	msg := uuid.New().String()
+	req := pdu.PingReq{Message: msg}
+	var ctrlOk, dataOk int32
+	loggers := GetLoggersOrPanic(ctx)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	checkRes := func(res *pdu.PingRes, err error, logger Logger, okVar *int32) {
+		if err == nil && res.GetEcho() != req.GetMessage() {
+			err = errors.New("pilot message not echoed correctly")
+		}
+		if err == context.Canceled {
+			err = nil
+		}
+		if err != nil {
+			logger.WithError(err).Error("ping failed")
+			atomic.StoreInt32(okVar, 0)
+			cancel()
+		} else {
+			atomic.StoreInt32(okVar, 1)
+		}
+	}
+	go func() {
+		defer wg.Done()
+		ctrl, ctrlErr := c.controlClient.Ping(ctx, &req, grpc.FailFast(false))
+		checkRes(ctrl, ctrlErr, loggers.Control, &ctrlOk)
+	}()
+	go func() {
+		defer wg.Done()
+		for ctx.Err() == nil {
+			data, dataErr := c.dataClient.ReqPing(ctx, &req)
+			// dataClient uses transport.Connecter, which doesn't expose FailFast(false)
+			// => we need to mask dial timeouts
+			if err, ok := dataErr.(interface{ Temporary() bool }); ok && err.Temporary() {
+				// Rate-limit pings here in case Temporary() is a mis-classification
+				// or returns immediately (this is a tight loop in that case)
+				// TODO keep this in lockstep with controlClient
+				// 		=> don't use FailFast for control, but check that both control and data worked
+				time.Sleep(envconst.Duration("ZREPL_RPC_DATACONN_PING_SLEEP", 1*time.Second))
+				continue
+			}
+			// it's not a dial timeout, 
+			checkRes(data, dataErr, loggers.Data, &dataOk)
+			return
+		}
+	}()
+	wg.Wait()
+	var what string
+	if ctrlOk == 1 && dataOk == 1 {
+		return nil
+	}
+	if ctrlOk == 0 {
+		what += "control"
+	}
+	if dataOk == 0 {
+		if len(what) > 0 {
+			what += " and data"
+		} else {
+			what += "data"
+		}
+	}
+	return fmt.Errorf("%s rpc failed to respond to ping rpcs", what)
 }
 
 func (c *Client) ResetConnectBackoff() {
