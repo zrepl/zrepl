@@ -178,7 +178,7 @@ Workaround using ``snap`` job
 As a workaround (see GitHub :issue:`102` for development progress), a pruning-only :ref:`snap job <job-snap>` can be defined on the source side:
 The snap job is in charge of snapshot creation & destruction, whereas the source job's role is reduced to just serving snapshots.
 However, since, jobs are run independently, it is possible that the snap job will prune snapshots that are queued for replication / destruction by the remote pull job that connects to the source job.
-There is no possible configuration to avoid this problem with the current version of zrepl.
+Symptoms of such race conditions are spurious replication and destroy errors.
 
 Example configuration:
 
@@ -198,7 +198,7 @@ Example configuration:
     snapshotting:
       type: manual
     root_fs: ...
-     
+
   # pull side
   jobs:
   - type: pull

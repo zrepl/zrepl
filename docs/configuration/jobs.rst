@@ -279,7 +279,7 @@ Example config: :sampleconf:`/local.yml`.
 Job Type ``snap`` (snapshot & prune only)
 -----------------------------------------
 
-Job type that only takes snapshots and pruning on the local machine.
+Job type that only takes snapshots and performs pruning on the local machine.
 
 .. list-table::
     :widths: 20 80
