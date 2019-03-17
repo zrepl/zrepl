@@ -25,7 +25,7 @@ type SnapJob struct {
 
 	prunerFactory *pruner.SinglePrunerFactory
 
-	promPruneSecs *prometheus.HistogramVec // no labels!
+	promPruneSecs *prometheus.HistogramVec // labels: prune_side
 
 	pruner *pruner.Pruner
 }
