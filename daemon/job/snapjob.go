@@ -23,7 +23,7 @@ type SnapJob struct {
 	fsfilter zfs.DatasetFilter
 	snapper  *snapper.PeriodicOrManual
 
-	prunerFactory *pruner.SinglePrunerFactory
+	prunerFactory *pruner.LocalPrunerFactory
 
 	promPruneSecs *prometheus.HistogramVec // labels: prune_side
 
@@ -53,7 +53,7 @@ func snapJobFromConfig(g *config.Global, in *config.SnapJob) (j *SnapJob, err er
 		Help:        "seconds spent in pruner",
 		ConstLabels: prometheus.Labels{"zrepl_job": j.name},
 	}, []string{"prune_side"})
-	j.prunerFactory, err = pruner.NewSinglePrunerFactory(in.Pruning, j.promPruneSecs)
+	j.prunerFactory, err = pruner.NewLocalPrunerFactory(in.Pruning, j.promPruneSecs)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot build snapjob pruning rules")
 	}
@@ -119,7 +119,7 @@ outer:
 // cursor is present, which is why this pruner returns the
 // most recent filesystem version.
 type alwaysUpToDateReplicationCursorHistory struct {
-	// the Target passed as Target to BuildSinglePruner
+	// the Target passed as Target to BuildLocalPruner
 	target pruner.Target
 }
 
@@ -156,7 +156,7 @@ func (j *SnapJob) doPrune(ctx context.Context) {
 	log := GetLogger(ctx)
 	ctx = logging.WithSubsystemLoggers(ctx, log)
 	sender := endpoint.NewSender(j.fsfilter)
-	j.pruner = j.prunerFactory.BuildSinglePruner(ctx, sender, alwaysUpToDateReplicationCursorHistory{sender})
+	j.pruner = j.prunerFactory.BuildLocalPruner(ctx, sender, alwaysUpToDateReplicationCursorHistory{sender})
 	log.Info("start pruning")
 	j.pruner.Prune()
 	log.Info("finished pruning")

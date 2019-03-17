@@ -81,7 +81,7 @@ type PrunerFactory struct {
 	promPruneSecs *prometheus.HistogramVec
 }
 
-type SinglePrunerFactory struct {
+type LocalPrunerFactory struct {
 	keepRules     []pruning.KeepRule
 	retryWait     time.Duration
 	promPruneSecs *prometheus.HistogramVec
@@ -100,7 +100,7 @@ func checkContainsKeep1(rules []pruning.KeepRule) error {
 	return errors.New("sender keep rules must contain last_n or be empty so that the last snapshot is definitely kept")
 }
 
-func NewSinglePrunerFactory(in config.PruningLocal, promPruneSecs *prometheus.HistogramVec) (*SinglePrunerFactory, error) {
+func NewLocalPrunerFactory(in config.PruningLocal, promPruneSecs *prometheus.HistogramVec) (*LocalPrunerFactory, error) {
 	rules, err := pruning.RulesFromConfig(in.Keep)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot build pruning rules")
@@ -112,7 +112,7 @@ func NewSinglePrunerFactory(in config.PruningLocal, promPruneSecs *prometheus.Hi
 			return nil, fmt.Errorf("single-site pruner cannot support `not_replicated` keep rule")
 		}
 	}
-	f := &SinglePrunerFactory{
+	f := &LocalPrunerFactory{
 		keepRules:     rules,
 		retryWait:     envconst.Duration("ZREPL_PRUNER_RETRY_INTERVAL", 10*time.Second),
 		promPruneSecs: promPruneSecs,
@@ -181,7 +181,7 @@ func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, target Target, 
 	return p
 }
 
-func (f *SinglePrunerFactory) BuildSinglePruner(ctx context.Context, target Target, receiver History) *Pruner {
+func (f *LocalPrunerFactory) BuildLocalPruner(ctx context.Context, target Target, receiver History) *Pruner {
 	p := &Pruner{
 		args: args{
 			ctx,
