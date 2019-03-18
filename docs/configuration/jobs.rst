@@ -91,7 +91,8 @@ The following steps take place during replication and can be monitored using the
 
   * Perform replication steps in the following order:
     Among all filesystems with pending replication steps, pick the filesystem whose next replication step's snapshot is the oldest.
-  * After a successful replication step, update the replication cursor bookmark (see below)
+  * Create placeholder filesystems on the receiving side to mirror the dataset paths on the sender to ``root_fs/${client_identity}``.
+  * After a successful replication step, update the replication cursor bookmark (see below).
    
 The idea behind the execution order of replication steps is that if the sender snapshots all filesystems simultaneously at fixed intervals, the receiver will have all filesystems snapshotted at time ``T1`` before the first snapshot at ``T2 = T1 + $interval`` is replicated.
 
@@ -101,6 +102,14 @@ The **replication cursor bookmark** ``#zrepl_replication_cursor`` is kept per fi
 It is a bookmark of the most recent successfully replicated snapshot to the receiving side.
 It is is used by the :ref:`not_replicated <prune-keep-not-replicated>` keep rule to identify all snapshots that have not yet been replicated to the receiving side.
 Regardless of whether that keep rule is used, the bookmark ensures that replication can always continue incrementally.
+
+**Placeholder filesystems** on the receiving side are regular ZFS filesystems with the placeholder property ``zrepl:placeholder``.
+Placeholders allow the receiving side to mirror the sender's ZFS dataset hierachy without replicating every filesystem at every intermediary dataset path component.
+Consider the following example: ``S/H/J`` shall be replicated to ``R/sink/job/S/H/J``, but neither ``S/H`` nor ``S`` shall be replicated.
+ZFS requires the existence of ``R/sink/job/S`` and ``R/sink/job/S/H`` in order to receive into ``R/sink/job/S/H/J``.
+Thus, zrepl creates the parent filesystems as placeholders on the receiving side.
+If at some point ``S/H`` and ``S`` shall be replicated, the receiving side invalidates the placeholder flag automatically.
+The ``zrepl test placeholder`` command can be used to check whether a filesystem is a placeholder.
 
 .. ATTENTION::
 
