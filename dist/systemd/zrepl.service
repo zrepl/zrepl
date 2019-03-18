@@ -1,0 +1,41 @@
+[Unit]
+Description=zrepl daemon
+Documentation=https://zrepl.github.io
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/zrepl --config /etc/zrepl/zrepl.yml daemon
+RuntimeDirectory=zrepl
+RuntimeDirectoryMode=0700
+
+ProtectSystem=strict
+#PrivateDevices=yes # TODO ZFS needs access to /dev/zfs, could we limit this?
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+PrivateTmp=yes
+#PrivateUsers=yes # TODO Does not work, why?
+ProtectKernelModules=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=yes
+SystemCallArchitectures=native
+
+# BEGIN ProtectHome
+ProtectHome=read-only   # DEBIAN STRETCH
+# ProtectHome=tmpfs     # FEDORA 28 / 29
+# END ProtectHome
+
+# BEGIN SystemCallFilter
+## BEGIN DEBIAN STRETCH
+SystemCallFilter=~ @mount @cpu-emulation @keyring @module @obsolete @privileged @raw-io @debug @clock @resources
+## END DEBIAN STRETCH
+## BEGIN FEDORA 28/29 
+## Syscall blacklist (should be fairly stable)
+#SystemCallFilter=~ @mount @aio @cpu-emulation @keyring @memlock @module @obsolete @privileged @raw-io @reboot @setuid @swap @sync @timer @debug @clock @chown @resources
+## Syscall whitelist (not sure how stable)
+#SystemCallFilter=@default @file-system @process @basic-io @ipc @network-io @signal @io-event brk mprotect sched_getaffinity ioctl getrandom
+## END END FEDORA 28/29
+# END SystemCallFilter
+
+[Install]
+WantedBy=multi-user.target

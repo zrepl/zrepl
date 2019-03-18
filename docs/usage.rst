@@ -64,3 +64,10 @@ Restarting
 The daemon handles SIGINT and SIGTERM for graceful shutdown.
 Graceful shutdown means at worst that a job will not be rescheduled for the next interval.
 The daemon exits as soon as all jobs have reported shut down.
+
+Systemd Unit File
+~~~~~~~~~~~~~~~~~
+
+A systemd service defintion template is available in :repomasterlink:`dist/systemd`.
+Note that some of the options only work on recent versions of systemd.
+Any help & improvements are very welcome, see :issue:`145`.

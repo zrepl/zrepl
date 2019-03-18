@@ -9,14 +9,20 @@ Monitoring endpoints are configured in the ``global.monitoring`` section of the 
 
 .. _monitoring-prometheus:
 
-Prometheus
-----------
+Prometheus & Grafana
+--------------------
 
 zrepl can expose `Prometheus metrics <https://prometheus.io/docs/instrumenting/exposition_formats/>`_ via HTTP.
 The ``listen`` attribute is a `net.Listen <https://golang.org/pkg/net/#Listen>`_  string for tcp, e.g. ``:9091`` or ``127.0.0.1:9091``.
-
 The Prometheues monitoring job appears in the ``zrepl control`` job list and may be specified **at most once**.
-At the time of writing, there is no stability guarantee on the exported metrics.
+
+zrepl also ships with an importable `Grafana <https://grafana.com>`_ dashboard that consumes the Prometheus metrics:
+see :repomasterlink:`dist/grafana`.
+The dashboard also contains some advice on which metrics are important to monitor.
+
+.. NOTE::
+
+  At the time of writing, there is no stability guarantee on the exported metrics.
 
 ::
 
