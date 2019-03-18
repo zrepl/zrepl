@@ -5,7 +5,7 @@
 Monitoring
 ==========
 
-Monitoring endpoints are configured in the ``global.monitoring`` section of the |mainconfig|.
+Monitoring endpoints are configured in the ``global.monitoring`` section of the config file.
 
 .. _monitoring-prometheus:
 

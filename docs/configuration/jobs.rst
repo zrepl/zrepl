@@ -14,7 +14,7 @@ Job Types & Replication
 Overview & Terminology
 ----------------------
 
-A *job* is the unit of activity tracked by the zrepl daemon and configured in the |mainconfig|.
+A *job* is the unit of activity tracked by the zrepl daemon.
 Every job has a unique ``name``, a ``type`` and type-dependent fields which are documented on this page.
 
 Replication always happens between a pair of jobs: one is the **active side**, and one the **passive side**.
