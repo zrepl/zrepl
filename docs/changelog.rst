@@ -92,6 +92,7 @@ Changes
     * |break_config| ``keep_bookmarks`` parameter of the ``grid`` keep rule has been removed
 
 * |feature| ``zrepl status`` for live-updating replication progress (it's really cool!)
+* |feature| :ref:`Snapshot- & pruning-only job type <job-snap>` (for local snapshot management)
 * |feature| :issue:`67`: Expose `Prometheus <https://prometheus.io>`_ metrics via HTTP (:ref:`config docs <monitoring-prometheus>`)
 
 * |break_config| Logging outlet types must be specified using the ``type`` instead of ``outlet`` key
