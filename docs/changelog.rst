@@ -100,6 +100,8 @@ Changes
 * |break| :issue:`53`: CLI: ``zrepl control *`` subcommands have been made direct subcommands of ``zrepl *``
 * |bugfix| Goroutine leak on ssh transport connection timeouts
 * |bugfix| :issue:`81` :issue:`77` : handle failed accepts correctly (``source`` job)
+* |bugfix| :issue:`100`: fix incompatibility with ZoL 0.8
+* |feature| :issue:`115`: logging: configurable syslog facility
 * |feature| Systemd unit file in ``dist/systemd``
 
 .. |lastrelease| replace:: 0.0.3
