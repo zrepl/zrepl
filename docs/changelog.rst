@@ -112,8 +112,3 @@ Previous Releases
 .. NOTE::
     Due to limitations in our documentation system, we only show the changelog since the last release and the time this documentation is built.
     For the changelog of previous releases, use the version selection in the hosted version of these docs at `zrepl.github.io <https://zrepl.github.io>`_.
-    
-    
-
-
-W
