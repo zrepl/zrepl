@@ -94,10 +94,13 @@ Changes
 * |feature| ``zrepl status`` for live-updating replication progress (it's really cool!)
 * |feature| :issue:`67`: Expose `Prometheus <https://prometheus.io>`_ metrics via HTTP (:ref:`config docs <monitoring-prometheus>`)
 
+  * Compatible Grafana dashboard shipping in ``dist/grafana``
+
 * |break_config| Logging outlet types must be specified using the ``type`` instead of ``outlet`` key
 * |break| :issue:`53`: CLI: ``zrepl control *`` subcommands have been made direct subcommands of ``zrepl *``
 * |bugfix| Goroutine leak on ssh transport connection timeouts
 * |bugfix| :issue:`81` :issue:`77` : handle failed accepts correctly (``source`` job)
+* |feature| Systemd unit file in ``dist/systemd``
 
 .. |lastrelease| replace:: 0.0.3
 
