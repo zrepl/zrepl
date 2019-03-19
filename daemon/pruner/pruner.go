@@ -10,7 +10,6 @@ import (
 	"github.com/zrepl/zrepl/pruning"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/util/envconst"
-	"github.com/zrepl/zrepl/util/watchdog"
 	"sort"
 	"strings"
 	"sync"
@@ -59,8 +58,6 @@ type args struct {
 
 type Pruner struct {
 	args args
-
-	Progress watchdog.KeepAlive
 
 	mtx sync.RWMutex
 
@@ -319,10 +316,6 @@ func (s snapshot) Date() time.Time { return s.date }
 func doOneAttempt(a *args, u updater) {
 
 	ctx, target, receiver := a.ctx, a.target, a.receiver
-	var ka *watchdog.KeepAlive
-	u(func(pruner *Pruner) {
-		ka = &pruner.Progress
-	})
 
 	sfssres, err := receiver.ListFilesystems(ctx, &pdu.ListFilesystemReq{})
 	if err != nil {
@@ -397,7 +390,6 @@ tfss_loop:
 			pfsPlanErrAndLog(err, "cannot get replication cursor bookmark")
 			continue tfss_loop
 		}
-		ka.MadeProgress()
 		if rc.GetNotexist() {
 			err := errors.New("replication cursor bookmark does not exist (one successful replication is required before pruning works)")
 			pfsPlanErrAndLog(err, "")
@@ -445,11 +437,9 @@ tfss_loop:
 
 		// Apply prune rules
 		pfs.destroyList = pruning.PruneSnapshots(pfs.snaps, a.rules)
-		ka.MadeProgress()
 	}
 
 	u(func(pruner *Pruner) {
-		pruner.Progress.MadeProgress()
 		pruner.execQueue = newExecQueue(len(pfss))
 		for _, pfs := range pfss {
 			pruner.execQueue.Put(pfs, nil, false)
