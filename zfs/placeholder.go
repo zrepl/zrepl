@@ -5,87 +5,81 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"os/exec"
 )
 
-const ZREPL_PLACEHOLDER_PROPERTY_NAME string = "zrepl:placeholder"
+const (
+	// For a placeholder filesystem to be a placeholder, the property source must be local,
+	// i.e. not inherited.
+	PlaceholderPropertyName string = "zrepl:placeholder"
+	placeholderPropertyOn   string = "on"
+	placeholderPropertyOff  string = "off"
+)
 
-type FilesystemState struct {
-	Placeholder bool
-	// TODO extend with resume token when that feature is finally added
-}
-
-// A somewhat efficient way to determine if a filesystem exists on this host.
-// Particularly useful if exists is called more than once (will only fork exec once and cache the result)
-func ZFSListFilesystemState() (localState map[string]FilesystemState, err error) {
-
-	var actual [][]string
-	if actual, err = ZFSList([]string{"name", ZREPL_PLACEHOLDER_PROPERTY_NAME}, "-t", "filesystem,volume"); err != nil {
-		return
-	}
-
-	localState = make(map[string]FilesystemState, len(actual))
-	for _, e := range actual {
-		dp, err := NewDatasetPath(e[0])
-		if err != nil {
-			return nil, fmt.Errorf("ZFS does not return parseable dataset path: %s", e[0])
-		}
-		placeholder, _ := IsPlaceholder(dp, e[1])
-		localState[e[0]] = FilesystemState{
-			placeholder,
-		}
-	}
-	return
-
-}
-
-// Computes the value for the ZREPL_PLACEHOLDER_PROPERTY_NAME ZFS user property
-// to mark the given DatasetPath p as a placeholder
+// computeLegacyPlaceholderPropertyValue is a legacy-compatibility function.
 //
-// We cannot simply use booleans here since user properties are always
+// In the 0.0.x series, the value stored in the PlaceholderPropertyName user property
+// was a hash value of the dataset path.
+// A simple `on|off` value could not be used at the time because `zfs list` was used to
+// list all filesystems and their placeholder state with a single command: due to property
+// inheritance, `zfs list` would print the placeholder state for all (non-placeholder) children
+// of a dataset, so the hash value was used to distinguish whether the property was local or
 // inherited.
 //
-// We hash the DatasetPath and use it to check for a given path if it is the
-// one originally marked as placeholder.
+// One of the drawbacks of the above approach is that `zfs rename` renders a placeholder filesystem
+// a non-placeholder filesystem if any of the parent path components change.
 //
-// However, this prohibits moving datasets around via `zfs rename`. The
-// placeholder attribute must be re-computed for the dataset path after the
-// move.
-//
-// TODO better solution available?
-func PlaceholderPropertyValue(p *DatasetPath) string {
+// We `zfs get` nowadays, which returns the property source, making the hash value no longer
+// necessary. However, we want to keep legacy compatibility.
+func computeLegacyHashBasedPlaceholderPropertyValue(p *DatasetPath) string {
 	ps := []byte(p.ToString())
 	sum := sha512.Sum512_256(ps)
 	return hex.EncodeToString(sum[:])
 }
 
-func IsPlaceholder(p *DatasetPath, placeholderPropertyValue string) (isPlaceholder bool, err error) {
-	expected := PlaceholderPropertyValue(p)
-	isPlaceholder = expected == placeholderPropertyValue
-	if !isPlaceholder {
-		err = fmt.Errorf("expected %s, has %s", expected, placeholderPropertyValue)
+// the caller asserts that placeholderPropertyValue is sourceLocal
+func isLocalPlaceholderPropertyValuePlaceholder(p *DatasetPath, placeholderPropertyValue string) (isPlaceholder bool) {
+	legacy := computeLegacyHashBasedPlaceholderPropertyValue(p)
+	switch placeholderPropertyValue {
+	case legacy:
+		return true
+	case placeholderPropertyOn:
+		return true
+	default:
+		return false
 	}
-	return
 }
 
-// for nonexistent FS, isPlaceholder == false && err == nil
-func ZFSIsPlaceholderFilesystem(p *DatasetPath) (isPlaceholder bool, err error) {
-	props, err := zfsGet(p.ToString(), []string{ZREPL_PLACEHOLDER_PROPERTY_NAME}, sourceAny)
-	if err == io.ErrUnexpectedEOF {
-		// interpret this as an early exit of the zfs binary due to the fs not existing
-		return false, nil
+type FilesystemPlaceholderState struct {
+	FS                    string
+	FSExists              bool
+	IsPlaceholder         bool
+	RawLocalPropertyValue string
+}
+
+// ZFSGetFilesystemPlaceholderState is the authoritative way to determine whether a filesystem
+// is a placeholder. Note that the property source must be `local` for the returned value to be valid.
+//
+// For nonexistent FS, err == nil and state.FSExists == false
+func ZFSGetFilesystemPlaceholderState(p *DatasetPath) (state *FilesystemPlaceholderState, err error) {
+	state = &FilesystemPlaceholderState{FS: p.ToString()}
+	state.FS = p.ToString()
+	props, err := zfsGet(p.ToString(), []string{PlaceholderPropertyName}, sourceLocal)
+	var _ error = (*DatasetDoesNotExist)(nil) // weak assertion on zfsGet's interface
+	if _, ok := err.(*DatasetDoesNotExist); ok {
+		return state, nil
 	} else if err != nil {
-		return false, err
+		return state, err
 	}
-	isPlaceholder, _ = IsPlaceholder(p, props.Get(ZREPL_PLACEHOLDER_PROPERTY_NAME))
-	return
+	state.FSExists = true
+	state.RawLocalPropertyValue = props.Get(PlaceholderPropertyName)
+	state.IsPlaceholder = isLocalPlaceholderPropertyValuePlaceholder(p, state.RawLocalPropertyValue)
+	return state, nil
 }
 
 func ZFSCreatePlaceholderFilesystem(p *DatasetPath) (err error) {
-	v := PlaceholderPropertyValue(p)
 	cmd := exec.Command(ZFS_BINARY, "create",
-		"-o", fmt.Sprintf("%s=%s", ZREPL_PLACEHOLDER_PROPERTY_NAME, v),
+		"-o", fmt.Sprintf("%s=%s", PlaceholderPropertyName, placeholderPropertyOn),
 		"-o", "mountpoint=none",
 		p.ToString())
 
@@ -106,8 +100,43 @@ func ZFSCreatePlaceholderFilesystem(p *DatasetPath) (err error) {
 	return
 }
 
-func ZFSSetNoPlaceholder(p *DatasetPath) error {
+func ZFSSetPlaceholder(p *DatasetPath, isPlaceholder bool) error {
 	props := NewZFSProperties()
-	props.Set(ZREPL_PLACEHOLDER_PROPERTY_NAME, "off")
+	prop := placeholderPropertyOff
+	if isPlaceholder {
+		prop = placeholderPropertyOn
+	}
+	props.Set(PlaceholderPropertyName, prop)
 	return zfsSet(p.ToString(), props)
+}
+
+type MigrateHashBasedPlaceholderReport struct {
+	OriginalState     FilesystemPlaceholderState
+	NeedsModification bool
+}
+
+// fs must exist, will panic otherwise
+func ZFSMigrateHashBasedPlaceholderToCurrent(fs *DatasetPath, dryRun bool) (*MigrateHashBasedPlaceholderReport, error) {
+	st, err := ZFSGetFilesystemPlaceholderState(fs)
+	if err != nil {
+		return nil, fmt.Errorf("error getting placeholder state: %s", err)
+	}
+	if !st.FSExists {
+		panic("inconsistent placeholder state returned: fs must exist")
+	}
+
+	report := MigrateHashBasedPlaceholderReport{
+		OriginalState: *st,
+	}
+	report.NeedsModification = st.IsPlaceholder && st.RawLocalPropertyValue != placeholderPropertyOn
+
+	if dryRun || !report.NeedsModification {
+		return &report, nil
+	}
+
+	err = ZFSSetPlaceholder(fs, st.IsPlaceholder)
+	if err != nil {
+		return nil, fmt.Errorf("error re-writing placeholder property: %s", err)
+	}
+	return &report, nil
 }

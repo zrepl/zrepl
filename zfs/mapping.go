@@ -9,6 +9,16 @@ type DatasetFilter interface {
 	Filter(p *DatasetPath) (pass bool, err error)
 }
 
+// Returns a DatasetFilter that does not filter (passes all paths)
+func NoFilter() DatasetFilter {
+	return noFilter{}
+}
+type noFilter struct {}
+
+var _ DatasetFilter = noFilter{}
+
+func (noFilter) Filter(p *DatasetPath) (pass bool, err error) { return true, nil }
+
 func ZFSListMapping(ctx context.Context, filter DatasetFilter) (datasets []*DatasetPath, err error) {
 	res, err := ZFSListMappingProperties(ctx, filter, nil)
 	if err != nil {
