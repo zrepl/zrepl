@@ -13,18 +13,26 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// FIXME: this test relies on timing and is thus rather flaky
+// (relies on scheduler responsivity of < 500ms)
 func TestPqNotconcurrent(t *testing.T) {
-
 	var ctr uint32
 	q := newStepQueue()
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(4)
 	go func() {
 		defer wg.Done()
-		defer q.WaitReady("1", time.Unix(1, 0))()
+		defer q.WaitReady("1", time.Unix(9999, 0))()
 		ret := atomic.AddUint32(&ctr, 1)
 		assert.Equal(t, uint32(1), ret)
+		time.Sleep(1 * time.Second)
 	}()
+
+	// give goroutine "1" 500ms to enter queue, get the active slot and enter time.Sleep
+	defer q.Start(1)()
+	time.Sleep(500 * time.Millisecond)
+
+	// while "1" is still running, queue in "2", "3" and "4"
 	go func() {
 		defer wg.Done()
 		defer q.WaitReady("2", time.Unix(2, 0))()
@@ -37,11 +45,14 @@ func TestPqNotconcurrent(t *testing.T) {
 		ret := atomic.AddUint32(&ctr, 1)
 		assert.Equal(t, uint32(3), ret)
 	}()
+	go func() {
+		defer wg.Done()
+		defer q.WaitReady("4", time.Unix(4, 0))()
+		ret := atomic.AddUint32(&ctr, 1)
+		assert.Equal(t, uint32(4), ret)
+	}()
 
-	time.Sleep(1 * time.Second)
-	defer q.Start(1)()
 	wg.Wait()
-
 }
 
 type record struct {
