@@ -39,6 +39,7 @@ type Type string
 
 const (
 	TypeInternal Type = "internal"
+	TypeSnap Type = "snap"
 	TypePush Type = "push"
 	TypeSink Type = "sink"
 	TypePull Type  = "pull"
@@ -84,6 +85,10 @@ func (s *Status) UnmarshalJSON(in []byte) (err error) {
 		return fmt.Errorf("field '%s', not found", key)
 	}
 	switch s.Type {
+	case TypeSnap:
+		var st SnapJobStatus
+		err = json.Unmarshal(jobJSON, &st)
+		s.JobSpecific = &st
 	case TypePull: fallthrough
 	case TypePush:
 		var st ActiveSideStatus

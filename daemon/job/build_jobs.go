@@ -45,6 +45,11 @@ func buildJob(c *config.Global, in config.JobEnum) (j Job, err error) {
 		if err != nil {
 			return cannotBuildJob(err, v.Name)
 		}
+	case *config.SnapJob:
+		j, err = snapJobFromConfig(c, v)
+		if err != nil {
+			return cannotBuildJob(err, v.Name)
+		}
 	case *config.PushJob:
 		m, err := modePushFromConfig(c, v)
 		if err != nil {

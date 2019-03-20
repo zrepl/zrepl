@@ -78,6 +78,12 @@ type PrunerFactory struct {
 	promPruneSecs *prometheus.HistogramVec
 }
 
+type LocalPrunerFactory struct {
+	keepRules     []pruning.KeepRule
+	retryWait     time.Duration
+	promPruneSecs *prometheus.HistogramVec
+}
+
 func checkContainsKeep1(rules []pruning.KeepRule) error {
 	if len(rules) == 0 {
 		return nil //No keep rules means keep all - ok
@@ -89,6 +95,26 @@ func checkContainsKeep1(rules []pruning.KeepRule) error {
 		}
 	}
 	return errors.New("sender keep rules must contain last_n or be empty so that the last snapshot is definitely kept")
+}
+
+func NewLocalPrunerFactory(in config.PruningLocal, promPruneSecs *prometheus.HistogramVec) (*LocalPrunerFactory, error) {
+	rules, err := pruning.RulesFromConfig(in.Keep)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot build pruning rules")
+	}
+	for _, r := range in.Keep {
+		if _, ok := r.Ret.(*config.PruneKeepNotReplicated); ok {
+			// rule NotReplicated  for a local pruner doesn't make sense
+			// because no replication happens with that job type
+			return nil, fmt.Errorf("single-site pruner cannot support `not_replicated` keep rule")
+		}
+	}
+	f := &LocalPrunerFactory{
+		keepRules:     rules,
+		retryWait:     envconst.Duration("ZREPL_PRUNER_RETRY_INTERVAL", 10*time.Second),
+		promPruneSecs: promPruneSecs,
+	}
+	return f, nil
 }
 
 func NewPrunerFactory(in config.PruningSenderReceiver, promPruneSecs *prometheus.HistogramVec) (*PrunerFactory, error) {
@@ -146,6 +172,22 @@ func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, target Target, 
 			f.retryWait,
 			false, // senseless here anyways
 			f.promPruneSecs.WithLabelValues("receiver"),
+		},
+		state: Plan,
+	}
+	return p
+}
+
+func (f *LocalPrunerFactory) BuildLocalPruner(ctx context.Context, target Target, receiver History) *Pruner {
+	p := &Pruner{
+		args: args{
+			ctx,
+			target,
+			receiver,
+			f.keepRules,
+			f.retryWait,
+			false, // considerSnapAtCursorReplicated is not relevant for local pruning
+			f.promPruneSecs.WithLabelValues("local"),
 		},
 		state: Plan,
 	}

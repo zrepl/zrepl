@@ -297,7 +297,44 @@ func (t *tui) draw() {
 			t.setIndent(1)
 			t.newline()
 
-			if v.Type != job.TypePush && v.Type != job.TypePull {
+			if v.Type == job.TypePush || v.Type == job.TypePull {
+				activeStatus, ok := v.JobSpecific.(*job.ActiveSideStatus)
+				if !ok || activeStatus == nil {
+					t.printf("ActiveSideStatus is null")
+					t.newline()
+					continue
+				}
+
+				t.printf("Replication:")
+				t.newline()
+				t.addIndent(1)
+				t.renderReplicationReport(activeStatus.Replication, t.getReplicationProgresHistory(k))
+				t.addIndent(-1)
+
+				t.printf("Pruning Sender:")
+				t.newline()
+				t.addIndent(1)
+				t.renderPrunerReport(activeStatus.PruningSender)
+				t.addIndent(-1)
+
+				t.printf("Pruning Receiver:")
+				t.newline()
+				t.addIndent(1)
+				t.renderPrunerReport(activeStatus.PruningReceiver)
+				t.addIndent(-1)
+			} else if v.Type == job.TypeSnap {
+				snapStatus, ok := v.JobSpecific.(*job.SnapJobStatus)
+				if !ok || snapStatus == nil {
+					t.printf("SnapJobStatus is null")
+					t.newline()
+					continue
+				}
+				t.printf("Pruning snapshots:")
+				t.newline()
+				t.addIndent(1)
+				t.renderPrunerReport(snapStatus.Pruning)
+				t.addIndent(-1)
+			} else {
 				t.printf("No status representation for job type '%s', dumping as YAML", v.Type)
 				t.newline()
 				asYaml, err := yaml.Marshal(v.JobSpecific)
@@ -310,32 +347,6 @@ func (t *tui) draw() {
 				t.newline()
 				continue
 			}
-
-			pushStatus, ok := v.JobSpecific.(*job.ActiveSideStatus)
-			if !ok || pushStatus == nil {
-				t.printf("ActiveSideStatus is null")
-				t.newline()
-				continue
-			}
-
-			t.printf("Replication:")
-			t.newline()
-			t.addIndent(1)
-			t.renderReplicationReport(pushStatus.Replication, t.getReplicationProgresHistory(k))
-			t.addIndent(-1)
-
-			t.printf("Pruning Sender:")
-			t.newline()
-			t.addIndent(1)
-			t.renderPrunerReport(pushStatus.PruningSender)
-			t.addIndent(-1)
-
-			t.printf("Pruning Receiver:")
-			t.newline()
-			t.addIndent(1)
-			t.renderPrunerReport(pushStatus.PruningReceiver)
-			t.addIndent(-1)
-
 		}
 	}
 	termbox.Flush()

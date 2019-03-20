@@ -25,18 +25,22 @@ For communication, the active side connects to the passive side using a :ref:`tr
 
 The following table shows how different job types can be combined to achieve both push and pull mode setups:
 
-+-----------------------+--------------+----------------------------------+-----------------------------------------------+
-| Setup name            | active side  | passive side                     | use case                                      |
-+=======================+==============+==================================+===============================================+
-| Push mode             | ``push``     | ``sink``                         | * Laptop backup                               |
-|                       |              |                                  | * NAS behind NAT to offsite                   |
-+-----------------------+--------------+----------------------------------+-----------------------------------------------+
-| Pull mode             | ``pull``     | ``source``                       | * Central backup-server for many nodes        |
-|                       |              |                                  | * Remote server to NAS behind NAT             |
-+-----------------------+--------------+----------------------------------+-----------------------------------------------+
-| Local replication     | | ``push`` + ``sink`` in one config             | * Backup FreeBSD boot pool                    |
-|                       | | with :ref:`local transport <transport-local>` |                                               |
-+-----------------------+--------------+----------------------------------+-----------------------------------------------+
++-----------------------+--------------+----------------------------------+------------------------------------------------------------------------------------+
+| Setup name            | active side  | passive side                     | use case                                                                           |
++=======================+==============+==================================+====================================================================================+
+| Push mode             | ``push``     | ``sink``                         | * Laptop backup                                                                    |
+|                       |              |                                  | * NAS behind NAT to offsite                                                        |
++-----------------------+--------------+----------------------------------+------------------------------------------------------------------------------------+
+| Pull mode             | ``pull``     | ``source``                       | * Central backup-server for many nodes                                             |
+|                       |              |                                  | * Remote server to NAS behind NAT                                                  |
++-----------------------+--------------+----------------------------------+------------------------------------------------------------------------------------+
+| Local replication     | | ``push`` + ``sink`` in one config             | * Backup FreeBSD boot pool                                                         |
+|                       | | with :ref:`local transport <transport-local>` |                                                                                    |
++-----------------------+--------------+----------------------------------+------------------------------------------------------------------------------------+
+| Snap & prune-only     | ``snap``     | N/A                              | * | Snapshots & pruning but no replication                                         |
+|                       |              |                                  |   | required                                                                       |
+|                       |              |                                  | * Workaround for :ref:`source-side pruning <prune-workaround-source-side-pruning>` |
++-----------------------+--------------+----------------------------------+------------------------------------------------------------------------------------+
 
 How the Active Side Works
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -125,7 +129,7 @@ The ``zrepl test placeholder`` command can be used to check whether a filesystem
 Taking Snaphots
 ---------------
 
-The ``push`` and ``source`` jobs can automatically take periodic snapshots of the filesystems matched by the ``filesystems`` filter field.
+The ``push``, ``source`` and ``snap`` jobs can automatically take periodic snapshots of the filesystems matched by the ``filesystems`` filter field.
 The snapshot names are composed of a user-defined prefix followed by a UTC date formatted like ``20060102_150405_000``.
 We use UTC because it will avoid name conflicts when switching time zones or between summer and winter time.
 
@@ -147,9 +151,10 @@ For ``push`` jobs, replication is automatically triggered after all filesystems 
 
 There is also a ``manual`` snapshotting type, which covers the following use cases:
 
-* Existing infrastructure for automatic snapshots: you only want to use zrepl for replication.
+* Existing infrastructure for automatic snapshots: you only want to use this zrepl job for replication.
 * Run scripts before and after taking snapshots (like locking database tables).
   We are working on better integration for this use case: see :issue:`74`.
+* Handling snapshotting through a separate ``snap`` job.
 
 Note that you will have to trigger replication manually using the ``zrepl signal wakeup JOB`` subcommand in that case.
 
@@ -267,6 +272,7 @@ Job Type ``source``
 
 Example config: :sampleconf:`/source.yml`
 
+
 .. _replication-local:
 
 Local replication
@@ -277,3 +283,28 @@ If you have the need for local replication (most likely between two local storag
 Example config: :sampleconf:`/local.yml`.
 
 
+.. _job-snap:
+
+Job Type ``snap`` (snapshot & prune only)
+-----------------------------------------
+
+Job type that only takes snapshots and performs pruning on the local machine.
+
+.. list-table::
+    :widths: 20 80
+    :header-rows: 1
+
+    * - Parameter
+      - Comment
+    * - ``type``
+      - = ``snap``
+    * - ``name``
+      - unique name of the job
+    * - ``filesystems``
+      - |filter-spec| for filesystems to be snapshotted
+    * - ``snapshotting``
+      - |snapshotting-spec|
+    * - ``pruning``
+      - |pruning-spec|
+
+Example config: :sampleconf:`/snap.yml`
