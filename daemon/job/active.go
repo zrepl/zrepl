@@ -17,10 +17,12 @@ import (
 	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/replication"
+	"github.com/zrepl/zrepl/replication/driver"
+	"github.com/zrepl/zrepl/replication/logic"
+	"github.com/zrepl/zrepl/replication/report"
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/transport"
 	"github.com/zrepl/zrepl/transport/fromconfig"
-	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -53,7 +55,7 @@ type activeSideTasks struct {
 	state ActiveSideState
 
 	// valid for state ActiveSideReplicating, ActiveSidePruneSender, ActiveSidePruneReceiver, ActiveSideDone
-	replication       *replication.Replication
+	replicationReport driver.ReportFunc
 	replicationCancel context.CancelFunc
 
 	// valid for state ActiveSidePruneSender, ActiveSidePruneReceiver, ActiveSideDone
@@ -79,7 +81,7 @@ func (a *ActiveSide) updateTasks(u func(*activeSideTasks)) activeSideTasks {
 type activeMode interface {
 	ConnectEndpoints(rpcLoggers rpc.Loggers, connecter transport.Connecter)
 	DisconnectEndpoints()
-	SenderReceiver() (replication.Sender, replication.Receiver)
+	SenderReceiver() (logic.Sender, logic.Receiver)
 	Type() Type
 	RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{})
 	ResetConnectBackoff()
@@ -111,7 +113,7 @@ func (m *modePush) DisconnectEndpoints() {
 	m.receiver = nil
 }
 
-func (m *modePush) SenderReceiver() (replication.Sender, replication.Receiver) {
+func (m *modePush) SenderReceiver() (logic.Sender, logic.Receiver) {
 	m.setupMtx.Lock()
 	defer m.setupMtx.Unlock()
 	return m.sender, m.receiver
@@ -151,7 +153,7 @@ type modePull struct {
 	receiver *endpoint.Receiver
 	sender   *rpc.Client
 	rootFS   *zfs.DatasetPath
-	interval time.Duration
+	interval config.PositiveDurationOrManual
 }
 
 func (m *modePull) ConnectEndpoints(loggers rpc.Loggers, connecter transport.Connecter) {
@@ -172,7 +174,7 @@ func (m *modePull) DisconnectEndpoints() {
 	m.receiver = nil
 }
 
-func (m *modePull) SenderReceiver() (replication.Sender, replication.Receiver) {
+func (m *modePull) SenderReceiver() (logic.Sender, logic.Receiver) {
 	m.setupMtx.Lock()
 	defer m.setupMtx.Unlock()
 	return m.sender, m.receiver
@@ -181,7 +183,12 @@ func (m *modePull) SenderReceiver() (replication.Sender, replication.Receiver) {
 func (*modePull) Type() Type { return TypePull }
 
 func (m *modePull) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}) {
-	t := time.NewTicker(m.interval)
+	if m.interval.Manual {
+		GetLogger(ctx).Info("manual pull configured, periodic pull disabled")
+		// "waiting for wakeups" is printed in common ActiveSide.do
+		return
+	}
+	t := time.NewTicker(m.interval.Interval)
 	defer t.Stop()
 	for {
 		select {
@@ -210,9 +217,6 @@ func (m *modePull) ResetConnectBackoff() {
 
 func modePullFromConfig(g *config.Global, in *config.PullJob) (m *modePull, err error) {
 	m = &modePull{}
-	if in.Interval <= 0 {
-		return nil, errors.New("interval must be positive")
-	}
 	m.interval = in.Interval
 
 	m.rootFS, err = zfs.NewDatasetPath(in.RootFS)
@@ -274,7 +278,7 @@ func (j *ActiveSide) RegisterMetrics(registerer prometheus.Registerer) {
 func (j *ActiveSide) Name() string { return j.name }
 
 type ActiveSideStatus struct {
-	Replication                    *replication.Report
+	Replication                    *report.Report
 	PruningSender, PruningReceiver *pruner.Report
 }
 
@@ -283,8 +287,8 @@ func (j *ActiveSide) Status() *Status {
 
 	s := &ActiveSideStatus{}
 	t := j.mode.Type()
-	if tasks.replication != nil {
-		s.Replication = tasks.replication.Report()
+	if tasks.replicationReport != nil {
+		s.Replication = tasks.replicationReport()
 	}
 	if tasks.prunerSender != nil {
 		s.PruningSender = tasks.prunerSender.Report()
@@ -345,78 +349,6 @@ func (j *ActiveSide) do(ctx context.Context) {
 		}
 	}()
 
-	// The code after this watchdog goroutine is sequential and transitions the state from
-	//   ActiveSideReplicating -> ActiveSidePruneSender -> ActiveSidePruneReceiver -> ActiveSideDone
-	// If any of those sequential tasks 'gets stuck' (livelock, no progress), the watchdog will eventually
-	// cancel its context.
-	// If the task is written to support context cancellation, it will return immediately (in permanent error state),
-	// and the sequential code above transitions to the next state.
-	go func() {
-
-		wdto := envconst.Duration("ZREPL_JOB_WATCHDOG_TIMEOUT", 10*time.Minute)
-		jitter := envconst.Duration("ZREPL_JOB_WATCHDOG_JITTER", 1*time.Second)
-		// shadowing!
-		log := log.WithField("watchdog_timeout", wdto.String())
-
-		log.Debug("starting watchdog")
-		defer log.Debug("watchdog stopped")
-
-		t := time.NewTicker(wdto)
-		defer t.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-t.C: // fall
-			}
-
-			j.updateTasks(func(tasks *activeSideTasks) {
-				// Since cancelling a task will cause the sequential code to transition to the next state immediately,
-				// we cannot check for its progress right then (no fallthrough).
-				// Instead, we return (not continue because we are in a closure) and give the new state another
-				// ZREPL_JOB_WATCHDOG_TIMEOUT interval to try make some progress.
-
-				log.WithField("state", tasks.state).Debug("watchdog firing")
-
-				const WATCHDOG_ENVCONST_NOTICE = " (adjust ZREPL_JOB_WATCHDOG_TIMEOUT env variable if inappropriate)"
-
-				switch tasks.state {
-				case ActiveSideReplicating:
-					log.WithField("replication_progress", tasks.replication.Progress.String()).
-						Debug("check replication progress")
-					if tasks.replication.Progress.CheckTimeout(wdto, jitter) {
-						log.Error("replication did not make progress, cancelling" + WATCHDOG_ENVCONST_NOTICE)
-						tasks.replicationCancel()
-						return
-					}
-				case ActiveSidePruneSender:
-					log.WithField("prune_sender_progress", tasks.replication.Progress.String()).
-						Debug("check pruner_sender progress")
-					if tasks.prunerSender.Progress.CheckTimeout(wdto, jitter) {
-						log.Error("pruner_sender did not make progress, cancelling" + WATCHDOG_ENVCONST_NOTICE)
-						tasks.prunerSenderCancel()
-						return
-					}
-				case ActiveSidePruneReceiver:
-					log.WithField("prune_receiver_progress", tasks.replication.Progress.String()).
-						Debug("check pruner_receiver progress")
-					if tasks.prunerReceiver.Progress.CheckTimeout(wdto, jitter) {
-						log.Error("pruner_receiver did not make progress, cancelling" + WATCHDOG_ENVCONST_NOTICE)
-						tasks.prunerReceiverCancel()
-						return
-					}
-				case ActiveSideDone:
-					// ignore, ctx will be Done() in a few milliseconds and the watchdog will exit
-				default:
-					log.WithField("state", tasks.state).
-						Error("watchdog implementation error: unknown active side state")
-				}
-			})
-
-		}
-	}()
-
 	sender, receiver := j.mode.SenderReceiver()
 
 	{
@@ -426,16 +358,19 @@ func (j *ActiveSide) do(ctx context.Context) {
 		default:
 		}
 		ctx, repCancel := context.WithCancel(ctx)
-		tasks := j.updateTasks(func(tasks *activeSideTasks) {
+		var repWait driver.WaitFunc
+		j.updateTasks(func(tasks *activeSideTasks) {
 			// reset it
 			*tasks = activeSideTasks{}
 			tasks.replicationCancel = repCancel
-			tasks.replication = replication.NewReplication(j.promRepStateSecs, j.promBytesReplicated)
+			tasks.replicationReport, repWait = replication.Do(
+				ctx, logic.NewPlanner(j.promRepStateSecs, j.promBytesReplicated, sender, receiver),
+			)
 			tasks.state = ActiveSideReplicating
 		})
 		log.Info("start replication")
-		tasks.replication.Drive(ctx, sender, receiver)
-		repCancel() // always cancel to free up context resources
+		repWait(true) // wait blocking
+		repCancel()   // always cancel to free up context resources
 	}
 
 	{

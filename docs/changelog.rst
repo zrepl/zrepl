@@ -48,9 +48,6 @@ Notes to Package Maintainers
   This functionality will cause SIGABRT on panics and can be used to capture a coredump of the panicking process.
   To that extend, make sure that your package build system, your OS's coredump collection and the Go delve debugger work together.
   Use your build system to package the Go program in `this tutorial on Go coredumps and the delve debugger <https://rakyll.org/coredumps/>`_ , and make sure the symbol resolution etc. work on coredumps captured from the binary produced by your build system. (Special focus on symbol stripping, etc.)
-* Use of ``ssh+stdinserver`` :ref:`transport <transport-ssh+stdinserver>` is no longer encouraged.
-  Please encourage users to use the new ``tcp`` or ``tls`` transports.
-  You might as well mention some of the :ref:`tunneling options listed here <transport-tcp-tunneling>`.
 
 Changes
 ~~~~~~~
@@ -58,16 +55,26 @@ Changes
 * |feature| :issue:`55` : Push replication (see :ref:`push job <job-push>` and :ref:`sink job <job-sink>`)
 * |feature| :ref:`TCP Transport <transport-tcp>`
 * |feature| :ref:`TCP + TLS client authentication transport <transport-tcp+tlsclientauth>`
-* |feature| :issue:`78` :commit:`074f989` : Replication protocol rewrite
+* |feature| :issue:`111`: RPC protocol rewrite
 
-  * Uses ``github.com/problame/go-streamrpc`` for RPC layer
-  * |break| Protocol breakage, update and restart of all zrepl daemons is required
-  * |feature| :issue:`83`:  Improved error handling of network-level errors (zrepl retries instead of failing the entire job)
-  * |bugfix| :issue:`75` :issue:`81`: use connection timeouts and protocol-level heartbeats
-  * |break| |break_config|: mappings are no longer supported
+  * |break| Protocol breakage; Update and restart of all zrepl daemons is required.
+  * Use `gRPC <https://grpc.io/>`_ for control RPCs and a custom protocol for bulk data transfer.
+  * Automatic retries for network-temporary errors
 
-    * Receiving sides (``pull`` and ``sink`` job) specify a single ``root_fs``.
-      Received filesystems are then stored *per client* in ``${root_fs}/${client_identity}``.
+    * Limited to errors during replication for this release.
+      Addresses the common problem of ISP-forced reconnection at night, but will become
+      way more useful with resumable send & recv support.
+      Pruning errors are handled per FS, i.e., a prune RPC is attempted at least once per FS.
+
+* |feature| Proper timeout handling for the :ref:`SSH transport <transport-ssh+stdinserver>`
+
+  * |break| Requires Go 1.11 or later.
+  
+* |break| |break_config|: mappings are no longer supported
+
+  * Receiving sides (``pull`` and ``sink`` job) specify a single ``root_fs``.
+    Received filesystems are then stored *per client* in ``${root_fs}/${client_identity}``.
+    See :ref:`job-overview` for details.
 
 * |feature| |break| |break_config| Manual snapshotting + triggering of replication
 

@@ -60,8 +60,6 @@ Make sure to develop an understanding how zrepl is typically used by studying th
 │   ├── prometheus
 │   ├── pruner              # pruner implementation
 │   ├── snapper             # snapshotter implementation
-│   ├── streamrpcconfig     # abstraction for configuration of go-streamrpc
-│   └── transport           # transports implementation
 ├── docs                    # sphinx-based documentation
 ├── dist                    # supplemental material for users & package maintainers
 │   ├── **/*.rst            # documentation in reStructuredText
@@ -74,10 +72,24 @@ Make sure to develop an understanding how zrepl is typically used by studying th
 ├── logger                  # our own logger package
 ├── pruning                 # pruning rules (the logic, not the actual execution)
 │   └── retentiongrid
-├── replication             # the fsm that implements replication of multiple file systems
-│   ├── fsrep               # replication of a single filesystem
-│   └── pdu                 # the protobuf-generated structs + helpers passed to an endpoint
+├── replication
+│   ├── driver              # the driver of the replication logic (status reporting, error handling)
+│   ├── logic               # planning & executing replication steps via rpc
+|   |   └── pdu             # the generated gRPC & protobuf code used in replication (and endpoints)
+│   └── report              # the JSON-serializable report datastructures exposed to the client
+├── rpc                     # the hybrid gRPC + ./dataconn RPC client: connects to a remote replication.Endpoint
+│   ├── dataconn            # Bulk data-transfer RPC protocol
+│   ├── grpcclientidentity  # adaptor to inject package transport's 'client identity' concept into gRPC contexts
+│   ├── netadaptor          # adaptor to convert a package transport's Connecter and Listener into net.* primitives
+│   ├── transportmux        # TCP connecter and listener used to split control & data traffic
+│   └── versionhandshake    # replication protocol version handshake perfomed on newly established connections
 ├── tlsconf                 # abstraction for Go TLS server + client config
+├── transport               # transports implementation
+│   ├── fromconfig
+│   ├── local
+│   ├── ssh
+│   ├── tcp
+│   └── tls
 ├── util
 ├── vendor                  # managed by dep
 ├── version                 # abstraction for versions (filled during build by Makefile)

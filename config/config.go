@@ -68,7 +68,38 @@ type PushJob struct {
 type PullJob struct {
 	ActiveJob `yaml:",inline"`
 	RootFS    string        `yaml:"root_fs"`
-	Interval  time.Duration `yaml:"interval,positive"`
+	Interval  PositiveDurationOrManual `yaml:"interval"`
+}
+
+type PositiveDurationOrManual struct {
+	Interval time.Duration
+	Manual   bool
+}
+
+var _ yaml.Unmarshaler = (*PositiveDurationOrManual)(nil)
+
+func (i *PositiveDurationOrManual) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
+	var s string
+	if err := u(&s, true); err != nil {
+		return err
+	}
+	switch s {
+	case "manual":
+		i.Manual = true
+		i.Interval = 0
+	case "":
+		return fmt.Errorf("value must not be empty")
+	default:
+		i.Manual = false
+		i.Interval, err = time.ParseDuration(s)
+		if err != nil {
+			return err
+		}
+		if i.Interval <= 0 {
+			return fmt.Errorf("value must be a positive duration, got %q", s)
+		}
+	}
+	return nil
 }
 
 type SinkJob struct {

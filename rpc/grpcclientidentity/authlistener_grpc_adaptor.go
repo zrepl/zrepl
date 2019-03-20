@@ -105,11 +105,12 @@ func NewInterceptors(logger Logger, clientIdentityKey interface{}) (unary grpc.U
 		if !ok {
 			panic("peer.FromContext expected to return a peer in grpc.UnaryServerInterceptor")
 		}
-		logger.WithField("peer", fmt.Sprintf("%v", p)).Debug("peer")
+		logger.WithField("peer_addr", fmt.Sprintf("%s", p.Addr)).Debug("peer addr")
 		a, ok := p.AuthInfo.(*authConnAuthType)
 		if !ok {
 			panic(fmt.Sprintf("NewInterceptors must be used in combination with grpc.NewTransportCredentials, but got auth type %T", p.AuthInfo))
 		}
+		logger.WithField("peer_client_identity", a.clientIdentity).Debug("peer client identity")
 		ctx = context.WithValue(ctx, clientIdentityKey, a.clientIdentity)
 		return handler(ctx, req)
 	}

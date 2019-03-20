@@ -7,7 +7,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/zrepl/zrepl/endpoint"
-	"github.com/zrepl/zrepl/replication/pdu"
+	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn"
 	"github.com/zrepl/zrepl/rpc/grpcclientidentity"
 	"github.com/zrepl/zrepl/rpc/netadaptor"

@@ -40,3 +40,19 @@ func Int64(varname string, def int64) int64 {
 	cache.Store(varname, d)
 	return d
 }
+
+func Bool(varname string, def bool) bool {
+	if v, ok := cache.Load(varname); ok {
+		return v.(bool)
+	}
+	e := os.Getenv(varname)
+	if e == "" {
+		return def
+	}
+	d, err := strconv.ParseBool(e)
+	if err != nil {
+		panic(err)
+	}
+	cache.Store(varname, d)
+	return d
+}

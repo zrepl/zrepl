@@ -55,6 +55,7 @@ func (l HandshakeListener) Accept(ctx context.Context) (*transport.AuthConn, err
 		dl = time.Now().Add(l.timeout) // shadowing
 	}
 	if err := DoHandshakeCurrentVersion(conn, dl); err != nil {
+		err.isAcceptError = true
 		conn.Close()
 		return nil, err
 	}

@@ -33,6 +33,7 @@ Main Features
 
   * Advanced replication features
 
+    * [x] Automatic retries for temporary network errors
     * [ ] Resumable send & receive
     * [ ] Compressed send & receive
     * [ ] Raw encrypted send & receive
