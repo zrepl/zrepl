@@ -94,10 +94,15 @@ Changes
 * |feature| ``zrepl status`` for live-updating replication progress (it's really cool!)
 * |feature| :issue:`67`: Expose `Prometheus <https://prometheus.io>`_ metrics via HTTP (:ref:`config docs <monitoring-prometheus>`)
 
+  * Compatible Grafana dashboard shipping in ``dist/grafana``
+
 * |break_config| Logging outlet types must be specified using the ``type`` instead of ``outlet`` key
 * |break| :issue:`53`: CLI: ``zrepl control *`` subcommands have been made direct subcommands of ``zrepl *``
 * |bugfix| Goroutine leak on ssh transport connection timeouts
 * |bugfix| :issue:`81` :issue:`77` : handle failed accepts correctly (``source`` job)
+* |bugfix| :issue:`100`: fix incompatibility with ZoL 0.8
+* |feature| :issue:`115`: logging: configurable syslog facility
+* |feature| Systemd unit file in ``dist/systemd``
 
 .. |lastrelease| replace:: 0.0.3
 
@@ -107,8 +112,3 @@ Previous Releases
 .. NOTE::
     Due to limitations in our documentation system, we only show the changelog since the last release and the time this documentation is built.
     For the changelog of previous releases, use the version selection in the hosted version of these docs at `zrepl.github.io <https://zrepl.github.io>`_.
-    
-    
-
-
-W

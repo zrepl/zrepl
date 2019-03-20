@@ -7,7 +7,7 @@ Logging
 
 zrepl uses structured logging to provide users with easily processable log messages.
 
-Logging outlets are configured in the ``global`` section of the |mainconfig|.
+Logging outlets are configured in the ``global`` section of the config file.
 
 ::
 

@@ -77,7 +77,8 @@ We are happy about any help we can get!
   * These docs live in the ``docs/`` subdirectory
 
 * Document any non-obvious / confusing / plain broken behavior you encounter when setting up zrepl for the first time
-* Check the *Issues* and *Projects* sections for things to do
+* Check the *Issues* and *Projects* sections for things to do.
+  The `good first issues <https://github.com/zrepl/zrepl/labels/good%20first%20issue>`_ and `docs <https://github.com/zrepl/zrepl/labels/docs>`_ are suitable starting points.
 
 .. admonition:: Development Workflow
     :class: note

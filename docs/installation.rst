@@ -80,8 +80,6 @@ Either way, all build results are located in the ``artifacts/`` directory.
     It is your job to install the apropriate binary in the zrepl users's ``$PATH``, e.g. ``/usr/local/bin/zrepl``.
     Otherwise, the examples in the :ref:`tutorial` may need to be adjusted.
 
-.. _mainconfigfile:
-
 What next?
 ----------
 

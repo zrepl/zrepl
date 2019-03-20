@@ -171,7 +171,7 @@ The Linux equivalent might look like this: ::
 Summary
 -------
 
-Congratulations, you have a working pull backup. Where to go next?
+Congratulations, you have a working push backup. Where to go next?
 
 * Read more about :ref:`configuration format, options & job types <configuration_toc>`
 * Configure :ref:`logging <logging>` \& :ref:`monitoring <monitoring>`.

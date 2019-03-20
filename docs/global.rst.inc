@@ -1,3 +1,4 @@
 .. global list of substitutions
 
-.. |mainconfig| replace:: :ref:`main configuration file <mainconfigfile>`
+.. 
+  .. |macroname| replace:: macro expansion

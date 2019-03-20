@@ -26,7 +26,8 @@ Check out the *Coding Workflow* section below for details.
 * Make sure your distro is compatible with the paths in `docs/installation.rst`.
 * Ship a default config that adheres to your distro's `hier` and logging system.
 * Ship a service manager file and _please_ try to upstream it to this repository.
-  * `dist/systemd` contains a Systemd unit template
+  * `dist/systemd` contains a Systemd unit template.
+* Ship other material provided in `./dist`, e.g. in `/usr/share/zrepl/`.
 * Use `make release ZREPL_VERSION='mydistro-1.2.3_1'`
     * Your distro's name and any versioning supplemental to zrepl's (e.g. package revision) should be in this string
 * Make sure you are informed about new zrepl versions, e.g. by subscribing to GitHub's release RSS feed.
@@ -62,6 +63,7 @@ Make sure to develop an understanding how zrepl is typically used by studying th
 │   ├── streamrpcconfig     # abstraction for configuration of go-streamrpc
 │   └── transport           # transports implementation
 ├── docs                    # sphinx-based documentation
+├── dist                    # supplemental material for users & package maintainers
 │   ├── **/*.rst            # documentation in reStructuredText
 │   ├── sphinxconf
 │   │   └── conf.py         # sphinx config (see commit 445a280 why its not in docs/)
