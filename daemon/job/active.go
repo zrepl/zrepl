@@ -299,6 +299,15 @@ func (j *ActiveSide) Status() *Status {
 	return &Status{Type: t, JobSpecific: s}
 }
 
+func (j *ActiveSide) OwnedDatasetSubtreeRoot() (rfs *zfs.DatasetPath, ok bool) {
+	pull, ok := j.mode.(*modePull)
+	if !ok {
+		_ = j.mode.(*modePush) // make sure we didn't introduce a new job type
+		return nil, false
+	}
+	return pull.rootFS.Copy(), true
+}
+
 func (j *ActiveSide) Run(ctx context.Context) {
 	log := GetLogger(ctx)
 	ctx = logging.WithSubsystemLoggers(ctx, log)

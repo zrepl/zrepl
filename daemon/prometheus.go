@@ -42,6 +42,8 @@ func (j *prometheusJob) Name() string { return jobNamePrometheus }
 
 func (j *prometheusJob) Status() *job.Status { return &job.Status{Type: job.TypeInternal} }
 
+func (j *prometheusJob) OwnedDatasetSubtreeRoot() (p *zfs.DatasetPath, ok bool) { return nil, false }
+
 func (j *prometheusJob) RegisterMetrics(registerer prometheus.Registerer) {}
 
 func (j *prometheusJob) Run(ctx context.Context) {

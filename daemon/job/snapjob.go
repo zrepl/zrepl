@@ -77,6 +77,10 @@ func (j *SnapJob) Status() *Status {
 	return &Status{Type: t, JobSpecific: s}
 }
 
+func (j *SnapJob) OwnedDatasetSubtreeRoot() (rfs *zfs.DatasetPath, ok bool) {
+	return nil, false
+}
+
 func (j *SnapJob) Run(ctx context.Context) {
 	log := GetLogger(ctx)
 	ctx = logging.WithSubsystemLoggers(ctx, log)

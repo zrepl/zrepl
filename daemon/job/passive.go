@@ -103,6 +103,15 @@ func (s *PassiveSide) Status() *Status {
 	return &Status{Type: s.mode.Type()} // FIXME PassiveStatus
 }
 
+func (j *PassiveSide) OwnedDatasetSubtreeRoot() (rfs *zfs.DatasetPath, ok bool) {
+	sink, ok := j.mode.(*modeSink)
+	if !ok {
+		_ = j.mode.(*modeSource) // make sure we didn't introduce a new job type
+		return nil, false
+	}
+	return sink.rootDataset.Copy(), true
+}
+
 func (*PassiveSide) RegisterMetrics(registerer prometheus.Registerer) {}
 
 func (j *PassiveSide) Run(ctx context.Context) {
