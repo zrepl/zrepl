@@ -108,6 +108,7 @@ The **replication cursor bookmark** ``#zrepl_replication_cursor`` is kept per fi
 It is a bookmark of the most recent successfully replicated snapshot to the receiving side.
 It is is used by the :ref:`not_replicated <prune-keep-not-replicated>` keep rule to identify all snapshots that have not yet been replicated to the receiving side.
 Regardless of whether that keep rule is used, the bookmark ensures that replication can always continue incrementally.
+Note that there is only one cursor bookmark per filesystem, which prohibits multiple jobs to replicate the same filesystem (:ref:`see below<jobs-multiple-jobs>`).
 
 .. _replication-placeholder-property:
 
@@ -171,6 +172,50 @@ Note that you will have to trigger replication manually using the ``zrepl signal
      snapshotting:
        type: manual
      ...
+
+.. _jobs-multiple-jobs:
+
+Multiple Jobs & More than 2 Machines
+------------------------------------
+
+.. ATTENTION::
+
+  When using multiple jobs across single or multiple machines, the following rules are critical to avoid race conditions & data loss:
+
+  1. The sets of ZFS filesystems matched by the ``filesystems`` filter fields must be disjoint across all jobs configured on a machine.
+  2. The ZFS filesystem subtrees of jobs with ``root_fs`` must be disjoint.
+  3. Across all zrepl instances on all machines in the replication domain, there must be a 1:1 correspondence between active and passive jobs.
+
+  Explanations & exceptions to above rules are detailed below.
+
+If you would like to see improvements to multi-job setups, please `open an issue on GitHub <https://github.com/zrepl/zrepl/issues/new>`_.
+
+No Overlapping
+~~~~~~~~~~~~~~
+
+Jobs run independently of each other.
+If two jobs match the same filesystem with their ``filesystems`` filter, they will operate on that filesystem independently and potentially in parallel.
+For example, if job A prunes snapshots that job B is planning to replicate, the replication will fail because B asssumed the snapshot to still be present.
+More subtle race conditions can occur with the :ref:`replication cursor bookmark <replication-cursor-bookmark>`, which currently only exists once per filesystem.
+
+N push jobs to 1 sink
+~~~~~~~~~~~~~~~~~~~~~
+
+The :ref:`sink job <job-sink>` namespaces by client identity.
+It is thus safe to push to one sink job with different client identities.
+If the push jobs have the same client identity, the filesystems matched by the push jobs must be disjoint to avoid races.
+
+N pull jobs from 1 source
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Multiple pull jobs pulling from the same source have potential for race conditions during pruning:
+each pull job prunes the source side independently, causing replication-prune and prune-prune races.
+
+There is currently no way for a pull job to filter which snapshots it should attempt to replicate.
+Thus, it is not possibe to just manually assert that the prune rules of all pull jobs are disjoint to avoid replication-prune and prune-prune races.
+
+
+------------------------------------------------------------------------------
 
 
 .. _job-push:
