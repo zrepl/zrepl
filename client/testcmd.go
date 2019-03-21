@@ -116,17 +116,14 @@ var testPlaceholderArgs struct {
 }
 
 var testPlaceholder = &cli.Subcommand{
-	Use:   "placeholder [--all | --dataset DATASET --action [compute | check [--placeholder PROP_VALUE]]]",
-	Short: fmt.Sprintf("list received placeholder filesystems & compute the ZFS property %q", zfs.ZREPL_PLACEHOLDER_PROPERTY_NAME),
+	Use:   "placeholder [--all | --dataset DATASET]",
+	Short: fmt.Sprintf("list received placeholder filesystems (zfs property %q)", zfs.PlaceholderPropertyName),
 	Example: `
 	placeholder --all
-	placeholder --dataset path/to/sink/clientident/fs --action compute
-	placeholder --dataset path/to/sink/clientident/fs --action check --placeholder 1671a61be44d32d1f3f047c5f124b06f98f54143d82900545ee529165060b859`,
+	placeholder --dataset path/to/sink/clientident/fs`,
 	NoRequireConfig: true,
 	SetupFlags: func(f *pflag.FlagSet) {
-		f.StringVar(&testPlaceholderArgs.action, "action", "", "check | compute")
 		f.StringVar(&testPlaceholderArgs.ds, "dataset", "", "dataset path (not required to exist)")
-		f.StringVar(&testPlaceholderArgs.plv, "placeholder", "", "existing placeholder value to check against DATASET path")
 		f.BoolVar(&testPlaceholderArgs.all, "all", false, "list tab-separated placeholder status of all filesystems")
 	},
 	Run: runTestPlaceholder,
@@ -134,58 +131,46 @@ var testPlaceholder = &cli.Subcommand{
 
 func runTestPlaceholder(subcommand *cli.Subcommand, args []string) error {
 
+	var checkDPs []*zfs.DatasetPath
+
 	// all actions first
 	if testPlaceholderArgs.all {
-		out, err := zfs.ZFSList([]string{"name", zfs.ZREPL_PLACEHOLDER_PROPERTY_NAME})
+		out, err := zfs.ZFSList([]string{"name"})
 		if err != nil {
 			return errors.Wrap(err, "could not list ZFS filesystems")
 		}
-		fmt.Printf("IS_PLACEHOLDER\tDATASET\tPROPVALUE\tCOMPUTED\n")
 		for _, row := range out {
 			dp, err := zfs.NewDatasetPath(row[0])
 			if err != nil {
 				panic(err)
 			}
-			computedProp := zfs.PlaceholderPropertyValue(dp)
-			is := "yes"
-			if computedProp != row[1] {
-				is = "no"
-			}
-			fmt.Printf("%s\t%s\t%q\t%q\n", is, dp.ToString(), row[1], computedProp)
+			checkDPs = append(checkDPs, dp)
 		}
-		return nil
+	} else {
+		dp, err := zfs.NewDatasetPath(testPlaceholderArgs.ds)
+		if err != nil {
+			return err
+		}
+		if dp.Empty() {
+			return fmt.Errorf("must specify --dataset DATASET or --all")
+		}
+		checkDPs = append(checkDPs, dp)
 	}
 
-	// other actions
-
-	dp, err := zfs.NewDatasetPath(testPlaceholderArgs.ds)
-	if err != nil {
-		return err
-	}
-
-	computedProp := zfs.PlaceholderPropertyValue(dp)
-
-	switch testPlaceholderArgs.action {
-	case "check":
-		var isPlaceholder bool
-		if testPlaceholderArgs.plv != "" {
-			isPlaceholder = computedProp == testPlaceholderArgs.plv
-		} else {
-			isPlaceholder, err = zfs.ZFSIsPlaceholderFilesystem(dp)
-			if err != nil {
-				return err
-			}
+	fmt.Printf("IS_PLACEHOLDER\tDATASET\tzrepl:placeholder\n")
+	for _, dp := range checkDPs {
+		ph, err := zfs.ZFSGetFilesystemPlaceholderState(dp)
+		if err != nil {
+			return errors.Wrap(err, "cannot get placeholder state")
 		}
-		if isPlaceholder {
-			fmt.Printf("%s is placeholder\n", dp.ToString())
-			return nil
-		} else {
-			return fmt.Errorf("%s is not a placeholder", dp.ToString())
+		if !ph.FSExists {
+			panic("placeholder state inconsistent: filesystem " + ph.FS + " must exist in this context")
 		}
-	case "compute":
-		fmt.Printf("%s\n", computedProp)
-		return nil
+		is := "yes"
+		if !ph.IsPlaceholder {
+			is = "no"
+		}
+		fmt.Printf("%s\t%s\t%s\n", is, dp.ToString(), ph.RawLocalPropertyValue)
 	}
-
-	return fmt.Errorf("unknown --action %q", testPlaceholderArgs.action)
+	return nil
 }

@@ -3,6 +3,7 @@
 .. |bugfix| replace:: [BUG]
 .. |docs| replace:: [DOCS]
 .. |feature| replace:: [FEATURE]
+.. |mig| replace:: **[MIGRATION]**
 
 .. _changelog:
 
@@ -19,6 +20,7 @@ We use the following annotations for classifying changes:
 * |break| Change that breaks interoperability or persistent state representation with previous releases.
   As a package maintainer, make sure to warn your users about config breakage somehow.
   Note that even updating the package on both sides might not be sufficient, e.g. if persistent state needs to be migrated to a new format.
+* |mig| Migration that must be run by the user.
 * |feature| Change that introduces new functionality.
 * |bugfix| Change that fixes a bug, no regressions or incompatibilities expected.
 * |docs| Change to the documentation.
@@ -40,6 +42,7 @@ It breaks both configuration and transport format, and thus requires manual inte
 Notes to Package Maintainers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+* Notify users about migrations (see changes attributed with |mig| below)
 * If the daemon crashes, the stack trace produced by the Go runtime and possibly diagnostic output of zrepl will be written to stderr.
   This behavior is independent from the ``stdout`` outlet type.
   Please make sure the stderr output of the daemon is captured somewhere.
@@ -51,6 +54,15 @@ Notes to Package Maintainers
 
 Changes
 ~~~~~~~
+
+* |break| |mig| Placeholder property representation changed
+
+  * The :ref:`placeholder property <replication-placeholder-property>` now uses ``on|off`` as values
+    instead of hashes of the dataset path. This permits renames of the sink filesystem without
+    updating all placeholder properties.
+  * Relevant for 0.0.X-0.1-rc* to 0.1 migrations
+  * Make sure your config is valid with ``zrepl configcheck``
+  * Run ``zrepl migrate 0.0.X:0.1:placeholder``
 
 * |feature| :issue:`55` : Push replication (see :ref:`push job <job-push>` and :ref:`sink job <job-sink>`)
 * |feature| :ref:`TCP Transport <transport-tcp>`

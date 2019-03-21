@@ -35,6 +35,9 @@ CLI Overview
       - manually abort current replication + pruning of JOB
     * - ``zrepl configcheck``
       - check if config can be parsed without errors
+    * - ``zrepl migrate``
+      - | perform on-disk state / ZFS property migrations
+        | (see :ref:`changelog <changelog>` for details)
 
 .. _usage-zrepl-daemon:
 

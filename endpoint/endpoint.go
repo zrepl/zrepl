@@ -247,20 +247,20 @@ func (s *Receiver) ListFilesystems(ctx context.Context, req *pdu.ListFilesystemR
 	// present filesystem without the root_fs prefix
 	fss := make([]*pdu.Filesystem, 0, len(filtered))
 	for _, a := range filtered {
-		ph, err := zfs.ZFSIsPlaceholderFilesystem(a)
+		l := getLogger(ctx).WithField("fs", a)
+		ph, err := zfs.ZFSGetFilesystemPlaceholderState(a)
 		if err != nil {
-			getLogger(ctx).
-				WithError(err).
-				WithField("fs", a).
-				Error("inconsistent placeholder property")
-			return nil, errors.New("server error: inconsistent placeholder property") // don't leak path
+			l.WithError(err).Error("error getting placeholder state")
+			return nil, errors.Wrapf(err, "cannot get placeholder state for fs %q", a)
 		}
-		getLogger(ctx).
-			WithField("fs", a.ToString()).
-			WithField("is_placeholder", ph).
-			Debug("filesystem")
+		l.WithField("placeholder_state", fmt.Sprintf("%#v", ph)).Debug("placeholder state")
+		if !ph.FSExists {
+			l.Error("inconsistent placeholder state: filesystem must exists")
+			err := errors.Errorf("inconsistent placeholder state: filesystem %q must exist in this context", a.ToString())
+			return nil, err
+		}
 		a.TrimPrefix(root)
-		fss = append(fss, &pdu.Filesystem{Path: a.ToString(), IsPlaceholder: ph})
+		fss = append(fss, &pdu.Filesystem{Path: a.ToString(), IsPlaceholder: ph.IsPlaceholder})
 	}
 	if len(fss) == 0 {
 		getLogger(ctx).Debug("no filesystems found")
@@ -331,17 +331,26 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs
 		if v.Path.Equal(lp) {
 			return false
 		}
-		_, err := zfs.ZFSGet(v.Path, []string{zfs.ZREPL_PLACEHOLDER_PROPERTY_NAME})
+		ph, err := zfs.ZFSGetFilesystemPlaceholderState(v.Path)
 		if err != nil {
-			// interpret this as an early exit of the zfs binary due to the fs not existing
-			if err := zfs.ZFSCreatePlaceholderFilesystem(v.Path); err != nil {
-				getLogger(ctx).
-					WithError(err).
-					WithField("placeholder_fs", v.Path).
-					Error("cannot create placeholder filesystem")
+			visitErr = err
+			return false
+		}
+		getLogger(ctx).
+			WithField("fs", v.Path.ToString()).
+			WithField("placeholder_state", fmt.Sprintf("%#v", ph)).
+			Debug("placeholder state for filesystem")
+
+		if !ph.FSExists {
+			l := getLogger(ctx).WithField("placeholder_fs", v.Path)
+			l.Debug("create placeholder filesystem")
+			err := zfs.ZFSCreatePlaceholderFilesystem(v.Path)
+			if err != nil {
+				l.WithError(err).Error("cannot create placeholder filesystem")
 				visitErr = err
 				return false
 			}
+			return true
 		}
 		getLogger(ctx).WithField("filesystem", v.Path.ToString()).Debug("exists")
 		return true // leave this fs as is
@@ -352,17 +361,16 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs
 		return nil, visitErr
 	}
 
+	// determine whether we need to rollback the filesystem / change its placeholder state
 	var clearPlaceholderProperty bool
 	var recvOpts zfs.RecvOptions
-	props, err := zfs.ZFSGet(lp, []string{zfs.ZREPL_PLACEHOLDER_PROPERTY_NAME})
-	if err == nil {
-		if isPlaceholder, _ := zfs.IsPlaceholder(lp, props.Get(zfs.ZREPL_PLACEHOLDER_PROPERTY_NAME)); isPlaceholder {
-			recvOpts.RollbackAndForceRecv = true
-			clearPlaceholderProperty = true
-		}
+	ph, err := zfs.ZFSGetFilesystemPlaceholderState(lp)
+	if err == nil && ph.FSExists && ph.IsPlaceholder {
+		recvOpts.RollbackAndForceRecv = true
+		clearPlaceholderProperty = true
 	}
 	if clearPlaceholderProperty {
-		if err := zfs.ZFSSetNoPlaceholder(lp); err != nil {
+		if err := zfs.ZFSSetPlaceholder(lp, false); err != nil {
 			return nil, fmt.Errorf("cannot clear placeholder property for forced receive: %s", err)
 		}
 	}

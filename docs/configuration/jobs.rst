@@ -109,7 +109,9 @@ It is a bookmark of the most recent successfully replicated snapshot to the rece
 It is is used by the :ref:`not_replicated <prune-keep-not-replicated>` keep rule to identify all snapshots that have not yet been replicated to the receiving side.
 Regardless of whether that keep rule is used, the bookmark ensures that replication can always continue incrementally.
 
-**Placeholder filesystems** on the receiving side are regular ZFS filesystems with the placeholder property ``zrepl:placeholder``.
+.. _replication-placeholder-property:
+
+**Placeholder filesystems** on the receiving side are regular ZFS filesystems with the placeholder property ``zrepl:placeholder=on``.
 Placeholders allow the receiving side to mirror the sender's ZFS dataset hierachy without replicating every filesystem at every intermediary dataset path component.
 Consider the following example: ``S/H/J`` shall be replicated to ``R/sink/job/S/H/J``, but neither ``S/H`` nor ``S`` shall be replicated.
 ZFS requires the existence of ``R/sink/job/S`` and ``R/sink/job/S/H`` in order to receive into ``R/sink/job/S/H/J``.
