@@ -577,10 +577,17 @@ type DrySendInfo struct {
 	SizeEstimate int64 // -1 if size estimate is not possible
 }
 
-var sendDryRunInfoLineRegex = regexp.MustCompile(`^(full|incremental)(\t(\S+))?\t(\S+)\t([0-9]+)$`)
+var (
+	// keep same number of capture groups for unmarshalInfoLine homogenity
+
+	sendDryRunInfoLineRegexFull = regexp.MustCompile(`^(full)\t()([^\t]+@[^\t]+)\t([0-9]+)$`)
+	// cannot enforce '[#@]' in incremental source, see test cases  
+	sendDryRunInfoLineRegexIncremental = regexp.MustCompile(`^(incremental)\t([^\t]+)\t([^\t]+@[^\t]+)\t([0-9]+)$`)
+)
 
 // see test cases for example output
 func (s *DrySendInfo) unmarshalZFSOutput(output []byte) (err error) {
+	debug("DrySendInfo.unmarshalZFSOutput: output=%q", output)
 	lines := strings.Split(string(output), "\n")
 	for _, l := range lines {
 		regexMatched, err := s.unmarshalInfoLine(l)
@@ -592,7 +599,7 @@ func (s *DrySendInfo) unmarshalZFSOutput(output []byte) (err error) {
 		}
 		return nil
 	}
-	return fmt.Errorf("no match for info line (regex %s)", sendDryRunInfoLineRegex)
+	return fmt.Errorf("no match for info line (regex1 %s) (regex2 %s)", sendDryRunInfoLineRegexFull, sendDryRunInfoLineRegexIncremental)
 }
 
 
@@ -602,24 +609,32 @@ func (s *DrySendInfo) unmarshalZFSOutput(output []byte) (err error) {
 // => see test cases
 func (s *DrySendInfo) unmarshalInfoLine(l string) (regexMatched bool, err error) {
 
-	m := sendDryRunInfoLineRegex.FindStringSubmatch(l)
-	if m == nil {
+	mFull := sendDryRunInfoLineRegexFull.FindStringSubmatch(l)
+	mInc := sendDryRunInfoLineRegexIncremental.FindStringSubmatch(l)
+	var m []string
+	if mFull == nil && mInc == nil {
 		return false, nil
+	} else if mFull != nil && mInc != nil {
+		panic(fmt.Sprintf("ambiguous ZFS dry send output: %q", l))
+	} else if mFull != nil {
+		m = mFull
+	} else if mInc != nil {
+		m = mInc
 	}
 	s.Type, err = DrySendTypeFromString(m[1])
 	if err != nil {
 		return true, err
 	}
 
-	s.From = m[3]
-	s.To = m[4]
-	toFS, _, _ , err := DecomposeVersionString(s.To)
+	s.From = m[2]
+	s.To = m[3]
+	toFS, _, _, err := DecomposeVersionString(s.To)
 	if err != nil {
 		return true, fmt.Errorf("'to' is not a valid filesystem version: %s", err)
 	}
 	s.Filesystem = toFS
 
-	s.SizeEstimate, err = strconv.ParseInt(m[5], 10, 64)
+	s.SizeEstimate, err = strconv.ParseInt(m[4], 10, 64)
 	if err != nil {
 		return true, fmt.Errorf("cannot not parse size: %s", err)
 	}
@@ -909,7 +924,7 @@ func ZFSGet(fs *DatasetPath, props []string) (*ZFSProperties, error) {
 	return zfsGet(fs.ToString(), props, sourceAny)
 }
 
-var zfsGetDatasetDoesNotExistRegexp = regexp.MustCompile(`^cannot open '(\S+)': (dataset does not exist|no such pool or dataset)`)
+var zfsGetDatasetDoesNotExistRegexp = regexp.MustCompile(`^cannot open '([^)]+)': (dataset does not exist|no such pool or dataset)`)
 
 type DatasetDoesNotExist struct {
 	Path string
@@ -1064,6 +1079,8 @@ func ZFSBookmark(fs *DatasetPath, snapshot, bookmark string) (err error) {
 
 	snapname := zfsBuildSnapName(fs, snapshot)
 	bookmarkname := zfsBuildBookmarkName(fs, bookmark)
+
+	debug("bookmark: %q %q", snapname, bookmarkname)
 
 	cmd := exec.Command(ZFS_BINARY, "bookmark", snapname, bookmarkname)
 

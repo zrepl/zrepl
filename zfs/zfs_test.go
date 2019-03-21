@@ -70,6 +70,10 @@ func TestZFSPropertySource(t *testing.T) {
 
 }
 
+func TestDrySendRegexesHaveSameCaptureGroupCount(t *testing.T) {
+	assert.Equal(t, sendDryRunInfoLineRegexFull.NumSubexp(), sendDryRunInfoLineRegexIncremental.NumSubexp())
+}
+
 func TestDrySendInfo(t *testing.T) {
 
 	// # full send
@@ -127,6 +131,11 @@ full	zroot/test/a@3	10518512
 size	10518512
 `
 
+	fullWithSpaces := "\nfull\tpool1/otherjob/ds with spaces@blaffoo\t12912\nsize\t12912\n"
+	fullWithSpacesInIntermediateComponent := "\nfull\tpool1/otherjob/another ds with spaces/childfs@blaffoo\t12912\nsize\t12912\n"
+	incrementalWithSpaces := "\nincremental\tblaffoo\tpool1/otherjob/another ds with spaces@blaffoo2\t624\nsize\t624\n"
+	incrementalWithSpacesInIntermediateComponent := "\nincremental\tblaffoo\tpool1/otherjob/another ds with spaces/childfs@blaffoo2\t624\nsize\t624\n"
+
 	type tc struct {
 		name string
 		in string
@@ -165,7 +174,7 @@ size	10518512
 				SizeEstimate: 5383312,
 			},
 		},
-		{
+			{
 			name: "incNoToken", in: incNoToken,
 			exp: &DrySendInfo{
 				Type:         DrySendTypeIncremental,
@@ -185,6 +194,46 @@ size	10518512
 				From: "",
 				To: "zroot/test/a@3",
 				SizeEstimate: 10518512,
+			},
+		},
+		{
+			name: "fullWithSpaces", in: fullWithSpaces,
+			exp: &DrySendInfo{
+				Type:         DrySendTypeFull,
+				Filesystem:   "pool1/otherjob/ds with spaces",
+				From:         "",
+				To:           "pool1/otherjob/ds with spaces@blaffoo",
+				SizeEstimate: 12912,
+			},
+		},
+		{
+			name: "fullWithSpacesInIntermediateComponent", in: fullWithSpacesInIntermediateComponent,
+			exp: &DrySendInfo{
+				Type:         DrySendTypeFull,
+				Filesystem:   "pool1/otherjob/another ds with spaces/childfs",
+				From:         "",
+				To:           "pool1/otherjob/another ds with spaces/childfs@blaffoo",
+				SizeEstimate: 12912,
+			},
+		},
+		{
+			name: "incrementalWithSpaces", in: incrementalWithSpaces,
+			exp: &DrySendInfo{
+				Type:         DrySendTypeIncremental,
+				Filesystem:   "pool1/otherjob/another ds with spaces",
+				From:         "blaffoo",
+				To:           "pool1/otherjob/another ds with spaces@blaffoo2",
+				SizeEstimate: 624,
+			},
+		},
+		{
+			name: "incrementalWithSpacesInIntermediateComponent", in: incrementalWithSpacesInIntermediateComponent,
+			exp: &DrySendInfo{
+				Type:         DrySendTypeIncremental,
+				Filesystem:   "pool1/otherjob/another ds with spaces/childfs",
+				From:         "blaffoo",
+				To:           "pool1/otherjob/another ds with spaces/childfs@blaffoo2",
+				SizeEstimate: 624,
 			},
 		},
 	}
