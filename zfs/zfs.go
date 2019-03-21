@@ -924,7 +924,7 @@ func ZFSGet(fs *DatasetPath, props []string) (*ZFSProperties, error) {
 	return zfsGet(fs.ToString(), props, sourceAny)
 }
 
-var zfsGetDatasetDoesNotExistRegexp = regexp.MustCompile(`^cannot open '(\S+)': (dataset does not exist|no such pool or dataset)`)
+var zfsGetDatasetDoesNotExistRegexp = regexp.MustCompile(`^cannot open '([^)]+)': (dataset does not exist|no such pool or dataset)`)
 
 type DatasetDoesNotExist struct {
 	Path string
@@ -1079,6 +1079,8 @@ func ZFSBookmark(fs *DatasetPath, snapshot, bookmark string) (err error) {
 
 	snapname := zfsBuildSnapName(fs, snapshot)
 	bookmarkname := zfsBuildBookmarkName(fs, bookmark)
+
+	debug("bookmark: %q %q", snapname, bookmarkname)
 
 	cmd := exec.Command(ZFS_BINARY, "bookmark", snapname, bookmarkname)
 
