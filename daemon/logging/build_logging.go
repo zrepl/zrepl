@@ -16,6 +16,7 @@ import (
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/replication/driver"
+	"github.com/zrepl/zrepl/replication/logic"
 	"github.com/zrepl/zrepl/rpc"
 	"github.com/zrepl/zrepl/rpc/transportmux"
 	"github.com/zrepl/zrepl/tlsconf"
@@ -79,6 +80,7 @@ const (
 )
 
 func WithSubsystemLoggers(ctx context.Context, log logger.Logger) context.Context {
+	ctx = logic.WithLogger(ctx, log.WithField(SubsysField, SubsysReplication))
 	ctx = driver.WithLogger(ctx, log.WithField(SubsysField, SubsysReplication))
 	ctx = endpoint.WithLogger(ctx, log.WithField(SubsysField, SubsyEndpoint))
 	ctx = pruner.WithLogger(ctx, log.WithField(SubsysField, SubsysPruning))
