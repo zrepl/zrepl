@@ -56,7 +56,7 @@ sphinx-versioning build \
    --show-banner \
    --whitelist-branches 'master' \
    --whitelist-tags '(v)?\d+\.\d+\.\d+$' \
-   --whitelist-tags '0.1.0-rc(3|4)$' \
+   --whitelist-tags '(v)?0.1.0-rc(3|4)$' \
    docs ./public_git \
    -- -c sphinxconf # older conf.py throw errors because they used
                     # version = subprocess.show_output(["git", "describe"])
