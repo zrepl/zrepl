@@ -12,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/daemon/nethelpers"
 	"github.com/zrepl/zrepl/logger"
@@ -43,24 +44,24 @@ func (j *controlJob) Status() *job.Status { return &job.Status{Type: job.TypeInt
 func (j *controlJob) OwnedDatasetSubtreeRoot() (p *zfs.DatasetPath, ok bool) { return nil, false }
 
 var promControl struct {
-	requestBegin *prometheus.CounterVec
+	requestBegin    *prometheus.CounterVec
 	requestFinished *prometheus.HistogramVec
 }
 
 func (j *controlJob) RegisterMetrics(registerer prometheus.Registerer) {
 	promControl.requestBegin = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace:   "zrepl",
-		Subsystem:   "control",
-		Name:        "request_begin",
-		Help:        "number of request we started to handle",
+		Namespace: "zrepl",
+		Subsystem: "control",
+		Name:      "request_begin",
+		Help:      "number of request we started to handle",
 	}, []string{"endpoint"})
 
 	promControl.requestFinished = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace:   "zrepl",
-		Subsystem:   "control",
-		Name:        "request_finished",
-		Help:        "time it took a request to finih",
-		Buckets: []float64{1e-6, 10e-6, 100e-6, 500e-6, 1e-3,10e-3, 100e-3, 200e-3,400e-3,800e-3, 1, 10, 20},
+		Namespace: "zrepl",
+		Subsystem: "control",
+		Name:      "request_finished",
+		Help:      "time it took a request to finih",
+		Buckets:   []float64{1e-6, 10e-6, 100e-6, 500e-6, 1e-3, 10e-3, 100e-3, 200e-3, 400e-3, 800e-3, 1, 10, 20},
 	}, []string{"endpoint"})
 	registerer.MustRegister(promControl.requestBegin)
 	registerer.MustRegister(promControl.requestFinished)
@@ -114,7 +115,7 @@ func (j *controlJob) Run(ctx context.Context) {
 		requestLogger{log: log, handler: jsonRequestResponder{func(decoder jsonDecoder) (interface{}, error) {
 			type reqT struct {
 				Name string
-				Op string
+				Op   string
 			}
 			var req reqT
 			if decoder(&req) != nil {
@@ -136,8 +137,8 @@ func (j *controlJob) Run(ctx context.Context) {
 	server := http.Server{
 		Handler: mux,
 		// control socket is local, 1s timeout should be more than sufficient, even on a loaded system
-		WriteTimeout: 1*time.Second,
-		ReadTimeout: 1*time.Second,
+		WriteTimeout: 1 * time.Second,
+		ReadTimeout:  1 * time.Second,
 	}
 
 outer:

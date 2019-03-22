@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/google/uuid"
+
 	"github.com/zrepl/zrepl/replication/logic"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn"
@@ -158,7 +159,7 @@ func (c *Client) WaitForConnectivity(ctx context.Context) error {
 				time.Sleep(envconst.Duration("ZREPL_RPC_DATACONN_PING_SLEEP", 1*time.Second))
 				continue
 			}
-			// it's not a dial timeout, 
+			// it's not a dial timeout,
 			checkRes(data, dataErr, loggers.Data, &dataOk)
 			return
 		}

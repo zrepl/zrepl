@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -29,7 +30,6 @@ func WithLogger(ctx context.Context, l Logger) context.Context {
 	return context.WithValue(ctx, contextKeyLog, l)
 }
 
-
 type Job interface {
 	Name() string
 	Run(ctx context.Context)
@@ -44,15 +44,15 @@ type Type string
 
 const (
 	TypeInternal Type = "internal"
-	TypeSnap Type = "snap"
-	TypePush Type = "push"
-	TypeSink Type = "sink"
-	TypePull Type  = "pull"
-	TypeSource Type = "source"
+	TypeSnap     Type = "snap"
+	TypePush     Type = "push"
+	TypeSink     Type = "sink"
+	TypePull     Type = "pull"
+	TypeSource   Type = "source"
 )
 
 type Status struct {
-	Type Type
+	Type        Type
 	JobSpecific interface{}
 }
 
@@ -65,8 +65,8 @@ func (s *Status) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	m := map[string]json.RawMessage {
-		"type": typeJson,
+	m := map[string]json.RawMessage{
+		"type":         typeJson,
 		string(s.Type): jobJSON,
 	}
 	return json.Marshal(m)
@@ -94,12 +94,14 @@ func (s *Status) UnmarshalJSON(in []byte) (err error) {
 		var st SnapJobStatus
 		err = json.Unmarshal(jobJSON, &st)
 		s.JobSpecific = &st
-	case TypePull: fallthrough
+	case TypePull:
+		fallthrough
 	case TypePush:
 		var st ActiveSideStatus
 		err = json.Unmarshal(jobJSON, &st)
 		s.JobSpecific = &st
-	case TypeSource: fallthrough
+	case TypeSource:
+		fallthrough
 	case TypeSink:
 		var st PassiveStatus
 		err = json.Unmarshal(jobJSON, &st)

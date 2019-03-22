@@ -18,11 +18,12 @@ import (
 	"net"
 	"time"
 
-	"github.com/zrepl/zrepl/logger"
-	"github.com/zrepl/zrepl/transport"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+
+	"github.com/zrepl/zrepl/logger"
+	"github.com/zrepl/zrepl/transport"
 )
 
 type Logger = logger.Logger

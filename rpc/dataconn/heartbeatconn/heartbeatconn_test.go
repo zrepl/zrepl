@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
 	"github.com/zrepl/zrepl/rpc/dataconn/frameconn"
 )
 

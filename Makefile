@@ -30,6 +30,9 @@ generate: #not part of the build, must do that manually
 	protoc -I=replication/logic/pdu --go_out=plugins=grpc:replication/logic/pdu replication/logic/pdu/pdu.proto
 	go generate -x ./...
 
+format:
+	goimports -srcdir . -local 'github.com/zrepl/zrepl' -w $(shell find . -type f -name '*.go' -not -path "./vendor/*")
+
 build:
 	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"
 	$(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl"

@@ -2,23 +2,25 @@ package client
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/spf13/pflag"
+
 	"github.com/zrepl/zrepl/cli"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon"
 	"github.com/zrepl/zrepl/version"
-	"os"
 )
 
 var versionArgs struct {
-	Show   string
-	Config *config.Config
+	Show      string
+	Config    *config.Config
 	ConfigErr error
 }
 
 var VersionCmd = &cli.Subcommand{
-	Use:   "version",
-	Short: "print version of zrepl binary and running daemon",
+	Use:             "version",
+	Short:           "print version of zrepl binary and running daemon",
 	NoRequireConfig: true,
 	SetupFlags: func(f *pflag.FlagSet) {
 		f.StringVar(&versionArgs.Show, "show", "", "version info to show (client|daemon)")

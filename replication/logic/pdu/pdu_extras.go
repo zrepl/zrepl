@@ -2,8 +2,9 @@ package pdu
 
 import (
 	"fmt"
-	"github.com/zrepl/zrepl/zfs"
 	"time"
+
+	"github.com/zrepl/zrepl/zfs"
 )
 
 func (v *FilesystemVersion) RelName() string {

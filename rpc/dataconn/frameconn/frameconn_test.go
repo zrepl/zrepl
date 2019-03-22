@@ -19,4 +19,3 @@ func TestIsPublicFrameType(t *testing.T) {
 	assert.True(t, IsPublicFrameType(255))
 	assert.False(t, IsPublicFrameType(rstFrameType))
 }
-

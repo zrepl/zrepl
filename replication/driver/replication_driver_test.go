@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/zrepl/zrepl/replication/report"
 
 	"github.com/stretchr/testify/assert"

@@ -2,10 +2,12 @@ package filters
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/zfs"
-	"strings"
 )
 
 type DatasetMapFilter struct {

@@ -15,9 +15,11 @@ import (
 	"time"
 
 	"context"
-	"github.com/prometheus/client_golang/prometheus"
 	"regexp"
 	"strconv"
+
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/zrepl/zrepl/util/envconst"
 )
 
@@ -351,7 +353,7 @@ type readErrRecorder struct {
 
 type sendStreamCopierError struct {
 	isReadErr bool // if false, it's a write error
-	err error
+	err       error
 }
 
 func (e sendStreamCopierError) Error() string {
@@ -362,7 +364,7 @@ func (e sendStreamCopierError) Error() string {
 	}
 }
 
-func (e sendStreamCopierError) IsReadError() bool { return e.isReadErr }
+func (e sendStreamCopierError) IsReadError() bool  { return e.isReadErr }
 func (e sendStreamCopierError) IsWriteError() bool { return !e.isReadErr }
 
 func (r *readErrRecorder) Read(p []byte) (n int, err error) {
@@ -410,13 +412,12 @@ func pipeWithCapacityHint(capacity int) (r, w *os.File, err error) {
 }
 
 type sendStream struct {
-	cmd *exec.Cmd
+	cmd  *exec.Cmd
 	kill context.CancelFunc
 
-	closeMtx sync.Mutex
+	closeMtx     sync.Mutex
 	stdoutReader *os.File
-	opErr error
-
+	opErr        error
 }
 
 func (s *sendStream) Read(p []byte) (n int, err error) {
@@ -484,7 +485,7 @@ func (s *sendStream) killAndWait(precedingReadErr error) error {
 		if closePipeErr == nil {
 			// avoid double-closes in case anything below doesn't work
 			// and someone calls Close again
-			s.stdoutReader = nil 
+			s.stdoutReader = nil
 		} else {
 			return closePipeErr
 		}
@@ -493,7 +494,7 @@ func (s *sendStream) killAndWait(precedingReadErr error) error {
 	// we managed to tear things down, no let's give the user some pretty *ZFSError
 	if exitErr != nil {
 		s.opErr = &ZFSError{
-			Stderr: exitErr.Stderr,
+			Stderr:  exitErr.Stderr,
 			WaitErr: exitErr,
 		}
 	} else {
@@ -545,14 +546,13 @@ func ZFSSend(ctx context.Context, fs string, from, to string, token string) (str
 	stdoutWriter.Close()
 
 	stream := &sendStream{
-		cmd: cmd,
-		kill: cancel,
+		cmd:          cmd,
+		kill:         cancel,
 		stdoutReader: stdoutReader,
 	}
 
 	return newSendStreamCopier(stream), err
 }
-
 
 type DrySendType string
 
@@ -563,25 +563,27 @@ const (
 
 func DrySendTypeFromString(s string) (DrySendType, error) {
 	switch s {
-	case string(DrySendTypeFull): return DrySendTypeFull, nil
-	case string(DrySendTypeIncremental): return DrySendTypeIncremental, nil
+	case string(DrySendTypeFull):
+		return DrySendTypeFull, nil
+	case string(DrySendTypeIncremental):
+		return DrySendTypeIncremental, nil
 	default:
 		return "", fmt.Errorf("unknown dry send type %q", s)
 	}
 }
 
 type DrySendInfo struct {
-	Type DrySendType
-	Filesystem string // parsed from To field
-	From, To string // direct copy from ZFS output
-	SizeEstimate int64 // -1 if size estimate is not possible
+	Type         DrySendType
+	Filesystem   string // parsed from To field
+	From, To     string // direct copy from ZFS output
+	SizeEstimate int64  // -1 if size estimate is not possible
 }
 
 var (
 	// keep same number of capture groups for unmarshalInfoLine homogenity
 
 	sendDryRunInfoLineRegexFull = regexp.MustCompile(`^(full)\t()([^\t]+@[^\t]+)\t([0-9]+)$`)
-	// cannot enforce '[#@]' in incremental source, see test cases  
+	// cannot enforce '[#@]' in incremental source, see test cases
 	sendDryRunInfoLineRegexIncremental = regexp.MustCompile(`^(incremental)\t([^\t]+)\t([^\t]+@[^\t]+)\t([0-9]+)$`)
 )
 
@@ -601,7 +603,6 @@ func (s *DrySendInfo) unmarshalZFSOutput(output []byte) (err error) {
 	}
 	return fmt.Errorf("no match for info line (regex1 %s) (regex2 %s)", sendDryRunInfoLineRegexFull, sendDryRunInfoLineRegexIncremental)
 }
-
 
 // unmarshal info line, looks like this:
 //   full	zroot/test/a@1	5389768
@@ -653,19 +654,19 @@ func ZFSSendDry(fs string, from, to string, token string) (_ *DrySendInfo, err e
 		 * Redacted send & recv will bring this functionality, see
 		 * 	https://github.com/openzfs/openzfs/pull/484
 		 */
-		 fromAbs, err := absVersion(fs, from)
-		 if err != nil {
-		 	return nil, fmt.Errorf("error building abs version for 'from': %s", err)
-		 }
-		 toAbs, err := absVersion(fs, to)
-		 if err != nil {
-		 	return nil, fmt.Errorf("error building abs version for 'to': %s", err)
-		 }
-		 return &DrySendInfo{
-			Type: DrySendTypeIncremental,
-			Filesystem: fs,
-			From: fromAbs,
-			To: toAbs,
+		fromAbs, err := absVersion(fs, from)
+		if err != nil {
+			return nil, fmt.Errorf("error building abs version for 'from': %s", err)
+		}
+		toAbs, err := absVersion(fs, to)
+		if err != nil {
+			return nil, fmt.Errorf("error building abs version for 'to': %s", err)
+		}
+		return &DrySendInfo{
+			Type:         DrySendTypeIncremental,
+			Filesystem:   fs,
+			From:         fromAbs,
+			To:           toAbs,
 			SizeEstimate: -1}, nil
 	}
 
@@ -784,7 +785,7 @@ func ZFSRecv(ctx context.Context, fs string, streamCopier StreamCopier, opts Rec
 	if err != nil {
 		return err
 	}
-	
+
 	cmd.Stdin = stdin
 
 	if err = cmd.Start(); err != nil {
@@ -794,7 +795,7 @@ func ZFSRecv(ctx context.Context, fs string, streamCopier StreamCopier, opts Rec
 	}
 	stdin.Close()
 	defer stdinWriter.Close()
-		
+
 	pid := cmd.Process.Pid
 	debug := func(format string, args ...interface{}) {
 		debug("recv: pid=%v: %s", pid, fmt.Sprintf(format, args...))
@@ -823,7 +824,7 @@ func ZFSRecv(ctx context.Context, fs string, streamCopier StreamCopier, opts Rec
 	copierErr := <-copierErrChan
 	debug("copierErr: %T %s", copierErr, copierErr)
 	if copierErr != nil {
-		cancelCmd()	
+		cancelCmd()
 	}
 
 	waitErr := <-waitErrChan
@@ -838,7 +839,7 @@ func ZFSRecv(ctx context.Context, fs string, streamCopier StreamCopier, opts Rec
 
 type ClearResumeTokenError struct {
 	ZFSOutput []byte
-	CmdError error
+	CmdError  error
 }
 
 func (e ClearResumeTokenError) Error() string {
@@ -947,13 +948,27 @@ const (
 
 func (s zfsPropertySource) zfsGetSourceFieldPrefixes() []string {
 	prefixes := make([]string, 0, 7)
-	if s&sourceLocal != 0 {prefixes = append(prefixes, "local")}
-	if s&sourceDefault != 0 {prefixes = append(prefixes, "default")}
-	if s&sourceInherited != 0 {prefixes = append(prefixes, "inherited")}
-	if s&sourceNone != 0 {prefixes = append(prefixes, "-")}
-	if s&sourceTemporary != 0 { prefixes = append(prefixes, "temporary")}
-	if s&sourceReceived != 0 { prefixes = append(prefixes, "received")}
-	if s == sourceAny { prefixes = append(prefixes, "") }
+	if s&sourceLocal != 0 {
+		prefixes = append(prefixes, "local")
+	}
+	if s&sourceDefault != 0 {
+		prefixes = append(prefixes, "default")
+	}
+	if s&sourceInherited != 0 {
+		prefixes = append(prefixes, "inherited")
+	}
+	if s&sourceNone != 0 {
+		prefixes = append(prefixes, "-")
+	}
+	if s&sourceTemporary != 0 {
+		prefixes = append(prefixes, "temporary")
+	}
+	if s&sourceReceived != 0 {
+		prefixes = append(prefixes, "received")
+	}
+	if s == sourceAny {
+		prefixes = append(prefixes, "")
+	}
 	return prefixes
 }
 
@@ -992,7 +1007,7 @@ func zfsGet(path string, props []string, allowedSources zfsPropertySource) (*ZFS
 			return nil, fmt.Errorf("zfs get did not return property,value,source tuples")
 		}
 		for _, p := range allowedPrefixes {
-			if strings.HasPrefix(fields[2],p) {
+			if strings.HasPrefix(fields[2], p) {
 				res.m[fields[0]] = fields[1]
 				break
 			}
@@ -1010,8 +1025,10 @@ func ZFSDestroy(dataset string) (err error) {
 		filesystem = dataset
 	} else {
 		switch dataset[idx] {
-		case '@': dstype = "snapshot"
-		case '#': dstype = "bookmark"
+		case '@':
+			dstype = "snapshot"
+		case '#':
+			dstype = "bookmark"
 		}
 		filesystem = dataset[:idx]
 	}

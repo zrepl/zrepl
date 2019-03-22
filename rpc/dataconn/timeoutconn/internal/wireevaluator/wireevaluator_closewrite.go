@@ -85,7 +85,7 @@ func (CloseWrite) receiver(wire transport.Wire) {
 
 	// consume half the test data, then detect an error, send it and CloseWrite
 
-	r := io.LimitReader(wire, int64(5 * len(closeWriteTestSendData)/3))
+	r := io.LimitReader(wire, int64(5*len(closeWriteTestSendData)/3))
 	_, err := io.Copy(ioutil.Discard, r)
 	noerror(err)
 
@@ -103,7 +103,7 @@ func (CloseWrite) receiver(wire transport.Wire) {
 		// io.Copy masks io.EOF to nil, and we expect io.EOF from the client's Close() call
 		log.Panicf("unexpected error returned from reading conn: %s", err)
 	}
-		
+
 	closeErr := wire.Close()
 	log.Printf("closeErr=%T %s", closeErr, closeErr)
 

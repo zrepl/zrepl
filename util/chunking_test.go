@@ -3,11 +3,12 @@ package util
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"reflect"
 	"testing"
 	"testing/quick"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestUnchunker(t *testing.T) {

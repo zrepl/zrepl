@@ -1,15 +1,17 @@
 package tcp
 
 import (
-	"github.com/zrepl/zrepl/config"
-	"net"
-	"github.com/pkg/errors"
 	"context"
+	"net"
+
+	"github.com/pkg/errors"
+
+	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/transport"
 )
 
 type ipMapEntry struct {
-	ip net.IP
+	ip    net.IP
 	ident string
 }
 
@@ -25,7 +27,7 @@ func ipMapFromConfig(clients map[string]string) (*ipMap, error) {
 			return nil, errors.Errorf("cannot parse client IP %q", clientIPString)
 		}
 		if err := transport.ValidateClientIdentity(clientIdent); err != nil {
-			return nil, errors.Wrapf(err,"invalid client identity for IP %q", clientIPString)
+			return nil, errors.Wrapf(err, "invalid client identity for IP %q", clientIPString)
 		}
 		entries = append(entries, ipMapEntry{clientIP, clientIdent})
 	}
@@ -79,4 +81,3 @@ func (f *TCPAuthListener) Accept(ctx context.Context) (*transport.AuthConn, erro
 	}
 	return transport.NewAuthConn(nc, clientIdent), nil
 }
-

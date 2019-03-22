@@ -2,15 +2,17 @@ package client
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
+
 	"github.com/zrepl/zrepl/cli"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/zfs"
 )
 
-var TestCmd = &cli.Subcommand {
+var TestCmd = &cli.Subcommand{
 	Use: "test",
 	SetupSubcommands: func() []*cli.Subcommand {
 		return []*cli.Subcommand{testFilter, testPlaceholder}
@@ -18,13 +20,13 @@ var TestCmd = &cli.Subcommand {
 }
 
 var testFilterArgs struct {
-	job string
-	all bool
+	job   string
+	all   bool
 	input string
 }
 
 var testFilter = &cli.Subcommand{
-	Use: "filesystems --job JOB [--all | --input INPUT]",
+	Use:   "filesystems --job JOB [--all | --input INPUT]",
 	Short: "test filesystems filter specified in push or source job",
 	SetupFlags: func(f *pflag.FlagSet) {
 		f.StringVar(&testFilterArgs.job, "job", "", "the name of the push or source job")
@@ -51,8 +53,10 @@ func runTestFilterCmd(subcommand *cli.Subcommand, args []string) error {
 		return err
 	}
 	switch j := job.Ret.(type) {
-	case *config.SourceJob: confFilter = j.Filesystems
-	case *config.PushJob: confFilter = j.Filesystems
+	case *config.SourceJob:
+		confFilter = j.Filesystems
+	case *config.PushJob:
+		confFilter = j.Filesystems
 	default:
 		return fmt.Errorf("job type %T does not have filesystems filter", j)
 	}

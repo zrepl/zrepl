@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/pkg/errors"
 	"io"
 	"net"
 	"net/http"
+
+	"github.com/pkg/errors"
 )
 
 func controlHttpClient(sockpath string) (client http.Client, err error) {

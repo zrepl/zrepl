@@ -3,33 +3,35 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"github.com/zrepl/yaml-config"
+
 	"github.com/zrepl/zrepl/cli"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
-	"os"
 )
 
 var configcheckArgs struct {
 	format string
-	what string
+	what   string
 }
 
 var ConfigcheckCmd = &cli.Subcommand{
-	Use: "configcheck",
+	Use:   "configcheck",
 	Short: "check if config can be parsed without errors",
 	SetupFlags: func(f *pflag.FlagSet) {
 		f.StringVar(&configcheckArgs.format, "format", "", "dump parsed config object [pretty|yaml|json]")
 		f.StringVar(&configcheckArgs.what, "what", "all", "what to print [all|config|jobs|logging]")
 	},
 	Run: func(subcommand *cli.Subcommand, args []string) error {
-		formatMap := map[string]func(interface{}) {
-			"": func(i interface{}) {},
+		formatMap := map[string]func(interface{}){
+			"":       func(i interface{}) {},
 			"pretty": func(i interface{}) { pretty.Println(i) },
 			"json": func(i interface{}) {
 				json.NewEncoder(os.Stdout).Encode(subcommand.Config())
@@ -71,12 +73,11 @@ var ConfigcheckCmd = &cli.Subcommand{
 			}
 		}
 
-
-		whatMap := map[string]func() {
+		whatMap := map[string]func(){
 			"all": func() {
 				o := struct {
-					config *config.Config
-					jobs []job.Job
+					config  *config.Config
+					jobs    []job.Job
 					logging *logger.Outlets
 				}{
 					subcommand.Config(),
@@ -109,4 +110,3 @@ var ConfigcheckCmd = &cli.Subcommand{
 		}
 	},
 }
-

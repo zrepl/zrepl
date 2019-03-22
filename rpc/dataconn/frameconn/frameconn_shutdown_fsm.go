@@ -3,8 +3,8 @@ package frameconn
 import "sync"
 
 type shutdownFSM struct {
-	mtx            sync.Mutex
-	state          shutdownFSMState
+	mtx   sync.Mutex
+	state shutdownFSMState
 }
 
 type shutdownFSMState uint32
@@ -16,7 +16,7 @@ const (
 
 func newShutdownFSM() *shutdownFSM {
 	fsm := &shutdownFSM{
-		state:          shutdownStateOpen,
+		state: shutdownStateOpen,
 	}
 	return fsm
 }
@@ -34,4 +34,3 @@ func (f *shutdownFSM) IsShuttingDown() bool {
 	defer f.mtx.Unlock()
 	return f.state != shutdownStateOpen
 }
-

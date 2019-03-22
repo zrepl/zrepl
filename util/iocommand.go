@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/zrepl/zrepl/util/envconst"
 	"io"
 	"os"
 	"os/exec"
 	"syscall"
 	"time"
+
+	"github.com/zrepl/zrepl/util/envconst"
 )
 
 // An IOCommand exposes a forked process's std(in|out|err) through the io.ReadWriteCloser interface.
 type IOCommand struct {
 	Cmd        *exec.Cmd
-	kill 	   context.CancelFunc
+	kill       context.CancelFunc
 	Stdin      io.WriteCloser
 	Stdout     io.ReadCloser
 	StderrBuf  *bytes.Buffer

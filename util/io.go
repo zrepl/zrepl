@@ -101,16 +101,16 @@ func (c *ChainedReader) Read(buf []byte) (n int, err error) {
 }
 
 type ByteCounterReader struct {
-	reader    io.ReadCloser
+	reader io.ReadCloser
 
 	// called & accessed synchronously during Read, no external access
-	cb        func(full int64)
-	cbEvery   time.Duration
-	lastCbAt  time.Time
+	cb               func(full int64)
+	cbEvery          time.Duration
+	lastCbAt         time.Time
 	bytesSinceLastCb int64
 
 	// set atomically because it may be read by multiple threads
-	bytes     int64
+	bytes int64
 }
 
 func NewByteCounterReader(reader io.ReadCloser) *ByteCounterReader {

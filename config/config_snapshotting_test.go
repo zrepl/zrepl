@@ -2,9 +2,10 @@ package config
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSnapshotting(t *testing.T) {
@@ -37,7 +38,7 @@ jobs:
     interval: 10m
 `
 
-	fillSnapshotting := func(s string) string {return fmt.Sprintf(tmpl, s)}
+	fillSnapshotting := func(s string) string { return fmt.Sprintf(tmpl, s) }
 	var c *Config
 
 	t.Run("manual", func(t *testing.T) {
@@ -51,7 +52,7 @@ jobs:
 		snp := c.Jobs[0].Ret.(*PushJob).Snapshotting.Ret.(*SnapshottingPeriodic)
 		assert.Equal(t, "periodic", snp.Type)
 		assert.Equal(t, 10*time.Minute, snp.Interval)
-		assert.Equal(t, "zrepl_" , snp.Prefix)
+		assert.Equal(t, "zrepl_", snp.Prefix)
 	})
 
 }

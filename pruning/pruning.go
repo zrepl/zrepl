@@ -2,9 +2,11 @@ package pruning
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/config"
 	"time"
+
+	"github.com/pkg/errors"
+
+	"github.com/zrepl/zrepl/config"
 )
 
 type KeepRule interface {

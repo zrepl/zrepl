@@ -5,7 +5,7 @@ import (
 )
 
 type KeepRegex struct {
-	expr *regexp.Regexp
+	expr   *regexp.Regexp
 	negate bool
 }
 

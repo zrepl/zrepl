@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/fatih/color"
-	"github.com/pkg/errors"
 	"sync"
 	"time"
+
+	"github.com/fatih/color"
+	"github.com/pkg/errors"
 )
 
 type Level int

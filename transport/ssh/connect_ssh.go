@@ -2,12 +2,14 @@ package ssh
 
 import (
 	"context"
+	"time"
+
 	"github.com/jinzhu/copier"
 	"github.com/pkg/errors"
 	"github.com/problame/go-netssh"
+
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/transport"
-	"time"
 )
 
 type SSHStdinserverConnecter struct {

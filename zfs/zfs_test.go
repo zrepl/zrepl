@@ -1,8 +1,9 @@
 package zfs
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestZFSListHandlesProducesZFSErrorOnNonZeroExit(t *testing.T) {
@@ -33,8 +34,8 @@ func TestDatasetPathTrimNPrefixComps(t *testing.T) {
 
 func TestZFSPropertySource(t *testing.T) {
 
-	tcs := []struct{
-		in zfsPropertySource
+	tcs := []struct {
+		in  zfsPropertySource
 		exp []string
 	}{
 		{
@@ -43,11 +44,11 @@ func TestZFSPropertySource(t *testing.T) {
 			exp: []string{"local", "default", "inherited", "-", "temporary", "received", ""},
 		},
 		{
-			in: sourceTemporary,
+			in:  sourceTemporary,
 			exp: []string{"temporary"},
 		},
 		{
-			in: sourceLocal|sourceInherited,
+			in:  sourceLocal | sourceInherited,
 			exp: []string{"local", "inherited"},
 		},
 	}
@@ -137,9 +138,9 @@ size	10518512
 	incrementalWithSpacesInIntermediateComponent := "\nincremental\tblaffoo\tpool1/otherjob/another ds with spaces/childfs@blaffoo2\t624\nsize\t624\n"
 
 	type tc struct {
-		name string
-		in string
-		exp *DrySendInfo
+		name   string
+		in     string
+		exp    *DrySendInfo
 		expErr bool
 	}
 
@@ -147,10 +148,10 @@ size	10518512
 		{
 			name: "fullSend", in: fullSend,
 			exp: &DrySendInfo{
-				Type: DrySendTypeFull,
-				Filesystem: "zroot/test/a",
-				From: "",
-				To: "zroot/test/a@1",
+				Type:         DrySendTypeFull,
+				Filesystem:   "zroot/test/a",
+				From:         "",
+				To:           "zroot/test/a@1",
 				SizeEstimate: 5389768,
 			},
 		},
@@ -158,7 +159,7 @@ size	10518512
 			name: "incSend", in: incSend,
 			exp: &DrySendInfo{
 				Type:         DrySendTypeIncremental,
-				Filesystem: "zroot/test/a",
+				Filesystem:   "zroot/test/a",
 				From:         "zroot/test/a@1",
 				To:           "zroot/test/a@2",
 				SizeEstimate: 5383936,
@@ -168,16 +169,16 @@ size	10518512
 			name: "incSendBookmark", in: incSendBookmark,
 			exp: &DrySendInfo{
 				Type:         DrySendTypeIncremental,
-				Filesystem: "zroot/test/a",
+				Filesystem:   "zroot/test/a",
 				From:         "zroot/test/a#1",
 				To:           "zroot/test/a@2",
 				SizeEstimate: 5383312,
 			},
 		},
-			{
+		{
 			name: "incNoToken", in: incNoToken,
 			exp: &DrySendInfo{
-				Type:         DrySendTypeIncremental,
+				Type:       DrySendTypeIncremental,
 				Filesystem: "zroot/test/a",
 				// as can be seen in the string incNoToken,
 				// we cannot infer whether the incremental source is a snapshot or bookmark
@@ -189,10 +190,10 @@ size	10518512
 		{
 			name: "fullNoToken", in: fullNoToken,
 			exp: &DrySendInfo{
-				Type: DrySendTypeFull,
-				Filesystem: "zroot/test/a",
-				From: "",
-				To: "zroot/test/a@3",
+				Type:         DrySendTypeFull,
+				Filesystem:   "zroot/test/a",
+				From:         "",
+				To:           "zroot/test/a@3",
 				SizeEstimate: 10518512,
 			},
 		},

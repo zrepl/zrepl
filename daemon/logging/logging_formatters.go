@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/fatih/color"
 	"github.com/go-logfmt/logfmt"
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/logger"
-	"time"
 )
 
 const (

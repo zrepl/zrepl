@@ -1,19 +1,21 @@
 package ssh
 
 import (
-	"github.com/problame/go-netssh"
-	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/nethelpers"
-	"github.com/zrepl/zrepl/transport"
+	"context"
 	"fmt"
 	"net"
 	"path"
-	"context"
-	"github.com/pkg/errors"
 	"sync/atomic"
+
+	"github.com/pkg/errors"
+	"github.com/problame/go-netssh"
+
+	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/nethelpers"
+	"github.com/zrepl/zrepl/transport"
 )
 
-func MultiStdinserverListenerFactoryFromConfig(g *config.Global, in *config.StdinserverServer) (transport.AuthenticatedListenerFactory,error) {
+func MultiStdinserverListenerFactoryFromConfig(g *config.Global, in *config.StdinserverServer) (transport.AuthenticatedListenerFactory, error) {
 
 	for _, ci := range in.ClientIdentities {
 		if err := transport.ValidateClientIdentity(ci); err != nil {
@@ -24,7 +26,7 @@ func MultiStdinserverListenerFactoryFromConfig(g *config.Global, in *config.Stdi
 	clientIdentities := in.ClientIdentities
 	sockdir := g.Serve.StdinServer.SockDir
 
-	lf := func() (transport.AuthenticatedListener,error) {
+	lf := func() (transport.AuthenticatedListener, error) {
 		return multiStdinserverListenerFromClientIdentities(sockdir, clientIdentities)
 	}
 
@@ -33,13 +35,13 @@ func MultiStdinserverListenerFactoryFromConfig(g *config.Global, in *config.Stdi
 
 type multiStdinserverAcceptRes struct {
 	conn *transport.AuthConn
-	err error
+	err  error
 }
 
 type MultiStdinserverListener struct {
 	listeners []*stdinserverListener
-	accepts chan multiStdinserverAcceptRes
-	closed int32
+	accepts   chan multiStdinserverAcceptRes
+	closed    int32
 }
 
 // client identities must be validated
@@ -48,7 +50,7 @@ func multiStdinserverListenerFromClientIdentities(sockdir string, cis []string) 
 	var err error
 	for _, ci := range cis {
 		sockpath := path.Join(sockdir, ci)
-		l  := &stdinserverListener{clientIdentity: ci}
+		l := &stdinserverListener{clientIdentity: ci}
 		if err = nethelpers.PreparePrivateSockpath(sockpath); err != nil {
 			break
 		}
@@ -66,7 +68,7 @@ func multiStdinserverListenerFromClientIdentities(sockdir string, cis []string) 
 	return &MultiStdinserverListener{listeners: listeners}, nil
 }
 
-func (m *MultiStdinserverListener) Accept(ctx context.Context) (*transport.AuthConn, error){
+func (m *MultiStdinserverListener) Accept(ctx context.Context) (*transport.AuthConn, error) {
 
 	if m.accepts == nil {
 		m.accepts = make(chan multiStdinserverAcceptRes, len(m.listeners))
@@ -80,7 +82,7 @@ func (m *MultiStdinserverListener) Accept(ctx context.Context) (*transport.AuthC
 		}
 	}
 
-	res := <- m.accepts
+	res := <-m.accepts
 	return res.conn, res.err
 
 }
@@ -116,7 +118,7 @@ func (m *MultiStdinserverListener) Close() error {
 
 // a single stdinserverListener (part of multiStinserverListener)
 type stdinserverListener struct {
-	l *netssh.Listener
+	l              *netssh.Listener
 	clientIdentity string
 }
 

@@ -2,8 +2,9 @@ package zfs
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"strconv"
+
+	"github.com/pkg/errors"
 )
 
 const ReplicationCursorBookmarkName = "zrepl_replication_cursor"

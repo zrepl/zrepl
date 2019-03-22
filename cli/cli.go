@@ -2,10 +2,12 @@ package cli
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
 	"github.com/zrepl/zrepl/config"
-	"os"
 )
 
 var rootArgs struct {
@@ -40,15 +42,15 @@ func init() {
 }
 
 type Subcommand struct {
-	Use             string
-	Short           string
-	Example 		string
-	NoRequireConfig bool
-	Run             func(subcommand *Subcommand, args []string) error
-	SetupFlags      func(f *pflag.FlagSet)
-	SetupSubcommands  func() []*Subcommand
+	Use              string
+	Short            string
+	Example          string
+	NoRequireConfig  bool
+	Run              func(subcommand *Subcommand, args []string) error
+	SetupFlags       func(f *pflag.FlagSet)
+	SetupSubcommands func() []*Subcommand
 
-	config *config.Config
+	config    *config.Config
 	configErr error
 }
 
@@ -93,8 +95,8 @@ func AddSubcommand(s *Subcommand) {
 
 func addSubcommandToCobraCmd(c *cobra.Command, s *Subcommand) {
 	cmd := cobra.Command{
-		Use: s.Use,
-		Short: s.Short,
+		Use:     s.Use,
+		Short:   s.Short,
 		Example: s.Example,
 	}
 	if s.SetupSubcommands == nil {
@@ -109,7 +111,6 @@ func addSubcommandToCobraCmd(c *cobra.Command, s *Subcommand) {
 	}
 	c.AddCommand(&cmd)
 }
-
 
 func Run() {
 	if err := rootCmd.Execute(); err != nil {

@@ -10,11 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/zrepl/zrepl/replication/report"
 	"github.com/zrepl/zrepl/util/chainlock"
 	"github.com/zrepl/zrepl/util/envconst"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type interval struct {

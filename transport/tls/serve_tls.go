@@ -1,16 +1,18 @@
 package tls
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/transport"
-	"github.com/zrepl/zrepl/tlsconf"
 	"net"
 	"time"
-	"context"
+
+	"github.com/pkg/errors"
+
+	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/tlsconf"
+	"github.com/zrepl/zrepl/transport"
 )
 
 type TLSListenerFactory struct {
@@ -18,10 +20,10 @@ type TLSListenerFactory struct {
 	clientCA         *x509.CertPool
 	serverCert       tls.Certificate
 	handshakeTimeout time.Duration
-	clientCNs map[string]struct{}
+	clientCNs        map[string]struct{}
 }
 
-func TLSListenerFactoryFromConfig(c *config.Global, in *config.TLSServe) (transport.AuthenticatedListenerFactory,error) {
+func TLSListenerFactoryFromConfig(c *config.Global, in *config.TLSServe) (transport.AuthenticatedListenerFactory, error) {
 
 	address := in.Listen
 	handshakeTimeout := in.HandshakeTimeout
@@ -85,5 +87,3 @@ func (l tlsAuthListener) Accept(ctx context.Context) (*transport.AuthConn, error
 	adaptor := newWireAdaptor(tlsConn, tcpConn)
 	return transport.NewAuthConn(adaptor, cn), nil
 }
-
-

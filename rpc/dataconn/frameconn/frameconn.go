@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/zrepl/zrepl/rpc/dataconn/base2bufpool"
 	"github.com/zrepl/zrepl/rpc/dataconn/timeoutconn"
 )

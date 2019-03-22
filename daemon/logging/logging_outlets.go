@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/logger"
 	"io"
 	"log/syslog"
 	"net"
 	"time"
+
+	"github.com/pkg/errors"
+
+	"github.com/zrepl/zrepl/logger"
 )
 
 type EntryFormatter interface {

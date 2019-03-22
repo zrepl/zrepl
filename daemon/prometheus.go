@@ -2,15 +2,17 @@ package daemon
 
 import (
 	"context"
+	"net"
+	"net/http"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/rpc/dataconn/frameconn"
 	"github.com/zrepl/zrepl/zfs"
-	"net"
-	"net/http"
 )
 
 type prometheusJob struct {
@@ -25,7 +27,7 @@ func newPrometheusJobFromConfig(in *config.PrometheusMonitoring) (*prometheusJob
 }
 
 var prom struct {
-	taskLogEntries         *prometheus.CounterVec
+	taskLogEntries *prometheus.CounterVec
 }
 
 func init() {
@@ -93,4 +95,3 @@ func (o prometheusJobOutlet) WriteEntry(entry logger.Entry) error {
 	prom.taskLogEntries.WithLabelValues(o.jobName, entry.Level.String()).Inc()
 	return nil
 }
-

@@ -25,8 +25,9 @@ package netadaptor
 import (
 	"context"
 	"fmt"
-	"github.com/zrepl/zrepl/logger"
 	"net"
+
+	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/transport"
 )
 

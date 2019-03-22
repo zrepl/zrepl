@@ -2,10 +2,12 @@ package logger_test
 
 import (
 	"fmt"
-	"github.com/kr/pretty"
-	"github.com/zrepl/zrepl/logger"
 	"testing"
 	"time"
+
+	"github.com/kr/pretty"
+
+	"github.com/zrepl/zrepl/logger"
 )
 
 type TestOutlet struct {

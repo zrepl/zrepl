@@ -4,12 +4,13 @@ import (
 	"context"
 	"net"
 	"time"
+
 	"github.com/zrepl/zrepl/transport"
 )
 
 type HandshakeConnecter struct {
 	connecter transport.Connecter
-	timeout time.Duration
+	timeout   time.Duration
 }
 
 func (c HandshakeConnecter) Connect(ctx context.Context) (transport.Wire, error) {
@@ -31,17 +32,17 @@ func (c HandshakeConnecter) Connect(ctx context.Context) (transport.Wire, error)
 func Connecter(connecter transport.Connecter, timeout time.Duration) HandshakeConnecter {
 	return HandshakeConnecter{
 		connecter: connecter,
-		timeout: timeout,
+		timeout:   timeout,
 	}
 }
 
 // wrapper type that performs a a protocol version handshake before returning the connection
 type HandshakeListener struct {
-	l transport.AuthenticatedListener
+	l       transport.AuthenticatedListener
 	timeout time.Duration
 }
 
-func (l HandshakeListener) Addr() (net.Addr) { return l.l.Addr() }
+func (l HandshakeListener) Addr() net.Addr { return l.l.Addr() }
 
 func (l HandshakeListener) Close() error { return l.l.Close() }
 
