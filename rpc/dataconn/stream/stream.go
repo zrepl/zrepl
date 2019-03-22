@@ -28,6 +28,7 @@ func WithLogger(ctx context.Context, log Logger) context.Context {
 	return context.WithValue(ctx, contextKeyLogger, log)
 }
 
+//nolint[:deadcode,unused]
 func getLog(ctx context.Context) Logger {
 	log, ok := ctx.Value(contextKeyLogger).(Logger)
 	if !ok {

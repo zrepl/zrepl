@@ -7,11 +7,12 @@ import (
 	"context"
 	"net"
 	"net/http/pprof"
+
+	"github.com/zrepl/zrepl/daemon/job"
 )
 
 type pprofServer struct {
 	cc       chan PprofServerControlMsg
-	state    PprofServerControlMsg
 	listener net.Listener
 }
 
@@ -63,7 +64,14 @@ outer:
 			mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 			mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 			mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
-			go http.Serve(s.listener, mux)
+			go func() {
+				err := http.Serve(s.listener, mux)
+				if ctx.Err() != nil {
+					return
+				} else if err != nil {
+					job.GetLogger(ctx).WithError(err).Error("pprof server serve error")
+				}
+			}()
 			continue
 		}
 

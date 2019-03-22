@@ -1,4 +1,4 @@
-package util
+package optionaldeadline
 
 import (
 	"context"
@@ -54,7 +54,7 @@ func ContextWithOptionalDeadline(pctx context.Context) (ctx context.Context, enf
 		}
 
 		// Deadline in past?
-		sleepTime := deadline.Sub(time.Now())
+		sleepTime := time.Until(deadline)
 		if sleepTime <= 0 {
 			rctx.m.Lock()
 			rctx.err = context.DeadlineExceeded

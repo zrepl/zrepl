@@ -12,7 +12,6 @@ package main
 
 import (
 	"fmt"
-	_ "fmt"
 
 	_ "github.com/alvaroloes/enumer"
 	_ "github.com/golang/protobuf/protoc-gen-go"

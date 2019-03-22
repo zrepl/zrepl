@@ -23,11 +23,6 @@ var (
 	}
 )
 
-type migration struct {
-	name   string
-	method func(config *config.Config, args []string) error
-}
-
 var migrations = []*cli.Subcommand{
 	&cli.Subcommand{
 		Use: "0.0.X:0.1:placeholder",

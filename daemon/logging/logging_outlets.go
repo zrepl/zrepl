@@ -30,7 +30,10 @@ func (h WriterOutlet) WriteEntry(entry logger.Entry) error {
 		return err
 	}
 	_, err = h.writer.Write(bytes)
-	h.writer.Write([]byte("\n"))
+	if err != nil {
+		return err
+	}
+	_, err = h.writer.Write([]byte("\n"))
 	return err
 }
 
@@ -94,8 +97,10 @@ func (h *TCPOutlet) outLoop(retryInterval time.Duration) {
 				conn = nil
 			}
 		}
-		conn.SetWriteDeadline(time.Now().Add(retryInterval))
-		_, err = io.Copy(conn, msg)
+		err = conn.SetWriteDeadline(time.Now().Add(retryInterval))
+		if err == nil {
+			_, err = io.Copy(conn, msg)
+		}
 		if err != nil {
 			retry = time.Now().Add(retryInterval)
 			conn.Close()

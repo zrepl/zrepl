@@ -31,6 +31,9 @@ func ZFSSetReplicationCursor(fs *DatasetPath, snapname string) (guid uint64, err
 		return 0, errors.Wrap(err, "zfs: replication cursor: get snapshot createtxg")
 	}
 	snapGuid, err := strconv.ParseUint(propsSnap.Get("guid"), 10, 64)
+	if err != nil {
+		return 0, errors.Wrap(err, "zfs: replication cursor: parse snapshot guid")
+	}
 	bookmarkPath := fmt.Sprintf("%s#%s", fs.ToString(), ReplicationCursorBookmarkName)
 	propsBookmark, err := zfsGet(bookmarkPath, []string{"createtxg"}, sourceAny)
 	_, bookmarkNotExistErr := err.(*DatasetDoesNotExist)

@@ -3,13 +3,13 @@ package zfs
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -17,7 +17,7 @@ type VersionType string
 
 const (
 	Bookmark VersionType = "bookmark"
-	Snapshot             = "snapshot"
+	Snapshot VersionType = "snapshot"
 )
 
 func (t VersionType) DelimiterChar() string {
@@ -37,14 +37,14 @@ func (t VersionType) String() string {
 
 func DecomposeVersionString(v string) (fs string, versionType VersionType, name string, err error) {
 	if len(v) < 3 {
-		err = errors.New(fmt.Sprintf("snapshot or bookmark name implausibly short: %s", v))
+		err = fmt.Errorf("snapshot or bookmark name implausibly short: %s", v)
 		return
 	}
 
 	snapSplit := strings.SplitN(v, "@", 2)
 	bookmarkSplit := strings.SplitN(v, "#", 2)
 	if len(snapSplit)*len(bookmarkSplit) != 2 {
-		err = errors.New(fmt.Sprintf("dataset cannot be snapshot and bookmark at the same time: %s", v))
+		err = fmt.Errorf("dataset cannot be snapshot and bookmark at the same time: %s", v)
 		return
 	}
 
@@ -122,12 +122,12 @@ func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) 
 		}
 
 		if v.Guid, err = strconv.ParseUint(line[1], 10, 64); err != nil {
-			err = errors.New(fmt.Sprintf("cannot parse GUID: %s", err.Error()))
+			err = errors.Wrap(err, "cannot parse GUID")
 			return
 		}
 
 		if v.CreateTXG, err = strconv.ParseUint(line[2], 10, 64); err != nil {
-			err = errors.New(fmt.Sprintf("cannot parse CreateTXG: %s", err.Error()))
+			err = errors.Wrap(err, "cannot parse CreateTXG")
 			return
 		}
 
@@ -160,16 +160,9 @@ func ZFSDestroyFilesystemVersion(filesystem *DatasetPath, version *FilesystemVer
 	datasetPath := version.ToAbsPath(filesystem)
 
 	// Sanity check...
-	if strings.IndexAny(datasetPath, "@#") == -1 {
-		return fmt.Errorf("sanity check failed: no @ character found in dataset path: %s", datasetPath)
+	if !strings.ContainsAny(datasetPath, "@#") {
+		return fmt.Errorf("sanity check failed: no @ or # character found in %q", datasetPath)
 	}
 
-	err = ZFSDestroy(datasetPath)
-	if err == nil {
-		return
-	}
-
-	// Check for EBUSY, special meaning to us
-	return
-
+	return ZFSDestroy(datasetPath)
 }

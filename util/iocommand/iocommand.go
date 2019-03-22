@@ -1,4 +1,4 @@
-package util
+package iocommand
 
 import (
 	"bytes"
@@ -99,7 +99,7 @@ func (c *IOCommand) doWait(ctx context.Context) (err error) {
 		if !ok {
 			return
 		}
-		time.Sleep(dl.Sub(time.Now()))
+		time.Sleep(time.Until(dl))
 		c.kill()
 		c.Stdout.Close()
 		c.Stdin.Close()

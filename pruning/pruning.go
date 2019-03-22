@@ -22,7 +22,7 @@ type Snapshot interface {
 // The returned snapshot list is guaranteed to only contains elements of input parameter snaps
 func PruneSnapshots(snaps []Snapshot, keepRules []KeepRule) []Snapshot {
 
-	if keepRules == nil || len(keepRules) == 0 {
+	if len(keepRules) == 0 {
 		return []Snapshot{}
 	}
 

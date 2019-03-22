@@ -138,7 +138,6 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 	default:
 		s.log.WithField("endpoint", endpoint).Error("unknown endpoint")
 		handlerErr = fmt.Errorf("requested endpoint does not exist")
-		return
 	}
 
 	s.log.WithField("endpoint", endpoint).WithField("errType", fmt.Sprintf("%T", handlerErr)).Debug("handler returned")
@@ -188,6 +187,4 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 			s.log.WithError(err).Error("cannot write send stream")
 		}
 	}
-
-	return
 }

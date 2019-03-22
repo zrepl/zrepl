@@ -203,7 +203,7 @@ func syncUp(a args, u updater) state {
 	u(func(s *Snapper) {
 		s.sleepUntil = syncPoint
 	})
-	t := time.NewTimer(syncPoint.Sub(time.Now()))
+	t := time.NewTimer(time.Until(syncPoint))
 	defer t.Stop()
 	select {
 	case <-t.C:
@@ -307,7 +307,7 @@ func wait(a args, u updater) state {
 		logFunc("enter wait-state after error")
 	})
 
-	t := time.NewTimer(sleepUntil.Sub(time.Now()))
+	t := time.NewTimer(time.Until(sleepUntil))
 	defer t.Stop()
 
 	select {

@@ -25,7 +25,10 @@ var bashcompCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) != 1 {
 			fmt.Fprintf(os.Stderr, "specify exactly one positional agument\n")
-			cmd.Usage()
+			err := cmd.Usage()
+			if err != nil {
+				panic(err)
+			}
 			os.Exit(1)
 		}
 		if err := rootCmd.GenBashCompletionFile(args[0]); err != nil {

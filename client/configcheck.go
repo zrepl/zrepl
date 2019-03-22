@@ -31,13 +31,21 @@ var ConfigcheckCmd = &cli.Subcommand{
 	},
 	Run: func(subcommand *cli.Subcommand, args []string) error {
 		formatMap := map[string]func(interface{}){
-			"":       func(i interface{}) {},
-			"pretty": func(i interface{}) { pretty.Println(i) },
+			"": func(i interface{}) {},
+			"pretty": func(i interface{}) {
+				if _, err := pretty.Println(i); err != nil {
+					panic(err)
+				}
+			},
 			"json": func(i interface{}) {
-				json.NewEncoder(os.Stdout).Encode(subcommand.Config())
+				if err := json.NewEncoder(os.Stdout).Encode(subcommand.Config()); err != nil {
+					panic(err)
+				}
 			},
 			"yaml": func(i interface{}) {
-				yaml.NewEncoder(os.Stdout).Encode(subcommand.Config())
+				if err := yaml.NewEncoder(os.Stdout).Encode(subcommand.Config()); err != nil {
+					panic(err)
+				}
 			},
 		}
 

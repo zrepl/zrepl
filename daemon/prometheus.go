@@ -65,17 +65,15 @@ func (j *prometheusJob) Run(ctx context.Context) {
 		log.WithError(err).Error("cannot listen")
 	}
 	go func() {
-		select {
-		case <-ctx.Done():
-			l.Close()
-		}
+		<-ctx.Done()
+		l.Close()
 	}()
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 
 	err = http.Serve(l, mux)
-	if err != nil {
+	if err != nil && ctx.Err() == nil {
 		log.WithError(err).Error("error while serving")
 	}
 

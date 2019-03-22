@@ -94,18 +94,21 @@ func (s *Status) UnmarshalJSON(in []byte) (err error) {
 		var st SnapJobStatus
 		err = json.Unmarshal(jobJSON, &st)
 		s.JobSpecific = &st
+
 	case TypePull:
 		fallthrough
 	case TypePush:
 		var st ActiveSideStatus
 		err = json.Unmarshal(jobJSON, &st)
 		s.JobSpecific = &st
+
 	case TypeSource:
 		fallthrough
 	case TypeSink:
 		var st PassiveStatus
 		err = json.Unmarshal(jobJSON, &st)
 		s.JobSpecific = &st
+
 	case TypeInternal:
 		// internal jobs do not report specifics
 	default:

@@ -67,7 +67,6 @@ func (p *DatasetPath) TrimPrefix(prefix *DatasetPath) {
 	for i := 0; i < newlen; i++ {
 		p.comps[i] = oldcomps[prelen+i]
 	}
-	return
 }
 
 func (p *DatasetPath) TrimNPrefixComps(n int) {
@@ -251,7 +250,9 @@ func ZFSListChan(ctx context.Context, out chan ZFSListResult, properties []strin
 		return
 	}
 	defer func() {
-		cmd.Wait()
+		// discard the error, this defer is only relevant if we return while parsing the output
+		// in which case we'll return an 'unexpected output' error and not the exit status
+		_ = cmd.Wait()
 	}()
 
 	s := bufio.NewScanner(stdout)
@@ -283,7 +284,6 @@ func ZFSListChan(ctx context.Context, out chan ZFSListResult, properties []strin
 		sendResult(nil, s.Err())
 		return
 	}
-	return
 }
 
 func validateRelativeZFSVersion(s string) error {
@@ -731,7 +731,7 @@ func ZFSRecv(ctx context.Context, fs string, streamCopier StreamCopier, opts Rec
 		{
 			vs, err := ZFSListFilesystemVersions(fsdp, nil)
 			if err != nil {
-				err = fmt.Errorf("cannot list versions to rollback is required: %s", err)
+				return fmt.Errorf("cannot list versions for rollback for forced receive: %s", err)
 			}
 			for _, v := range vs {
 				if v.Type == Snapshot {

@@ -157,7 +157,7 @@ func DoHandshakeCurrentVersion(conn net.Conn, deadline time.Time) *HandshakeErro
 
 const HandshakeMessageMaxLen = 16 * 4096
 
-func DoHandshakeVersion(conn net.Conn, deadline time.Time, version int) *HandshakeError {
+func DoHandshakeVersion(conn net.Conn, deadline time.Time, version int) (rErr *HandshakeError) {
 	ours := HandshakeMessage{
 		ProtocolVersion: version,
 		Extensions:      nil,
@@ -167,8 +167,19 @@ func DoHandshakeVersion(conn net.Conn, deadline time.Time, version int) *Handsha
 		return hsErr("could not encode protocol banner: %s", err)
 	}
 
-	defer conn.SetDeadline(time.Time{})
-	conn.SetDeadline(deadline)
+	err = conn.SetDeadline(deadline)
+	if err != nil {
+		return hsErr("could not set deadline for protocol banner handshake: %s", err)
+	}
+	defer func() {
+		if rErr != nil {
+			return
+		}
+		err := conn.SetDeadline(time.Time{})
+		if err != nil {
+			rErr = hsErr("could not reset deadline after protocol banner handshake: %s", err)
+		}
+	}()
 	_, err = io.Copy(conn, bytes.NewBuffer(hsb))
 	if err != nil {
 		return hsErr("could not send protocol banner: %s", err)

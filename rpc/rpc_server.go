@@ -34,8 +34,6 @@ type Server struct {
 	dataServerServe    serveFunc
 }
 
-type serverContextKey int
-
 type HandlerContextInterceptor func(ctx context.Context) context.Context
 
 // config must be valid (use its Validate function).

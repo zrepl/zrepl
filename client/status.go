@@ -50,13 +50,13 @@ func (p *bytesProgressHistory) Update(currentVal int64) (bytesPerSecondAvg int64
 		p.lastChange = time.Now()
 	}
 
-	if time.Now().Sub(p.lastChange) > 3*time.Second {
+	if time.Since(p.lastChange) > 3*time.Second {
 		p.last = nil
 		return 0, 0
 	}
 
 	deltaV := currentVal - p.last.val
-	deltaT := time.Now().Sub(p.last.time)
+	deltaT := time.Since(p.last.time)
 	rate := float64(deltaV) / deltaT.Seconds()
 
 	factor := 0.3
@@ -81,13 +81,8 @@ type tui struct {
 
 func newTui() tui {
 	return tui{
-		replicationProgress: make(map[string]*bytesProgressHistory, 0),
+		replicationProgress: make(map[string]*bytesProgressHistory),
 	}
-}
-
-func (t *tui) moveCursor(x, y int) {
-	t.x += x
-	t.y += y
 }
 
 const INDENT_MULTIPLIER = 4
@@ -187,7 +182,10 @@ func runStatus(s *cli.Subcommand, args []string) error {
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			fmt.Fprintf(os.Stderr, "Received error response:\n")
-			io.CopyN(os.Stderr, resp.Body, 4096)
+			_, err := io.CopyN(os.Stderr, resp.Body, 4096)
+			if err != nil {
+				return err
+			}
 			return errors.Errorf("exit")
 		}
 		if _, err := io.Copy(os.Stdout, resp.Body); err != nil {
@@ -226,7 +224,7 @@ func runStatus(s *cli.Subcommand, args []string) error {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	go func() {
-		for _ = range ticker.C {
+		for range ticker.C {
 			update()
 		}
 	}()
@@ -277,7 +275,7 @@ func (t *tui) draw() {
 		//Iterate over map in alphabetical order
 		keys := make([]string, len(t.report))
 		i := 0
-		for k, _ := range t.report {
+		for k := range t.report {
 			keys[i] = k
 			i++
 		}
@@ -363,7 +361,7 @@ func (t *tui) renderReplicationReport(rep *report.Report, history *bytesProgress
 		t.newline()
 	}
 	if !rep.WaitReconnectSince.IsZero() {
-		delta := rep.WaitReconnectUntil.Sub(time.Now()).Round(time.Second)
+		delta := time.Until(rep.WaitReconnectUntil).Round(time.Second)
 		if rep.WaitReconnectUntil.IsZero() || delta > 0 {
 			var until string
 			if rep.WaitReconnectUntil.IsZero() {
@@ -559,13 +557,6 @@ func rightPad(str string, length int, pad string) string {
 		return str[:length]
 	}
 	return str + times(pad, length-len(str))
-}
-
-func leftPad(str string, length int, pad string) string {
-	if len(str) > length {
-		return str[len(str)-length:]
-	}
-	return times(pad, length-len(str)) + str
 }
 
 var arrowPositions = `>\|/`

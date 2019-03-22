@@ -31,10 +31,6 @@ func (i *RetentionInterval) KeepCount() int {
 
 const RetentionGridKeepCountAll int = -1
 
-type RetentionGrid struct {
-	intervals []RetentionInterval
-}
-
 func (t *RetentionIntervalList) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 	var in string
 	if err := u(&in, true); err != nil {

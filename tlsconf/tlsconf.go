@@ -80,7 +80,9 @@ func (l *ClientAuthListener) Accept() (tcpConn *net.TCPConn, tlsConn *tls.Conn, 
 	if err = tlsConn.Handshake(); err != nil {
 		goto CloseAndErr
 	}
-	tlsConn.SetDeadline(time.Time{})
+	if err = tlsConn.SetDeadline(time.Time{}); err != nil {
+		goto CloseAndErr
+	}
 
 	peerCerts = tlsConn.ConnectionState().PeerCertificates
 	if len(peerCerts) < 1 {

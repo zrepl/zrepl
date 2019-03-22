@@ -67,7 +67,7 @@ func (l Level) Short() string {
 	case Error:
 		return "ERRO"
 	default:
-		return fmt.Sprintf("%s", l)
+		return l.String()
 	}
 }
 
@@ -82,7 +82,7 @@ func (l Level) String() string {
 	case Error:
 		return "error"
 	default:
-		return fmt.Sprintf("%s", string(l))
+		return string(l)
 	}
 }
 

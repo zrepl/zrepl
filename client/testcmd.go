@@ -113,10 +113,8 @@ func runTestFilterCmd(subcommand *cli.Subcommand, args []string) error {
 }
 
 var testPlaceholderArgs struct {
-	action string
-	ds     string
-	plv    string
-	all    bool
+	ds  string
+	all bool
 }
 
 var testPlaceholder = &cli.Subcommand{

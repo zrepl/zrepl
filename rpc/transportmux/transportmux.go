@@ -7,6 +7,7 @@ package transportmux
 
 import (
 	"context"
+
 	"fmt"
 	"io"
 	"net"
@@ -142,7 +143,10 @@ func Demux(ctx context.Context, rawListener transport.AuthenticatedListener, lab
 				continue
 			}
 
-			rawConn.SetDeadline(time.Time{})
+			err = rawConn.SetDeadline(time.Time{})
+			if err != nil {
+				getLog(ctx).WithError(err).Error("cannot reset deadline")
+			}
 			// blocking is intentional
 			demuxListener.conns <- acceptRes{conn: rawConn, err: nil}
 		}
@@ -169,7 +173,12 @@ func (c labeledConnecter) Connect(ctx context.Context) (transport.Wire, error) {
 	}
 
 	if dl, ok := ctx.Deadline(); ok {
-		defer conn.SetDeadline(time.Time{})
+		defer func() {
+			err := conn.SetDeadline(time.Time{})
+			if err != nil {
+				getLog(ctx).WithError(err).Error("cannot reset deadline")
+			}
+		}()
 		if err := conn.SetDeadline(dl); err != nil {
 			closeConn(err)
 			return nil, err

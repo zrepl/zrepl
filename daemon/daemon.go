@@ -117,9 +117,7 @@ func newJobs() *jobs {
 }
 
 const (
-	logJobField    string = "job"
-	logTaskField   string = "task"
-	logSubsysField string = "subsystem"
+	logJobField string = "job"
 )
 
 func (s *jobs) wait() <-chan struct{} {

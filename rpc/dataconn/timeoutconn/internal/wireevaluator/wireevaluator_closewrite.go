@@ -52,9 +52,6 @@ func (CloseWrite) sender(wire transport.Wire) {
 		log.Printf("closeErr=%T %s", closeErr, closeErr)
 	}()
 
-	type opResult struct {
-		err error
-	}
 	writeDone := make(chan struct{}, 1)
 	go func() {
 		close(writeDone)

@@ -166,14 +166,14 @@ func TestReplication(t *testing.T) {
 	reports := make([]*report.Report, len(fireAt))
 	for i := range fireAt {
 		sleepUntil := begin.Add(fireAt[i])
-		time.Sleep(sleepUntil.Sub(time.Now()))
+		time.Sleep(time.Until(sleepUntil))
 		reports[i] = getReport()
 		// uncomment for viewing non-diffed results
 		// t.Logf("report @ %6.4f:\n%s", fireAt[i].Seconds(), pretty.Sprint(reports[i]))
 	}
 	waitBegin := time.Now()
 	wait(true)
-	waitDuration := time.Now().Sub(waitBegin)
+	waitDuration := time.Since(waitBegin)
 	assert.True(t, waitDuration < 10*time.Millisecond, "%v", waitDuration) // and that's gratious
 
 	prev, err := json.Marshal(reports[0])

@@ -1,7 +1,6 @@
 package frameconn
 
 import (
-	"bufio"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -48,7 +47,6 @@ func (f *FrameHeader) Unmarshal(buf []byte) {
 type Conn struct {
 	readMtx, writeMtx sync.Mutex
 	nc                timeoutconn.Conn
-	ncBuf             *bufio.ReadWriter
 	readNextValid     bool
 	readNext          FrameHeader
 	nextReadErr       error

@@ -10,16 +10,10 @@ type shutdownFSM struct {
 type shutdownFSMState uint32
 
 const (
+	// zero value is important
 	shutdownStateOpen shutdownFSMState = iota
 	shutdownStateBegin
 )
-
-func newShutdownFSM() *shutdownFSM {
-	fsm := &shutdownFSM{
-		state: shutdownStateOpen,
-	}
-	return fsm
-}
 
 func (f *shutdownFSM) Begin() (thisCallStartedShutdown bool) {
 	f.mtx.Lock()

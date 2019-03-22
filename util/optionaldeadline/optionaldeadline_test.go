@@ -1,4 +1,4 @@
-package util
+package optionaldeadline
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/zrepl/zrepl/util/chainlock"
 )
 
 func TestContextWithOptionalDeadline(t *testing.T) {
@@ -15,19 +17,28 @@ func TestContextWithOptionalDeadline(t *testing.T) {
 	cctx, enforceDeadline := ContextWithOptionalDeadline(ctx)
 
 	begin := time.Now()
-	var receivedCancellation time.Time
-	var cancellationError error
+	var checker struct {
+		receivedCancellation time.Time
+		cancellationError    error
+		timeout              bool
+		mtx                  chainlock.L
+	}
 	go func() {
 		select {
 		case <-cctx.Done():
-			receivedCancellation = time.Now()
-			cancellationError = cctx.Err()
+			defer checker.mtx.Lock().Unlock()
+			checker.receivedCancellation = time.Now()
+			checker.cancellationError = cctx.Err()
 		case <-time.After(600 * time.Millisecond):
-			t.Fatalf("should have been cancelled by deadline")
+			defer checker.mtx.Lock().Unlock()
+			checker.timeout = true
 		}
 	}()
-	time.Sleep(100 * time.Millisecond)
-	if !receivedCancellation.IsZero() {
+	defer checker.mtx.Lock().Unlock()
+	checker.mtx.DropWhile(func() {
+		time.Sleep(100 * time.Millisecond)
+	})
+	if !checker.receivedCancellation.IsZero() {
 		t.Fatalf("no enforcement means no cancellation")
 	}
 	require.Nil(t, cctx.Err(), "no error while not cancelled")
@@ -38,11 +49,15 @@ func TestContextWithOptionalDeadline(t *testing.T) {
 	// second call must be ignored, i.e. we expect the deadline to be at begin+200ms, not begin+400ms
 	enforceDeadline(begin.Add(400 * time.Millisecond))
 
-	time.Sleep(300 * time.Millisecond) // 100ms margin for scheduler
-	if receivedCancellation.Sub(begin) > 250*time.Millisecond {
-		t.Fatalf("cancellation is beyond acceptable scheduler latency")
+	checker.mtx.DropWhile(func() {
+		time.Sleep(300 * time.Millisecond) // 100ms margin for scheduler
+	})
+	assert.False(t, checker.timeout, "test timeout")
+	receivedCancellationAfter := checker.receivedCancellation.Sub(begin)
+	if receivedCancellationAfter > 250*time.Millisecond {
+		t.Fatalf("cancellation is beyond acceptable scheduler latency: %s", receivedCancellationAfter)
 	}
-	require.Equal(t, context.DeadlineExceeded, cancellationError)
+	require.Equal(t, context.DeadlineExceeded, checker.cancellationError)
 }
 
 func TestContextWithOptionalDeadlineNegativeDeadline(t *testing.T) {

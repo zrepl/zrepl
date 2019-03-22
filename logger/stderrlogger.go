@@ -5,10 +5,6 @@ import (
 	"os"
 )
 
-type stderrLogger struct {
-	Logger
-}
-
 type stderrLoggerOutlet struct{}
 
 func (stderrLoggerOutlet) WriteEntry(entry Entry) error {

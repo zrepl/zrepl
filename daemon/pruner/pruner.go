@@ -86,19 +86,6 @@ type LocalPrunerFactory struct {
 	promPruneSecs *prometheus.HistogramVec
 }
 
-func checkContainsKeep1(rules []pruning.KeepRule) error {
-	if len(rules) == 0 {
-		return nil //No keep rules means keep all - ok
-	}
-	for _, e := range rules {
-		switch e.(type) {
-		case *pruning.KeepLastN:
-			return nil
-		}
-	}
-	return errors.New("sender keep rules must contain last_n or be empty so that the last snapshot is definitely kept")
-}
-
 func NewLocalPrunerFactory(in config.PruningLocal, promPruneSecs *prometheus.HistogramVec) (*LocalPrunerFactory, error) {
 	rules, err := pruning.RulesFromConfig(in.Keep)
 	if err != nil {

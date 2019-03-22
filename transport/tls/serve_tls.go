@@ -3,7 +3,6 @@ package tls
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"net"
 	"time"
@@ -15,13 +14,7 @@ import (
 	"github.com/zrepl/zrepl/transport"
 )
 
-type TLSListenerFactory struct {
-	address          string
-	clientCA         *x509.CertPool
-	serverCert       tls.Certificate
-	handshakeTimeout time.Duration
-	clientCNs        map[string]struct{}
-}
+type TLSListenerFactory struct{}
 
 func TLSListenerFactoryFromConfig(c *config.Global, in *config.TLSServe) (transport.AuthenticatedListenerFactory, error) {
 
@@ -75,12 +68,21 @@ func (l tlsAuthListener) Accept(ctx context.Context) (*transport.AuthConn, error
 		return nil, err
 	}
 	if _, ok := l.clientCNs[cn]; !ok {
+		log := transport.GetLogger(ctx)
 		if dl, ok := ctx.Deadline(); ok {
-			defer tlsConn.SetDeadline(time.Time{})
-			tlsConn.SetDeadline(dl)
+			defer func() {
+				err := tlsConn.SetDeadline(time.Time{})
+				if err != nil {
+					log.WithError(err).Error("cannot clear connection deadline")
+				}
+			}()
+			err := tlsConn.SetDeadline(dl)
+			if err != nil {
+				log.WithError(err).WithField("deadline", dl).Error("cannot set connection deadline inherited from context")
+			}
 		}
 		if err := tlsConn.Close(); err != nil {
-			transport.GetLogger(ctx).WithError(err).Error("error closing connection with unauthorized common name")
+			log.WithError(err).Error("error closing connection with unauthorized common name")
 		}
 		return nil, fmt.Errorf("unauthorized client common name %q from %s", cn, tlsConn.RemoteAddr())
 	}
