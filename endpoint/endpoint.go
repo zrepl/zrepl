@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
+	"github.com/zrepl/zrepl/util/chainlock"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -170,13 +171,19 @@ type FSMap interface { // FIXME unused
 type Receiver struct {
 	rootWithoutClientComponent *zfs.DatasetPath
 	appendClientIdentity       bool
+
+	recvParentCreationMtx *chainlock.L
 }
 
 func NewReceiver(rootDataset *zfs.DatasetPath, appendClientIdentity bool) *Receiver {
 	if rootDataset.Length() <= 0 {
 		panic(fmt.Sprintf("root dataset must not be an empty path: %v", rootDataset))
 	}
-	return &Receiver{rootWithoutClientComponent: rootDataset.Copy(), appendClientIdentity: appendClientIdentity}
+	return &Receiver{
+		rootWithoutClientComponent: rootDataset.Copy(),
+		appendClientIdentity:       appendClientIdentity,
+		recvParentCreationMtx:      chainlock.New(),
+	}
 }
 
 func TestClientIdentity(rootFS *zfs.DatasetPath, clientIdentity string) error {
@@ -323,40 +330,53 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs
 	}
 
 	// create placeholder parent filesystems as appropriate
+	//
+	// Manipulating the ZFS dataset hierarchy must happen exclusively.
+	// TODO: Use fine-grained locking to allow separate clients / requests to pass
+	// 		 through the following section concurrently when operating on disjoint
+	//       ZFS dataset hierarchy subtrees.
 	var visitErr error
-	f := zfs.NewDatasetPathForest()
-	f.Add(lp)
-	getLogger(ctx).Debug("begin tree-walk")
-	f.WalkTopDown(func(v zfs.DatasetPathVisit) (visitChildTree bool) {
-		if v.Path.Equal(lp) {
-			return false
-		}
-		ph, err := zfs.ZFSGetFilesystemPlaceholderState(v.Path)
-		if err != nil {
-			visitErr = err
-			return false
-		}
-		getLogger(ctx).
-			WithField("fs", v.Path.ToString()).
-			WithField("placeholder_state", fmt.Sprintf("%#v", ph)).
-			Debug("placeholder state for filesystem")
+	func() {
+		getLogger(ctx).Debug("begin aquire recvParentCreationMtx")
+		defer s.recvParentCreationMtx.Lock().Unlock()
+		getLogger(ctx).Debug("end aquire recvParentCreationMtx")
+		defer getLogger(ctx).Debug("release recvParentCreationMtx")
 
-		if !ph.FSExists {
-			l := getLogger(ctx).WithField("placeholder_fs", v.Path)
-			l.Debug("create placeholder filesystem")
-			err := zfs.ZFSCreatePlaceholderFilesystem(v.Path)
+		f := zfs.NewDatasetPathForest()
+		f.Add(lp)
+		getLogger(ctx).Debug("begin tree-walk")
+		f.WalkTopDown(func(v zfs.DatasetPathVisit) (visitChildTree bool) {
+			if v.Path.Equal(lp) {
+				return false
+			}
+			ph, err := zfs.ZFSGetFilesystemPlaceholderState(v.Path)
+			getLogger(ctx).
+				WithField("fs", v.Path.ToString()).
+				WithField("placeholder_state", fmt.Sprintf("%#v", ph)).
+				WithField("err", fmt.Sprintf("%s", err)).
+				WithField("errType", fmt.Sprintf("%T", err)).
+				Debug("placeholder state for filesystem")
 			if err != nil {
-				l.WithError(err).Error("cannot create placeholder filesystem")
 				visitErr = err
 				return false
 			}
-			return true
-		}
-		getLogger(ctx).WithField("filesystem", v.Path.ToString()).Debug("exists")
-		return true // leave this fs as is
-	})
-	getLogger(ctx).WithField("visitErr", visitErr).Debug("complete tree-walk")
 
+			if !ph.FSExists {
+				l := getLogger(ctx).WithField("placeholder_fs", v.Path)
+				l.Debug("create placeholder filesystem")
+				err := zfs.ZFSCreatePlaceholderFilesystem(v.Path)
+				if err != nil {
+					l.WithError(err).Error("cannot create placeholder filesystem")
+					visitErr = err
+					return false
+				}
+				return true
+			}
+			getLogger(ctx).WithField("filesystem", v.Path.ToString()).Debug("exists")
+			return true // leave this fs as is
+		})
+	}()
+	getLogger(ctx).WithField("visitErr", visitErr).Debug("complete tree-walk")
 	if visitErr != nil {
 		return nil, visitErr
 	}
