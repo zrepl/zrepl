@@ -108,8 +108,7 @@ func (t *datasetPathTree) WalkTopDown(parent []string, visitor DatasetPathsVisit
 
 func newDatasetPathTree(initialComps []string) (t *datasetPathTree) {
 	t = &datasetPathTree{}
-	var cur *datasetPathTree
-	cur = t
+	cur := t
 	for i, comp := range initialComps {
 		cur.Component = comp
 		cur.FilledIn = true

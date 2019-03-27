@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/config"
 )
 
@@ -24,13 +25,13 @@ func JobsFromConfig(c *config.Config) ([]Job, error) {
 
 	// receiving-side root filesystems must not overlap
 	{
-		rfss := make([]string, len(js))
-		for i, j := range js {
+		rfss := make([]string, 0, len(js))
+		for _, j := range js {
 			jrfs, ok := j.OwnedDatasetSubtreeRoot()
 			if !ok {
 				continue
 			}
-			rfss[i] = jrfs.ToString()
+			rfss = append(rfss, jrfs.ToString())
 		}
 		if err := validateReceivingSidesDoNotOverlap(rfss); err != nil {
 			return nil, err

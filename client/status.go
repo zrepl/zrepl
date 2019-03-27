@@ -2,15 +2,6 @@ package client
 
 import (
 	"fmt"
-	"github.com/gdamore/tcell/termbox"
-	"github.com/pkg/errors"
-	"github.com/spf13/pflag"
-	"github.com/zrepl/yaml-config"
-	"github.com/zrepl/zrepl/cli"
-	"github.com/zrepl/zrepl/daemon"
-	"github.com/zrepl/zrepl/daemon/job"
-	"github.com/zrepl/zrepl/daemon/pruner"
-	"github.com/zrepl/zrepl/replication/report"
 	"io"
 	"math"
 	"net/http"
@@ -19,18 +10,29 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gdamore/tcell/termbox"
+	"github.com/pkg/errors"
+	"github.com/spf13/pflag"
+	"github.com/zrepl/yaml-config"
+
+	"github.com/zrepl/zrepl/cli"
+	"github.com/zrepl/zrepl/daemon"
+	"github.com/zrepl/zrepl/daemon/job"
+	"github.com/zrepl/zrepl/daemon/pruner"
+	"github.com/zrepl/zrepl/replication/report"
 )
 
 type byteProgressMeasurement struct {
 	time time.Time
-	val int64
+	val  int64
 }
 
 type bytesProgressHistory struct {
-	last   *byteProgressMeasurement // pointer as poor man's optional
+	last        *byteProgressMeasurement // pointer as poor man's optional
 	changeCount int
-	lastChange time.Time
-	bpsAvg float64
+	lastChange  time.Time
+	bpsAvg      float64
 }
 
 func (p *bytesProgressHistory) Update(currentVal int64) (bytesPerSecondAvg int64, changeCount int) {
@@ -38,7 +40,7 @@ func (p *bytesProgressHistory) Update(currentVal int64) (bytesPerSecondAvg int64
 	if p.last == nil {
 		p.last = &byteProgressMeasurement{
 			time: time.Now(),
-			val: currentVal,
+			val:  currentVal,
 		}
 		return 0, 0
 	}
@@ -48,18 +50,17 @@ func (p *bytesProgressHistory) Update(currentVal int64) (bytesPerSecondAvg int64
 		p.lastChange = time.Now()
 	}
 
-	if time.Now().Sub(p.lastChange) > 3 * time.Second {
+	if time.Since(p.lastChange) > 3*time.Second {
 		p.last = nil
 		return 0, 0
 	}
 
-
-	deltaV := currentVal - p.last.val;
-	deltaT := time.Now().Sub(p.last.time)
+	deltaV := currentVal - p.last.val
+	deltaT := time.Since(p.last.time)
 	rate := float64(deltaV) / deltaT.Seconds()
 
 	factor := 0.3
-	p.bpsAvg =  (1-factor) * p.bpsAvg + factor * rate
+	p.bpsAvg = (1-factor)*p.bpsAvg + factor*rate
 
 	p.last.time = time.Now()
 	p.last.val = currentVal
@@ -80,13 +81,8 @@ type tui struct {
 
 func newTui() tui {
 	return tui{
-		replicationProgress: make(map[string]*bytesProgressHistory, 0),
+		replicationProgress: make(map[string]*bytesProgressHistory),
 	}
-}
-
-func (t *tui) moveCursor(x, y int) {
-	t.x += x
-	t.y += y
 }
 
 const INDENT_MULTIPLIER = 4
@@ -119,7 +115,7 @@ func wrap(s string, width int) string {
 			rem = len(s)
 		}
 		if idx := strings.IndexAny(s, "\n\r"); idx != -1 && idx < rem {
-			rem = idx+1
+			rem = idx + 1
 		}
 		untilNewline := strings.TrimRight(s[:rem], "\n\r")
 		s = s[rem:]
@@ -135,12 +131,12 @@ func wrap(s string, width int) string {
 func (t *tui) printfDrawIndentedAndWrappedIfMultiline(format string, a ...interface{}) {
 	whole := fmt.Sprintf(format, a...)
 	width, _ := termbox.Size()
-	if !strings.ContainsAny(whole, "\n\r") && t.x + len(whole) <= width {
+	if !strings.ContainsAny(whole, "\n\r") && t.x+len(whole) <= width {
 		t.printf(format, a...)
 	} else {
 		t.addIndent(1)
 		t.newline()
-		t.write(wrap(whole, width - INDENT_MULTIPLIER*t.indent))
+		t.write(wrap(whole, width-INDENT_MULTIPLIER*t.indent))
 		t.addIndent(-1)
 	}
 }
@@ -158,7 +154,6 @@ func (t *tui) addIndent(indent int) {
 	t.indent += indent
 	t.moveLine(0, 0)
 }
-
 
 var statusFlags struct {
 	Raw bool
@@ -180,14 +175,17 @@ func runStatus(s *cli.Subcommand, args []string) error {
 	}
 
 	if statusFlags.Raw {
-		resp, err := httpc.Get("http://unix"+daemon.ControlJobEndpointStatus)
+		resp, err := httpc.Get("http://unix" + daemon.ControlJobEndpointStatus)
 		if err != nil {
 			return err
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			fmt.Fprintf(os.Stderr, "Received error response:\n")
-			io.CopyN(os.Stderr, resp.Body, 4096)
+			_, err := io.CopyN(os.Stderr, resp.Body, 4096)
+			if err != nil {
+				return err
+			}
 			return errors.Errorf("exit")
 		}
 		if _, err := io.Copy(os.Stdout, resp.Body); err != nil {
@@ -226,7 +224,7 @@ func runStatus(s *cli.Subcommand, args []string) error {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	go func() {
-		for _ = range ticker.C {
+		for range ticker.C {
 			update()
 		}
 	}()
@@ -277,7 +275,7 @@ func (t *tui) draw() {
 		//Iterate over map in alphabetical order
 		keys := make([]string, len(t.report))
 		i := 0
-		for k, _ := range t.report {
+		for k := range t.report {
 			keys[i] = k
 			i++
 		}
@@ -363,7 +361,7 @@ func (t *tui) renderReplicationReport(rep *report.Report, history *bytesProgress
 		t.newline()
 	}
 	if !rep.WaitReconnectSince.IsZero() {
-		delta := rep.WaitReconnectUntil.Sub(time.Now()).Round(time.Second)
+		delta := time.Until(rep.WaitReconnectUntil).Round(time.Second)
 		if rep.WaitReconnectUntil.IsZero() || delta > 0 {
 			var until string
 			if rep.WaitReconnectUntil.IsZero() {
@@ -390,7 +388,7 @@ func (t *tui) renderReplicationReport(rep *report.Report, history *bytesProgress
 			t.newline()
 			t.addIndent(1)
 			for i, a := range rep.Attempts[:len(rep.Attempts)-1] {
-				t.printfDrawIndentedAndWrappedIfMultiline("#%d: %s (failed at %s) (ran %s)", i + 1, a.State, a.FinishAt, a.FinishAt.Sub(a.StartAt))
+				t.printfDrawIndentedAndWrappedIfMultiline("#%d: %s (failed at %s) (ran %s)", i+1, a.State, a.FinishAt, a.FinishAt.Sub(a.StartAt))
 				t.newline()
 			}
 			t.addIndent(-1)
@@ -462,7 +460,7 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 		*pruner.FSReport
 		completed bool
 	}
-	all := make([]commonFS, 0, len(r.Pending) + len(r.Completed))
+	all := make([]commonFS, 0, len(r.Pending)+len(r.Completed))
 	for i := range r.Pending {
 		all = append(all, commonFS{&r.Pending[i], false})
 	}
@@ -471,7 +469,8 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 	}
 
 	switch state {
-	case pruner.Plan: fallthrough
+	case pruner.Plan:
+		fallthrough
 	case pruner.PlanErr:
 		return
 	}
@@ -499,7 +498,7 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 	t.write("[")
 	t.write(times("=", progress))
 	t.write(">")
-	t.write(times("-", 80 - progress))
+	t.write(times("-", 80-progress))
 	t.write("]")
 	t.printf(" %d/%d snapshots", completedDestroyCount, totalDestroyCount)
 	t.newline()
@@ -519,9 +518,9 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 		if fs.LastError != "" {
 			if strings.ContainsAny(fs.LastError, "\r\n") {
 				t.printf("ERROR:")
-				t.printfDrawIndentedAndWrappedIfMultiline("%s\n", fs.LastError) 
+				t.printfDrawIndentedAndWrappedIfMultiline("%s\n", fs.LastError)
 			} else {
-				t.printfDrawIndentedAndWrappedIfMultiline("ERROR: %s\n", fs.LastError) 
+				t.printfDrawIndentedAndWrappedIfMultiline("ERROR: %s\n", fs.LastError)
 			}
 			t.newline()
 			continue
@@ -531,7 +530,7 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 			len(fs.DestroyList), len(fs.SnapshotList))
 
 		if fs.completed {
-			t.printf( "Completed  %s\n", pruneRuleActionStr)
+			t.printf("Completed  %s\n", pruneRuleActionStr)
 			continue
 		}
 
@@ -560,14 +559,6 @@ func rightPad(str string, length int, pad string) string {
 	return str + times(pad, length-len(str))
 }
 
-
-func leftPad(str string, length int, pad string) string {
-	if len(str) > length {
-		return str[len(str)-length:]
-	}
-	return times(pad, length-len(str)) + str
-}
-
 var arrowPositions = `>\|/`
 
 // changeCount = 0 indicates stall / no progresss
@@ -584,7 +575,7 @@ func (t *tui) drawBar(length int, bytes, totalBytes int64, changeCount int) {
 
 	t.write("[")
 	t.write(times("=", completedLength))
-	t.write( string(arrowPositions[changeCount%len(arrowPositions)]))
+	t.write(string(arrowPositions[changeCount%len(arrowPositions)]))
 	t.write(times("-", length-completedLength))
 	t.write("]")
 }

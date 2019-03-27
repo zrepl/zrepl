@@ -39,7 +39,9 @@ godep() {
     go build -o "$GOPATH/bin/stringer"      ./vendor/golang.org/x/tools/cmd/stringer
     go build -o "$GOPATH/bin/protoc-gen-go" ./vendor/github.com/golang/protobuf/protoc-gen-go
     go build -o "$GOPATH/bin/enumer"        ./vendor/github.com/alvaroloes/enumer
-    if ! type stringer || ! type protoc-gen-go || ! type enumer ; then
+    go build -o "$GOPATH/bin/goimports"     ./vendor/golang.org/x/tools/cmd/goimports
+    go build -o "$GOPATH/bin/golangci-lint" ./vendor/github.com/golangci/golangci-lint/cmd/golangci-lint
+    if ! type stringer || ! type protoc-gen-go || ! type enumer || ! type goimports || ! type golangci-lint; then
         echo "Installed dependencies but can't find them in \$PATH, adjust it to contain \$GOPATH/bin" 1>&2
         exit 1
     fi

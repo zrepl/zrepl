@@ -12,9 +12,6 @@ type contextKey int
 
 const (
 	contextKeyLoggers contextKey = iota
-	contextKeyGeneralLogger
-	contextKeyControlLogger
-	contextKeyDataLogger
 )
 
 /// All fields must be non-nil

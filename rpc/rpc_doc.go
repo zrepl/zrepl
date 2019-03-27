@@ -115,4 +115,3 @@ package rpc
 // - remove the comments //
 // - vim: set virtualedit+=all
 // - vim: set ft=text
-

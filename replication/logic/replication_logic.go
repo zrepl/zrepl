@@ -26,7 +26,7 @@ type Endpoint interface {
 	ListFilesystems(ctx context.Context, req *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error)
 	ListFilesystemVersions(ctx context.Context, req *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error)
 	DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error)
-	WaitForConnectivity(ctx context.Context) (error)
+	WaitForConnectivity(ctx context.Context) error
 }
 
 type Sender interface {
@@ -107,7 +107,7 @@ type Filesystem struct {
 	sender   Sender
 	receiver Receiver
 
-	Path                string             // compat
+	Path                string // compat
 	receiverFS          *pdu.Filesystem
 	promBytesReplicated prometheus.Counter // compat
 }

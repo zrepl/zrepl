@@ -23,9 +23,8 @@ type Conn struct {
 
 	// readMtx serializes read stream operations because we inherently only
 	// support a single stream at a time over hc.
-	readMtx            sync.Mutex
-	readClean          bool
-	allowWriteStreamTo bool
+	readMtx   sync.Mutex
+	readClean bool
 
 	// writeMtx serializes write stream operations because we inherently only
 	// support a single stream at a time over hc.
@@ -95,7 +94,7 @@ func (c *Conn) ReadStreamedMessage(ctx context.Context, maxSize uint32, frameTyp
 	}()
 	err := readStream(c.frameReads, c.hc, w, frameType)
 	c.readClean = isConnCleanAfterRead(err)
-	w.CloseWithError(readMessageSentinel)
+	_ = w.CloseWithError(readMessageSentinel) // always returns nil
 	wg.Wait()
 	if err != nil {
 		return nil, err
@@ -166,7 +165,7 @@ func (c *Conn) SendStream(ctx context.Context, src zfs.StreamCopier, frameType u
 		var res writeStreamRes
 		res.errStream, res.errConn = writeStream(ctx, c.hc, r, frameType)
 		if w != nil {
-			w.CloseWithError(res.errStream)
+			_ = w.CloseWithError(res.errStream) // always returns nil
 		}
 		writeStreamErrChan <- res
 	}()

@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/zrepl/zrepl/util/socketpair"
 )
 
@@ -101,7 +102,7 @@ func TestNoPartialReadsDueToDeadline(t *testing.T) {
 		// io.Copy will encounter a partial read, then wait ~50ms until the other 5 bytes are written
 		// It is still going to fail with deadline err because it expects EOF
 		n, err := io.Copy(&buf, bc)
-		readDuration := time.Now().Sub(beginRead)
+		readDuration := time.Since(beginRead)
 		t.Logf("read duration=%s", readDuration)
 		t.Logf("recv done n=%v err=%v", n, err)
 		t.Logf("buf=%v", buf.Bytes())
@@ -152,7 +153,7 @@ func TestPartialWriteMockConn(t *testing.T) {
 	buf := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 	begin := time.Now()
 	n, err := mc.Write(buf[:])
-	duration := time.Now().Sub(begin)
+	duration := time.Since(begin)
 	assert.NoError(t, err)
 	assert.Equal(t, 5, n)
 	assert.True(t, duration > 100*time.Millisecond)

@@ -11,7 +11,8 @@
 package main
 
 import (
-	_ "fmt"
+	"fmt"
+
 	_ "github.com/alvaroloes/enumer"
 	_ "github.com/golang/protobuf/protoc-gen-go"
 	_ "golang.org/x/tools/cmd/stringer"

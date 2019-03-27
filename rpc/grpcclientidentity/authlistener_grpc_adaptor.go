@@ -18,11 +18,12 @@ import (
 	"net"
 	"time"
 
-	"github.com/zrepl/zrepl/logger"
-	"github.com/zrepl/zrepl/transport"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+
+	"github.com/zrepl/zrepl/logger"
+	"github.com/zrepl/zrepl/transport"
 )
 
 type Logger = logger.Logger
@@ -105,7 +106,7 @@ func NewInterceptors(logger Logger, clientIdentityKey interface{}) (unary grpc.U
 		if !ok {
 			panic("peer.FromContext expected to return a peer in grpc.UnaryServerInterceptor")
 		}
-		logger.WithField("peer_addr", fmt.Sprintf("%s", p.Addr)).Debug("peer addr")
+		logger.WithField("peer_addr", p.Addr.String()).Debug("peer addr")
 		a, ok := p.AuthInfo.(*authConnAuthType)
 		if !ok {
 			panic(fmt.Sprintf("NewInterceptors must be used in combination with grpc.NewTransportCredentials, but got auth type %T", p.AuthInfo))

@@ -88,6 +88,9 @@ func server() {
 	log := logger.NewStderrDebugLogger()
 
 	srv, serve, err := grpchelper.NewServer(authListenerFactory, clientIdentityKey, log)
+	if err != nil {
+		onErr(err, "new server")
+	}
 	svc := &greeter{"hello "}
 	pdu.RegisterGreeterServer(srv, svc)
 

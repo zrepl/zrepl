@@ -1,4 +1,4 @@
-.PHONY: generate build test vet cover release docs docs-clean clean vendordeps
+.PHONY: generate build test vet cover release docs docs-clean clean vendordeps format lint
 .DEFAULT_GOAL := build
 
 ARTIFACTDIR := artifacts
@@ -29,6 +29,12 @@ vendordeps:
 generate: #not part of the build, must do that manually
 	protoc -I=replication/logic/pdu --go_out=plugins=grpc:replication/logic/pdu replication/logic/pdu/pdu.proto
 	go generate -x ./...
+
+format:
+	goimports -srcdir . -local 'github.com/zrepl/zrepl' -w $(shell find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go')
+
+lint:
+	golangci-lint run ./...
 
 build:
 	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"
@@ -68,7 +74,7 @@ docs-clean:
 
 .PHONY: $(RELEASE_BINS)
 # TODO: two wildcards possible
-$(RELEASE_BINS): $(ARTIFACTDIR)/zrepl-%-amd64: generate $(ARTIFACTDIR) vet test
+$(RELEASE_BINS): $(ARTIFACTDIR)/zrepl-%-amd64: generate $(ARTIFACTDIR) vet test lint
 	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"
 	GOOS=$* GOARCH=amd64   $(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-$*-amd64"
 

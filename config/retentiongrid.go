@@ -11,9 +11,9 @@ import (
 type RetentionIntervalList []RetentionInterval
 
 type PruneGrid struct {
-	Type          string                `yaml:"type"`
-	Grid          RetentionIntervalList `yaml:"grid"`
-	Regex	      string                `yaml:"regex"`
+	Type  string                `yaml:"type"`
+	Grid  RetentionIntervalList `yaml:"grid"`
+	Regex string                `yaml:"regex"`
 }
 
 type RetentionInterval struct {
@@ -30,10 +30,6 @@ func (i *RetentionInterval) KeepCount() int {
 }
 
 const RetentionGridKeepCountAll int = -1
-
-type RetentionGrid struct {
-	intervals []RetentionInterval
-}
 
 func (t *RetentionIntervalList) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 	var in string

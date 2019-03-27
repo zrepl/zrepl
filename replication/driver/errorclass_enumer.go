@@ -6,9 +6,9 @@ import (
 	"fmt"
 )
 
-const _errorClassName = "errorClassUnknownerrorClassPermanenterrorClassTemporaryConnectivityRelated"
+const _errorClassName = "errorClassPermanenterrorClassTemporaryConnectivityRelated"
 
-var _errorClassIndex = [...]uint8{0, 17, 36, 74}
+var _errorClassIndex = [...]uint8{0, 19, 57}
 
 func (i errorClass) String() string {
 	if i < 0 || i >= errorClass(len(_errorClassIndex)-1) {
@@ -17,12 +17,11 @@ func (i errorClass) String() string {
 	return _errorClassName[_errorClassIndex[i]:_errorClassIndex[i+1]]
 }
 
-var _errorClassValues = []errorClass{0, 1, 2}
+var _errorClassValues = []errorClass{0, 1}
 
 var _errorClassNameToValueMap = map[string]errorClass{
-	_errorClassName[0:17]:  0,
-	_errorClassName[17:36]: 1,
-	_errorClassName[36:74]: 2,
+	_errorClassName[0:19]:  0,
+	_errorClassName[19:57]: 1,
 }
 
 // errorClassString retrieves an enum value from the enum constants string name.

@@ -1,7 +1,6 @@
 package frameconn
 
 import (
-	"bufio"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/zrepl/zrepl/rpc/dataconn/base2bufpool"
 	"github.com/zrepl/zrepl/rpc/dataconn/timeoutconn"
 )
@@ -47,7 +47,6 @@ func (f *FrameHeader) Unmarshal(buf []byte) {
 type Conn struct {
 	readMtx, writeMtx sync.Mutex
 	nc                timeoutconn.Conn
-	ncBuf             *bufio.ReadWriter
 	readNextValid     bool
 	readNext          FrameHeader
 	nextReadErr       error

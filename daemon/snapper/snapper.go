@@ -1,18 +1,19 @@
 package snapper
 
 import (
-	"github.com/zrepl/zrepl/config"
-	"github.com/pkg/errors"
-	"time"
 	"context"
-	"github.com/zrepl/zrepl/daemon/filters"
 	"fmt"
-	"github.com/zrepl/zrepl/zfs"
 	"sort"
-	"github.com/zrepl/zrepl/logger"
 	"sync"
-)
+	"time"
 
+	"github.com/pkg/errors"
+
+	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/filters"
+	"github.com/zrepl/zrepl/logger"
+	"github.com/zrepl/zrepl/zfs"
+)
 
 //go:generate stringer -type=SnapState
 type SnapState uint
@@ -28,7 +29,7 @@ type snapProgress struct {
 	state SnapState
 
 	// SnapStarted, SnapDone, SnapError
-	name string
+	name    string
 	startAt time.Time
 
 	// SnapDone
@@ -44,13 +45,13 @@ type args struct {
 	prefix         string
 	interval       time.Duration
 	fsf            *filters.DatasetMapFilter
-	snapshotsTaken chan<-struct{}
+	snapshotsTaken chan<- struct{}
 }
 
 type Snapper struct {
 	args args
 
-	mtx sync.Mutex
+	mtx   sync.Mutex
 	state State
 
 	// set in state Plan, used in Waiting
@@ -70,7 +71,7 @@ type Snapper struct {
 type State uint
 
 const (
-	SyncUp State = 1<<iota
+	SyncUp State = 1 << iota
 	SyncUpErrWait
 	Planning
 	Snapshotting
@@ -81,13 +82,13 @@ const (
 
 func (s State) sf() state {
 	m := map[State]state{
-		SyncUp:       syncUp,
+		SyncUp:        syncUp,
 		SyncUpErrWait: wait,
-		Planning:     plan,
-		Snapshotting: snapshot,
-		Waiting:      wait,
-		ErrorWait:    wait,
-		Stopped: 	   nil,
+		Planning:      plan,
+		Snapshotting:  snapshot,
+		Waiting:       wait,
+		ErrorWait:     wait,
+		Stopped:       nil,
 	}
 	return m[s]
 }
@@ -123,9 +124,9 @@ func PeriodicFromConfig(g *config.Global, fsf *filters.DatasetMapFilter, in *con
 	}
 
 	args := args{
-		prefix: in.Prefix,
+		prefix:   in.Prefix,
 		interval: in.Interval,
-		fsf: fsf,
+		fsf:      fsf,
 		// ctx and log is set in Run()
 	}
 
@@ -199,10 +200,10 @@ func syncUp(a args, u updater) state {
 	if err != nil {
 		return onErr(err, u)
 	}
-	u(func(s *Snapper){
+	u(func(s *Snapper) {
 		s.sleepUntil = syncPoint
 	})
-	t := time.NewTimer(syncPoint.Sub(time.Now()))
+	t := time.NewTimer(time.Until(syncPoint))
 	defer t.Stop()
 	select {
 	case <-t.C:
@@ -306,7 +307,7 @@ func wait(a args, u updater) state {
 		logFunc("enter wait-state after error")
 	})
 
-	t := time.NewTimer(sleepUntil.Sub(time.Now()))
+	t := time.NewTimer(time.Until(sleepUntil))
 	defer t.Stop()
 
 	select {
@@ -386,4 +387,3 @@ func findSyncPoint(log Logger, fss []*zfs.DatasetPath, prefix string, interval t
 	return snaptimes[0].time, nil
 
 }
-

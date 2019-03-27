@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/tlsconf"
 	"github.com/zrepl/zrepl/transport"

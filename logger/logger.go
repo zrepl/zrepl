@@ -66,7 +66,8 @@ func (l *loggerImpl) logInternalError(outlet Outlet, err string) {
 		time.Now(),
 		fields,
 	}
-	l.outlets.GetLoggerErrorOutlet().WriteEntry(entry)
+	// ignore errors at this point (still better than panicking if the error is temporary)
+	_ = l.outlets.GetLoggerErrorOutlet().WriteEntry(entry)
 }
 
 func (l *loggerImpl) log(level Level, msg string) {

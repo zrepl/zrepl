@@ -1,8 +1,6 @@
 package pruning
 
-type KeepNotReplicated struct {
-	forceConstructor struct{}
-}
+type KeepNotReplicated struct{}
 
 func (*KeepNotReplicated) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 	return filterSnapList(snaps, func(snapshot Snapshot) bool {

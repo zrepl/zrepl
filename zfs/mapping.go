@@ -13,7 +13,8 @@ type DatasetFilter interface {
 func NoFilter() DatasetFilter {
 	return noFilter{}
 }
-type noFilter struct {}
+
+type noFilter struct{}
 
 var _ DatasetFilter = noFilter{}
 

@@ -3,20 +3,21 @@ package local
 import (
 	"context"
 	"fmt"
-	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/util/socketpair"
 	"net"
 	"sync"
+
+	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/transport"
+	"github.com/zrepl/zrepl/util/socketpair"
 )
 
 var localListeners struct {
-	m map[string]*LocalListener // listenerName -> listener
+	m    map[string]*LocalListener // listenerName -> listener
 	init sync.Once
-	mtx sync.Mutex
+	mtx  sync.Mutex
 }
 
-func GetLocalListener(listenerName string) (*LocalListener) {
+func GetLocalListener(listenerName string) *LocalListener {
 
 	localListeners.init.Do(func() {
 		localListeners.m = make(map[string]*LocalListener)
@@ -36,12 +37,12 @@ func GetLocalListener(listenerName string) (*LocalListener) {
 
 type connectRequest struct {
 	clientIdentity string
-	callback chan connectResult
+	callback       chan connectResult
 }
 
 type connectResult struct {
 	conn transport.Wire
-	err error
+	err  error
 }
 
 type LocalListener struct {
@@ -60,7 +61,7 @@ func (l *LocalListener) Connect(dialCtx context.Context, clientIdentity string) 
 	// place request
 	req := connectRequest{
 		clientIdentity: clientIdentity,
-		callback: make(chan connectResult),
+		callback:       make(chan connectResult),
 	}
 	select {
 	case l.connects <- req:
@@ -70,7 +71,7 @@ func (l *LocalListener) Connect(dialCtx context.Context, clientIdentity string) 
 
 	// wait for listener response
 	select {
-	case connRes := <- req.callback:
+	case connRes := <-req.callback:
 		conn, err = connRes.conn, connRes.err
 	case <-dialCtx.Done():
 		close(req.callback) // sending to the channel afterwards will panic, the listener has to catch this
@@ -88,7 +89,7 @@ func (localAddr) Network() string { return "local" }
 
 func (a localAddr) String() string { return a.S }
 
-func (l *LocalListener) Addr() (net.Addr) { return localAddr{"<listening>"} }
+func (l *LocalListener) Addr() net.Addr { return localAddr{"<listening>"} }
 
 func (l *LocalListener) Accept(ctx context.Context) (*transport.AuthConn, error) {
 	respondToRequest := func(req connectRequest, res connectResult) (err error) {
@@ -163,12 +164,12 @@ func (l *LocalListener) Close() error {
 	return nil
 }
 
-func LocalListenerFactoryFromConfig(g *config.Global, in *config.LocalServe) (transport.AuthenticatedListenerFactory,error) {
+func LocalListenerFactoryFromConfig(g *config.Global, in *config.LocalServe) (transport.AuthenticatedListenerFactory, error) {
 	if in.ListenerName == "" {
 		return nil, fmt.Errorf("ListenerName must not be empty")
 	}
 	listenerName := in.ListenerName
-	lf := func() (transport.AuthenticatedListener,error) {
+	lf := func() (transport.AuthenticatedListener, error) {
 		return GetLocalListener(listenerName), nil
 	}
 	return lf, nil

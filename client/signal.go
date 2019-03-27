@@ -2,6 +2,7 @@ package client
 
 import (
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/cli"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon"
@@ -28,10 +29,10 @@ func runSignalCmd(config *config.Config, args []string) error {
 	err = jsonRequestResponse(httpc, daemon.ControlJobEndpointSignal,
 		struct {
 			Name string
-			Op string
+			Op   string
 		}{
 			Name: args[1],
-			Op: args[0],
+			Op:   args[0],
 		},
 		struct{}{},
 	)

@@ -11,9 +11,7 @@ import (
 )
 
 type Conn struct {
-	state state
-	// if not nil, opErr is returned for ReadFrame and WriteFrame (not for Close, though)
-	opErr                 atomic.Value // error
+	state                 state
 	fc                    *frameconn.Conn
 	sendInterval, timeout time.Duration
 	stopSend              chan struct{}
@@ -97,7 +95,10 @@ func (c *Conn) sendHeartbeats() {
 				debug("send heartbeat")
 				// if the connection is in zombie mode (aka iptables DROP inbetween peers)
 				// this call or one of its successors will block after filling up the kernel tx buffer
-				c.fc.WriteFrame([]byte{}, heartbeat)
+				err := c.fc.WriteFrame([]byte{}, heartbeat)
+				if err != nil {
+					debug("send heartbeat error: %s", err)
+				}
 				// ignore errors from WriteFrame to rate-limit SendHeartbeat retries
 				c.lastFrameSent.Store(time.Now())
 			}()

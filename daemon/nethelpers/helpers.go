@@ -1,10 +1,11 @@
 package nethelpers
 
 import (
-	"github.com/pkg/errors"
 	"net"
 	"os"
 	"path/filepath"
+
+	"github.com/pkg/errors"
 )
 
 func PreparePrivateSockpath(sockpath string) error {

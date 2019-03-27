@@ -2,12 +2,14 @@ package pruning
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/pruning/retentiongrid"
 	"regexp"
 	"sort"
 	"time"
+
+	"github.com/pkg/errors"
+
+	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/pruning/retentiongrid"
 )
 
 // KeepGrid fits snapshots that match a given regex into a retentiongrid.Grid,
@@ -15,7 +17,7 @@ import (
 // and deletes all snapshots that do not fit the grid specification.
 type KeepGrid struct {
 	retentionGrid *retentiongrid.Grid
-	re *regexp.Regexp
+	re            *regexp.Regexp
 }
 
 func NewKeepGrid(in *config.PruneGrid) (p *KeepGrid, err error) {

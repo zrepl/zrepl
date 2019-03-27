@@ -10,11 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/zrepl/zrepl/replication/report"
 	"github.com/zrepl/zrepl/util/chainlock"
 	"github.com/zrepl/zrepl/util/envconst"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type interval struct {
@@ -338,7 +339,7 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 				l := fmt.Sprintf("  %s => %v", i.cur.fs.ReportInfo().Name, prevNames)
 				inconsistencyLines = append(inconsistencyLines, l)
 			}
-			fmt.Fprintf(&msg, strings.Join(inconsistencyLines, "\n"))
+			fmt.Fprint(&msg, strings.Join(inconsistencyLines, "\n"))
 			now := time.Now()
 			a.planErr = newTimedError(errors.New(msg.String()), now)
 			a.fss = nil
@@ -551,17 +552,11 @@ func (s *step) report() *report.StepReport {
 	return r
 }
 
-type stepErrorReport struct {
-	err  *timedError
-	step int
-}
-
 //go:generate enumer -type=errorClass
 type errorClass int
 
 const (
-	errorClassUnknown errorClass = iota
-	errorClassPermanent
+	errorClassPermanent errorClass = iota
 	errorClassTemporaryConnectivityRelated
 )
 

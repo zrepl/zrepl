@@ -29,6 +29,7 @@ matrix:
       - make
       - make vet
       - make test
+      - make lint
       - make artifacts/zrepl-freebsd-amd64
       - make artifacts/zrepl-linux-amd64
       - make artifacts/zrepl-darwin-amd64

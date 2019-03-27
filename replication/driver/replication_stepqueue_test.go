@@ -96,7 +96,7 @@ func TestPqConcurrent(t *testing.T) {
 				pos := atomic.AddUint32(&globalCtr, 1)
 				t := time.Unix(int64(step), 0)
 				done := q.WaitReady(fs, t)
-				wakeAt := time.Now().Sub(begin)
+				wakeAt := time.Since(begin)
 				time.Sleep(sleepTimePerStep)
 				done()
 				recs = append(recs, record{fs, step, pos, wakeAt})

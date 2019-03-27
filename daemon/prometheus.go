@@ -2,15 +2,17 @@ package daemon
 
 import (
 	"context"
+	"net"
+	"net/http"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/rpc/dataconn/frameconn"
 	"github.com/zrepl/zrepl/zfs"
-	"net"
-	"net/http"
 )
 
 type prometheusJob struct {
@@ -25,7 +27,7 @@ func newPrometheusJobFromConfig(in *config.PrometheusMonitoring) (*prometheusJob
 }
 
 var prom struct {
-	taskLogEntries         *prometheus.CounterVec
+	taskLogEntries *prometheus.CounterVec
 }
 
 func init() {
@@ -63,17 +65,15 @@ func (j *prometheusJob) Run(ctx context.Context) {
 		log.WithError(err).Error("cannot listen")
 	}
 	go func() {
-		select {
-		case <-ctx.Done():
-			l.Close()
-		}
+		<-ctx.Done()
+		l.Close()
 	}()
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 
 	err = http.Serve(l, mux)
-	if err != nil {
+	if err != nil && ctx.Err() == nil {
 		log.WithError(err).Error("error while serving")
 	}
 
@@ -93,4 +93,3 @@ func (o prometheusJobOutlet) WriteEntry(entry logger.Entry) error {
 	prom.taskLogEntries.WithLabelValues(o.jobName, entry.Level.String()).Inc()
 	return nil
 }
-

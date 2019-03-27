@@ -7,6 +7,7 @@ package transportmux
 
 import (
 	"context"
+
 	"fmt"
 	"io"
 	"net"
@@ -49,10 +50,10 @@ func (l *demuxListener) Accept(ctx context.Context) (*transport.AuthConn, error)
 	return res.conn, res.err
 }
 
-type demuxAddr struct {}
+type demuxAddr struct{}
 
 func (demuxAddr) Network() string { return "demux" }
-func (demuxAddr) String() string { return "demux" }
+func (demuxAddr) String() string  { return "demux" }
 
 func (l *demuxListener) Addr() net.Addr {
 	return demuxAddr{}
@@ -64,7 +65,7 @@ func (l *demuxListener) Close() error { return nil } // TODO
 // This is a protocol constant, changing it breaks the wire protocol.
 const LabelLen = 64
 
-func padLabel(out []byte, label string) (error) {
+func padLabel(out []byte, label string) error {
 	if len(label) > LabelLen {
 		return fmt.Errorf("label %q exceeds max length (is %d, max %d)", label, len(label), LabelLen)
 	}
@@ -142,7 +143,10 @@ func Demux(ctx context.Context, rawListener transport.AuthenticatedListener, lab
 				continue
 			}
 
-			rawConn.SetDeadline(time.Time{})
+			err = rawConn.SetDeadline(time.Time{})
+			if err != nil {
+				getLog(ctx).WithError(err).Error("cannot reset deadline")
+			}
 			// blocking is intentional
 			demuxListener.conns <- acceptRes{conn: rawConn, err: nil}
 		}
@@ -153,7 +157,7 @@ func Demux(ctx context.Context, rawListener transport.AuthenticatedListener, lab
 
 type labeledConnecter struct {
 	label []byte
-	transport.Connecter	
+	transport.Connecter
 }
 
 func (c labeledConnecter) Connect(ctx context.Context) (transport.Wire, error) {
@@ -169,7 +173,12 @@ func (c labeledConnecter) Connect(ctx context.Context) (transport.Wire, error) {
 	}
 
 	if dl, ok := ctx.Deadline(); ok {
-		defer conn.SetDeadline(time.Time{})
+		defer func() {
+			err := conn.SetDeadline(time.Time{})
+			if err != nil {
+				getLog(ctx).WithError(err).Error("cannot reset deadline")
+			}
+		}()
 		if err := conn.SetDeadline(dl); err != nil {
 			closeConn(err)
 			return nil, err
@@ -202,4 +211,3 @@ func MuxConnecter(rawConnecter transport.Connecter, labels []string, timeout tim
 	}
 	return ret, nil
 }
-

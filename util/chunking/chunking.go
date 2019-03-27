@@ -1,4 +1,4 @@
-package util
+package chunking
 
 import (
 	"bytes"
@@ -49,7 +49,7 @@ func (c *Unchunker) Read(b []byte) (n int, err error) {
 
 	}
 
-	if c.remainingChunkBytes <= 0 {
+	if c.remainingChunkBytes == 0 {
 		panic("internal inconsistency: c.remainingChunkBytes must be > 0")
 	}
 	if len(b) <= 0 {

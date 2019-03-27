@@ -17,7 +17,7 @@ import (
 
 type HandshakeMessage struct {
 	ProtocolVersion int
-	Extensions []string
+	Extensions      []string
 }
 
 // A HandshakeError describes what went wrong during the handshake.
@@ -25,7 +25,7 @@ type HandshakeMessage struct {
 type HandshakeError struct {
 	msg string
 	// If not nil, the underlying IO error that caused the handshake to fail.
-	IOError error
+	IOError       error
 	isAcceptError bool
 }
 
@@ -36,10 +36,10 @@ func (e HandshakeError) Error() string { return e.msg }
 // Like with net.OpErr (Go issue 6163), a client failing to handshake
 // should be a temporary Accept error toward the Listener .
 func (e HandshakeError) Temporary() bool {
-	if  e.isAcceptError {
+	if e.isAcceptError {
 		return true
 	}
-	te, ok := e.IOError.(interface{ Temporary() bool });
+	te, ok := e.IOError.(interface{ Temporary() bool })
 	return ok && te.Temporary()
 }
 
@@ -52,11 +52,11 @@ func (e HandshakeError) Timeout() bool {
 	return false
 }
 
-func hsErr(format string, args... interface{}) *HandshakeError {
+func hsErr(format string, args ...interface{}) *HandshakeError {
 	return &HandshakeError{msg: fmt.Sprintf(format, args...)}
 }
 
-func hsIOErr(err error, format string, args... interface{}) *HandshakeError {
+func hsIOErr(err error, format string, args ...interface{}) *HandshakeError {
 	return &HandshakeError{IOError: err, msg: fmt.Sprintf(format, args...)}
 }
 
@@ -145,7 +145,7 @@ func (m *HandshakeMessage) DecodeReader(r io.Reader, maxLen int) error {
 	if exts[len(exts)-1] != "" {
 		return hsErr("unexpected data trailing after last extension newline")
 	}
-	m.Extensions = exts[0:len(exts)-1]
+	m.Extensions = exts[0 : len(exts)-1]
 
 	return nil
 }
@@ -157,18 +157,29 @@ func DoHandshakeCurrentVersion(conn net.Conn, deadline time.Time) *HandshakeErro
 
 const HandshakeMessageMaxLen = 16 * 4096
 
-func DoHandshakeVersion(conn net.Conn, deadline time.Time, version int) *HandshakeError {
+func DoHandshakeVersion(conn net.Conn, deadline time.Time, version int) (rErr *HandshakeError) {
 	ours := HandshakeMessage{
 		ProtocolVersion: version,
-		Extensions: nil,
+		Extensions:      nil,
 	}
 	hsb, err := ours.Encode()
 	if err != nil {
 		return hsErr("could not encode protocol banner: %s", err)
 	}
 
-	defer conn.SetDeadline(time.Time{})
-	conn.SetDeadline(deadline)
+	err = conn.SetDeadline(deadline)
+	if err != nil {
+		return hsErr("could not set deadline for protocol banner handshake: %s", err)
+	}
+	defer func() {
+		if rErr != nil {
+			return
+		}
+		err := conn.SetDeadline(time.Time{})
+		if err != nil {
+			rErr = hsErr("could not reset deadline after protocol banner handshake: %s", err)
+		}
+	}()
 	_, err = io.Copy(conn, bytes.NewBuffer(hsb))
 	if err != nil {
 		return hsErr("could not send protocol banner: %s", err)

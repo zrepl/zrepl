@@ -3,8 +3,16 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/daemon/job/reset"
@@ -12,12 +20,6 @@ import (
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/version"
-	"os"
-	"os/signal"
-	"strings"
-	"sync"
-	"syscall"
-	"time"
 )
 
 func Run(conf *config.Config) error {
@@ -74,11 +76,10 @@ func Run(conf *config.Config) error {
 			return errors.Errorf("unknown monitoring job #%d (type %T)", i, v)
 		}
 		if err != nil {
-			return errors.Wrapf(err,"cannot build monitorin gjob #%d", i)
+			return errors.Wrapf(err, "cannot build monitorin gjob #%d", i)
 		}
 		jobs.start(ctx, job, true)
 	}
-
 
 	log.Info("starting daemon")
 
@@ -103,7 +104,7 @@ type jobs struct {
 	// m protects all fields below it
 	m       sync.RWMutex
 	wakeups map[string]wakeup.Func // by Job.Name
-	resets map[string]reset.Func // by Job.Name
+	resets  map[string]reset.Func  // by Job.Name
 	jobs    map[string]job.Job
 }
 
@@ -116,9 +117,7 @@ func newJobs() *jobs {
 }
 
 const (
-	logJobField    string = "job"
-	logTaskField   string = "task"
-	logSubsysField string = "subsystem"
+	logJobField string = "job"
 )
 
 func (s *jobs) wait() <-chan struct{} {

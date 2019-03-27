@@ -7,13 +7,13 @@ import (
 )
 
 type execQueue struct {
-	mtx sync.Mutex
+	mtx                sync.Mutex
 	pending, completed []*fs
 }
 
 func newExecQueue(cap int) *execQueue {
 	q := execQueue{
-		pending: make([]*fs, 0, cap),
+		pending:   make([]*fs, 0, cap),
 		completed: make([]*fs, 0, cap),
 	}
 	return &q
@@ -55,7 +55,7 @@ func (q *execQueue) Pop() *fs {
 	return fs
 }
 
-func(q *execQueue) Put(fs *fs, err error, done bool) {
+func (q *execQueue) Put(fs *fs, err error, done bool) {
 	fs.mtx.Lock()
 	fs.execErrLast = err
 	if done || err != nil {
@@ -78,6 +78,5 @@ func(q *execQueue) Put(fs *fs, err error, done bool) {
 		return strings.Compare(q.pending[i].path, q.pending[j].path) == -1
 	})
 	q.mtx.Unlock()
-
 
 }

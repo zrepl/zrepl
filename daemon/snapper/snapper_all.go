@@ -3,6 +3,7 @@ package snapper
 import (
 	"context"
 	"fmt"
+
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
 )
@@ -17,7 +18,7 @@ type PeriodicOrManual struct {
 	s *Snapper
 }
 
-func (s *PeriodicOrManual) Run(ctx context.Context, wakeUpCommon chan <- struct{}) {
+func (s *PeriodicOrManual) Run(ctx context.Context, wakeUpCommon chan<- struct{}) {
 	if s.s != nil {
 		s.s.Run(ctx, wakeUpCommon)
 	}

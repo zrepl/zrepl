@@ -1,9 +1,10 @@
 package pdu
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestFilesystemVersion_RelName(t *testing.T) {
@@ -18,24 +19,24 @@ func TestFilesystemVersion_RelName(t *testing.T) {
 	tcs := []TestCase{
 		{
 			In: FilesystemVersion{
-				Type: FilesystemVersion_Snapshot,
-				Name: "foobar",
+				Type:     FilesystemVersion_Snapshot,
+				Name:     "foobar",
 				Creation: creat,
 			},
 			Out: "@foobar",
 		},
 		{
 			In: FilesystemVersion{
-				Type: FilesystemVersion_Bookmark,
-				Name: "foobar",
+				Type:     FilesystemVersion_Bookmark,
+				Name:     "foobar",
 				Creation: creat,
 			},
 			Out: "#foobar",
 		},
 		{
 			In: FilesystemVersion{
-				Type: 2342,
-				Name: "foobar",
+				Type:     2342,
+				Name:     "foobar",
 				Creation: creat,
 			},
 			Panic: true,
@@ -58,7 +59,7 @@ func TestFilesystemVersion_RelName(t *testing.T) {
 func TestFilesystemVersion_ZFSFilesystemVersion(t *testing.T) {
 
 	empty := &FilesystemVersion{}
-	_, err:= empty.ZFSFilesystemVersion()
+	_, err := empty.ZFSFilesystemVersion()
 	assert.Error(t, err)
 
 	dateInvalid := &FilesystemVersion{Creation: "foobar"}

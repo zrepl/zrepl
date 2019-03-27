@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
+
 	"github.com/zrepl/zrepl/zfs"
 
 	"github.com/zrepl/zrepl/cli"
@@ -21,11 +22,6 @@ var (
 		},
 	}
 )
-
-type migration struct {
-	name   string
-	method func(config *config.Config, args []string) error
-}
 
 var migrations = []*cli.Subcommand{
 	&cli.Subcommand{

@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/zrepl/zrepl/transport"
 	"github.com/zrepl/zrepl/rpc/transportmux"
+	"github.com/zrepl/zrepl/transport"
 	"github.com/zrepl/zrepl/util/envconst"
 )
 

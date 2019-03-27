@@ -7,7 +7,7 @@ import (
 
 type Logger = logger.Logger
 
-var DaemonCmd = &cli.Subcommand {
+var DaemonCmd = &cli.Subcommand{
 	Use:   "daemon",
 	Short: "run the zrepl daemon",
 	Run: func(subcommand *cli.Subcommand, args []string) error {

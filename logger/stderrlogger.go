@@ -5,11 +5,7 @@ import (
 	"os"
 )
 
-type stderrLogger struct {
-	Logger
-}
-
-type stderrLoggerOutlet struct {}
+type stderrLoggerOutlet struct{}
 
 func (stderrLoggerOutlet) WriteEntry(entry Entry) error {
 	fmt.Fprintf(os.Stderr, "%#v\n", entry)

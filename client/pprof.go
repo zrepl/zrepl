@@ -2,11 +2,12 @@ package client
 
 import (
 	"errors"
+	"log"
+	"os"
+
 	"github.com/zrepl/zrepl/cli"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon"
-	"log"
-	"os"
 )
 
 var pprofArgs struct {

@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/fatih/color"
-	"github.com/pkg/errors"
 	"sync"
 	"time"
+
+	"github.com/fatih/color"
+	"github.com/pkg/errors"
 )
 
 type Level int
@@ -66,7 +67,7 @@ func (l Level) Short() string {
 	case Error:
 		return "ERRO"
 	default:
-		return fmt.Sprintf("%s", l)
+		return l.String()
 	}
 }
 
@@ -81,7 +82,7 @@ func (l Level) String() string {
 	case Error:
 		return "error"
 	default:
-		return fmt.Sprintf("%s", string(l))
+		return string(l)
 	}
 }
 

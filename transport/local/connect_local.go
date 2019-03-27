@@ -3,12 +3,13 @@ package local
 import (
 	"context"
 	"fmt"
+
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/transport"
 )
 
 type LocalConnecter struct {
-	listenerName string
+	listenerName   string
 	clientIdentity string
 }
 
@@ -26,4 +27,3 @@ func (c *LocalConnecter) Connect(dialCtx context.Context) (transport.Wire, error
 	l := GetLocalListener(c.listenerName)
 	return l.Connect(dialCtx, c.clientIdentity)
 }
-

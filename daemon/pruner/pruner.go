@@ -3,17 +3,19 @@ package pruner
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/pruning"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/util/envconst"
-	"sort"
-	"strings"
-	"sync"
-	"time"
 )
 
 // Try to keep it compatible with gitub.com/zrepl/zrepl/endpoint.Endpoint
@@ -53,7 +55,7 @@ type args struct {
 	rules                          []pruning.KeepRule
 	retryWait                      time.Duration
 	considerSnapAtCursorReplicated bool
-	promPruneSecs prometheus.Observer
+	promPruneSecs                  prometheus.Observer
 }
 
 type Pruner struct {
@@ -64,7 +66,7 @@ type Pruner struct {
 	state State
 
 	// State PlanErr
-	err        error
+	err error
 
 	// State Exec
 	execQueue *execQueue
@@ -75,26 +77,13 @@ type PrunerFactory struct {
 	receiverRules                  []pruning.KeepRule
 	retryWait                      time.Duration
 	considerSnapAtCursorReplicated bool
-	promPruneSecs *prometheus.HistogramVec
+	promPruneSecs                  *prometheus.HistogramVec
 }
 
 type LocalPrunerFactory struct {
 	keepRules     []pruning.KeepRule
 	retryWait     time.Duration
 	promPruneSecs *prometheus.HistogramVec
-}
-
-func checkContainsKeep1(rules []pruning.KeepRule) error {
-	if len(rules) == 0 {
-		return nil //No keep rules means keep all - ok
-	}
-	for _, e := range rules {
-		switch e.(type) {
-		case *pruning.KeepLastN:
-			return nil
-		}
-	}
-	return errors.New("sender keep rules must contain last_n or be empty so that the last snapshot is definitely kept")
 }
 
 func NewLocalPrunerFactory(in config.PruningLocal, promPruneSecs *prometheus.HistogramVec) (*LocalPrunerFactory, error) {
@@ -137,11 +126,11 @@ func NewPrunerFactory(in config.PruningSenderReceiver, promPruneSecs *prometheus
 		considerSnapAtCursorReplicated = considerSnapAtCursorReplicated || !knr.KeepSnapshotAtCursor
 	}
 	f := &PrunerFactory{
-		senderRules: keepRulesSender,
-		receiverRules: keepRulesReceiver,
-		retryWait: envconst.Duration("ZREPL_PRUNER_RETRY_INTERVAL", 10 * time.Second),
+		senderRules:                    keepRulesSender,
+		receiverRules:                  keepRulesReceiver,
+		retryWait:                      envconst.Duration("ZREPL_PRUNER_RETRY_INTERVAL", 10*time.Second),
 		considerSnapAtCursorReplicated: considerSnapAtCursorReplicated,
-		promPruneSecs: promPruneSecs,
+		promPruneSecs:                  promPruneSecs,
 	}
 	return f, nil
 }
@@ -213,17 +202,17 @@ func (p *Pruner) Prune() {
 
 func (p *Pruner) prune(args args) {
 	u := func(f func(*Pruner)) {
-			p.mtx.Lock()
-			defer p.mtx.Unlock()
-			f(p)
-		}
+		p.mtx.Lock()
+		defer p.mtx.Unlock()
+		f(p)
+	}
 	// TODO support automatic retries
 	// It is advisable to merge this code with package replication/driver before
 	// That will likely require re-modelling struct fs like replication/driver.attempt,
 	// including figuring out how to resume a plan after being interrupted by network errors
 	// The non-retrying code in this package should move straight to replication/logic.
 	doOneAttempt(&args, u)
-	}
+}
 
 type Report struct {
 	State              string
@@ -239,9 +228,9 @@ type FSReport struct {
 }
 
 type SnapshotReport struct {
-	Name string
+	Name       string
 	Replicated bool
-	Date time.Time
+	Date       time.Time
 }
 
 func (p *Pruner) Report() *Report {
@@ -250,9 +239,9 @@ func (p *Pruner) Report() *Report {
 
 	r := Report{State: p.state.String()}
 
-		if p.err != nil {
-			r.Error = p.err.Error()
-		}
+	if p.err != nil {
+		r.Error = p.err.Error()
+	}
 
 	if p.execQueue != nil {
 		r.Pending, r.Completed = p.execQueue.Report()
@@ -268,7 +257,7 @@ func (p *Pruner) State() State {
 }
 
 type fs struct {
-	path  string
+	path string
 
 	// permanent error during planning
 	planErr        error
@@ -316,7 +305,7 @@ func (f *fs) Report() FSReport {
 
 	if f.planErr != nil {
 		r.LastError = f.planErr.Error()
-	} else  if f.execErrLast != nil {
+	} else if f.execErrLast != nil {
 		r.LastError = f.execErrLast.Error()
 	}
 
@@ -326,7 +315,7 @@ func (f *fs) Report() FSReport {
 	}
 
 	r.DestroyList = make([]SnapshotReport, len(f.destroyList))
-	for i, snap := range f.destroyList{
+	for i, snap := range f.destroyList {
 		r.DestroyList[i] = snap.(snapshot).Report()
 	}
 
@@ -490,9 +479,9 @@ tfss_loop:
 	})
 
 	for {
-	var pfs *fs
+		var pfs *fs
 		u(func(pruner *Pruner) {
-		pfs = pruner.execQueue.Pop()
+			pfs = pruner.execQueue.Pop()
 		})
 		if pfs == nil {
 			break
@@ -516,16 +505,15 @@ tfss_loop:
 		hadErr := false
 		for _, fsr := range rep.Completed {
 			hadErr = hadErr || fsr.SkipReason.NotSkipped() && fsr.LastError != ""
-			}
+		}
 		if hadErr {
 			p.state = ExecErr
 		} else {
 			p.state = Done
 		}
 	})
-	
 
-	}
+}
 
 // attempts to exec pfs, puts it back into the queue with the result
 func doOneAttemptExec(a *args, u updater, pfs *fs) {
@@ -558,20 +546,20 @@ func doOneAttemptExec(a *args, u updater, pfs *fs) {
 	err = nil
 	destroyFails := make([]*pdu.DestroySnapshotRes, 0)
 	for _, reqDestroy := range destroyList {
-		 res, ok := destroyResults[reqDestroy.Name]
-		 if !ok {
-		 	err = fmt.Errorf("missing destroy-result for %s", reqDestroy.RelName())
-		 	break
-		 } else if res.Error != "" {
-		 	destroyFails = append(destroyFails, res)
-		 }
+		res, ok := destroyResults[reqDestroy.Name]
+		if !ok {
+			err = fmt.Errorf("missing destroy-result for %s", reqDestroy.RelName())
+			break
+		} else if res.Error != "" {
+			destroyFails = append(destroyFails, res)
+		}
 	}
 	if err == nil && len(destroyFails) > 0 {
 		names := make([]string, len(destroyFails))
 		pairs := make([]string, len(destroyFails))
 		allSame := true
 		lastMsg := destroyFails[0].Error
-		for i := 0; i < len(destroyFails); i++{
+		for i := 0; i < len(destroyFails); i++ {
 			allSame = allSame && destroyFails[i].Error == lastMsg
 			relname := destroyFails[i].Snapshot.RelName()
 			names[i] = relname

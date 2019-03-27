@@ -2,8 +2,6 @@ package config
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/zrepl/yaml-config"
 	"io/ioutil"
 	"log/syslog"
 	"os"
@@ -11,6 +9,9 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/zrepl/yaml-config"
 )
 
 type Config struct {
@@ -34,11 +35,16 @@ type JobEnum struct {
 func (j JobEnum) Name() string {
 	var name string
 	switch v := j.Ret.(type) {
-	case *SnapJob: name = v.Name
-	case *PushJob: name = v.Name
-	case *SinkJob: name = v.Name
-	case *PullJob: name = v.Name
-	case *SourceJob: name = v.Name
+	case *SnapJob:
+		name = v.Name
+	case *PushJob:
+		name = v.Name
+	case *SinkJob:
+		name = v.Name
+	case *PullJob:
+		name = v.Name
+	case *SourceJob:
+		name = v.Name
 	default:
 		panic(fmt.Sprintf("unknown job type %T", v))
 	}
@@ -46,38 +52,38 @@ func (j JobEnum) Name() string {
 }
 
 type ActiveJob struct {
-	Type         string                `yaml:"type"`
-	Name         string                `yaml:"name"`
-	Connect     ConnectEnum     `yaml:"connect"`
-	Pruning      PruningSenderReceiver `yaml:"pruning"`
-	Debug        JobDebugSettings      `yaml:"debug,optional"`
+	Type    string                `yaml:"type"`
+	Name    string                `yaml:"name"`
+	Connect ConnectEnum           `yaml:"connect"`
+	Pruning PruningSenderReceiver `yaml:"pruning"`
+	Debug   JobDebugSettings      `yaml:"debug,optional"`
 }
 
 type PassiveJob struct {
-	Type        string           `yaml:"type"`
-	Name        string           `yaml:"name"`
-	Serve       ServeEnum `yaml:"serve"`
-	Debug       JobDebugSettings `yaml:"debug,optional"`
+	Type  string           `yaml:"type"`
+	Name  string           `yaml:"name"`
+	Serve ServeEnum        `yaml:"serve"`
+	Debug JobDebugSettings `yaml:"debug,optional"`
 }
 
 type SnapJob struct {
-	Type         string                `yaml:"type"`
-	Name         string                `yaml:"name"`
-	Pruning      PruningLocal	   `yaml:"pruning"`
-	Debug        JobDebugSettings      `yaml:"debug,optional"`
-	Snapshotting SnapshottingEnum      `yaml:"snapshotting"`
-	Filesystems FilesystemsFilter `yaml:"filesystems"`
+	Type         string            `yaml:"type"`
+	Name         string            `yaml:"name"`
+	Pruning      PruningLocal      `yaml:"pruning"`
+	Debug        JobDebugSettings  `yaml:"debug,optional"`
+	Snapshotting SnapshottingEnum  `yaml:"snapshotting"`
+	Filesystems  FilesystemsFilter `yaml:"filesystems"`
 }
 
 type PushJob struct {
-	ActiveJob `yaml:",inline"`
-	Snapshotting SnapshottingEnum          `yaml:"snapshotting"`
-	Filesystems FilesystemsFilter `yaml:"filesystems"`
+	ActiveJob    `yaml:",inline"`
+	Snapshotting SnapshottingEnum  `yaml:"snapshotting"`
+	Filesystems  FilesystemsFilter `yaml:"filesystems"`
 }
 
 type PullJob struct {
 	ActiveJob `yaml:",inline"`
-	RootFS    string        `yaml:"root_fs"`
+	RootFS    string                   `yaml:"root_fs"`
 	Interval  PositiveDurationOrManual `yaml:"interval"`
 }
 
@@ -118,9 +124,9 @@ type SinkJob struct {
 }
 
 type SourceJob struct {
-	PassiveJob `yaml:",inline"`
-	Snapshotting SnapshottingEnum      `yaml:"snapshotting"`
-	Filesystems FilesystemsFilter `yaml:"filesystems"`
+	PassiveJob   `yaml:",inline"`
+	Snapshotting SnapshottingEnum  `yaml:"snapshotting"`
+	Filesystems  FilesystemsFilter `yaml:"filesystems"`
 }
 
 type FilesystemsFilter map[string]bool
@@ -130,8 +136,8 @@ type SnapshottingEnum struct {
 }
 
 type SnapshottingPeriodic struct {
-	Type string		`yaml:"type"`
-	Prefix string	`yaml:"prefix"`
+	Type     string        `yaml:"type"`
+	Prefix   string        `yaml:"prefix"`
 	Interval time.Duration `yaml:"interval,positive"`
 }
 
@@ -191,7 +197,7 @@ type ConnectEnum struct {
 }
 
 type ConnectCommon struct {
-	Type string            `yaml:"type"`
+	Type string `yaml:"type"`
 }
 
 type TCPConnect struct {
@@ -223,8 +229,8 @@ type SSHStdinserverConnect struct {
 }
 
 type LocalConnect struct {
-	ConnectCommon `yaml:",inline"`
-	ListenerName string `yaml:"listener_name"`
+	ConnectCommon  `yaml:",inline"`
+	ListenerName   string `yaml:"listener_name"`
 	ClientIdentity string `yaml:"client_identity"`
 }
 
@@ -233,7 +239,7 @@ type ServeEnum struct {
 }
 
 type ServeCommon struct {
-	Type string            `yaml:"type"`
+	Type string `yaml:"type"`
 }
 
 type TCPServe struct {
@@ -253,12 +259,12 @@ type TLSServe struct {
 }
 
 type StdinserverServer struct {
-	ServeCommon    `yaml:",inline"`
+	ServeCommon      `yaml:",inline"`
 	ClientIdentities []string `yaml:"client_identities"`
 }
 
 type LocalServe struct {
-	ServeCommon `yaml:",inline"`
+	ServeCommon  `yaml:",inline"`
 	ListenerName string `yaml:"listener_name"`
 }
 
@@ -267,8 +273,8 @@ type PruningEnum struct {
 }
 
 type PruneKeepNotReplicated struct {
-	Type string `yaml:"type"`
-	KeepSnapshotAtCursor bool `yaml:"keep_snapshot_at_cursor,optional,default=true"`
+	Type                 string `yaml:"type"`
+	KeepSnapshotAtCursor bool   `yaml:"keep_snapshot_at_cursor,optional,default=true"`
 }
 
 type PruneKeepLastN struct {
@@ -277,8 +283,8 @@ type PruneKeepLastN struct {
 }
 
 type PruneKeepRegex struct { // FIXME rename to KeepRegex
-	Type  string `yaml:"type"`
-	Regex string `yaml:"regex"`
+	Type   string `yaml:"type"`
+	Regex  string `yaml:"regex"`
 	Negate bool   `yaml:"negate,optional,default=false"`
 }
 
@@ -301,7 +307,7 @@ type StdoutLoggingOutlet struct {
 type SyslogLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
 	Facility            *SyslogFacility `yaml:"facility,optional,fromdefaults"`
-	RetryInterval       time.Duration `yaml:"retry_interval,positive,default=10s"`
+	RetryInterval       time.Duration   `yaml:"retry_interval,positive,default=10s"`
 }
 
 type TCPLoggingOutlet struct {
@@ -392,7 +398,7 @@ func (t *ConnectEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error)
 		"tcp":             &TCPConnect{},
 		"tls":             &TLSConnect{},
 		"ssh+stdinserver": &SSHStdinserverConnect{},
-		"local": 		   &LocalConnect{},
+		"local":           &LocalConnect{},
 	})
 	return
 }
@@ -402,7 +408,7 @@ func (t *ServeEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 		"tcp":         &TCPServe{},
 		"tls":         &TLSServe{},
 		"stdinserver": &StdinserverServer{},
-		"local"      : &LocalServe{},
+		"local":       &LocalServe{},
 	})
 	return
 }
@@ -420,7 +426,7 @@ func (t *PruningEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error)
 func (t *SnapshottingEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
 		"periodic": &SnapshottingPeriodic{},
-		"manual": &SnapshottingManual{},
+		"manual":   &SnapshottingManual{},
 	})
 	return
 }
@@ -448,31 +454,51 @@ func (t *SyslogFacility) UnmarshalYAML(u func(interface{}, bool) error) (err err
 	}
 	var level syslog.Priority
 	switch s {
-		case "kern":     level = syslog.LOG_KERN
-		case "user":     level = syslog.LOG_USER
-		case "mail":     level = syslog.LOG_MAIL
-		case "daemon":   level = syslog.LOG_DAEMON
-		case "auth":     level = syslog.LOG_AUTH
-		case "syslog":   level = syslog.LOG_SYSLOG
-		case "lpr":      level = syslog.LOG_LPR
-		case "news":     level = syslog.LOG_NEWS
-		case "uucp":     level = syslog.LOG_UUCP
-		case "cron":     level = syslog.LOG_CRON
-		case "authpriv": level = syslog.LOG_AUTHPRIV
-		case "ftp":      level = syslog.LOG_FTP
-		case "local0":   level = syslog.LOG_LOCAL0
-		case "local1":   level = syslog.LOG_LOCAL1
-		case "local2":   level = syslog.LOG_LOCAL2
-		case "local3":   level = syslog.LOG_LOCAL3
-		case "local4":   level = syslog.LOG_LOCAL4
-		case "local5":   level = syslog.LOG_LOCAL5
-		case "local6":   level = syslog.LOG_LOCAL6
-		case "local7":   level = syslog.LOG_LOCAL7
+	case "kern":
+		level = syslog.LOG_KERN
+	case "user":
+		level = syslog.LOG_USER
+	case "mail":
+		level = syslog.LOG_MAIL
+	case "daemon":
+		level = syslog.LOG_DAEMON
+	case "auth":
+		level = syslog.LOG_AUTH
+	case "syslog":
+		level = syslog.LOG_SYSLOG
+	case "lpr":
+		level = syslog.LOG_LPR
+	case "news":
+		level = syslog.LOG_NEWS
+	case "uucp":
+		level = syslog.LOG_UUCP
+	case "cron":
+		level = syslog.LOG_CRON
+	case "authpriv":
+		level = syslog.LOG_AUTHPRIV
+	case "ftp":
+		level = syslog.LOG_FTP
+	case "local0":
+		level = syslog.LOG_LOCAL0
+	case "local1":
+		level = syslog.LOG_LOCAL1
+	case "local2":
+		level = syslog.LOG_LOCAL2
+	case "local3":
+		level = syslog.LOG_LOCAL3
+	case "local4":
+		level = syslog.LOG_LOCAL4
+	case "local5":
+		level = syslog.LOG_LOCAL5
+	case "local6":
+		level = syslog.LOG_LOCAL6
+	case "local7":
+		level = syslog.LOG_LOCAL7
 	default:
 		return fmt.Errorf("invalid syslog level: %q", s)
 	}
 	*t = SyslogFacility(level)
-	return  nil
+	return nil
 }
 
 var ConfigFileDefaultLocations = []string{

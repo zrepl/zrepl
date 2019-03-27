@@ -2,11 +2,12 @@ package config
 
 import (
 	"fmt"
+	"log/syslog"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zrepl/yaml-config"
-	"log/syslog"
-	"testing"
 )
 
 func testValidGlobalSection(t *testing.T, s string) *Config {
@@ -24,7 +25,7 @@ jobs:
 `
 	_, err := ParseConfigBytes([]byte(jobdef))
 	require.NoError(t, err)
-	return testValidConfig(t, s + jobdef)
+	return testValidConfig(t, s+jobdef)
 }
 
 func TestOutletTypes(t *testing.T) {
@@ -71,7 +72,7 @@ global:
     - type: prometheus
       listen: ':9091'
 `)
-	assert.Equal(t, ":9091", conf.Global.Monitoring[0].Ret.(*PrometheusMonitoring).Listen)	
+	assert.Equal(t, ":9091", conf.Global.Monitoring[0].Ret.(*PrometheusMonitoring).Listen)
 }
 
 func TestSyslogLoggingOutletFacility(t *testing.T) {

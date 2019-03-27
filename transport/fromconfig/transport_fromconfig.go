@@ -4,7 +4,9 @@ package fromconfig
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/transport"
 	"github.com/zrepl/zrepl/transport/local"
@@ -13,10 +15,10 @@ import (
 	"github.com/zrepl/zrepl/transport/tls"
 )
 
-func ListenerFactoryFromConfig(g *config.Global, in config.ServeEnum) (transport.AuthenticatedListenerFactory,error) {
+func ListenerFactoryFromConfig(g *config.Global, in config.ServeEnum) (transport.AuthenticatedListenerFactory, error) {
 
 	var (
-		l transport.AuthenticatedListenerFactory
+		l   transport.AuthenticatedListenerFactory
 		err error
 	)
 	switch v := in.Ret.(type) {
@@ -34,7 +36,6 @@ func ListenerFactoryFromConfig(g *config.Global, in config.ServeEnum) (transport
 
 	return l, err
 }
-
 
 func ConnecterFromConfig(g *config.Global, in config.ConnectEnum) (transport.Connecter, error) {
 	var (

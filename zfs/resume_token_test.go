@@ -2,9 +2,11 @@ package zfs_test
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
-	"github.com/zrepl/zrepl/zfs"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/zrepl/zrepl/zfs"
 )
 
 type ResumeTokenTest struct {

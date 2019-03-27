@@ -3,13 +3,15 @@ package versionhandshake
 import (
 	"bytes"
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/zrepl/zrepl/util/socketpair"
 	"io"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/zrepl/zrepl/util/socketpair"
 )
 
 func TestHandshakeMessage_Encode(t *testing.T) {
@@ -22,8 +24,6 @@ func TestHandshakeMessage_Encode(t *testing.T) {
 	require.NoError(t, err)
 	enc := string(encB)
 	t.Logf("enc: %s", enc)
-
-
 
 	assert.False(t, strings.ContainsAny(enc[0:10], " "))
 	assert.True(t, enc[10] == ' ')
@@ -45,7 +45,7 @@ func TestHandshakeMessage_Encode(t *testing.T) {
 
 func TestHandshakeMessage_Encode_InvalidProtocolVersion(t *testing.T) {
 
-	for _, pv := range []int{-1, 0,  10000, 10001} {
+	for _, pv := range []int{-1, 0, 10000, 10001} {
 		t.Logf("testing invalid protocol version = %v", pv)
 		msg := HandshakeMessage{
 			ProtocolVersion: pv,
@@ -68,7 +68,7 @@ func TestHandshakeMessage_DecodeReader(t *testing.T) {
 	require.NoError(t, err)
 
 	out := HandshakeMessage{}
-	err = out.DecodeReader(bytes.NewReader([]byte(enc)), 4 * 4096)
+	err = out.DecodeReader(bytes.NewReader([]byte(enc)), 4*4096)
 	assert.NoError(t, err)
 	assert.Equal(t, 2342, out.ProtocolVersion)
 	assert.Equal(t, 2, len(out.Extensions))

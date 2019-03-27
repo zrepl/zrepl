@@ -12,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/daemon/nethelpers"
 	"github.com/zrepl/zrepl/logger"
@@ -43,24 +44,24 @@ func (j *controlJob) Status() *job.Status { return &job.Status{Type: job.TypeInt
 func (j *controlJob) OwnedDatasetSubtreeRoot() (p *zfs.DatasetPath, ok bool) { return nil, false }
 
 var promControl struct {
-	requestBegin *prometheus.CounterVec
+	requestBegin    *prometheus.CounterVec
 	requestFinished *prometheus.HistogramVec
 }
 
 func (j *controlJob) RegisterMetrics(registerer prometheus.Registerer) {
 	promControl.requestBegin = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace:   "zrepl",
-		Subsystem:   "control",
-		Name:        "request_begin",
-		Help:        "number of request we started to handle",
+		Namespace: "zrepl",
+		Subsystem: "control",
+		Name:      "request_begin",
+		Help:      "number of request we started to handle",
 	}, []string{"endpoint"})
 
 	promControl.requestFinished = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace:   "zrepl",
-		Subsystem:   "control",
-		Name:        "request_finished",
-		Help:        "time it took a request to finih",
-		Buckets: []float64{1e-6, 10e-6, 100e-6, 500e-6, 1e-3,10e-3, 100e-3, 200e-3,400e-3,800e-3, 1, 10, 20},
+		Namespace: "zrepl",
+		Subsystem: "control",
+		Name:      "request_finished",
+		Help:      "time it took a request to finih",
+		Buckets:   []float64{1e-6, 10e-6, 100e-6, 500e-6, 1e-3, 10e-3, 100e-3, 200e-3, 400e-3, 800e-3, 1, 10, 20},
 	}, []string{"endpoint"})
 	registerer.MustRegister(promControl.requestBegin)
 	registerer.MustRegister(promControl.requestFinished)
@@ -88,7 +89,7 @@ func (j *controlJob) Run(ctx context.Context) {
 
 	mux := http.NewServeMux()
 	mux.Handle(ControlJobEndpointPProf,
-		requestLogger{log: log, handler: jsonRequestResponder{func(decoder jsonDecoder) (interface{}, error) {
+		requestLogger{log: log, handler: jsonRequestResponder{log, func(decoder jsonDecoder) (interface{}, error) {
 			var msg PprofServerControlMsg
 			err := decoder(&msg)
 			if err != nil {
@@ -99,22 +100,22 @@ func (j *controlJob) Run(ctx context.Context) {
 		}}})
 
 	mux.Handle(ControlJobEndpointVersion,
-		requestLogger{log: log, handler: jsonResponder{func() (interface{}, error) {
+		requestLogger{log: log, handler: jsonResponder{log, func() (interface{}, error) {
 			return version.NewZreplVersionInformation(), nil
 		}}})
 
 	mux.Handle(ControlJobEndpointStatus,
 		// don't log requests to status endpoint, too spammy
-		jsonResponder{func() (interface{}, error) {
+		jsonResponder{log, func() (interface{}, error) {
 			s := j.jobs.status()
 			return s, nil
 		}})
 
 	mux.Handle(ControlJobEndpointSignal,
-		requestLogger{log: log, handler: jsonRequestResponder{func(decoder jsonDecoder) (interface{}, error) {
+		requestLogger{log: log, handler: jsonRequestResponder{log, func(decoder jsonDecoder) (interface{}, error) {
 			type reqT struct {
 				Name string
-				Op string
+				Op   string
 			}
 			var req reqT
 			if decoder(&req) != nil {
@@ -136,8 +137,8 @@ func (j *controlJob) Run(ctx context.Context) {
 	server := http.Server{
 		Handler: mux,
 		// control socket is local, 1s timeout should be more than sufficient, even on a loaded system
-		WriteTimeout: 1*time.Second,
-		ReadTimeout: 1*time.Second,
+		WriteTimeout: 1 * time.Second,
+		ReadTimeout:  1 * time.Second,
 	}
 
 outer:
@@ -152,7 +153,10 @@ outer:
 		select {
 		case <-ctx.Done():
 			log.WithError(ctx.Err()).Info("context done")
-			server.Shutdown(context.Background())
+			err := server.Shutdown(context.Background())
+			if err != nil {
+				log.WithError(err).Error("cannot shutdown server")
+			}
 			break outer
 		case err = <-served:
 			if err != nil {
@@ -166,33 +170,50 @@ outer:
 }
 
 type jsonResponder struct {
+	log      Logger
 	producer func() (interface{}, error)
 }
 
 func (j jsonResponder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	logIoErr := func(err error) {
+		if err != nil {
+			j.log.WithError(err).Error("control handler io error")
+		}
+	}
 	res, err := j.producer()
 	if err != nil {
+		j.log.WithError(err).Error("control handler error")
 		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, err.Error())
+		_, err = io.WriteString(w, err.Error())
+		logIoErr(err)
 		return
 	}
 	var buf bytes.Buffer
 	err = json.NewEncoder(&buf).Encode(res)
 	if err != nil {
+		j.log.WithError(err).Error("control handler json marshal error")
 		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, err.Error())
+		_, err = io.WriteString(w, err.Error())
 	} else {
-		io.Copy(w, &buf)
+		_, err = io.Copy(w, &buf)
 	}
+	logIoErr(err)
 }
 
 type jsonDecoder = func(interface{}) error
 
 type jsonRequestResponder struct {
+	log      Logger
 	producer func(decoder jsonDecoder) (interface{}, error)
 }
 
 func (j jsonRequestResponder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	logIoErr := func(err error) {
+		if err != nil {
+			j.log.WithError(err).Error("control handler io error")
+		}
+	}
+
 	var decodeError error
 	decoder := func(i interface{}) error {
 		err := json.NewDecoder(r.Body).Decode(&i)
@@ -204,22 +225,28 @@ func (j jsonRequestResponder) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	//If we had a decode error ignore output of producer and return error
 	if decodeError != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, decodeError.Error())
+		_, err := io.WriteString(w, decodeError.Error())
+		logIoErr(err)
 		return
 	}
 	if producerErr != nil {
+		j.log.WithError(producerErr).Error("control handler error")
 		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, producerErr.Error())
+		_, err := io.WriteString(w, producerErr.Error())
+		logIoErr(err)
 		return
 	}
 
 	var buf bytes.Buffer
 	encodeErr := json.NewEncoder(&buf).Encode(res)
 	if encodeErr != nil {
+		j.log.WithError(producerErr).Error("control handler json marhsal error")
 		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, encodeErr.Error())
+		_, err := io.WriteString(w, encodeErr.Error())
+		logIoErr(err)
 	} else {
-		io.Copy(w, &buf)
+		_, err := io.Copy(w, &buf)
+		logIoErr(err)
 	}
 }
 

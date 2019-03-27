@@ -95,7 +95,7 @@ restart:
 		return n, err
 	}
 	var nCurRead int
-	nCurRead, err = c.Wire.Read(p[n:len(p)])
+	nCurRead, err = c.Wire.Read(p[n:])
 	n += nCurRead
 	if netErr, ok := err.(net.Error); ok && netErr.Timeout() && nCurRead > 0 {
 		err = nil
@@ -111,7 +111,7 @@ restart:
 		return n, err
 	}
 	var nCurWrite int
-	nCurWrite, err = c.Wire.Write(p[n:len(p)])
+	nCurWrite, err = c.Wire.Write(p[n:])
 	n += nCurWrite
 	if netErr, ok := err.(net.Error); ok && netErr.Timeout() && nCurWrite > 0 {
 		err = nil
