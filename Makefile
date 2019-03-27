@@ -1,4 +1,4 @@
-.PHONY: generate build test vet cover release docs docs-clean clean vendordeps
+.PHONY: generate build test vet cover release docs docs-clean clean vendordeps format lint
 .DEFAULT_GOAL := build
 
 ARTIFACTDIR := artifacts
@@ -74,7 +74,7 @@ docs-clean:
 
 .PHONY: $(RELEASE_BINS)
 # TODO: two wildcards possible
-$(RELEASE_BINS): $(ARTIFACTDIR)/zrepl-%-amd64: generate $(ARTIFACTDIR) vet test
+$(RELEASE_BINS): $(ARTIFACTDIR)/zrepl-%-amd64: generate $(ARTIFACTDIR) vet test lint
 	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"
 	GOOS=$* GOARCH=amd64   $(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-$*-amd64"
 

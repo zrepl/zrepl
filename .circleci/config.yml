@@ -62,6 +62,7 @@ jobs:
       - run: make
       - run: make vet
       - run: make test
+      - run: make lint
       - run: make release
 
       - store_artifacts:
