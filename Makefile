@@ -31,11 +31,9 @@ generate: #not part of the build, must do that manually
 	go generate -x ./...
 
 format:
-	# FIXME build dependency
 	goimports -srcdir . -local 'github.com/zrepl/zrepl' -w $(shell find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go')
 
 lint:
-	# v1.15.0 at the time of writing FIXME build dependency
 	golangci-lint run ./...
 
 build:

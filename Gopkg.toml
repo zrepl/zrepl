@@ -5,6 +5,8 @@ ignored = [
 required = [
     "golang.org/x/tools/cmd/stringer",
     "github.com/alvaroloes/enumer",
+    "github.com/golangci/golangci-lint/cmd/golangci-lint",
+    "golang.org/x/tools/cmd/goimports",
 ]
 
 [[constraint]]
