@@ -14,6 +14,8 @@ import (
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/replication/report"
 	"github.com/zrepl/zrepl/util/bytecounter"
+	"github.com/zrepl/zrepl/util/envconst"
+	"github.com/zrepl/zrepl/util/semaphore"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -110,6 +112,8 @@ type Filesystem struct {
 	Path                string // compat
 	receiverFS          *pdu.Filesystem
 	promBytesReplicated prometheus.Counter // compat
+
+	sizeEstimateRequestSem *semaphore.S
 }
 
 func (f *Filesystem) EqualToPreviousAttempt(other driver.FS) bool {
@@ -234,6 +238,8 @@ func (p *Planner) doPlanning(ctx context.Context) ([]*Filesystem, error) {
 	}
 	rfss := rlfssres.GetFilesystems()
 
+	sizeEstimateRequestSem := semaphore.New(envconst.Int64("ZREPL_REPLICATION_MAX_CONCURRENT_SIZE_ESTIMATE", 4))
+
 	q := make([]*Filesystem, 0, len(sfss))
 	for _, fs := range sfss {
 
@@ -247,11 +253,12 @@ func (p *Planner) doPlanning(ctx context.Context) ([]*Filesystem, error) {
 		ctr := p.promBytesReplicated.WithLabelValues(fs.Path)
 
 		q = append(q, &Filesystem{
-			sender:              p.sender,
-			receiver:            p.receiver,
-			Path:                fs.Path,
-			receiverFS:          receiverFS,
-			promBytesReplicated: ctr,
+			sender:                 p.sender,
+			receiver:               p.receiver,
+			Path:                   fs.Path,
+			receiverFS:             receiverFS,
+			promBytesReplicated:    ctr,
+			sizeEstimateRequestSem: sizeEstimateRequestSem,
 		})
 	}
 
@@ -336,7 +343,17 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 		wg.Add(1)
 		go func(step *Step) {
 			defer wg.Done()
-			err := step.updateSizeEstimate(fanOutCtx)
+
+			// TODO instead of the semaphore, rely on resource-exhaustion signaled by the remote endpoint to limit size-estimate requests
+			// Send is handled over rpc/dataconn ATM, which doesn't support the resource exhaustion status codes that gRPC defines
+			guard, err := fs.sizeEstimateRequestSem.Acquire(fanOutCtx)
+			if err != nil {
+				fanOutCancel()
+				return
+			}
+			defer guard.Release()
+
+			err = step.updateSizeEstimate(fanOutCtx)
 			if err != nil {
 				log.WithError(err).WithField("step", step).Error("error computing size estimate")
 				fanOutCancel()

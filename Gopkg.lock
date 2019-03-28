@@ -830,6 +830,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:0142c968b74c157abbb0220c05fa2bdde8a3a4509d6134b35ef75d5b58afb721"
+  name = "golang.org/x/sync"
+  packages = ["semaphore"]
+  pruneopts = ""
+  revision = "e225da77a7e68af35c70ccbf71af2b83e6acac3c"
+
+[[projects]]
+  branch = "master"
   digest = "1:f358024b019f87eecaadcb098113a40852c94fe58ea670ef3c3e2d2c7bd93db1"
   name = "golang.org/x/sys"
   packages = [
@@ -1015,6 +1023,7 @@
     "github.com/yudai/gojsondiff/formatter",
     "github.com/zrepl/yaml-config",
     "golang.org/x/net/context",
+    "golang.org/x/sync/semaphore",
     "golang.org/x/sys/unix",
     "golang.org/x/tools/cmd/goimports",
     "golang.org/x/tools/cmd/stringer",
