@@ -86,7 +86,7 @@ func (c *Client) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.St
 	// TODO the returned sendStream may return a read error created by the remote side
 	res, streamCopier, err := c.dataClient.ReqSend(ctx, r)
 	if err != nil {
-		return nil, nil, nil
+		return nil, nil, err
 	}
 	if streamCopier == nil {
 		return res, nil, nil
