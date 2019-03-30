@@ -54,7 +54,7 @@ echo "building site"
 set -e
 sphinx-versioning build \
    --show-banner \
-   --whitelist-branches 'master' \
+   --whitelist-branches '^master$' \
    --whitelist-tags '(v)?\d+\.\d+\.\d+$' \
    --whitelist-tags '(v)?0.1.0-rc(3|4)$' \
    docs ./public_git \
