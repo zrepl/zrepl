@@ -28,11 +28,31 @@ zrepl - ZFS replication
 
 .. raw:: html
 
-   <div style="margin-bottom: 1em; background: #2e3436; min-height: 6em; max-width: 100%">
-     <a href="https://raw.githubusercontent.com/wiki/zrepl/zrepl/zrepl_0.1_status.mp4" target="_new" >
-       <video title="zrepl status subcommand" loop autoplay style="width: 100%; display: block;" src="https://raw.githubusercontent.com/wiki/zrepl/zrepl/zrepl_0.1_status.mp4"></video>
-     </a>
+   <div style="margin-bottom: 1em; background: #2e3436; color: white; font-size: 0.8em; min-height: 6em; max-width: 100%; overflow: auto;">
+     <pre>
+     Job: prod_to_backups
+     Type: push
+     Replication:
+         Attempt #1
+         Status: fan-out-filesystems
+         Progress: [=========================\----] 246.7 MiB / 264.7 MiB @ 11.5 MiB/s
+           zroot              STEPPING (step 1/2, 624 B/1.2 KiB) next: @a => @b
+           zroot/ROOT         DONE (step 2/2, 1.2 KiB/1.2 KiB)
+           zroot/ROOT/default STEPPING (step 1/2, 123.4 MiB/129.3 MiB) next: @a => @b
+           zroot/tmp          STEPPING (step 1/2, 29.9 KiB/44.2 KiB) next: @a => @b
+           zroot/usr          STEPPING (step 1/2, 624 B/1.2 KiB) next: @a => @b
+           zroot/usr/home     STEPPING (step 1/2, 123.3 MiB/135.3 MiB) next: @a => @b
+           zroot/var          STEPPING (step 1/2, 624 B/1.2 KiB) next: @a => @b
+           zroot/var/audit    DONE (step 2/2, 1.2 KiB/1.2 KiB)
+           zroot/var/crash    DONE (step 2/2, 1.2 KiB/1.2 KiB)
+           zroot/var/log      STEPPING (step 1/2, 22.0 KiB/29.2 KiB) next: @a => @b
+           zroot/var/mail     STEPPING (step 1/2, 624 B/1.2 KiB) next: @a => @b
+     Pruning Sender:
+         ...
+     Pruning Receiver:
+     </pre>
    </div>
+
 
 Getting started
 ~~~~~~~~~~~~~~~
