@@ -51,7 +51,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'zrepl'
-copyright = '2017-2018, Christian Schwarz'
+copyright = '2017-2019, Christian Schwarz'
 author = 'Christian Schwarz'
 
 # The version info for the project you're documenting, acts as replacement for
