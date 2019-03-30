@@ -42,7 +42,7 @@ It breaks both configuration and transport format, and thus requires manual inte
 Notes to Package Maintainers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* Notify users about migrations (see changes attributed with |mig| below)
+* Notify users about config changes and migrations (see changes attributed with |break| and |mig| below)
 * If the daemon crashes, the stack trace produced by the Go runtime and possibly diagnostic output of zrepl will be written to stderr.
   This behavior is independent from the ``stdout`` outlet type.
   Please make sure the stderr output of the daemon is captured somewhere.
@@ -51,6 +51,7 @@ Notes to Package Maintainers
   This functionality will cause SIGABRT on panics and can be used to capture a coredump of the panicking process.
   To that extend, make sure that your package build system, your OS's coredump collection and the Go delve debugger work together.
   Use your build system to package the Go program in `this tutorial on Go coredumps and the delve debugger <https://rakyll.org/coredumps/>`_ , and make sure the symbol resolution etc. work on coredumps captured from the binary produced by your build system. (Special focus on symbol stripping, etc.)
+* Consider using the ``zrepl configcheck`` subcommand in startup scripts to abort a restart that would fail due to an invalid config.
 
 Changes
 ~~~~~~~
