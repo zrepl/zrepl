@@ -222,6 +222,10 @@ func (c *Conn) writeFrame(payload []byte, frameType uint32) error {
 	return nil
 }
 
+func (c *Conn) ResetWriteTimeout() error {
+	return c.nc.RenewWriteDeadline()
+}
+
 func (c *Conn) Shutdown(deadline time.Time) error {
 	// TCP connection teardown is a bit wonky if we are in a situation
 	// where there is still data in flight (DIF) to our side:

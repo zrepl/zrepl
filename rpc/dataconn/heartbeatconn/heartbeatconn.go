@@ -123,7 +123,17 @@ func (c *Conn) readFrameFiltered() (frameconn.Frame, error) {
 			return frameconn.Frame{}, fmt.Errorf("unknown frame type %x", f.Header.Type)
 		}
 		// drop heartbeat frame
-		debug("received heartbeat")
+		debug("received heartbeat, resetting write timeout")
+		// the peer's heartbeat proves to us that the peer is still live
+		// => trust the peer at this point (DoS risks are ignored ATM)
+		// => we assume that the connection is symmetric duplex, i.e., if receiving works for us,
+		//    sending works for us, too.
+		// So, let's grant the peer another write timeout.
+		err = c.fc.ResetWriteTimeout()
+		debug("renew frameconn write timeout returned errT=%T err=%s", err, err)
+		if err != nil {
+			return frameconn.Frame{}, err
+		}
 		continue
 	}
 }

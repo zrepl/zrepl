@@ -80,7 +80,7 @@ func (c *Conn) renewReadDeadline() error {
 	return c.SetReadDeadline(time.Now().Add(c.idleTimeout))
 }
 
-func (c *Conn) renewWriteDeadline() error {
+func (c *Conn) RenewWriteDeadline() error {
 	if atomic.LoadInt32(&c.renewDeadlinesDisabled) != 0 {
 		return nil
 	}
@@ -107,7 +107,7 @@ restart:
 func (c Conn) Write(p []byte) (n int, err error) {
 	n = 0
 restart:
-	if err := c.renewWriteDeadline(); err != nil {
+	if err := c.RenewWriteDeadline(); err != nil {
 		return n, err
 	}
 	var nCurWrite int
@@ -127,7 +127,7 @@ restart:
 func (c Conn) WritevFull(bufs net.Buffers) (n int64, err error) {
 	n = 0
 restart:
-	if err := c.renewWriteDeadline(); err != nil {
+	if err := c.RenewWriteDeadline(); err != nil {
 		return n, err
 	}
 	var nCurWrite int64
