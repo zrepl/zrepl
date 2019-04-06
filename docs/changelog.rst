@@ -25,6 +25,14 @@ We use the following annotations for classifying changes:
 * |bugfix| Change that fixes a bug, no regressions or incompatibilities expected.
 * |docs| Change to the documentation.
 
+0.1.1
+-----
+
+* |bugfix| :issue:`162` :commit:`d6304f4` : fix I/O timeout errors on variable receive rate
+
+  * A significant reduction or sudden stall of the receive rate (e.g. recv pool has other I/O to do)
+    would cause a ``writev I/O timeout`` error after approximately ten seconds.
+
 0.1
 ---
 
