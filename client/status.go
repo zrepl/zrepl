@@ -384,7 +384,7 @@ func (t *tui) renderReplicationReport(rep *report.Report, history *bytesProgress
 	} else {
 		t.printf("Attempt #%d", len(rep.Attempts))
 		if len(rep.Attempts) > 1 {
-			t.printf(". Previous attempts failed with the follwing statuses:")
+			t.printf(". Previous attempts failed with the following statuses:")
 			t.newline()
 			t.addIndent(1)
 			for i, a := range rep.Attempts[:len(rep.Attempts)-1] {
