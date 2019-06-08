@@ -986,6 +986,10 @@ func zfsGet(path string, props []string, allowedSources zfsPropertySource) (*ZFS
 					}
 				}
 			}
+			return nil, &ZFSError{
+				Stderr:  exitErr.Stderr,
+				WaitErr: exitErr,
+			}
 		}
 		return nil, err
 	}
