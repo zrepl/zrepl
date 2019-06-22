@@ -16,7 +16,7 @@ via Liberapay| |Twitter|
    :target: https://zrepl.github.io
 .. |Donate via PayPal| image:: https://img.shields.io/badge/donate-paypal-yellow.svg
    :target: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=R5QSXJVYHGX96
-.. |Donate via Liberapay| image:: https://img.shields.io/badge/donate-liberapay-yellow.svg
+.. |Donate via Liberapay| image:: https://img.shields.io/liberapay/receives/zrepl.svg?logo=liberapay
    :target: https://liberapay.com/zrepl/donate
 .. |Twitter| image:: https://img.shields.io/twitter/url/https/github.com/zrepl/zrepl.svg?style=social
    :target: https://twitter.com/intent/tweet?text=Wow:&url=https%3A%2F%2Fgithub.com%2Fzrepl%2Fzrepl
