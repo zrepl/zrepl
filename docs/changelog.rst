@@ -25,6 +25,11 @@ We use the following annotations for classifying changes:
 * |bugfix| Change that fixes a bug, no regressions or incompatibilities expected.
 * |docs| Change to the documentation.
 
+0.1.2
+-----
+
+* Linux ARM64 Docker build support & binary builds
+
 0.1.1
 -----
 
