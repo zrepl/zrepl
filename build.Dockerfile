@@ -4,9 +4,8 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     unzip
 
-RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip
-RUN echo "6003de742ea3fcf703cfec1cd4a3380fd143081a2eb0e559065563496af27807  protoc-3.6.1-linux-x86_64.zip" | sha256sum -c
-RUN unzip -d /usr protoc-3.6.1-linux-x86_64.zip
+ADD build.installprotoc.bash ./
+RUN bash build.installprotoc.bash
 
 ADD lazy.sh /tmp/lazy.sh
 ADD docs/requirements.txt /tmp/requirements.txt

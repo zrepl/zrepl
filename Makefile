@@ -16,8 +16,10 @@ GO_LDFLAGS := "-X github.com/zrepl/zrepl/version.zreplVersion=$(_ZREPL_VERSION)"
 
 GO_BUILD := go build -ldflags $(GO_LDFLAGS)
 
+# keep in sync with vet target
 RELEASE_BINS := $(ARTIFACTDIR)/zrepl-freebsd-amd64
 RELEASE_BINS += $(ARTIFACTDIR)/zrepl-linux-amd64
+RELEASE_BINS += $(ARTIFACTDIR)/zrepl-linux-arm64
 RELEASE_BINS += $(ARTIFACTDIR)/zrepl-darwin-amd64
 
 RELEASE_NOARCH := $(ARTIFACTDIR)/zrepl-noarch.tar
@@ -42,12 +44,17 @@ build:
 
 test:
 	go test ./...
+	# TODO compile the tests for each supported platform
+	# but `go test -c ./...` is not supported
 
 vet:
+	go vet ./...
 	# for each supported platform to cover conditional compilation
-	GOOS=linux   go vet ./...
-	GOOS=darwin  go vet ./...
-	GOOS=freebsd go vet ./...
+	# (keep in sync with RELEASE_BINS)
+	GOOS=freebsd	GOARCH=amd64 	go vet ./...
+	GOOS=linux	GOARCH=amd64 	go vet ./...
+	GOOS=linux	GOARCH=arm64 	go vet ./...
+	GOOS=darwin	GOARCH=amd64 	go vet ./...
 
 $(ARTIFACTDIR):
 	mkdir -p "$@"
@@ -71,12 +78,12 @@ docs-clean:
 		clean \
 		BUILDDIR=../artifacts/docs
 
-
 .PHONY: $(RELEASE_BINS)
 # TODO: two wildcards possible
-$(RELEASE_BINS): $(ARTIFACTDIR)/zrepl-%-amd64: generate $(ARTIFACTDIR) vet test lint
+$(RELEASE_BINS): $(ARTIFACTDIR)/zrepl-%: generate $(ARTIFACTDIR) vet test lint
 	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"
-	GOOS=$* GOARCH=amd64   $(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-$*-amd64"
+	STEM=$*; GOOS="$${STEM%%-*}"; GOARCH="$${STEM##*-}"; export GOOS GOARCH; \
+		$(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-$$GOOS-$$GOARCH"
 
 $(RELEASE_NOARCH): docs $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/go_version.txt
 	tar --mtime='1970-01-01' --sort=name \
