@@ -58,7 +58,7 @@ jobs:
           command: |
             curl -sSL https://dl.minio.io/client/mc/release/linux-amd64/mc -o ${GOPATH}/bin/mc
             chmod +x ${GOPATH}/bin/mc
-            mc config host add --api s3v4 zrepl-minio https://minio.cschwarz.com ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
+            mc --no-autocompletion config host add --api s3v4 zrepl-minio https://minio.cschwarz.com ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
 
       - run: make vendordeps
       - save_cache:
@@ -82,7 +82,7 @@ jobs:
           when: always
           command: |
             echo "$CIRCLE_BUILD_URL" > ./artifacts/release/cirlceci_build_url
-            mc cp -r artifacts/release "zrepl-minio/zrepl-ci-artifacts/${CIRCLE_SHA1}/${CIRCLE_JOB}/"
+            mc --no-autocompletion cp -r artifacts/release "zrepl-minio/zrepl-ci-artifacts/${CIRCLE_SHA1}/${CIRCLE_JOB}/"
             REPO="zrepl/zrepl"
             COMMIT="${CIRCLE_SHA1}"
             JOB_NAME="${CIRCLE_JOB}"
