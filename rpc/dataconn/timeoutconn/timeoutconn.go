@@ -244,6 +244,14 @@ func (c Conn) readv(rawConn syscall.RawConn, iovecs []syscall.Iovec) (n int64, e
 func (c Conn) doOneReadv(rawConn syscall.RawConn, iovecs *[]syscall.Iovec) (n int64, err error) {
 	rawReadErr := rawConn.Read(func(fd uintptr) (done bool) {
 		// iovecs, n and err must not be shadowed!
+
+		// NOTE: unsafe.Pointer safety rules
+		// 		https://tip.golang.org/pkg/unsafe/#Pointer
+		//
+		//		(4) Conversion of a Pointer to a uintptr when calling syscall.Syscall.
+		// 		...
+		//		uintptr() conversions must appear within the syscall.Syscall argument list.
+		//      (even though we are not the escape analysis Likely not )
 		thisReadN, _, errno := syscall.Syscall(
 			syscall.SYS_READV,
 			fd,
@@ -268,6 +276,12 @@ func (c Conn) doOneReadv(rawConn syscall.RawConn, iovecs *[]syscall.Iovec) (n in
 				left -= int64((*iovecs)[0].Len)
 				*iovecs = (*iovecs)[1:]
 			} else {
+				// NOTE: unsafe.Pointer safety rules
+				// 		https://tip.golang.org/pkg/unsafe/#Pointer
+				// 		(3) Conversion of a Pointer to a uintptr and back, with arithmetic.
+				// 		...
+				//		Note that both conversions must appear in the same expression,
+				//		with only the intervening arithmetic between them:
 				(*iovecs)[0].Base = (*byte)(unsafe.Pointer(uintptr(unsafe.Pointer((*iovecs)[0].Base)) + uintptr(left)))
 				(*iovecs)[0].Len = uint64(curVecNewLength)
 				break // inner
