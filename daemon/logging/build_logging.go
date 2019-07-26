@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/hooks"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/endpoint"
@@ -72,6 +73,7 @@ const (
 	SubsyEndpoint      Subsystem = "endpoint"
 	SubsysPruning      Subsystem = "pruning"
 	SubsysSnapshot     Subsystem = "snapshot"
+	SubsysHooks        Subsystem = "hook"
 	SubsysTransport    Subsystem = "transport"
 	SubsysTransportMux Subsystem = "transportmux"
 	SubsysRPC          Subsystem = "rpc"
@@ -85,6 +87,7 @@ func WithSubsystemLoggers(ctx context.Context, log logger.Logger) context.Contex
 	ctx = endpoint.WithLogger(ctx, log.WithField(SubsysField, SubsyEndpoint))
 	ctx = pruner.WithLogger(ctx, log.WithField(SubsysField, SubsysPruning))
 	ctx = snapper.WithLogger(ctx, log.WithField(SubsysField, SubsysSnapshot))
+	ctx = hooks.WithLogger(ctx, log.WithField(SubsysField, SubsysHooks))
 	ctx = transport.WithLogger(ctx, log.WithField(SubsysField, SubsysTransport))
 	ctx = transportmux.WithLogger(ctx, log.WithField(SubsysField, SubsysTransportMux))
 	ctx = rpc.WithLoggers(ctx,

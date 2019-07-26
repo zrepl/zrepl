@@ -6,16 +6,16 @@ Miscellaneous
 Runtime Directories & UNIX Sockets
 ----------------------------------
 
-zrepl daemon creates various UNIX sockets to allow communicating with it:
+The zrepl daemon needs to open various UNIX sockets in a runtime directory:
 
-* the :ref:`transport-ssh+stdinserver` transport connects to a socket named after ``client_identity`` parameter
-* the ``control`` CLI subcommand connects to a defined control socket
+* a ``control`` socket that the CLI commands use to interact with the daemon
+* the :ref:`transport-ssh+stdinserver` listener opens one socket per configured client, named after ``client_identity`` parameter
 
-There is no further authentication on these sockets.
-Therefore we have to make sure they can only be created and accessed by ``zrepl daemon``.
-In fact, ``zrepl daemon`` will not bind a socket to a path in a directory that is world-accessible.
+There is no authentication on these sockets except the UNIX permissions.
+The zrepl daemon will refuse to bind any of the above sockets in a directory that is world-accessible.
 
-The directories can be configured in the main configuration file, the defaults are provided below:
+The following sections of the ``global`` config shows the default paths.
+The shell script below shows how the default runtime directory can be created.
 
 ::
 
@@ -25,6 +25,12 @@ The directories can be configured in the main configuration file, the defaults a
       serve:
         stdinserver:
           sockdir: /var/run/zrepl/stdinserver
+
+
+::
+
+    mkdir -p /var/run/zrepl/stdinserver
+    chmod -R 0700 /var/run/zrepl
 
 
 Durations & Intervals

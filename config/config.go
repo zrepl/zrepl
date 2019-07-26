@@ -139,6 +139,7 @@ type SnapshottingPeriodic struct {
 	Type     string        `yaml:"type"`
 	Prefix   string        `yaml:"prefix"`
 	Interval time.Duration `yaml:"interval,positive"`
+	Hooks    HookList      `yaml:"hooks,optional"`
 }
 
 type SnapshottingManual struct {
@@ -361,6 +362,38 @@ type JobDebugSettings struct {
 	RPCLog bool `yaml:"rpc_log,optional,default=false"`
 }
 
+type HookList []HookEnum
+
+type HookEnum struct {
+	Ret interface{}
+}
+
+type HookCommand struct {
+	Path               string            `yaml:"path"`
+	Timeout            time.Duration     `yaml:"timeout,optional,positive,default=30s"`
+	Filesystems        FilesystemsFilter `yaml:"filesystems,optional,default={'<': true}"`
+	HookSettingsCommon `yaml:",inline"`
+}
+
+type HookPostgresCheckpoint struct {
+	HookSettingsCommon `yaml:",inline"`
+	DSN                string            `yaml:"dsn"`
+	Timeout            time.Duration     `yaml:"timeout,optional,positive,default=30s"`
+	Filesystems        FilesystemsFilter `yaml:"filesystems"` // required, user should not CHECKPOINT for every FS
+}
+
+type HookMySQLLockTables struct {
+	HookSettingsCommon `yaml:",inline"`
+	DSN                string            `yaml:"dsn"`
+	Timeout            time.Duration     `yaml:"timeout,optional,positive,default=30s"`
+	Filesystems        FilesystemsFilter `yaml:"filesystems"`
+}
+
+type HookSettingsCommon struct {
+	Type       string `yaml:"type"`
+	ErrIsFatal bool   `yaml:"err_is_fatal,optional,default=false"`
+}
+
 func enumUnmarshal(u func(interface{}, bool) error, types map[string]interface{}) (interface{}, error) {
 	var in struct {
 		Type string
@@ -499,6 +532,15 @@ func (t *SyslogFacility) UnmarshalYAML(u func(interface{}, bool) error) (err err
 	}
 	*t = SyslogFacility(level)
 	return nil
+}
+
+func (t *HookEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
+	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
+		"command":             &HookCommand{},
+		"postgres-checkpoint": &HookPostgresCheckpoint{},
+		"mysql-lock-tables":   &HookMySQLLockTables{},
+	})
+	return
 }
 
 var ConfigFileDefaultLocations = []string{

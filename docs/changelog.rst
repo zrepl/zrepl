@@ -32,6 +32,9 @@ We use the following annotations for classifying changes:
 * Go modules for dependency management both inside and outside of GOPATH
   (``lazy.sh`` and ``Makefile`` force ``GO111MODULE=on``)
 * |feature| Use ``zfs destroy pool/fs@snap1,snap2,...`` CLI feature if available
+* |feature| :ref:`Pre- and Post-Snapshot Hooks <job-snapshotting-hooks>`
+  with built-in support for MySQL and Postgres checkpointing
+  as well as custom scripts
 
 0.1.1
 -----

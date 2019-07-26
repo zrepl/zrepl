@@ -11,6 +11,7 @@ import (
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
+	"github.com/zrepl/zrepl/daemon/hooks"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -35,8 +36,8 @@ type snapProgress struct {
 	// SnapDone
 	doneAt time.Time
 
-	// SnapErr
-	err error
+	// SnapErr TODO disambiguate state
+	runResults hooks.PlanReport
 }
 
 type args struct {
@@ -46,6 +47,8 @@ type args struct {
 	interval       time.Duration
 	fsf            *filters.DatasetMapFilter
 	snapshotsTaken chan<- struct{}
+	hooks          *hooks.List
+	dryRun         bool
 }
 
 type Snapper struct {
@@ -123,10 +126,16 @@ func PeriodicFromConfig(g *config.Global, fsf *filters.DatasetMapFilter, in *con
 		return nil, errors.New("interval must be positive")
 	}
 
+	hookList, err := hooks.ListFromConfig(&in.Hooks)
+	if err != nil {
+		return nil, errors.Wrap(err, "hook config error")
+	}
+
 	args := args{
 		prefix:   in.Prefix,
 		interval: in.Interval,
 		fsf:      fsf,
+		hooks:    hookList,
 		// ctx and log is set in Run()
 	}
 
@@ -141,6 +150,7 @@ func (s *Snapper) Run(ctx context.Context, snapshotsTaken chan<- struct{}) {
 	s.args.snapshotsTaken = snapshotsTaken
 	s.args.ctx = ctx
 	s.args.log = getLogger(ctx)
+	s.args.dryRun = false // for future expansion
 
 	u := func(u func(*Snapper)) State {
 		s.mtx.Lock()
@@ -241,7 +251,12 @@ func snapshot(a args, u updater) state {
 		plan = snapper.plan
 	})
 
-	hadErr := false
+	hookMatchCount := make(map[hooks.Hook]int, len(*a.hooks))
+	for _, h := range *a.hooks {
+		hookMatchCount[h] = 0
+	}
+
+	anyFsHadErr := false
 	// TODO channel programs -> allow a little jitter?
 	for fs, progress := range plan {
 		suffix := time.Now().In(time.UTC).Format("20060102_150405_000")
@@ -257,21 +272,68 @@ func snapshot(a args, u updater) state {
 			progress.state = SnapStarted
 		})
 
-		l.Debug("create snapshot")
-		err := zfs.ZFSSnapshot(fs, snapname, false)
-		if err != nil {
-			hadErr = true
-			l.WithError(err).Error("cannot create snapshot")
-		}
-		doneAt := time.Now()
+		var doneAt time.Time
 
+		hookEnvExtra := hooks.Env{
+			hooks.EnvFS:       fs.ToString(),
+			hooks.EnvSnapshot: snapname,
+		}
+
+		jobCallback := hooks.NewCallbackHookForFilesystem("snapshot", fs, func(_ context.Context) (err error) {
+			l.Debug("create snapshot")
+			err = zfs.ZFSSnapshot(fs, snapname, false) // TODO propagagte context to ZFSSnapshot
+			if err != nil {
+				l.WithError(err).Error("cannot create snapshot")
+			}
+			doneAt = time.Now()
+			return
+		})
+
+		fsHadErr := false
+		var planReport hooks.PlanReport
+		var plan *hooks.Plan
+		{
+			filteredHooks, err := a.hooks.CopyFilteredForFilesystem(fs)
+			if err != nil {
+				l.WithError(err).Error("unexpected filter error")
+				fsHadErr = true
+				goto updateFSState
+			}
+			// account for running hooks
+			for _, h := range filteredHooks {
+				hookMatchCount[h] = hookMatchCount[h] + 1
+			}
+
+			var planErr error
+			plan, planErr = hooks.NewPlan(&filteredHooks, hooks.PhaseSnapshot, jobCallback, hookEnvExtra)
+			if planErr != nil {
+				fsHadErr = true
+				l.WithError(planErr).Error("cannot create job hook plan")
+				goto updateFSState
+			}
+		}
+		{
+			l := hooks.GetLogger(a.ctx).WithField("fs", fs.ToString()).WithField("snap", snapname)
+			l.WithField("report", plan.Report().String()).Debug("begin run job plan")
+			plan.Run(hooks.WithLogger(a.ctx, l), a.dryRun)
+			planReport = plan.Report()
+			fsHadErr = planReport.HadError() // not just fatal errors
+			if fsHadErr {
+				l.WithField("report", planReport.String()).Error("end run job plan with error")
+			} else {
+				l.WithField("report", planReport.String()).Info("end run job plan successful")
+			}
+		}
+
+	updateFSState:
+		anyFsHadErr = anyFsHadErr || fsHadErr
 		u(func(snapper *Snapper) {
 			progress.doneAt = doneAt
 			progress.state = SnapDone
-			if err != nil {
+			if fsHadErr {
 				progress.state = SnapError
-				progress.err = err
 			}
+			progress.runResults = planReport
 		})
 	}
 
@@ -283,8 +345,21 @@ func snapshot(a args, u updater) state {
 		}
 	}
 
+	for h, mc := range hookMatchCount {
+		if mc == 0 {
+			hookIdx := -1
+			for idx, ah := range *a.hooks {
+				if ah == h {
+					hookIdx = idx
+					break
+				}
+			}
+			a.log.WithField("hook", h.String()).WithField("hook_number", hookIdx+1).Warn("hook did not match any snapshotted filesystems")
+		}
+	}
+
 	return u(func(snapper *Snapper) {
-		if hadErr {
+		if anyFsHadErr {
 			snapper.state = ErrorWait
 			snapper.err = errors.New("one or more snapshots could not be created, check logs for details")
 		} else {

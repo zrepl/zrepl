@@ -11,6 +11,7 @@ require (
 	github.com/gdamore/tcell v1.2.0
 	github.com/go-critic/go-critic v0.3.4 // indirect
 	github.com/go-logfmt/logfmt v0.3.0
+	github.com/go-sql-driver/mysql v1.4.1-0.20190907122137-b2c03bcae3d4
 	github.com/gogo/protobuf v1.2.1 // indirect
 	github.com/golang/mock v1.2.0 // indirect
 	github.com/golang/protobuf v1.2.0
@@ -29,6 +30,7 @@ require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515 // indirect
 	github.com/kr/pretty v0.1.0
+	github.com/lib/pq v1.2.0
 	github.com/mattn/go-isatty v0.0.3
 	github.com/matttproud/golang_protobuf_extensions v1.0.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -47,7 +49,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.3.2 // indirect
-	github.com/stretchr/testify v1.2.2
+	github.com/stretchr/testify v1.4.0
 	github.com/theckman/goconstraint v1.11.0 // indirect
 	github.com/yudai/gojsondiff v0.0.0-20170107030110-7b1b7adf999d
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // indirect

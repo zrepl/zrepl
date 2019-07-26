@@ -86,8 +86,7 @@ Either way, all build results are located in the ``artifacts/`` directory.
 What next?
 ----------
 
-Read the :ref:`configuration chapter<configuration_toc>` and optionally create the :ref:`runtime directories <configuration_preface>`.
-Afterwards, continue with the :ref:`usage chapter<usage>`.
+Read the :ref:`configuration chapter<configuration_toc>` and then continue with the :ref:`usage chapter<usage>`.
 
 **Reminder**: If you want a quick introduction, please read the :ref:`tutorial`.
 

@@ -20,6 +20,7 @@ type Logger interface {
 	WithField(field string, val interface{}) Logger
 	WithFields(fields Fields) Logger
 	WithError(err error) Logger
+	Log(level Level, msg string)
 	Debug(msg string)
 	Info(msg string)
 	Warn(msg string)
@@ -156,6 +157,10 @@ func (l *loggerImpl) WithError(err error) Logger {
 		val = err.Error()
 	}
 	return l.WithField(FieldError, val)
+}
+
+func (l *loggerImpl) Log(level Level, msg string) {
+	l.log(level, msg)
 }
 
 func (l *loggerImpl) Debug(msg string) {

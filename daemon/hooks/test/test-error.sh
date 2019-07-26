@@ -1,0 +1,5 @@
+#!/bin/sh -eu
+
+>&2 echo "TEST ERROR $ZREPL_HOOKTYPE $ZREPL_FS@$ZREPL_SNAPNAME"
+
+exit 1

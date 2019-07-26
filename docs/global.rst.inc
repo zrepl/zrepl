@@ -17,3 +17,10 @@
    :target: https://www.patreon.com/zrepl
 .. |Twitter| image:: https://img.shields.io/twitter/url/https/github.com/zrepl/zrepl.svg?style=social
    :target: https://twitter.com/intent/tweet?text=Wow:&url=https%3A%2F%2Fgithub.com%2Fzrepl%2Fzrepl
+
+
+.. |serve-transport| replace:: :ref:`serve specification<transport>`
+.. |connect-transport| replace:: :ref:`connect specification<transport>`
+.. |snapshotting-spec| replace:: :ref:`snapshotting specification <job-snapshotting-spec>`
+.. |pruning-spec| replace:: :ref:`pruning specification <prune>`
+.. |filter-spec| replace:: :ref:`filter specification<pattern-filter>`
