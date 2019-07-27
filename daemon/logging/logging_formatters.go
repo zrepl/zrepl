@@ -88,7 +88,7 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 	prefixFields := []string{JobField, SubsysField}
 	prefixed := make(map[string]bool, len(prefixFields)+2)
 	for _, field := range prefixFields {
-		val, ok := e.Fields[field].(string)
+		val, ok := e.Fields[field]
 		if !ok {
 			continue
 		}
