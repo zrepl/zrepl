@@ -53,13 +53,6 @@ jobs:
       - run: sudo apt install python3 python3-pip libgirepository1.0-dev
       - run: ./lazy.sh devsetup
 
-      - run:
-          name: Install minio client, prepare minio
-          command: |
-            curl -sSL https://dl.minio.io/client/mc/release/linux-amd64/mc -o ${GOPATH}/bin/mc
-            chmod +x ${GOPATH}/bin/mc
-            mc config host add --api s3v4 zrepl-minio https://minio.cschwarz.com ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
-
       - run: make vendordeps
       - save_cache:
           key: vendor
@@ -78,11 +71,25 @@ jobs:
           when: always
 
       - run:
-          shell: /bin/bash -euo pipefail
+          shell: /bin/bash -eo pipefail
           when: always
           command: |
+            if [ -n "$CIRCLE_PR_NUMBER" ]; then # CIRCLE_PR_NUMBER is guaranteed to be only present in forked PRs (external)
+              echo "Forked PR detected. Sry, can't trust you with credentials to external artifact store, use CircleCI's instead."
+              exit 0
+            fi
+            set -u # from now on
+            
+            # Download and install minio
+            curl -sSL https://dl.minio.io/client/mc/release/linux-amd64/mc -o ${GOPATH}/bin/mc
+            chmod +x ${GOPATH}/bin/mc
+            mc config host add --api s3v4 zrepl-minio https://minio.cschwarz.com ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
+            
+            # Upload artifacts
             echo "$CIRCLE_BUILD_URL" > ./artifacts/release/cirlceci_build_url
             mc cp -r artifacts/release "zrepl-minio/zrepl-ci-artifacts/${CIRCLE_SHA1}/${CIRCLE_JOB}/"
+
+            # Push Artifact Link to GitHub
             REPO="zrepl/zrepl"
             COMMIT="${CIRCLE_SHA1}"
             JOB_NAME="${CIRCLE_JOB}"
