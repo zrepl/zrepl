@@ -74,16 +74,23 @@
   revision = "b23993cbb6353f0e6aa98d0ee318a34728f628b9"
 
 [[projects]]
-  digest = "1:d8088c614a5bffaf38a40c116226e7d230750bafb77942dca25eab779ceeaf1f"
+  digest = "1:e6f732968219301439708b03fda0aa16c6b1ca34235f57086a01a688f2f1a496"
   name = "github.com/gdamore/tcell"
   packages = [
     ".",
     "termbox",
     "terminfo",
+    "terminfo/a/ansi",
+    "terminfo/base",
+    "terminfo/dynamic",
+    "terminfo/v/vt100",
+    "terminfo/v/vt102",
+    "terminfo/v/vt220",
+    "terminfo/x/xterm",
   ]
   pruneopts = ""
-  revision = "de7e78efa4a71b3f36c7154989c529dbdf9ae623"
-  version = "v1.1.0"
+  revision = "1922b3786eaefecbba6fd8e11dbfd3531fad7a54"
+  version = "v1.2.0"
 
 [[projects]]
   digest = "1:9d3f086381a257229b34fcd5690c3e5cadcb5f365cb35757536f3c51ccbb9049"
