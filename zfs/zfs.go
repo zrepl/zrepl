@@ -1020,29 +1020,89 @@ func zfsGet(path string, props []string, allowedSources zfsPropertySource) (*ZFS
 	return res, nil
 }
 
-func ZFSDestroy(dataset string) (err error) {
+type DestroySnapshotsError struct {
+	RawLines      []string
+	Filesystem    string
+	Undestroyable []string // snapshot name only (filesystem@ stripped)
+	Reason        []string
+}
+
+func (e *DestroySnapshotsError) Error() string {
+	if len(e.Undestroyable) != len(e.Reason) {
+		panic(fmt.Sprintf("%v != %v", len(e.Undestroyable), len(e.Reason)))
+	}
+	if len(e.Undestroyable) == 0 {
+		panic(fmt.Sprintf("error must have one undestroyable snapshot, %q", e.Filesystem))
+	}
+	if len(e.Undestroyable) == 1 {
+		return fmt.Sprintf("zfs destroy failed: %s@%s: %s", e.Filesystem, e.Undestroyable[0], e.Reason[0])
+	}
+	return strings.Join(e.RawLines, "\n")
+}
+
+var destroySnapshotsErrorRegexp = regexp.MustCompile(`^cannot destroy snapshot ([^@]+)@(.+): (.*)$`) // yes, datasets can contain `:`
+
+func tryParseDestroySnapshotsError(arg string, stderr []byte) *DestroySnapshotsError {
+
+	argComps := strings.SplitN(arg, "@", 2)
+	if len(argComps) != 2 {
+		return nil
+	}
+	filesystem := argComps[0]
+
+	lines := bufio.NewScanner(bytes.NewReader(stderr))
+	undestroyable := []string{}
+	reason := []string{}
+	rawLines := []string{}
+	for lines.Scan() {
+		line := lines.Text()
+		rawLines = append(rawLines, line)
+		m := destroySnapshotsErrorRegexp.FindStringSubmatch(line)
+		if m == nil {
+			return nil // unexpected line => be conservative
+		} else {
+			if m[1] != filesystem {
+				return nil // unexpected line => be conservative
+			}
+			undestroyable = append(undestroyable, m[2])
+			reason = append(reason, m[3])
+		}
+	}
+	if len(undestroyable) == 0 {
+		return nil
+	}
+
+	return &DestroySnapshotsError{
+		RawLines:      rawLines,
+		Filesystem:    filesystem,
+		Undestroyable: undestroyable,
+		Reason:        reason,
+	}
+}
+
+func ZFSDestroy(arg string) (err error) {
 
 	var dstype, filesystem string
-	idx := strings.IndexAny(dataset, "@#")
+	idx := strings.IndexAny(arg, "@#")
 	if idx == -1 {
 		dstype = "filesystem"
-		filesystem = dataset
+		filesystem = arg
 	} else {
-		switch dataset[idx] {
+		switch arg[idx] {
 		case '@':
 			dstype = "snapshot"
 		case '#':
 			dstype = "bookmark"
 		}
-		filesystem = dataset[:idx]
+		filesystem = arg[:idx]
 	}
 
 	defer prometheus.NewTimer(prom.ZFSDestroyDuration.WithLabelValues(dstype, filesystem))
 
-	cmd := exec.Command(ZFS_BINARY, "destroy", dataset)
+	cmd := exec.Command(ZFS_BINARY, "destroy", arg)
 
-	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
-	cmd.Stderr = stderr
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
 
 	if err = cmd.Start(); err != nil {
 		return err
@@ -1053,6 +1113,10 @@ func ZFSDestroy(dataset string) (err error) {
 			Stderr:  stderr.Bytes(),
 			WaitErr: err,
 		}
+		if dserr := tryParseDestroySnapshotsError(arg, stderr.Bytes()); dserr != nil {
+			err = dserr
+		}
+
 	}
 
 	return

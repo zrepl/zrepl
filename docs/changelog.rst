@@ -31,6 +31,7 @@ We use the following annotations for classifying changes:
 * Linux ARM64 Docker build support & binary builds
 * Go modules for dependency management both inside and outside of GOPATH
   (``lazy.sh`` and ``Makefile`` force ``GO111MODULE=on``)
+* |feature| Use ``zfs destroy pool/fs@snap1,snap2,...`` CLI feature if available
 
 0.1.1
 -----

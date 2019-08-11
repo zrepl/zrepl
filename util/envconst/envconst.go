@@ -25,6 +25,23 @@ func Duration(varname string, def time.Duration) time.Duration {
 	return d
 }
 
+func Int(varname string, def int) int {
+	if v, ok := cache.Load(varname); ok {
+		return v.(int)
+	}
+	e := os.Getenv(varname)
+	if e == "" {
+		return def
+	}
+	d64, err := strconv.ParseInt(e, 10, strconv.IntSize)
+	if err != nil {
+		panic(err)
+	}
+	d := int(d64)
+	cache.Store(varname, d)
+	return d
+}
+
 func Int64(varname string, def int64) int64 {
 	if v, ok := cache.Load(varname); ok {
 		return v.(int64)

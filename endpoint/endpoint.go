@@ -454,30 +454,34 @@ func (s *Receiver) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapsho
 }
 
 func doDestroySnapshots(ctx context.Context, lp *zfs.DatasetPath, snaps []*pdu.FilesystemVersion) (*pdu.DestroySnapshotsRes, error) {
-	fsvs := make([]*zfs.FilesystemVersion, len(snaps))
+	reqs := make([]*zfs.DestroySnapOp, len(snaps))
+	ress := make([]*pdu.DestroySnapshotRes, len(snaps))
+	errs := make([]error, len(snaps))
 	for i, fsv := range snaps {
 		if fsv.Type != pdu.FilesystemVersion_Snapshot {
 			return nil, fmt.Errorf("version %q is not a snapshot", fsv.Name)
 		}
-		var err error
-		fsvs[i], err = fsv.ZFSFilesystemVersion()
-		if err != nil {
-			return nil, err
+		ress[i] = &pdu.DestroySnapshotRes{
+			Snapshot: fsv,
+			// Error set after batch operation
+		}
+		reqs[i] = &zfs.DestroySnapOp{
+			Filesystem: lp.ToString(),
+			Name:       fsv.Name,
+			ErrOut:     &errs[i],
 		}
 	}
-	res := &pdu.DestroySnapshotsRes{
-		Results: make([]*pdu.DestroySnapshotRes, len(fsvs)),
-	}
-	for i, fsv := range fsvs {
-		err := zfs.ZFSDestroyFilesystemVersion(lp, fsv)
-		errMsg := ""
-		if err != nil {
-			errMsg = err.Error()
-		}
-		res.Results[i] = &pdu.DestroySnapshotRes{
-			Snapshot: pdu.FilesystemVersionFromZFS(fsv),
-			Error:    errMsg,
+	zfs.ZFSDestroyFilesystemVersions(reqs)
+	for i := range reqs {
+		if errs[i] != nil {
+			if de, ok := errs[i].(*zfs.DestroySnapshotsError); ok && len(de.Reason) == 1 {
+				ress[i].Error = de.Reason[0]
+			} else {
+				ress[i].Error = errs[i].Error()
+			}
 		}
 	}
-	return res, nil
+	return &pdu.DestroySnapshotsRes{
+		Results: ress,
+	}, nil
 }

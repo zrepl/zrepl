@@ -154,15 +154,3 @@ func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) 
 	}
 	return
 }
-
-func ZFSDestroyFilesystemVersion(filesystem *DatasetPath, version *FilesystemVersion) (err error) {
-
-	datasetPath := version.ToAbsPath(filesystem)
-
-	// Sanity check...
-	if !strings.ContainsAny(datasetPath, "@#") {
-		return fmt.Errorf("sanity check failed: no @ or # character found in %q", datasetPath)
-	}
-
-	return ZFSDestroy(datasetPath)
-}
