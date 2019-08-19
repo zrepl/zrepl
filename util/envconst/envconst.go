@@ -9,6 +9,16 @@ import (
 
 var cache sync.Map
 
+// capture the actual envconst values used at runtime
+func DebugDump() map[string]interface{} {
+	m := make(map[string]interface{})
+	cache.Range(func(k, v interface{}) bool {
+		m[k.(string)] = v
+		return true
+	})
+	return m
+}
+
 func Duration(varname string, def time.Duration) time.Duration {
 	if v, ok := cache.Load(varname); ok {
 		return v.(time.Duration)
