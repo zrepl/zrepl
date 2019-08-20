@@ -5,8 +5,10 @@ import (
 	"io"
 	"net"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -175,4 +177,15 @@ func TestNoPartialWritesDueToDeadline(t *testing.T) {
 	netErr, ok := err.(net.Error)
 	require.True(t, ok)
 	assert.True(t, netErr.Timeout())
+}
+
+func TestIovecLenFieldIsMachineUint(t *testing.T) {
+	iov := syscall.Iovec{}
+	_ = iov // make linter happy (unsafe.Sizeof not recognized as usage)
+	size_t := unsafe.Sizeof(iov.Len)
+	if size_t != unsafe.Sizeof(uint(23)) {
+		t.Fatalf("expecting (struct iov)->Len to be sizeof(uint)")
+	}
+	// ssize_t is defined to be the signed version of size_t,
+	// so we know sizeof(ssize_t) == sizeof(int)
 }
