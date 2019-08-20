@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -ue
+export ZREPL_MOCK_ZFS_COMMAND_LOG="$1"
+shift
+export ZREPL_MOCK_ZFS_PATH="$1"
+shift
+export PATH="$(dirname "${BASH_SOURCE[0]}" )":"$PATH"
+args=("$@")
+exec "${args[@]}"

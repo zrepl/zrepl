@@ -37,7 +37,7 @@ func OutletsFromConfig(in config.LoggingOutletEnumList) (*logger.Outlets, error)
 	var syslogOutlets, stdoutOutlets int
 	for lei, le := range in {
 
-		outlet, minLevel, err := parseOutlet(le)
+		outlet, minLevel, err := ParseOutlet(le)
 		if err != nil {
 			return nil, errors.Wrapf(err, "cannot parse outlet #%d", lei)
 		}
@@ -123,7 +123,7 @@ func parseLogFormat(i interface{}) (f EntryFormatter, err error) {
 
 }
 
-func parseOutlet(in config.LoggingOutletEnum) (o logger.Outlet, level logger.Level, err error) {
+func ParseOutlet(in config.LoggingOutletEnum) (o logger.Outlet, level logger.Level, err error) {
 
 	parseCommon := func(common config.LoggingOutletCommon) (logger.Level, EntryFormatter, error) {
 		if common.Level == "" || common.Format == "" {
