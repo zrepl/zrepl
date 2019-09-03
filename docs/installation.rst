@@ -44,7 +44,7 @@ The following list may be incomplete, feel free to submit a PR with an update:
 Compile From Source
 ~~~~~~~~~~~~~~~~~~~
 
-Producing a release requires **Go 1.9** or newer and **Python 3** + **pip3** + ``docs/requirements.txt`` for the Sphinx documentation.
+Producing a release requires **Go 1.11** or newer and **Python 3** + **pip3** + ``docs/requirements.txt`` for the Sphinx documentation.
 A tutorial to install Go is available over at `golang.org <https://golang.org/doc/install>`_.
 Python and pip3 should probably be installed via your distro's package manager.
 
@@ -58,9 +58,9 @@ and serves as a reference for build dependencies and procedure:
     cd zrepl
     sudo docker build -t zrepl_build -f build.Dockerfile .
     sudo docker run -it --rm \
-        -v "${PWD}:/go/src/github.com/zrepl/zrepl" \
+        -v "${PWD}:/src" \
         --user "$(id -u):$(id -g)" \
-        zrepl_build make vendordeps release
+        zrepl_build make release
 
 Alternatively, you can install build dependencies on your local system and then build in your ``$GOPATH``:
 
@@ -72,7 +72,7 @@ Alternatively, you can install build dependencies on your local system and then 
     python3 -m venv3
     source venv3/bin/activate
     ./lazy.sh devsetup
-    make vendordeps release
+    make release
 
 The Python venv is used for the documentation build dependencies.
 If you just want to build the zrepl binary, leave it out and use `./lazy.sh godep` instead.

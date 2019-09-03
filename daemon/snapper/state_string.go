@@ -4,6 +4,19 @@ package snapper
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[SyncUp-1]
+	_ = x[SyncUpErrWait-2]
+	_ = x[Planning-4]
+	_ = x[Snapshotting-8]
+	_ = x[Waiting-16]
+	_ = x[ErrorWait-32]
+	_ = x[Stopped-64]
+}
+
 const (
 	_State_name_0 = "SyncUpSyncUpErrWait"
 	_State_name_1 = "Planning"

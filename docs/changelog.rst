@@ -25,10 +25,12 @@ We use the following annotations for classifying changes:
 * |bugfix| Change that fixes a bug, no regressions or incompatibilities expected.
 * |docs| Change to the documentation.
 
-0.1.2
------
+0.1.2 (TBD)
+-----------
 
 * Linux ARM64 Docker build support & binary builds
+* Go modules for dependency management both inside and outside of GOPATH
+  (``lazy.sh`` and ``Makefile`` force ``GO111MODULE=on``)
 
 0.1.1
 -----

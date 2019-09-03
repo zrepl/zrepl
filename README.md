@@ -41,7 +41,7 @@ Check out the *Coding Workflow* section below for details.
 
 ## Developer Documentation
 
-zrepl is written in [Go](https://golang.org) and uses [`dep`](https://github.com/golang/dep) to manage dependencies.
+zrepl is written in [Go](https://golang.org) and uses [Go modules](https://github.com/golang/go/wiki/Modules) to manage dependencies.
 The documentation is written in [ReStructured Text](http://docutils.sourceforge.net/rst.html) using the [Sphinx](https://www.sphinx-doc.org) framework.
 
 To get started, run `./lazy.sh devsetup` to easily install build dependencies and read `docs/installation.rst -> Compiling from Source`.

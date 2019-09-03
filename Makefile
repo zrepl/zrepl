@@ -1,4 +1,4 @@
-.PHONY: generate build test vet cover release docs docs-clean clean vendordeps format lint
+.PHONY: generate build test vet cover release docs docs-clean clean format lint
 .DEFAULT_GOAL := build
 
 ARTIFACTDIR := artifacts
@@ -12,9 +12,11 @@ ifndef _ZREPL_VERSION
         $(error cannot infer variable ZREPL_VERSION using git and variable is not overriden by make invocation)
     endif
 endif
+GO := go
 GO_LDFLAGS := "-X github.com/zrepl/zrepl/version.zreplVersion=$(_ZREPL_VERSION)"
-
-GO_BUILD := go build -ldflags $(GO_LDFLAGS)
+GO_MOD_READONLY := -mod=readonly
+GO_BUILDFLAGS := $(GO_MOD_READONLY)
+GO_BUILD := GO111MODULE=on $(GO) build $(GO_BUILDFLAGS) -v -ldflags $(GO_LDFLAGS)
 
 # keep in sync with vet target
 RELEASE_BINS := $(ARTIFACTDIR)/zrepl-freebsd-amd64
@@ -23,14 +25,11 @@ RELEASE_BINS += $(ARTIFACTDIR)/zrepl-linux-arm64
 RELEASE_BINS += $(ARTIFACTDIR)/zrepl-darwin-amd64
 
 RELEASE_NOARCH := $(ARTIFACTDIR)/zrepl-noarch.tar
-THIS_PLATFORM_RELEASE_BIN := $(shell bash -c 'source <(go env) && echo "zrepl-$${GOOS}-$${GOARCH}"' )
-
-vendordeps:
-	dep ensure -v -vendor-only
+THIS_PLATFORM_RELEASE_BIN := $(shell bash -c 'source <($(GO) env) && echo "zrepl-$${GOOS}-$${GOARCH}"' )
 
 generate: #not part of the build, must do that manually
 	protoc -I=replication/logic/pdu --go_out=plugins=grpc:replication/logic/pdu replication/logic/pdu/pdu.proto
-	go generate -x ./...
+	$(GO) generate $(GO_BUILDFLAGS) -x ./...
 
 format:
 	goimports -srcdir . -local 'github.com/zrepl/zrepl' -w $(shell find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go')
@@ -39,22 +38,21 @@ lint:
 	golangci-lint run ./...
 
 build:
-	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"
 	$(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl"
 
 test:
-	go test ./...
+	$(GO) test $(GO_BUILDFLAGS) ./...
 	# TODO compile the tests for each supported platform
 	# but `go test -c ./...` is not supported
 
 vet:
-	go vet ./...
+	$(GO) vet $(GO_BUILDFLAGS) ./...
 	# for each supported platform to cover conditional compilation
 	# (keep in sync with RELEASE_BINS)
-	GOOS=freebsd	GOARCH=amd64 	go vet ./...
-	GOOS=linux	GOARCH=amd64 	go vet ./...
-	GOOS=linux	GOARCH=arm64 	go vet ./...
-	GOOS=darwin	GOARCH=amd64 	go vet ./...
+	GOOS=freebsd	GOARCH=amd64 	$(GO) vet $(GO_BUILDFLAGS) ./...
+	GOOS=linux		GOARCH=amd64 	$(GO) vet $(GO_BUILDFLAGS) ./...
+	GOOS=linux		GOARCH=arm64 	$(GO) vet $(GO_BUILDFLAGS) ./...
+	GOOS=darwin		GOARCH=amd64 	$(GO) vet $(GO_BUILDFLAGS) ./...
 
 $(ARTIFACTDIR):
 	mkdir -p "$@"
@@ -65,8 +63,9 @@ $(ARTIFACTDIR)/docs: $(ARTIFACTDIR)
 $(ARTIFACTDIR)/bash_completion: $(RELEASE_BINS)
 	artifacts/$(THIS_PLATFORM_RELEASE_BIN) bashcomp "$@"
 
+.PHONY: $(ARTIFACTDIR)/go_version.txt
 $(ARTIFACTDIR)/go_version.txt:
-	go version > $@
+	$(GO) version > $@
 
 docs: $(ARTIFACTDIR)/docs
 	make -C docs \
@@ -81,7 +80,6 @@ docs-clean:
 .PHONY: $(RELEASE_BINS)
 # TODO: two wildcards possible
 $(RELEASE_BINS): $(ARTIFACTDIR)/zrepl-%: generate $(ARTIFACTDIR) vet test lint
-	@echo "INFO: In case of missing dependencies, run 'make vendordeps'"
 	STEM=$*; GOOS="$${STEM%%-*}"; GOARCH="$${STEM##*-}"; export GOOS GOARCH; \
 		$(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-$$GOOS-$$GOARCH"
 
@@ -103,6 +101,9 @@ release: $(RELEASE_BINS) $(RELEASE_NOARCH)
         echo '[INFO] either git reports checkout is dirty or git is not installed or this is not a git checkout'; \
 		if [ "$(ZREPL_VERSION)" = "" ]; then \
 			echo '[WARN] git checkout is dirty and make variable ZREPL_VERSION was not used to override'; \
+			git status; \
+			echo "git diff:";  \
+			git diff | cat; \
 			exit 1; \
 		fi; \
 	fi;

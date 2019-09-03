@@ -13,18 +13,17 @@ ENV ZREPL_LAZY_DOCS_REQPATH=/tmp/requirements.txt
 RUN /tmp/lazy.sh docdep
 
 # prepare volume mount of git checkout to /zrepl
-RUN mkdir -p /go/src/github.com/zrepl/zrepl
+RUN mkdir -p /src/github.com/zrepl/zrepl
 RUN mkdir -p /.cache && chmod -R 0777 /.cache
-WORKDIR /go/src/github.com/zrepl/zrepl
 
-ADD Gopkg.toml Gopkg.lock  ./
+# $GOPATH is /go
+# Go 1.12 doesn't use modules within GOPATH, but 1.13 and later do
+# => store source outside of GOPATH
+WORKDIR /src
 
-# godep will install the Go dependencies to vendor in order to then build and install
-# build dependencies like stringer to $GOPATH/bin.
-# However, since users volume-mount their Git checkout into /go/src/github.com/zrepl/zrepl
-# the vendor directory will be empty at build time, allowing them to experiment with
-# new checkouts, etc.
-# Thus, we only use the vendored deps for building dependencies.
+# Install build tools (e.g. protobuf generator, stringer) into $GOPATH/bin
+ADD go.mod go.sum ./
 RUN /tmp/lazy.sh godep
+
 RUN chmod -R 0777 /go
 

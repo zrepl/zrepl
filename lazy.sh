@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+
 if tty -s; then
     bold=$(tput bold)
     normal=$(tput sgr0)
@@ -26,21 +27,15 @@ fi
 CHECKOUTPATH="${GOPATH}/src/github.com/zrepl/zrepl"
 
 godep() {
-    step "Install go dep using 'go get' to \$GOPATH/bin"
-    go get -u github.com/golang/dep/cmd/dep
-    if ! type dep ; then
-        echo "Unable to install go dep" 1>&2
-        exit 1
-    fi
-    step "Fetching dependencies using 'dep ensure'"
-    dep ensure -v -vendor-only
-    step "go install build dependencies fetched using dep"
-    # these will be in the vendor directory
-    go build -o "$GOPATH/bin/stringer"      ./vendor/golang.org/x/tools/cmd/stringer
-    go build -o "$GOPATH/bin/protoc-gen-go" ./vendor/github.com/golang/protobuf/protoc-gen-go
-    go build -o "$GOPATH/bin/enumer"        ./vendor/github.com/alvaroloes/enumer
-    go build -o "$GOPATH/bin/goimports"     ./vendor/golang.org/x/tools/cmd/goimports
-    go build -o "$GOPATH/bin/golangci-lint" ./vendor/github.com/golangci/golangci-lint/cmd/golangci-lint
+    step "install build dependencies (versions pinned using go.mod and tools.go)"
+    set -x
+    export GO111MODULE=on # otherwise, a checkout of this repo in GOPATH will disable modules on Go 1.12 and earlier
+    go build -v -mod=readonly -o "$GOPATH/bin/stringer"      golang.org/x/tools/cmd/stringer
+    go build -v -mod=readonly -o "$GOPATH/bin/protoc-gen-go" github.com/golang/protobuf/protoc-gen-go
+    go build -v -mod=readonly -o "$GOPATH/bin/enumer"        github.com/alvaroloes/enumer
+    go build -v -mod=readonly -o "$GOPATH/bin/goimports"     golang.org/x/tools/cmd/goimports
+    go build -v -mod=readonly -o "$GOPATH/bin/golangci-lint" github.com/golangci/golangci-lint/cmd/golangci-lint
+    set +x
     if ! type stringer || ! type protoc-gen-go || ! type enumer || ! type goimports || ! type golangci-lint; then
         echo "Installed dependencies but can't find them in \$PATH, adjust it to contain \$GOPATH/bin" 1>&2
         exit 1
