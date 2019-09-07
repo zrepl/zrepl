@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync/atomic"
 	"unicode/utf8"
 
 	"github.com/zrepl/zrepl/logger"
@@ -81,8 +82,10 @@ func doWriteStream(ctx context.Context, c *heartbeatconn.Conn, stream io.Reader,
 	}
 
 	reads := make(chan read, 5)
+	var stopReading uint32
 	go func() {
-		for {
+		defer close(reads)
+		for atomic.LoadUint32(&stopReading) == 0 {
 			buffer := bufpool.Get(1 << FramePayloadShift)
 			bufferBytes := buffer.Bytes()
 			n, err := io.ReadFull(stream, bufferBytes)
@@ -97,9 +100,18 @@ func doWriteStream(ctx context.Context, c *heartbeatconn.Conn, stream io.Reader,
 			}
 			if err != nil {
 				reads <- read{err: err} // RULE1
-				close(reads)
 				return
 			}
+		}
+	}()
+
+	defer func() {
+		// stop reading
+		atomic.StoreUint32(&stopReading, 1)
+		// drain in-flight reads
+		for read := range reads {
+			debug("doWriteStream: drain read channel")
+			read.buf.Free()
 		}
 	}()
 

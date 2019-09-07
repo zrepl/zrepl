@@ -189,5 +189,9 @@ func (c *Conn) SendStream(ctx context.Context, src zfs.StreamCopier, frameType u
 func (c *Conn) Close() error {
 	err := c.hc.Shutdown()
 	<-c.waitReadFramesDone
+	for read := range c.frameReads {
+		debug("Conn.Close() draining queued read")
+		read.f.Buffer.Free()
+	}
 	return err
 }
