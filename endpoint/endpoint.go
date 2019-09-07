@@ -380,6 +380,15 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs
 			}
 
 			if !ph.FSExists {
+				if s.rootWithoutClientComponent.HasPrefix(v.Path) {
+					if v.Path.Length() == 1 {
+						visitErr = fmt.Errorf("pool %q not imported", v.Path.ToString())
+					} else {
+						visitErr = fmt.Errorf("root_fs %q does not exist", s.rootWithoutClientComponent.ToString())
+					}
+					getLogger(ctx).WithError(visitErr).Error("placeholders are only created automatically below root_fs")
+					return false
+				}
 				l := getLogger(ctx).WithField("placeholder_fs", v.Path)
 				l.Debug("create placeholder filesystem")
 				err := zfs.ZFSCreatePlaceholderFilesystem(v.Path)

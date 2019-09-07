@@ -78,6 +78,9 @@ func ZFSGetFilesystemPlaceholderState(p *DatasetPath) (state *FilesystemPlacehol
 }
 
 func ZFSCreatePlaceholderFilesystem(p *DatasetPath) (err error) {
+	if p.Length() == 1 {
+		return fmt.Errorf("cannot create %q: pools cannot be created with zfs create", p.ToString())
+	}
 	cmd := exec.Command(ZFS_BINARY, "create",
 		"-o", fmt.Sprintf("%s=%s", PlaceholderPropertyName, placeholderPropertyOn),
 		"-o", "mountpoint=none",
