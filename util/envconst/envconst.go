@@ -56,3 +56,15 @@ func Bool(varname string, def bool) bool {
 	cache.Store(varname, d)
 	return d
 }
+
+func String(varname string, def string) string {
+	if v, ok := cache.Load(varname); ok {
+		return v.(string)
+	}
+	e := os.Getenv(varname)
+	if e == "" {
+		return def
+	}
+	cache.Store(varname, e)
+	return e
+}

@@ -16,6 +16,7 @@ import (
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/daemon/nethelpers"
 	"github.com/zrepl/zrepl/logger"
+	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/version"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -86,6 +87,12 @@ func (j *controlJob) Run(ctx context.Context) {
 	}
 
 	pprofServer := NewPProfServer(ctx)
+	if listen := envconst.String("ZREPL_DAEMON_AUTOSTART_PPROF_SERVER", ""); listen != "" {
+		pprofServer.Control(PprofServerControlMsg{
+			Run:               true,
+			HttpListenAddress: listen,
+		})
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle(ControlJobEndpointPProf,
