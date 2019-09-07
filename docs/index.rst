@@ -5,21 +5,8 @@
 
 .. include:: global.rst.inc
 
-|GitHub license| |Language: Go| |User Docs| |Donate via PayPal| |Donate
-via Liberapay| |Twitter|
+|GitHub license| |Language: Go| |Twitter| |Donate via Patreon| |Donate via Liberapay| |Donate via PayPal| 
 
-.. |GitHub license| image:: https://img.shields.io/github/license/zrepl/zrepl.svg
-   :target: https://github.com/zrepl/zrepl/blob/master/LICENSE
-.. |Language: Go| image:: https://img.shields.io/badge/language-Go-6ad7e5.svg
-   :target: https://golang.org/
-.. |User Docs| image:: https://img.shields.io/badge/docs-web-blue.svg
-   :target: https://zrepl.github.io
-.. |Donate via PayPal| image:: https://img.shields.io/badge/donate-paypal-yellow.svg
-   :target: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=R5QSXJVYHGX96
-.. |Donate via Liberapay| image:: https://img.shields.io/liberapay/receives/zrepl.svg?logo=liberapay
-   :target: https://liberapay.com/zrepl/donate
-.. |Twitter| image:: https://img.shields.io/twitter/url/https/github.com/zrepl/zrepl.svg?style=social
-   :target: https://twitter.com/intent/tweet?text=Wow:&url=https%3A%2F%2Fgithub.com%2Fzrepl%2Fzrepl
 
 zrepl - ZFS replication
 -----------------------
@@ -109,6 +96,7 @@ Contributing
 
 We are happy about any help we can get!
 
+* :ref:`Financial Support <supporters>`
 * Explore the codebase
 
   * These docs live in the ``docs/`` subdirectory
@@ -122,6 +110,8 @@ We are happy about any help we can get!
 
     The `GitHub repository <https://github.com/zrepl/zrepl>`_ is where all development happens.
     Make sure to read the `Developer Documentation section <https://github.com/zrepl/zrepl>`_ and open new issues or pull requests there.
+
+
 
 
 Table of Contents
@@ -139,4 +129,5 @@ Table of Contents
    pr
    changelog
    GitHub Repository & Issue Tracker <https://github.com/zrepl/zrepl>
+   supporters
 
