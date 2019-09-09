@@ -3,6 +3,7 @@ package local
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/transport"
@@ -25,5 +26,11 @@ func LocalConnecterFromConfig(in *config.LocalConnect) (*LocalConnecter, error) 
 
 func (c *LocalConnecter) Connect(dialCtx context.Context) (transport.Wire, error) {
 	l := GetLocalListener(c.listenerName)
-	return l.Connect(dialCtx, c.clientIdentity)
+	dialCtx, cancel := context.WithTimeout(dialCtx, 1*time.Second) // fail fast, config error by user is very likely
+	defer cancel()
+	w, err := l.Connect(dialCtx, c.clientIdentity)
+	if err == context.DeadlineExceeded {
+		return nil, fmt.Errorf("local listener %q not reachable", c.listenerName)
+	}
+	return w, err
 }
