@@ -76,6 +76,8 @@ type tui struct {
 	report map[string]job.Status
 	err    error
 
+	jobFilter string
+
 	replicationProgress map[string]*bytesProgressHistory // by job name
 }
 
@@ -157,6 +159,7 @@ func (t *tui) addIndent(indent int) {
 
 var statusFlags struct {
 	Raw bool
+	Job string
 }
 
 var StatusCmd = &cli.Subcommand{
@@ -164,6 +167,7 @@ var StatusCmd = &cli.Subcommand{
 	Short: "show job activity or dump as JSON for monitoring",
 	SetupFlags: func(f *pflag.FlagSet) {
 		f.BoolVar(&statusFlags.Raw, "raw", false, "dump raw status description from zrepl daemon")
+		f.StringVar(&statusFlags.Job, "job", "", "only dump specified job")
 	},
 	Run: runStatus,
 }
@@ -198,6 +202,7 @@ func runStatus(s *cli.Subcommand, args []string) error {
 	t.lock.Lock()
 	t.err = errors.New("Got no report yet")
 	t.lock.Unlock()
+	t.jobFilter = statusFlags.Job
 
 	err = termbox.Init()
 	if err != nil {
@@ -273,19 +278,29 @@ func (t *tui) draw() {
 		t.write(t.err.Error())
 	} else {
 		//Iterate over map in alphabetical order
-		keys := make([]string, len(t.report))
-		i := 0
+		keys := make([]string, 0, len(t.report))
 		for k := range t.report {
-			keys[i] = k
-			i++
-		}
-		sort.Strings(keys)
-
-		for _, k := range keys {
-			v := t.report[k]
 			if len(k) == 0 || daemon.IsInternalJobName(k) { //Internal job
 				continue
 			}
+			if t.jobFilter != "" && k != t.jobFilter {
+				continue
+			}
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		if len(keys) == 0 {
+			t.setIndent(0)
+			t.printf("no jobs to display")
+			t.newline()
+			termbox.Flush()
+			return
+		}
+
+		for _, k := range keys {
+			v := t.report[k]
+
 			t.setIndent(0)
 
 			t.printf("Job: %s", k)
