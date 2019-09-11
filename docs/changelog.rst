@@ -27,12 +27,42 @@ We use the following annotations for classifying changes:
 * |bugfix| Change that fixes a bug, no regressions or incompatibilities expected.
 * |docs| Change to the documentation.
 
-0.2.2 (unreleased)
-------------------
+0.3
+---
 
+This is a big one! Headlining features:
+
+* **Resumable Send & Recv Support**
+  No knobs required, automatically used where supported.
+* **Hold-Protected Send & Recv**
+  Automatic ZFS holds to ensure that we can always resume a replication step.
+* **Encrypted Send & Recv Support** for OpenZFS native encryption.
+  :ref:`Configurable <job-send-options>` at the job level, i.e., for all filesystems a job is responsible for.
+* **Receive-side hold on last received dataset**
+  The counterpart to the replication cursor bookmark on the send-side.
+  Ensures that incremental replication will always be possible between a sender and receiver.
+
+Actual changelog:
+
+* |break_config| **more restrictive job names than in prior zrepl versions**
+  Starting with this version, job names are going to be embedded into ZFS holds and bookmark names.
+
+* |break| |mig| replication cursor representation changed
+
+  * zrepl now manages the :ref:`replication cursor bookmark <replication-cursor-and-last-received-hold>` per job-filesystem tuple instead of a single replication cursor per filesystem.
+    In the future, this will permit multiple sending jobs to send from the same filesystems.
+  * ZFS does not allow bookmark renaming, thus we cannot migrate the old replication cursors.
+  * zrepl 0.3 will automatically create cursors in the new format for new replications, and warn if it still finds ones in the old format.
+  * Run ``zrepl migrate replication-cursor:v1-v2`` to safely destroy old-format cursors.
+    The migration will ensure that only those old-format cursors are destroyed that have been superseeded by new-format cursors.
+
+* |bugfix| missing logger context vars in control connection handlers
+* |bugfix| improved error messages on ``zfs send`` errors
 * |feature| New option ``listen_freebind`` (tcp, tls, prometheus listener)
 * |bugfix| |docs| snapshotting: clarify sync-up behavior and warn about filesystems
   that will not be snapshotted until the sync-up phase is over
+* |docs| Document new replication features in the :ref:`config overview <overview-how-replication-works>` and :repomasterlink:`replication/design.md`.
+* **[MAINTAINER NOTICE]** New platform tests in this version, please make sure you run them for your distro!
 
 0.2.1
 -----

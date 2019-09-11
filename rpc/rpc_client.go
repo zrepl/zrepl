@@ -116,6 +116,14 @@ func (c *Client) ReplicationCursor(ctx context.Context, in *pdu.ReplicationCurso
 	return c.controlClient.ReplicationCursor(ctx, in)
 }
 
+func (c *Client) SendCompleted(ctx context.Context, in *pdu.SendCompletedReq) (*pdu.SendCompletedRes, error) {
+	return c.controlClient.SendCompleted(ctx, in)
+}
+
+func (c *Client) HintMostRecentCommonAncestor(ctx context.Context, in *pdu.HintMostRecentCommonAncestorReq) (*pdu.HintMostRecentCommonAncestorRes, error) {
+	return c.controlClient.HintMostRecentCommonAncestor(ctx, in)
+}
+
 func (c *Client) WaitForConnectivity(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

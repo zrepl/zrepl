@@ -412,9 +412,6 @@ tfss_loop:
 
 		rcReq := &pdu.ReplicationCursorReq{
 			Filesystem: tfs.Path,
-			Op: &pdu.ReplicationCursorReq_Get{
-				Get: &pdu.ReplicationCursorReq_GetOp{},
-			},
 		}
 		rc, err := receiver.ReplicationCursor(ctx, rcReq)
 		if err != nil {

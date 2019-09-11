@@ -10,6 +10,8 @@ jobs:
       address: "backup-server.foo.bar:8888"
     snapshotting:
       type: manual
+    send:
+      encrypted: false
     pruning:
       keep_sender:
         - type: not_replicated

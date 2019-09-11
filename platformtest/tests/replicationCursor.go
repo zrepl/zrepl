@@ -3,6 +3,9 @@ package tests
 import (
 	"fmt"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/platformtest"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -13,25 +16,35 @@ func ReplicationCursor(ctx *platformtest.Context) {
 		CREATEROOT
 		+  "foo bar"
 		+  "foo bar@1 with space"
+		R  zfs bookmark "${ROOTDS}/foo bar@1 with space" "${ROOTDS}/foo bar#1 with space"
+		+  "foo bar@2 with space"
+		R  zfs bookmark "${ROOTDS}/foo bar@1 with space" "${ROOTDS}/foo bar#2 with space"
+		+  "foo bar@3 with space"
+		R  zfs bookmark "${ROOTDS}/foo bar@1 with space" "${ROOTDS}/foo bar#3 with space"
 	`)
+
+	jobid := endpoint.MustMakeJobID("zreplplatformtest")
 
 	ds, err := zfs.NewDatasetPath(ctx.RootDataset + "/foo bar")
 	if err != nil {
 		panic(err)
 	}
-	guid, err := zfs.ZFSSetReplicationCursor(ds, "1 with space")
+
+	fs := ds.ToString()
+	snap := sendArgVersion(fs, "@1 with space")
+
+	destroyed, err := endpoint.MoveReplicationCursor(ctx, fs, &snap, jobid)
 	if err != nil {
 		panic(err)
 	}
-	snapProps, err := zfs.ZFSGetCreateTXGAndGuid(ds.ToString() + "@1 with space")
+	assert.Empty(ctx, destroyed)
+
+	snapProps, err := zfs.ZFSGetCreateTXGAndGuid(snap.FullPath(fs))
 	if err != nil {
 		panic(err)
-	}
-	if guid != snapProps.Guid {
-		panic(fmt.Sprintf("guids to not match: %v != %v", guid, snapProps.Guid))
 	}
 
-	bm, err := zfs.ZFSGetReplicationCursor(ds)
+	bm, err := endpoint.GetMostRecentReplicationCursorOfJob(ctx, fs, jobid)
 	if err != nil {
 		panic(err)
 	}
@@ -41,22 +54,15 @@ func ReplicationCursor(ctx *platformtest.Context) {
 	if bm.Guid != snapProps.Guid {
 		panic(fmt.Sprintf("guids do not match: %v != %v", bm.Guid, snapProps.Guid))
 	}
-	if bm.Guid != guid {
-		panic(fmt.Sprintf("guids do not match: %v != %v", bm.Guid, guid))
-	}
 
-	// test nonexistent
-	err = zfs.ZFSDestroyFilesystemVersion(ds, bm)
-	if err != nil {
-		panic(err)
-	}
-	bm2, err := zfs.ZFSGetReplicationCursor(ds)
-	if bm2 != nil {
-		panic(fmt.Sprintf("expecting no replication cursor after deleting it, got %v", bm))
-	}
-	if err != nil {
-		panic(fmt.Sprintf("expecting no error for getting nonexistent replication cursor, bot %v", err))
-	}
+	// try moving
+	cursor1BookmarkName, err := endpoint.ReplicationCursorBookmarkName(fs, snap.GUID, jobid)
+	require.NoError(ctx, err)
 
-	// TODO test moving the replication cursor
+	snap2 := sendArgVersion(fs, "@2 with space")
+	destroyed, err = endpoint.MoveReplicationCursor(ctx, fs, &snap2, jobid)
+	require.NoError(ctx, err)
+	require.Equal(ctx, 1, len(destroyed))
+	require.Equal(ctx, zfs.Bookmark, destroyed[0].Type)
+	require.Equal(ctx, cursor1BookmarkName, destroyed[0].Name)
 }

@@ -24,6 +24,8 @@ Job Type ``push``
       - |connect-transport|
     * - ``filesystems``
       - |filter-spec| for filesystems to be snapshotted and pushed to the sink
+    * - ``send``
+      - |send-options| 
     * - ``snapshotting``
       - |snapshotting-spec|
     * - ``pruning``
@@ -101,6 +103,8 @@ Job Type ``source``
       - |serve-transport|
     * - ``filesystems``
       - |filter-spec| for filesystems to be snapshotted and exposed to connecting clients
+    * - ``send``
+      - |send-options| 
     * - ``snapshotting``
       - |snapshotting-spec|
 

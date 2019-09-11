@@ -2,6 +2,7 @@ package platformtest
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -29,8 +30,8 @@ func (a ZpoolCreateArgs) Validate() error {
 	if a.ImageSize < minImageSize {
 		return errors.Errorf("ImageSize must be > %v, got %v", minImageSize, a.ImageSize)
 	}
-	if a.Mountpoint != "none" {
-		return errors.Errorf("Mountpoint must be \"none\"")
+	if a.Mountpoint == "" || a.Mountpoint[0] != '/' {
+		return errors.Errorf("Mountpoint must be an absolute path to a directory")
 	}
 	if a.PoolName == "" {
 		return errors.Errorf("PoolName must not be emtpy")
@@ -69,7 +70,10 @@ func CreateOrReplaceZpool(ctx context.Context, e Execer, args ZpoolCreateArgs) (
 	image.Close()
 
 	// create the pool
-	err = e.RunExpectSuccessNoOutput(ctx, "zpool", "create", "-f", "-O", "mountpoint=none", args.PoolName, args.ImagePath)
+	err = e.RunExpectSuccessNoOutput(ctx, "zpool", "create", "-f",
+		"-O", fmt.Sprintf("mountpoint=%s", args.Mountpoint),
+		args.PoolName, args.ImagePath,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "zpool create")
 	}

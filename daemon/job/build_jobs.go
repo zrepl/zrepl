@@ -48,20 +48,12 @@ func buildJob(c *config.Global, in config.JobEnum) (j Job, err error) {
 	// FIXME prettify this
 	switch v := in.Ret.(type) {
 	case *config.SinkJob:
-		m, err := modeSinkFromConfig(c, v)
-		if err != nil {
-			return cannotBuildJob(err, v.Name)
-		}
-		j, err = passiveSideFromConfig(c, &v.PassiveJob, m)
+		j, err = passiveSideFromConfig(c, &v.PassiveJob, v)
 		if err != nil {
 			return cannotBuildJob(err, v.Name)
 		}
 	case *config.SourceJob:
-		m, err := modeSourceFromConfig(c, v)
-		if err != nil {
-			return cannotBuildJob(err, v.Name)
-		}
-		j, err = passiveSideFromConfig(c, &v.PassiveJob, m)
+		j, err = passiveSideFromConfig(c, &v.PassiveJob, v)
 		if err != nil {
 			return cannotBuildJob(err, v.Name)
 		}
@@ -71,20 +63,12 @@ func buildJob(c *config.Global, in config.JobEnum) (j Job, err error) {
 			return cannotBuildJob(err, v.Name)
 		}
 	case *config.PushJob:
-		m, err := modePushFromConfig(c, v)
-		if err != nil {
-			return cannotBuildJob(err, v.Name)
-		}
-		j, err = activeSide(c, &v.ActiveJob, m)
+		j, err = activeSide(c, &v.ActiveJob, v)
 		if err != nil {
 			return cannotBuildJob(err, v.Name)
 		}
 	case *config.PullJob:
-		m, err := modePullFromConfig(c, v)
-		if err != nil {
-			return cannotBuildJob(err, v.Name)
-		}
-		j, err = activeSide(c, &v.ActiveJob, m)
+		j, err = activeSide(c, &v.ActiveJob, v)
 		if err != nil {
 			return cannotBuildJob(err, v.Name)
 		}

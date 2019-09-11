@@ -10,6 +10,7 @@ import (
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
+	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/rpc/dataconn/frameconn"
 	"github.com/zrepl/zrepl/util/tcpsock"
@@ -47,6 +48,8 @@ func (j *prometheusJob) Name() string { return jobNamePrometheus }
 func (j *prometheusJob) Status() *job.Status { return &job.Status{Type: job.TypeInternal} }
 
 func (j *prometheusJob) OwnedDatasetSubtreeRoot() (p *zfs.DatasetPath, ok bool) { return nil, false }
+
+func (j *prometheusJob) SenderConfig() *endpoint.SenderConfig { return nil }
 
 func (j *prometheusJob) RegisterMetrics(registerer prometheus.Registerer) {}
 

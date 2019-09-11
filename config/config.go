@@ -75,16 +75,42 @@ type SnapJob struct {
 	Filesystems  FilesystemsFilter `yaml:"filesystems"`
 }
 
+type SendOptions struct {
+	Encrypted bool `yaml:"encrypted"`
+}
+
+var _ yaml.Defaulter = (*SendOptions)(nil)
+
+func (l *SendOptions) SetDefault() {
+	*l = SendOptions{Encrypted: false}
+}
+
+type RecvOptions struct {
+	// Note: we cannot enforce encrypted recv as the ZFS cli doesn't provide a mechanism for it
+	// Encrypted bool `yaml:"may_encrypted"`
+
+	// Future:
+	// Reencrypt bool `yaml:"reencrypt"`
+}
+
+var _ yaml.Defaulter = (*RecvOptions)(nil)
+
+func (l *RecvOptions) SetDefault() {
+	*l = RecvOptions{}
+}
+
 type PushJob struct {
 	ActiveJob    `yaml:",inline"`
 	Snapshotting SnapshottingEnum  `yaml:"snapshotting"`
 	Filesystems  FilesystemsFilter `yaml:"filesystems"`
+	Send         *SendOptions      `yaml:"send,fromdefaults,optional"`
 }
 
 type PullJob struct {
 	ActiveJob `yaml:",inline"`
 	RootFS    string                   `yaml:"root_fs"`
 	Interval  PositiveDurationOrManual `yaml:"interval"`
+	Recv      *RecvOptions             `yaml:"recv,fromdefaults,optional"`
 }
 
 type PositiveDurationOrManual struct {
@@ -120,13 +146,15 @@ func (i *PositiveDurationOrManual) UnmarshalYAML(u func(interface{}, bool) error
 
 type SinkJob struct {
 	PassiveJob `yaml:",inline"`
-	RootFS     string `yaml:"root_fs"`
+	RootFS     string       `yaml:"root_fs"`
+	Recv       *RecvOptions `yaml:"recv,optional,fromdefaults"`
 }
 
 type SourceJob struct {
 	PassiveJob   `yaml:",inline"`
 	Snapshotting SnapshottingEnum  `yaml:"snapshotting"`
 	Filesystems  FilesystemsFilter `yaml:"filesystems"`
+	Send         *SendOptions      `yaml:"send,optional,fromdefaults"`
 }
 
 type FilesystemsFilter map[string]bool

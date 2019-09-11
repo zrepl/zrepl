@@ -4,9 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/fatih/color"
+	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 
+	"github.com/zrepl/zrepl/daemon/job"
+	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/zfs"
 
 	"github.com/zrepl/zrepl/cli"
@@ -29,6 +33,13 @@ var migrations = []*cli.Subcommand{
 		Run: doMigratePlaceholder0_1,
 		SetupFlags: func(f *pflag.FlagSet) {
 			f.BoolVar(&migratePlaceholder0_1Args.dryRun, "dry-run", false, "dry run")
+		},
+	},
+	&cli.Subcommand{
+		Use: "replication-cursor:v1-v2",
+		Run: doMigrateReplicationCursor,
+		SetupFlags: func(f *pflag.FlagSet) {
+			f.BoolVar(&migrateReplicationCursorArgs.dryRun, "dry-run", false, "dry run")
 		},
 	},
 }
@@ -97,6 +108,164 @@ func doMigratePlaceholder0_1(sc *cli.Subcommand, args []string) error {
 				fmt.Printf("migrate (placeholder=%v) (old value = %q)\n",
 					r.OriginalState.IsPlaceholder, r.OriginalState.RawLocalPropertyValue)
 			}
+		}
+	}
+
+	return nil
+}
+
+var migrateReplicationCursorArgs struct {
+	dryRun bool
+}
+
+var bold = color.New(color.Bold)
+var succ = color.New(color.FgGreen)
+var fail = color.New(color.FgRed)
+
+var migrateReplicationCursorSkipSentinel = fmt.Errorf("skipping this filesystem")
+
+func doMigrateReplicationCursor(sc *cli.Subcommand, args []string) error {
+	if len(args) != 0 {
+		return fmt.Errorf("migration does not take arguments, got %v", args)
+	}
+
+	cfg := sc.Config()
+	jobs, err := job.JobsFromConfig(cfg)
+	if err != nil {
+		fmt.Printf("cannot parse config:\n%s\n\n", err)
+		fmt.Printf("NOTE: this migration was released together with a change in job name requirements.\n")
+		return fmt.Errorf("exiting migration after error")
+	}
+
+	ctx := context.Background()
+
+	v1cursorJobs := make([]job.Job, 0, len(cfg.Jobs))
+	for i, j := range cfg.Jobs {
+		if jobs[i].Name() != j.Name() {
+			panic("implementation error")
+		}
+		switch j.Ret.(type) {
+		case *config.PushJob:
+			v1cursorJobs = append(v1cursorJobs, jobs[i])
+		case *config.SourceJob:
+			v1cursorJobs = append(v1cursorJobs, jobs[i])
+		default:
+			fmt.Printf("ignoring job %q (%d/%d, type %T), not supposed to create v1 replication cursors\n", j.Name(), i, len(cfg.Jobs), j.Ret)
+			continue
+		}
+	}
+
+	// scan all filesystems for v1 replication cursors
+
+	fss, err := zfs.ZFSListMapping(ctx, zfs.NoFilter())
+	if err != nil {
+		return errors.Wrap(err, "list filesystems")
+	}
+
+	var hadError bool
+	for _, fs := range fss {
+
+		bold.Printf("INSPECT FILESYTEM %q\n", fs.ToString())
+
+		err := doMigrateReplicationCursorFS(ctx, v1cursorJobs, fs)
+		if err == migrateReplicationCursorSkipSentinel {
+			bold.Printf("FILESYSTEM SKIPPED\n")
+		} else if err != nil {
+			hadError = true
+			fail.Printf("MIGRATION FAILED: %s\n", err)
+		} else {
+			succ.Printf("FILESYSTEM %q COMPLETE\n", fs.ToString())
+		}
+	}
+
+	if hadError {
+		fail.Printf("\n\none or more filesystems could not be migrated, please inspect output and or re-run migration")
+		return errors.Errorf("")
+	}
+	return nil
+}
+
+func doMigrateReplicationCursorFS(ctx context.Context, v1CursorJobs []job.Job, fs *zfs.DatasetPath) error {
+
+	var owningJob job.Job = nil
+	for _, job := range v1CursorJobs {
+		conf := job.SenderConfig()
+		if conf == nil {
+			continue
+		}
+		pass, err := conf.FSF.Filter(fs)
+		if err != nil {
+			return errors.Wrapf(err, "filesystem filter error in job %q for fs %q", job.Name(), fs.ToString())
+		}
+		if !pass {
+			continue
+		}
+		if owningJob != nil {
+			return errors.Errorf("jobs %q and %q both match %q\ncannot attribute replication cursor to either one", owningJob.Name(), job.Name(), fs)
+		}
+		owningJob = job
+	}
+	if owningJob == nil {
+		fmt.Printf("no job's Filesystems filter matches\n")
+		return migrateReplicationCursorSkipSentinel
+	}
+	fmt.Printf("identified owning job %q\n", owningJob.Name())
+
+	versions, err := zfs.ZFSListFilesystemVersions(fs, nil)
+	if err != nil {
+		return errors.Wrapf(err, "list filesystem versions of %q", fs.ToString())
+	}
+
+	var oldCursor *zfs.FilesystemVersion
+	for i, fsv := range versions {
+		if fsv.Type != zfs.Bookmark {
+			continue
+		}
+
+		_, _, err := endpoint.ParseReplicationCursorBookmarkName(fsv.ToAbsPath(fs))
+		if err != endpoint.ErrV1ReplicationCursor {
+			continue
+		}
+
+		if oldCursor != nil {
+			fmt.Printf("unexpected v1 replication cursor candidate: %q", fsv.ToAbsPath(fs))
+			return errors.Wrap(err, "multiple filesystem versions identified as v1 replication cursors")
+		}
+
+		oldCursor = &versions[i]
+
+	}
+
+	if oldCursor == nil {
+		bold.Printf("no v1 replication cursor found for filesystem %q\n", fs.ToString())
+		return migrateReplicationCursorSkipSentinel
+	}
+
+	fmt.Printf("found v1 replication cursor:\n%s\n", pretty.Sprint(oldCursor))
+
+	mostRecentNew, err := endpoint.GetMostRecentReplicationCursorOfJob(ctx, fs.ToString(), owningJob.SenderConfig().JobID)
+	if err != nil {
+		return errors.Wrapf(err, "get most recent v2 replication cursor")
+	}
+
+	if mostRecentNew == nil {
+		return errors.Errorf("no v2 replication cursor found for job %q on filesystem %q", owningJob.SenderConfig().JobID, fs.ToString())
+	}
+
+	fmt.Printf("most recent v2 replication cursor:\n%#v", oldCursor)
+
+	if !(mostRecentNew.CreateTXG >= oldCursor.CreateTXG) {
+		return errors.Errorf("v1 replication cursor createtxg is higher than v2 cursor's, skipping this filesystem")
+	}
+
+	fmt.Printf("determined that v2 cursor is bookmark of same or newer version than v1 cursor\n")
+	fmt.Printf("destroying v1 cursor %q\n", oldCursor.ToAbsPath(fs))
+
+	if migrateReplicationCursorArgs.dryRun {
+		succ.Printf("DRY RUN\n")
+	} else {
+		if err := zfs.ZFSDestroyFilesystemVersion(fs, oldCursor); err != nil {
+			return err
 		}
 	}
 

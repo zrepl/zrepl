@@ -2,131 +2,133 @@ syntax = "proto3";
 option go_package = "pdu";
 
 service Replication {
-    rpc Ping (PingReq) returns (PingRes);
-    rpc ListFilesystems (ListFilesystemReq) returns (ListFilesystemRes);
-    rpc ListFilesystemVersions (ListFilesystemVersionsReq) returns (ListFilesystemVersionsRes);
-    rpc DestroySnapshots (DestroySnapshotsReq) returns (DestroySnapshotsRes);
-    rpc ReplicationCursor (ReplicationCursorReq) returns (ReplicationCursorRes);
-    // for Send and Recv, see package rpc
+  rpc Ping(PingReq) returns (PingRes);
+  rpc ListFilesystems(ListFilesystemReq) returns (ListFilesystemRes);
+  rpc ListFilesystemVersions(ListFilesystemVersionsReq)
+      returns (ListFilesystemVersionsRes);
+  rpc DestroySnapshots(DestroySnapshotsReq) returns (DestroySnapshotsRes);
+  rpc ReplicationCursor(ReplicationCursorReq) returns (ReplicationCursorRes);
+  rpc SendCompleted(SendCompletedReq) returns (SendCompletedRes);
+  rpc HintMostRecentCommonAncestor(HintMostRecentCommonAncestorReq) returns (HintMostRecentCommonAncestorRes);
+  // for Send and Recv, see package rpc
 }
 
 message ListFilesystemReq {}
 
-message ListFilesystemRes {
-    repeated Filesystem Filesystems = 1;
-}
+message ListFilesystemRes { repeated Filesystem Filesystems = 1; }
 
 message Filesystem {
-    string Path = 1;
-    string ResumeToken = 2;
-    bool IsPlaceholder = 3;
+  string Path = 1;
+  string ResumeToken = 2;
+  bool IsPlaceholder = 3;
+  bool IsEncrypted = 4;
 }
 
-message ListFilesystemVersionsReq {
-    string Filesystem = 1;
-}
+message ListFilesystemVersionsReq { string Filesystem = 1; }
 
-message ListFilesystemVersionsRes {
-    repeated FilesystemVersion Versions = 1;
-}
+message ListFilesystemVersionsRes { repeated FilesystemVersion Versions = 1; }
 
 message FilesystemVersion {
-    enum VersionType {
-        Snapshot = 0;
-        Bookmark = 1;
-    }
-    VersionType Type = 1;
-    string Name = 2;
-    uint64 Guid = 3;
-    uint64 CreateTXG = 4;
-    string Creation = 5; // RFC 3339
+  enum VersionType {
+    Snapshot = 0;
+    Bookmark = 1;
+  }
+  VersionType Type = 1;
+  string Name = 2;
+  uint64 Guid = 3;
+  uint64 CreateTXG = 4;
+  string Creation = 5; // RFC 3339
 }
 
+enum Tri {
+  DontCare = 0;
+  False = 1;
+  True = 2;
+}
 
 message SendReq {
-    string Filesystem  = 1;
-    string From = 2;
-    // May be empty / null to request a full transfer of From
-    string To = 3;
+  string Filesystem = 1;
+  // May be empty / null to request a full transfer of To
+  FilesystemVersion From = 2;
+  FilesystemVersion To = 3;
 
-    // If ResumeToken is not empty, the resume token that CAN be tried for 'zfs send' by the sender.
-    // The sender MUST indicate in SendRes.UsedResumeToken
-    // If it does not work, the sender SHOULD clear the resume token on their side
-    // and use From and To instead
-    // If ResumeToken is not empty, the GUIDs of From and To
-    // MUST correspond to those encoded in the ResumeToken.
-    // Otherwise, the Sender MUST return an error.
-    string ResumeToken  = 4;
-    bool Compress = 5;
-    bool Dedup = 6;
+  // If ResumeToken is not empty, the resume token that CAN be used for 'zfs
+  // send' by the sender. The sender MUST indicate use of ResumeToken in the
+  // reply message SendRes.UsedResumeToken If it does not work, the sender
+  // SHOULD clear the resume token on their side and use From and To instead If
+  // ResumeToken is not empty, the GUIDs of From and To MUST correspond to those
+  // encoded in the ResumeToken. Otherwise, the Sender MUST return an error.
+  string ResumeToken = 4;
+  Tri Encrypted = 5;
 
-    bool DryRun = 7;
+  bool DryRun = 6;
 }
 
 message Property {
-    string Name = 1;
-    string Value = 2;
+  string Name = 1;
+  string Value = 2;
 }
 
 message SendRes {
-    // Whether the resume token provided in the request has been used or not.
-    bool UsedResumeToken = 2;
+  // Whether the resume token provided in the request has been used or not.
+  // If the SendReq.ResumeToken == "", this field has no meaning.
+  bool UsedResumeToken = 2;
 
-    // Expected stream size determined by dry run, not exact.
-    // 0 indicates that for the given SendReq, no size estimate could be made.
-    int64 ExpectedSize = 3;
+  // Expected stream size determined by dry run, not exact.
+  // 0 indicates that for the given SendReq, no size estimate could be made.
+  int64 ExpectedSize = 3;
 
-    repeated Property Properties = 4;
+  repeated Property Properties = 4;
 }
 
-message ReceiveReq {
-    string Filesystem = 1; // FIXME should be snapshot name, we can enforce that on recv
+message SendCompletedReq {
+  SendReq OriginalReq = 2;
+}
 
-    // If true, the receiver should clear the resume token before perfoming the zfs recv of the stream in the request
-    bool ClearResumeToken = 2;
+message SendCompletedRes {}
+
+message ReceiveReq {
+  string Filesystem = 1;
+  FilesystemVersion To = 2;
+
+  // If true, the receiver should clear the resume token before perfoming the
+  // zfs recv of the stream in the request
+  bool ClearResumeToken = 3;
 }
 
 message ReceiveRes {}
 
 message DestroySnapshotsReq {
-    string Filesystem = 1;
-    // Path to filesystem, snapshot or bookmark to be destroyed
-    repeated FilesystemVersion Snapshots = 2;
+  string Filesystem = 1;
+  // Path to filesystem, snapshot or bookmark to be destroyed
+  repeated FilesystemVersion Snapshots = 2;
 }
 
 message DestroySnapshotRes {
-    FilesystemVersion Snapshot = 1;
-    string Error = 2;
+  FilesystemVersion Snapshot = 1;
+  string Error = 2;
 }
 
-message DestroySnapshotsRes {
-    repeated DestroySnapshotRes Results = 1;
-}
+message DestroySnapshotsRes { repeated DestroySnapshotRes Results = 1; }
 
-message ReplicationCursorReq {
-    string Filesystem = 1;
-    message GetOp {}
-    message SetOp {
-        string Snapshot = 2;
-    }
-    oneof op {
-        GetOp get = 2;
-        SetOp set = 3;
-    }
-}
+message ReplicationCursorReq { string Filesystem = 1; }
 
 message ReplicationCursorRes {
-    oneof Result {
-        uint64 Guid = 1;
-        bool Notexist = 2;
-    }
+  oneof Result {
+    uint64 Guid = 1;
+    bool Notexist = 2;
+  }
 }
 
-message PingReq {
-    string Message = 1;
-}
+message PingReq { string Message = 1; }
 
 message PingRes {
-    // Echo must be PingReq.Message
-    string Echo = 1;
+  // Echo must be PingReq.Message
+  string Echo = 1;
 }
+
+message HintMostRecentCommonAncestorReq {
+    string Filesystem = 1;
+    FilesystemVersion SenderVersion = 2;
+}
+message HintMostRecentCommonAncestorRes {}

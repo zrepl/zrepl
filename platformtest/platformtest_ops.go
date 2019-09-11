@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -46,8 +47,9 @@ func (o *DestroyRootOp) Run(ctx context.Context, e Execer) error {
 }
 
 type FSOp struct {
-	Op   Op
-	Path string
+	Op        Op
+	Path      string
+	Encrypted bool // only for Op=Add
 }
 
 func (o *FSOp) Run(ctx context.Context, e Execer) error {
@@ -57,7 +59,22 @@ func (o *FSOp) Run(ctx context.Context, e Execer) error {
 	case AssertNotExists:
 		return e.RunExpectFailureNoOutput(ctx, "zfs", "get", "-H", "name", o.Path)
 	case Add:
-		return e.RunExpectSuccessNoOutput(ctx, "zfs", "create", o.Path)
+		opts := []string{"create"}
+		if o.Encrypted {
+			const passphraseFilePath = "/tmp/zreplplatformtest.encryption.passphrase"
+			const passphrase = "foobar2342"
+			err := ioutil.WriteFile(passphraseFilePath, []byte(passphrase), 0600)
+			if err != nil {
+				panic(err)
+			}
+			opts = append(opts,
+				"-o", "encryption=on",
+				"-o", "keylocation=file:///"+passphraseFilePath,
+				"-o", "keyformat=passphrase",
+			)
+		}
+		opts = append(opts, o.Path)
+		return e.RunExpectSuccessNoOutput(ctx, "zfs", opts...)
 	case Del:
 		return e.RunExpectSuccessNoOutput(ctx, "zfs", "destroy", o.Path)
 	default:
@@ -249,7 +266,25 @@ nextLine:
 		if strings.ContainsAny(comps.Text(), "@") {
 			stmts = append(stmts, &SnapOp{Op: op, Path: fmt.Sprintf("%s/%s", rootds, comps.Text())})
 		} else {
-			stmts = append(stmts, &FSOp{Op: op, Path: fmt.Sprintf("%s/%s", rootds, comps.Text())})
+			// FS
+			fs := comps.Text()
+			var encrypted bool = false
+			if op == Add {
+				if comps.Scan() {
+					t := comps.Text()
+					switch t {
+					case "encrypted":
+						encrypted = true
+					default:
+						panic(fmt.Sprintf("unexpected token %q", t))
+					}
+				}
+			}
+			stmts = append(stmts, &FSOp{
+				Op:        op,
+				Path:      fmt.Sprintf("%s/%s", rootds, fs),
+				Encrypted: encrypted,
+			})
 		}
 
 		if comps.Scan() {

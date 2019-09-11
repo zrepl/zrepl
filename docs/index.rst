@@ -57,9 +57,11 @@ Main Features
   * Advanced replication features
 
     * [x] Automatic retries for temporary network errors
-    * [ ] Resumable send & receive
+    * [x] Automatic resumable send & receive
+    * [x] Automatic ZFS holds during send & receive
+    * [x] Automatic bookmark \& hold management for guaranteed incremental send & recv 
+    * [x] Encrypted raw send & receive to untrusted receivers (OpenZFS native encryption)
     * [ ] Compressed send & receive
-    * [ ] Raw encrypted send & receive
 
 * **Automatic snapshot management**
 
@@ -83,6 +85,7 @@ Main Features
 * **Maintainable implementation in Go**
 
   * [x] Cross platform
+  * [x] Dynamic feature checking
   * [x] Type safe & testable code
 
 

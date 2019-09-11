@@ -1,10 +1,10 @@
 package filters
 
 import (
+	"testing"
+
 	"github.com/zrepl/zrepl/zfs"
 )
-
-import "testing"
 
 func TestDatasetMapFilter(t *testing.T) {
 

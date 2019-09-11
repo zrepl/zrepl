@@ -90,6 +90,8 @@ It uses the client identity for access control:
 .. TIP::
    The implementation of the ``sink`` job requires that the connecting client identities be a valid ZFS filesystem name components.
 
+.. _overview-how-replication-works:
+
 How Replication Works
 ---------------------
 
@@ -107,9 +109,8 @@ The following steps take place during replication and can be monitored using the
     * Per filesystem, compute a diff between sender and receiver snapshots
     * Build a list of replication steps
 
-      * If possible, use incremental sends (``zfs send -i``)
+      * If possible, use incremental and resumable sends (``zfs send -i``)
       * Otherwise, use full send of most recent snapshot on sender
-      * Give up on filesystems that cannot be replicated without data loss
 
   * Retry on errors that are likely temporary (i.e. network failures).
   * Give up on filesystems where a permanent error was received over RPC.
@@ -119,17 +120,23 @@ The following steps take place during replication and can be monitored using the
   * Perform replication steps in the following order:
     Among all filesystems with pending replication steps, pick the filesystem whose next replication step's snapshot is the oldest.
   * Create placeholder filesystems on the receiving side to mirror the dataset paths on the sender to ``root_fs/${client_identity}``.
-  * After a successful replication step, update the replication cursor bookmark (see below).
+  * Aquire send-side step-holds on the step's `from` and `to` snapshots.
+  * Perform the replication step.
+  * Move the **replication cursor** bookmark on the sending side (see below).
+  * Move the **last-received-hold** on the receiving side (see below).
+  * Release the send-side step-holds.
    
 The idea behind the execution order of replication steps is that if the sender snapshots all filesystems simultaneously at fixed intervals, the receiver will have all filesystems snapshotted at time ``T1`` before the first snapshot at ``T2 = T1 + $interval`` is replicated.
 
-.. _replication-cursor-bookmark:
+.. _replication-cursor-and-last-received-hold:
 
-The **replication cursor bookmark** ``#zrepl_replication_cursor`` is kept per filesystem on the sending side of a replication setup:
-It is a bookmark of the most recent successfully replicated snapshot to the receiving side.
-It is is used by the :ref:`not_replicated <prune-keep-not-replicated>` keep rule to identify all snapshots that have not yet been replicated to the receiving side.
-Regardless of whether that keep rule is used, the bookmark ensures that replication can always continue incrementally.
-Note that there is only one cursor bookmark per filesystem, which prohibits multiple jobs to replicate the same filesystem (:ref:`see below<jobs-multiple-jobs>`).
+**Replication cursor** bookmark and **last-received-hold** are managed by zrepl to ensure that future replications can always be done incrementally:
+the replication cursor is a send-side bookmark of the most recent successfully replicated snapshot,
+and the last-received-hold is a hold of that snapshot on the receiving side.
+The replication cursor has the format ``#zrepl_CUSOR_G_<GUID>_J_<JOBNAME>``.
+The last-received-hold tag has the format ``#zrepl_last_received_J_<JOBNAME>``.
+Encoding the job name in the names ensures that multiple sending jobs can replicate the same filesystem to different receivers without interference.
+The ``zrepl holds list`` provides a listing of all bookmarks and holds managed by zrepl.
 
 .. _replication-placeholder-property:
 
@@ -144,8 +151,12 @@ The ``zrepl test placeholder`` command can be used to check whether a filesystem
 .. ATTENTION::
 
     Currently, zrepl does not replicate filesystem properties.
-    Whe receiving a filesystem, it is never mounted (`-u` flag)  and `mountpoint=none` is set.
+    When receiving a filesystem, it is never mounted (`-u` flag)  and `mountpoint=none` is set.
     This is temporary and being worked on :issue:`24`.
+
+.. NOTE::
+
+    More details can be found in the design document :repomasterlink:`replication/design.md`.
 
 
 .. _jobs-multiple-jobs:
@@ -171,7 +182,7 @@ No Overlapping
 Jobs run independently of each other.
 If two jobs match the same filesystem with their ``filesystems`` filter, they will operate on that filesystem independently and potentially in parallel.
 For example, if job A prunes snapshots that job B is planning to replicate, the replication will fail because B asssumed the snapshot to still be present.
-More subtle race conditions can occur with the :ref:`replication cursor bookmark <replication-cursor-bookmark>`, which currently only exists once per filesystem.
+However, the next replication attempt will re-examine the situation from scratch and should work.
 
 N push jobs to 1 sink
 ~~~~~~~~~~~~~~~~~~~~~

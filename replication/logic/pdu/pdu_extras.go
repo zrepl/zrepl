@@ -7,6 +7,14 @@ import (
 	"github.com/zrepl/zrepl/zfs"
 )
 
+func (v *FilesystemVersion) GetRelName() string {
+	zv, err := v.ZFSFilesystemVersion()
+	if err != nil {
+		return ""
+	}
+	return zv.String()
+}
+
 func (v *FilesystemVersion) RelName() string {
 	zv, err := v.ZFSFilesystemVersion()
 	if err != nil {

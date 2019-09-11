@@ -85,8 +85,18 @@ type StepReport struct {
 	Info *StepInfo
 }
 
+type EncryptedEnum string
+
+const (
+	EncryptedTrue            EncryptedEnum = "yes"
+	EncryptedFalse           EncryptedEnum = "no"
+	EncryptedSenderDependent EncryptedEnum = "sender-dependent"
+)
+
 type StepInfo struct {
 	From, To        string
+	Resumed         bool
+	Encrypted       EncryptedEnum
 	BytesExpected   int64
 	BytesReplicated int64
 }
@@ -150,5 +160,5 @@ func (f *FilesystemReport) NextStep() *StepReport {
 }
 
 func (f *StepReport) IsIncremental() bool {
-	return f.Info.From != "" // FIXME change to ZFS semantics (To != "")
+	return f.Info.From != ""
 }

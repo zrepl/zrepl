@@ -43,8 +43,8 @@ func doMain() error {
 
 	flag.StringVar(&args.createArgs.PoolName, "poolname", "", "")
 	flag.StringVar(&args.createArgs.ImagePath, "imagepath", "", "")
-	flag.Int64Var(&args.createArgs.ImageSize, "imagesize", 100*(1<<20), "")
-	flag.StringVar(&args.createArgs.Mountpoint, "mountpoint", "none", "")
+	flag.Int64Var(&args.createArgs.ImageSize, "imagesize", 200*(1<<20), "")
+	flag.StringVar(&args.createArgs.Mountpoint, "mountpoint", "", "")
 	flag.BoolVar(&args.stopAndKeepPoolOnFail, "failure.stop-and-keep-pool", false, "if a test case fails, stop test execution and keep pool as it was when the test failed")
 	flag.StringVar(&args.run, "run", "", "")
 	flag.Parse()

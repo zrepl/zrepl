@@ -88,6 +88,19 @@ type FilesystemVersionFilter interface {
 	Filter(t VersionType, name string) (accept bool, err error)
 }
 
+type closureFilesystemVersionFilter struct {
+	cb func(t VersionType, name string) (accept bool, err error)
+}
+
+func (f *closureFilesystemVersionFilter) Filter(t VersionType, name string) (accept bool, err error) {
+	return f.cb(t, name)
+}
+
+func FilterFromClosure(cb func(t VersionType, name string) (accept bool, err error)) FilesystemVersionFilter {
+	return &closureFilesystemVersionFilter{cb}
+}
+
+// returned versions are sorted by createtxg
 func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) (res []FilesystemVersion, err error) {
 	listResults := make(chan ZFSListResult)
 

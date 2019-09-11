@@ -2,6 +2,7 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -28,7 +29,7 @@ import (
 
 type ActiveSide struct {
 	mode      activeMode
-	name      string
+	name      endpoint.JobID
 	connecter transport.Connecter
 
 	prunerFactory *pruner.PrunerFactory
@@ -82,17 +83,19 @@ type activeMode interface {
 	DisconnectEndpoints()
 	SenderReceiver() (logic.Sender, logic.Receiver)
 	Type() Type
+	PlannerPolicy() logic.PlannerPolicy
 	RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{})
 	SnapperReport() *snapper.Report
 	ResetConnectBackoff()
 }
 
 type modePush struct {
-	setupMtx sync.Mutex
-	sender   *endpoint.Sender
-	receiver *rpc.Client
-	fsfilter endpoint.FSFilter
-	snapper  *snapper.PeriodicOrManual
+	setupMtx      sync.Mutex
+	sender        *endpoint.Sender
+	receiver      *rpc.Client
+	senderConfig  *endpoint.SenderConfig
+	plannerPolicy *logic.PlannerPolicy
+	snapper       *snapper.PeriodicOrManual
 }
 
 func (m *modePush) ConnectEndpoints(loggers rpc.Loggers, connecter transport.Connecter) {
@@ -101,7 +104,7 @@ func (m *modePush) ConnectEndpoints(loggers rpc.Loggers, connecter transport.Con
 	if m.receiver != nil || m.sender != nil {
 		panic("inconsistent use of ConnectEndpoints and DisconnectEndpoints")
 	}
-	m.sender = endpoint.NewSender(m.fsfilter)
+	m.sender = endpoint.NewSender(*m.senderConfig)
 	m.receiver = rpc.NewClient(connecter, loggers)
 }
 
@@ -121,6 +124,8 @@ func (m *modePush) SenderReceiver() (logic.Sender, logic.Receiver) {
 
 func (m *modePush) Type() Type { return TypePush }
 
+func (m *modePush) PlannerPolicy() logic.PlannerPolicy { return *m.plannerPolicy }
+
 func (m *modePush) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}) {
 	m.snapper.Run(ctx, wakeUpCommon)
 }
@@ -137,13 +142,22 @@ func (m *modePush) ResetConnectBackoff() {
 	}
 }
 
-func modePushFromConfig(g *config.Global, in *config.PushJob) (*modePush, error) {
+func modePushFromConfig(g *config.Global, in *config.PushJob, jobID endpoint.JobID) (*modePush, error) {
 	m := &modePush{}
+
 	fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannnot build filesystem filter")
 	}
-	m.fsfilter = fsf
+
+	m.senderConfig = &endpoint.SenderConfig{
+		FSF:     fsf,
+		Encrypt: &zfs.NilBool{B: in.Send.Encrypted},
+		JobID:   jobID,
+	}
+	m.plannerPolicy = &logic.PlannerPolicy{
+		EncryptedSend: logic.TriFromBool(in.Send.Encrypted),
+	}
 
 	if m.snapper, err = snapper.FromConfig(g, fsf, in.Snapshotting); err != nil {
 		return nil, errors.Wrap(err, "cannot build snapper")
@@ -153,11 +167,13 @@ func modePushFromConfig(g *config.Global, in *config.PushJob) (*modePush, error)
 }
 
 type modePull struct {
-	setupMtx sync.Mutex
-	receiver *endpoint.Receiver
-	sender   *rpc.Client
-	rootFS   *zfs.DatasetPath
-	interval config.PositiveDurationOrManual
+	setupMtx       sync.Mutex
+	receiver       *endpoint.Receiver
+	receiverConfig endpoint.ReceiverConfig
+	sender         *rpc.Client
+	rootFS         *zfs.DatasetPath
+	plannerPolicy  *logic.PlannerPolicy
+	interval       config.PositiveDurationOrManual
 }
 
 func (m *modePull) ConnectEndpoints(loggers rpc.Loggers, connecter transport.Connecter) {
@@ -166,7 +182,7 @@ func (m *modePull) ConnectEndpoints(loggers rpc.Loggers, connecter transport.Con
 	if m.receiver != nil || m.sender != nil {
 		panic("inconsistent use of ConnectEndpoints and DisconnectEndpoints")
 	}
-	m.receiver = endpoint.NewReceiver(m.rootFS, false)
+	m.receiver = endpoint.NewReceiver(m.receiverConfig)
 	m.sender = rpc.NewClient(connecter, loggers)
 }
 
@@ -185,6 +201,8 @@ func (m *modePull) SenderReceiver() (logic.Sender, logic.Receiver) {
 }
 
 func (*modePull) Type() Type { return TypePull }
+
+func (m *modePull) PlannerPolicy() logic.PlannerPolicy { return *m.plannerPolicy }
 
 func (m *modePull) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}) {
 	if m.interval.Manual {
@@ -223,7 +241,7 @@ func (m *modePull) ResetConnectBackoff() {
 	}
 }
 
-func modePullFromConfig(g *config.Global, in *config.PullJob) (m *modePull, err error) {
+func modePullFromConfig(g *config.Global, in *config.PullJob, jobID endpoint.JobID) (m *modePull, err error) {
 	m = &modePull{}
 	m.interval = in.Interval
 
@@ -235,26 +253,56 @@ func modePullFromConfig(g *config.Global, in *config.PullJob) (m *modePull, err 
 		return nil, errors.New("RootFS must not be empty") // duplicates error check of receiver
 	}
 
+	m.plannerPolicy = &logic.PlannerPolicy{
+		EncryptedSend: logic.DontCare,
+	}
+
+	m.receiverConfig = endpoint.ReceiverConfig{
+		JobID:                      jobID,
+		RootWithoutClientComponent: m.rootFS,
+		AppendClientIdentity:       false, // !
+		UpdateLastReceivedHold:     true,
+	}
+	if err := m.receiverConfig.Validate(); err != nil {
+		return nil, errors.Wrap(err, "cannot build receiver config")
+	}
+
 	return m, nil
 }
 
-func activeSide(g *config.Global, in *config.ActiveJob, mode activeMode) (j *ActiveSide, err error) {
+func activeSide(g *config.Global, in *config.ActiveJob, configJob interface{}) (j *ActiveSide, err error) {
 
-	j = &ActiveSide{mode: mode}
-	j.name = in.Name
+	j = &ActiveSide{}
+	j.name, err = endpoint.MakeJobID(in.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid job name")
+	}
+
+	switch v := configJob.(type) {
+	case *config.PushJob:
+		j.mode, err = modePushFromConfig(g, v, j.name) // shadow
+	case *config.PullJob:
+		j.mode, err = modePullFromConfig(g, v, j.name) // shadow
+	default:
+		panic(fmt.Sprintf("implementation error: unknown job type %T", v))
+	}
+	if err != nil {
+		return nil, err // no wrapping required
+	}
+
 	j.promRepStateSecs = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace:   "zrepl",
 		Subsystem:   "replication",
 		Name:        "state_time",
 		Help:        "seconds spent during replication",
-		ConstLabels: prometheus.Labels{"zrepl_job": j.name},
+		ConstLabels: prometheus.Labels{"zrepl_job": j.name.String()},
 	}, []string{"state"})
 	j.promBytesReplicated = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace:   "zrepl",
 		Subsystem:   "replication",
 		Name:        "bytes_replicated",
 		Help:        "number of bytes replicated from sender to receiver per filesystem",
-		ConstLabels: prometheus.Labels{"zrepl_job": j.name},
+		ConstLabels: prometheus.Labels{"zrepl_job": j.name.String()},
 	}, []string{"filesystem"})
 
 	j.connecter, err = fromconfig.ConnecterFromConfig(g, in.Connect)
@@ -267,7 +315,7 @@ func activeSide(g *config.Global, in *config.ActiveJob, mode activeMode) (j *Act
 		Subsystem:   "pruning",
 		Name:        "time",
 		Help:        "seconds spent in pruner",
-		ConstLabels: prometheus.Labels{"zrepl_job": j.name},
+		ConstLabels: prometheus.Labels{"zrepl_job": j.name.String()},
 	}, []string{"prune_side"})
 	j.prunerFactory, err = pruner.NewPrunerFactory(in.Pruning, j.promPruneSecs)
 	if err != nil {
@@ -283,7 +331,7 @@ func (j *ActiveSide) RegisterMetrics(registerer prometheus.Registerer) {
 	registerer.MustRegister(j.promBytesReplicated)
 }
 
-func (j *ActiveSide) Name() string { return j.name }
+func (j *ActiveSide) Name() string { return j.name.String() }
 
 type ActiveSideStatus struct {
 	Replication                    *report.Report
@@ -316,6 +364,15 @@ func (j *ActiveSide) OwnedDatasetSubtreeRoot() (rfs *zfs.DatasetPath, ok bool) {
 		return nil, false
 	}
 	return pull.rootFS.Copy(), true
+}
+
+func (j *ActiveSide) SenderConfig() *endpoint.SenderConfig {
+	push, ok := j.mode.(*modePush)
+	if !ok {
+		_ = j.mode.(*modePull) // make sure we didn't introduce a new job type
+		return nil
+	}
+	return push.senderConfig
 }
 
 func (j *ActiveSide) Run(ctx context.Context) {
@@ -383,7 +440,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 			*tasks = activeSideTasks{}
 			tasks.replicationCancel = repCancel
 			tasks.replicationReport, repWait = replication.Do(
-				ctx, logic.NewPlanner(j.promRepStateSecs, j.promBytesReplicated, sender, receiver),
+				ctx, logic.NewPlanner(j.promRepStateSecs, j.promBytesReplicated, sender, receiver, j.mode.PlannerPolicy()),
 			)
 			tasks.state = ActiveSideReplicating
 		})

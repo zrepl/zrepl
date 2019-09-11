@@ -7,6 +7,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -38,6 +39,7 @@ type Job interface {
 	// Jobs that return a subtree of the dataset hierarchy
 	// must return the root of that subtree as rfs and ok = true
 	OwnedDatasetSubtreeRoot() (rfs *zfs.DatasetPath, ok bool)
+	SenderConfig() *endpoint.SenderConfig
 }
 
 type Type string

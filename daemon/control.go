@@ -15,6 +15,7 @@ import (
 
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/daemon/nethelpers"
+	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/version"
@@ -43,6 +44,8 @@ func (j *controlJob) Name() string { return jobNameControl }
 func (j *controlJob) Status() *job.Status { return &job.Status{Type: job.TypeInternal} }
 
 func (j *controlJob) OwnedDatasetSubtreeRoot() (p *zfs.DatasetPath, ok bool) { return nil, false }
+
+func (j *controlJob) SenderConfig() *endpoint.SenderConfig { return nil }
 
 var promControl struct {
 	requestBegin    *prometheus.CounterVec

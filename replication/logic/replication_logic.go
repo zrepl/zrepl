@@ -30,6 +30,7 @@ type Endpoint interface {
 	ListFilesystemVersions(ctx context.Context, req *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error)
 	DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error)
 	WaitForConnectivity(ctx context.Context) error
+	HintMostRecentCommonAncestor(context.Context, *pdu.HintMostRecentCommonAncestorReq) (*pdu.HintMostRecentCommonAncestorRes, error)
 }
 
 type Sender interface {
@@ -38,6 +39,7 @@ type Sender interface {
 	// any next call to the parent github.com/zrepl/zrepl/replication.Endpoint.
 	// If the send request is for dry run the io.ReadCloser will be nil
 	Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error)
+	SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*pdu.SendCompletedRes, error)
 	ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error)
 }
 
@@ -48,9 +50,14 @@ type Receiver interface {
 	Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs.StreamCopier) (*pdu.ReceiveRes, error)
 }
 
+type PlannerPolicy struct {
+	EncryptedSend tri // all sends must be encrypted (send -w, and encryption!=off)
+}
+
 type Planner struct {
 	sender   Sender
 	receiver Receiver
+	policy   PlannerPolicy
 
 	promSecsPerState    *prometheus.HistogramVec // labels: state
 	promBytesReplicated *prometheus.CounterVec   // labels: filesystem
@@ -109,10 +116,11 @@ func (p *Planner) WaitForConnectivity(ctx context.Context) error {
 type Filesystem struct {
 	sender   Sender
 	receiver Receiver
+	policy   PlannerPolicy
 
-	Path                string // compat
-	receiverFS          *pdu.Filesystem
-	promBytesReplicated prometheus.Counter // compat
+	Path                 string             // compat
+	receiverFS, senderFS *pdu.Filesystem    // receiverFS may be nil, senderFS never nil
+	promBytesReplicated  prometheus.Counter // compat
 
 	sizeEstimateRequestSem *semaphore.S
 }
@@ -145,8 +153,10 @@ type Step struct {
 	sender   Sender
 	receiver Receiver
 
-	parent   *Filesystem
-	from, to *pdu.FilesystemVersion // compat
+	parent      *Filesystem
+	from, to    *pdu.FilesystemVersion // from may be nil, indicating full send
+	encrypt     tri
+	resumeToken string // empty means no resume token shall be used
 
 	expectedSize int64 // 0 means no size estimate present / possible
 
@@ -186,23 +196,36 @@ func (s *Step) ReportInfo() *report.StepInfo {
 	}
 	s.byteCounterMtx.Unlock()
 
-	// FIXME stick to zfs convention of from and to
 	from := ""
 	if s.from != nil {
 		from = s.from.RelName()
 	}
+	var encrypted report.EncryptedEnum
+	switch s.encrypt {
+	case DontCare:
+		encrypted = report.EncryptedSenderDependent
+	case True:
+		encrypted = report.EncryptedTrue
+	case False:
+		encrypted = report.EncryptedFalse
+	default:
+		panic(fmt.Sprintf("unknown variant %s", s.encrypt))
+	}
 	return &report.StepInfo{
 		From:            from,
 		To:              s.to.RelName(),
+		Resumed:         s.resumeToken != "",
+		Encrypted:       encrypted,
 		BytesExpected:   s.expectedSize,
 		BytesReplicated: byteCounter,
 	}
 }
 
-func NewPlanner(secsPerState *prometheus.HistogramVec, bytesReplicated *prometheus.CounterVec, sender Sender, receiver Receiver) *Planner {
+func NewPlanner(secsPerState *prometheus.HistogramVec, bytesReplicated *prometheus.CounterVec, sender Sender, receiver Receiver, policy PlannerPolicy) *Planner {
 	return &Planner{
 		sender:              sender,
 		receiver:            receiver,
+		policy:              policy,
 		promSecsPerState:    secsPerState,
 		promBytesReplicated: bytesReplicated,
 	}
@@ -265,7 +288,9 @@ func (p *Planner) doPlanning(ctx context.Context) ([]*Filesystem, error) {
 		q = append(q, &Filesystem{
 			sender:                 p.sender,
 			receiver:               p.receiver,
+			policy:                 p.policy,
 			Path:                   fs.Path,
+			senderFS:               fs,
 			receiverFS:             receiverFS,
 			promBytesReplicated:    ctr,
 			sizeEstimateRequestSem: sizeEstimateRequestSem,
@@ -280,6 +305,10 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 	log := getLogger(ctx).WithField("filesystem", fs.Path)
 
 	log.Debug("assessing filesystem")
+
+	if fs.policy.EncryptedSend == True && !fs.senderFS.GetIsEncrypted() {
+		return nil, fmt.Errorf("sender filesystem is not encrypted but policy mandates encrypted send")
+	}
 
 	sfsvsres, err := fs.sender.ListFilesystemVersions(ctx, &pdu.ListFilesystemVersionsReq{Filesystem: fs.Path})
 	if err != nil {
@@ -306,42 +335,194 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 		rfsvs = []*pdu.FilesystemVersion{}
 	}
 
-	path, conflict := IncrementalPath(rfsvs, sfsvs)
-	if conflict != nil {
-		var msg string
-		path, msg = resolveConflict(conflict) // no shadowing allowed!
-		if path != nil {
-			log.WithField("conflict", conflict).Info("conflict")
-			log.WithField("resolution", msg).Info("automatically resolved")
-		} else {
-			log.WithField("conflict", conflict).Error("conflict")
-			log.WithField("problem", msg).Error("cannot resolve conflict")
+	var resumeToken *zfs.ResumeToken
+	var resumeTokenRaw string
+	if fs.receiverFS != nil && fs.receiverFS.ResumeToken != "" {
+		resumeTokenRaw = fs.receiverFS.ResumeToken // shadow
+		log.WithField("receiverFS.ResumeToken", resumeTokenRaw).Debug("decode receiver fs resume token")
+		resumeToken, err = zfs.ParseResumeToken(ctx, resumeTokenRaw) // shadow
+		if err != nil {
+			// TODO in theory, we could do replication without resume token, but that would mean that
+			// we need to discard the resumable state on the receiver's side.
+			// Would be easy by setting UsedResumeToken=false in the RecvReq ...
+			// FIXME / CHECK semantics UsedResumeToken if SendReq.ResumeToken == ""
+			log.WithError(err).Error("cannot decode resume token, aborting")
+			return nil, err
 		}
-	}
-	if len(path) == 0 {
-		return nil, conflict
+		log.WithField("token", resumeToken).Debug("decode resume token")
 	}
 
-	steps := make([]*Step, 0, len(path))
-	// FIXME unify struct declarations => initializer?
-	if len(path) == 1 {
-		steps = append(steps, &Step{
+	// give both sides a hint about how far the replication got
+	// This serves as a cummulative variant of SendCompleted and can be useful
+	// for example to release stale holds from an earlier (interrupted) replication.
+	// TODO FIXME: enqueue this as a replication step instead of doing it here during planning
+	//             then again, the step should run regardless of planning success
+	//             so maybe a separate phase before PLANNING, then?
+	path, conflict := IncrementalPath(rfsvs, sfsvs)
+	var sender_mrca *pdu.FilesystemVersion // from sfsvs
+	if conflict == nil && len(path) > 0 {
+		sender_mrca = path[0] // shadow
+	}
+	if sender_mrca != nil {
+		var wg sync.WaitGroup
+		doHint := func(ep Endpoint, name string) {
+			defer wg.Done()
+			log := log.WithField("to_side", name).
+				WithField("sender_mrca", sender_mrca.String())
+			log.Debug("hint most recent common ancestor")
+			hint := &pdu.HintMostRecentCommonAncestorReq{
+				Filesystem:    fs.Path,
+				SenderVersion: sender_mrca,
+			}
+			_, err := ep.HintMostRecentCommonAncestor(ctx, hint)
+			if err != nil {
+				log.WithError(err).Error("error hinting most recent common ancestor")
+			}
+		}
+		wg.Add(2)
+		go doHint(fs.sender, "sender")
+		go doHint(fs.receiver, "receiver")
+		wg.Wait()
+	} else {
+		log.Debug("cannot identify most recent common ancestor, skipping hint")
+	}
+
+	var steps []*Step
+	// build the list of replication steps
+	//
+	// prefer to resume any started replication instead of starting over with a normal IncrementalPath
+	//
+	// look for the step encoded in the resume token in the sender's version
+	// if we find that step:
+	//   1. use it as first step (including resume token)
+	//   2. compute subsequent steps by computing incremental path from the token.To version on
+	//      ...
+	//      that's actually equivalent to simply cutting off earlier versions from rfsvs and sfsvs
+	if resumeToken != nil {
+
+		sfsvs := SortVersionListByCreateTXGThenBookmarkLTSnapshot(sfsvs)
+
+		var fromVersion, toVersion *pdu.FilesystemVersion
+		var toVersionIdx int
+		for idx, sfsv := range sfsvs {
+			if resumeToken.HasFromGUID && sfsv.Guid == resumeToken.FromGUID {
+				if fromVersion != nil && fromVersion.Type == pdu.FilesystemVersion_Snapshot {
+					// prefer snapshots over bookmarks for size estimation
+				} else {
+					fromVersion = sfsv
+				}
+			}
+			if resumeToken.HasToGUID && sfsv.Guid == resumeToken.ToGUID && sfsv.Type == pdu.FilesystemVersion_Snapshot {
+				// `toversion` must always be a snapshot
+				toVersion, toVersionIdx = sfsv, idx
+			}
+		}
+
+		encryptionMatches := false
+		switch fs.policy.EncryptedSend {
+		case True:
+			encryptionMatches = resumeToken.RawOK && resumeToken.CompressOK
+		case False:
+			encryptionMatches = !resumeToken.RawOK && !resumeToken.CompressOK
+		case DontCare:
+			encryptionMatches = true
+		}
+
+		log.WithField("fromVersion", fromVersion).
+			WithField("toVersion", toVersion).
+			WithField("encryptionMatches", encryptionMatches).
+			Debug("result of resume-token-matching to sender's versions")
+
+		if !encryptionMatches {
+			return nil, fmt.Errorf("resume token `rawok`=%v and `compressok`=%v are incompatible with encryption policy=%v", resumeToken.RawOK, resumeToken.CompressOK, fs.policy.EncryptedSend)
+		} else if toVersion == nil {
+			return nil, fmt.Errorf("resume token `toguid` = %v not found on sender (`toname` = %q)", resumeToken.ToGUID, resumeToken.ToName)
+		} else if fromVersion == toVersion {
+			return nil, fmt.Errorf("resume token `fromguid` and `toguid` match same version on sener")
+		}
+		// fromVersion may be nil, toVersion is no nil, encryption matches
+		// good to go this one step!
+		resumeStep := &Step{
 			parent:   fs,
 			sender:   fs.sender,
 			receiver: fs.receiver,
-			from:     nil,
-			to:       path[0],
-		})
-	} else {
-		for i := 0; i < len(path)-1; i++ {
+
+			from:    fromVersion,
+			to:      toVersion,
+			encrypt: fs.policy.EncryptedSend,
+
+			resumeToken: resumeTokenRaw,
+		}
+
+		// by definition, the resume token _must_ be the receiver's most recent version, if they have any
+		// don't bother checking, zfs recv will produce an error if above assumption is wrong
+		//
+		// thus, subsequent steps are just incrementals on the sender's remaining _snapshots_ (not bookmarks)
+
+		var remainingSFSVs []*pdu.FilesystemVersion
+		for _, sfsv := range sfsvs[toVersionIdx:] {
+			if sfsv.Type == pdu.FilesystemVersion_Snapshot {
+				remainingSFSVs = append(remainingSFSVs, sfsv)
+			}
+		}
+
+		steps = make([]*Step, 0, len(remainingSFSVs)) // shadow
+		steps = append(steps, resumeStep)
+		for i := 0; i < len(remainingSFSVs)-1; i++ {
 			steps = append(steps, &Step{
 				parent:   fs,
 				sender:   fs.sender,
 				receiver: fs.receiver,
-				from:     path[i],
-				to:       path[i+1],
+				from:     remainingSFSVs[i],
+				to:       remainingSFSVs[i+1],
+				encrypt:  fs.policy.EncryptedSend,
 			})
 		}
+	} else { // resumeToken == nil
+		path, conflict := IncrementalPath(rfsvs, sfsvs)
+		if conflict != nil {
+			var msg string
+			path, msg = resolveConflict(conflict) // no shadowing allowed!
+			if path != nil {
+				log.WithField("conflict", conflict).Info("conflict")
+				log.WithField("resolution", msg).Info("automatically resolved")
+			} else {
+				log.WithField("conflict", conflict).Error("conflict")
+				log.WithField("problem", msg).Error("cannot resolve conflict")
+			}
+		}
+		if len(path) == 0 {
+			return nil, conflict
+		}
+
+		steps = make([]*Step, 0, len(path)) // shadow
+		if len(path) == 1 {
+			steps = append(steps, &Step{
+				parent:   fs,
+				sender:   fs.sender,
+				receiver: fs.receiver,
+
+				from:    nil,
+				to:      path[0],
+				encrypt: fs.policy.EncryptedSend,
+			})
+		} else {
+			for i := 0; i < len(path)-1; i++ {
+				steps = append(steps, &Step{
+					parent:   fs,
+					sender:   fs.sender,
+					receiver: fs.receiver,
+
+					from:    path[i],
+					to:      path[i+1],
+					encrypt: fs.policy.EncryptedSend,
+				})
+			}
+		}
+	}
+
+	if len(steps) == 0 {
+		log.Info("planning determined that no replication steps are required")
 	}
 
 	log.Debug("compute send size estimate")
@@ -389,29 +570,6 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 	return steps, nil
 }
 
-// type FilesystemsReplicationFailedError struct {
-// 	FilesystemsWithError []*fsrep.Replication
-// }
-
-// func (e FilesystemsReplicationFailedError) Error() string {
-// 	allSame := true
-// 	lastErr := e.FilesystemsWithError[0].Err().Error()
-// 	for _, fs := range e.FilesystemsWithError {
-// 		fsErr := fs.Err().Error()
-// 		allSame = allSame && lastErr == fsErr
-// 	}
-
-// 	fsstr := "multiple filesystems"
-// 	if len(e.FilesystemsWithError) == 1 {
-// 		fsstr = fmt.Sprintf("filesystem %s", e.FilesystemsWithError[0].FS())
-// 	}
-// 	errorStr := lastErr
-// 	if !allSame {
-// 		errorStr = "multiple different errors"
-// 	}
-// 	return fmt.Sprintf("%s could not be replicated: %s", fsstr, errorStr)
-// }
-
 func (s *Step) updateSizeEstimate(ctx context.Context) error {
 
 	log := getLogger(ctx)
@@ -430,19 +588,13 @@ func (s *Step) updateSizeEstimate(ctx context.Context) error {
 
 func (s *Step) buildSendRequest(dryRun bool) (sr *pdu.SendReq) {
 	fs := s.parent.Path
-	if s.from == nil {
-		sr = &pdu.SendReq{
-			Filesystem: fs,
-			To:         s.to.RelName(),
-			DryRun:     dryRun,
-		}
-	} else {
-		sr = &pdu.SendReq{
-			Filesystem: fs,
-			From:       s.from.RelName(),
-			To:         s.to.RelName(),
-			DryRun:     dryRun,
-		}
+	sr = &pdu.SendReq{
+		Filesystem:  fs,
+		From:        s.from, // may be nil
+		To:          s.to,
+		Encrypted:   s.encrypt.ToPDU(),
+		ResumeToken: s.resumeToken,
+		DryRun:      dryRun,
 	}
 	return sr
 }
@@ -478,6 +630,7 @@ func (s *Step) doReplication(ctx context.Context) error {
 
 	rr := &pdu.ReceiveReq{
 		Filesystem:       fs,
+		To:               sr.GetTo(),
 		ClearResumeToken: !sres.UsedResumeToken,
 	}
 	log.Debug("initiate receive request")
@@ -486,6 +639,7 @@ func (s *Step) doReplication(ctx context.Context) error {
 		log.
 			WithError(err).
 			WithField("errType", fmt.Sprintf("%T", err)).
+			WithField("rr", fmt.Sprintf("%v", rr)).
 			Error("receive request failed (might also be error on sender)")
 		// This failure could be due to
 		// 	- an unexpected exit of ZFS on the sending side
@@ -495,22 +649,12 @@ func (s *Step) doReplication(ctx context.Context) error {
 	}
 	log.Debug("receive finished")
 
-	log.Debug("advance replication cursor")
-	req := &pdu.ReplicationCursorReq{
-		Filesystem: fs,
-		Op: &pdu.ReplicationCursorReq_Set{
-			Set: &pdu.ReplicationCursorReq_SetOp{
-				Snapshot: s.to.GetName(),
-			},
-		},
-	}
-	_, err = s.sender.ReplicationCursor(ctx, req)
+	log.Debug("tell sender replication completed")
+	_, err = s.sender.SendCompleted(ctx, &pdu.SendCompletedReq{
+		OriginalReq: sr,
+	})
 	if err != nil {
-		log.WithError(err).Error("error advancing replication cursor")
-		// If this fails and replication planning restarts, the diff algorithm will find
-		// that cursor out of place. This is not a problem because then, it would just use another FS
-		// However, we FIXME have no means to just update the cursor in a
-		// second replication attempt right after this one where we don't have new snaps yet
+		log.WithError(err).Error("error telling sender that replication completed successfully")
 		return err
 	}
 

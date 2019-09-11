@@ -144,9 +144,19 @@ format:
 
 ZREPL_PLATFORMTEST_POOLNAME := zreplplatformtest
 ZREPL_PLATFORMTEST_IMAGEPATH := /tmp/zreplplatformtest.pool.img
+ZREPL_PLATFORMTEST_MOUNTPOINT := /tmp/zreplplatformtest.pool
+ZREPL_PLATFORMTEST_ZFS_LOG := /tmp/zreplplatformtest.zfs.log
+# ZREPL_PLATFORMTEST_STOP_AND_KEEP := -failure.stop-and-keep-pool
 ZREPL_PLATFORMTEST_ARGS := 
 platformtest: # do not track dependency on platformtest-bin to allow build of platformtest outside of test VM
-	"$(ARTIFACTDIR)/platformtest-$(ZREPL_TARGET_TUPLE)" -poolname "$(ZREPL_PLATFORMTEST_POOLNAME)" -imagepath "$(ZREPL_PLATFORMTEST_IMAGEPATH)" $(ZREPL_PLATFORMTEST_ARGS)
+	rm -f "$(ZREPL_PLATFORMTEST_ZFS_LOG)"
+	platformtest/logmockzfs/logzfsenv "$(ZREPL_PLATFORMTEST_ZFS_LOG)" `which zfs` \
+	"$(ARTIFACTDIR)/platformtest-$(ZREPL_TARGET_TUPLE)" \
+		-poolname "$(ZREPL_PLATFORMTEST_POOLNAME)" \
+		-imagepath "$(ZREPL_PLATFORMTEST_IMAGEPATH)" \
+		-mountpoint "$(ZREPL_PLATFORMTEST_MOUNTPOINT)" \
+		$(ZREPL_PLATFORMTEST_STOP_AND_KEEP) \
+		$(ZREPL_PLATFORMTEST_ARGS)
 
 ##################### NOARCH #####################
 .PHONY: noarch $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/go_env.txt docs docs-clean

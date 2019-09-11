@@ -23,6 +23,32 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+type Tri int32
+
+const (
+	Tri_DontCare Tri = 0
+	Tri_False    Tri = 1
+	Tri_True     Tri = 2
+)
+
+var Tri_name = map[int32]string{
+	0: "DontCare",
+	1: "False",
+	2: "True",
+}
+var Tri_value = map[string]int32{
+	"DontCare": 0,
+	"False":    1,
+	"True":     2,
+}
+
+func (x Tri) String() string {
+	return proto.EnumName(Tri_name, int32(x))
+}
+func (Tri) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{0}
+}
+
 type FilesystemVersion_VersionType int32
 
 const (
@@ -43,7 +69,7 @@ func (x FilesystemVersion_VersionType) String() string {
 	return proto.EnumName(FilesystemVersion_VersionType_name, int32(x))
 }
 func (FilesystemVersion_VersionType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{5, 0}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{5, 0}
 }
 
 type ListFilesystemReq struct {
@@ -56,7 +82,7 @@ func (m *ListFilesystemReq) Reset()         { *m = ListFilesystemReq{} }
 func (m *ListFilesystemReq) String() string { return proto.CompactTextString(m) }
 func (*ListFilesystemReq) ProtoMessage()    {}
 func (*ListFilesystemReq) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{0}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{0}
 }
 func (m *ListFilesystemReq) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListFilesystemReq.Unmarshal(m, b)
@@ -87,7 +113,7 @@ func (m *ListFilesystemRes) Reset()         { *m = ListFilesystemRes{} }
 func (m *ListFilesystemRes) String() string { return proto.CompactTextString(m) }
 func (*ListFilesystemRes) ProtoMessage()    {}
 func (*ListFilesystemRes) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{1}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{1}
 }
 func (m *ListFilesystemRes) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListFilesystemRes.Unmarshal(m, b)
@@ -118,6 +144,7 @@ type Filesystem struct {
 	Path                 string   `protobuf:"bytes,1,opt,name=Path,proto3" json:"Path,omitempty"`
 	ResumeToken          string   `protobuf:"bytes,2,opt,name=ResumeToken,proto3" json:"ResumeToken,omitempty"`
 	IsPlaceholder        bool     `protobuf:"varint,3,opt,name=IsPlaceholder,proto3" json:"IsPlaceholder,omitempty"`
+	IsEncrypted          bool     `protobuf:"varint,4,opt,name=IsEncrypted,proto3" json:"IsEncrypted,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -127,7 +154,7 @@ func (m *Filesystem) Reset()         { *m = Filesystem{} }
 func (m *Filesystem) String() string { return proto.CompactTextString(m) }
 func (*Filesystem) ProtoMessage()    {}
 func (*Filesystem) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{2}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{2}
 }
 func (m *Filesystem) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Filesystem.Unmarshal(m, b)
@@ -168,6 +195,13 @@ func (m *Filesystem) GetIsPlaceholder() bool {
 	return false
 }
 
+func (m *Filesystem) GetIsEncrypted() bool {
+	if m != nil {
+		return m.IsEncrypted
+	}
+	return false
+}
+
 type ListFilesystemVersionsReq struct {
 	Filesystem           string   `protobuf:"bytes,1,opt,name=Filesystem,proto3" json:"Filesystem,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -179,7 +213,7 @@ func (m *ListFilesystemVersionsReq) Reset()         { *m = ListFilesystemVersion
 func (m *ListFilesystemVersionsReq) String() string { return proto.CompactTextString(m) }
 func (*ListFilesystemVersionsReq) ProtoMessage()    {}
 func (*ListFilesystemVersionsReq) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{3}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{3}
 }
 func (m *ListFilesystemVersionsReq) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListFilesystemVersionsReq.Unmarshal(m, b)
@@ -217,7 +251,7 @@ func (m *ListFilesystemVersionsRes) Reset()         { *m = ListFilesystemVersion
 func (m *ListFilesystemVersionsRes) String() string { return proto.CompactTextString(m) }
 func (*ListFilesystemVersionsRes) ProtoMessage()    {}
 func (*ListFilesystemVersionsRes) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{4}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{4}
 }
 func (m *ListFilesystemVersionsRes) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListFilesystemVersionsRes.Unmarshal(m, b)
@@ -259,7 +293,7 @@ func (m *FilesystemVersion) Reset()         { *m = FilesystemVersion{} }
 func (m *FilesystemVersion) String() string { return proto.CompactTextString(m) }
 func (*FilesystemVersion) ProtoMessage()    {}
 func (*FilesystemVersion) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{5}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{5}
 }
 func (m *FilesystemVersion) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FilesystemVersion.Unmarshal(m, b)
@@ -316,20 +350,18 @@ func (m *FilesystemVersion) GetCreation() string {
 
 type SendReq struct {
 	Filesystem string `protobuf:"bytes,1,opt,name=Filesystem,proto3" json:"Filesystem,omitempty"`
-	From       string `protobuf:"bytes,2,opt,name=From,proto3" json:"From,omitempty"`
-	// May be empty / null to request a full transfer of From
-	To string `protobuf:"bytes,3,opt,name=To,proto3" json:"To,omitempty"`
-	// If ResumeToken is not empty, the resume token that CAN be tried for 'zfs send' by the sender.
-	// The sender MUST indicate in SendRes.UsedResumeToken
-	// If it does not work, the sender SHOULD clear the resume token on their side
-	// and use From and To instead
-	// If ResumeToken is not empty, the GUIDs of From and To
-	// MUST correspond to those encoded in the ResumeToken.
-	// Otherwise, the Sender MUST return an error.
+	// May be empty / null to request a full transfer of To
+	From *FilesystemVersion `protobuf:"bytes,2,opt,name=From,proto3" json:"From,omitempty"`
+	To   *FilesystemVersion `protobuf:"bytes,3,opt,name=To,proto3" json:"To,omitempty"`
+	// If ResumeToken is not empty, the resume token that CAN be used for 'zfs
+	// send' by the sender. The sender MUST indicate use of ResumeToken in the
+	// reply message SendRes.UsedResumeToken If it does not work, the sender
+	// SHOULD clear the resume token on their side and use From and To instead If
+	// ResumeToken is not empty, the GUIDs of From and To MUST correspond to those
+	// encoded in the ResumeToken. Otherwise, the Sender MUST return an error.
 	ResumeToken          string   `protobuf:"bytes,4,opt,name=ResumeToken,proto3" json:"ResumeToken,omitempty"`
-	Compress             bool     `protobuf:"varint,5,opt,name=Compress,proto3" json:"Compress,omitempty"`
-	Dedup                bool     `protobuf:"varint,6,opt,name=Dedup,proto3" json:"Dedup,omitempty"`
-	DryRun               bool     `protobuf:"varint,7,opt,name=DryRun,proto3" json:"DryRun,omitempty"`
+	Encrypted            Tri      `protobuf:"varint,5,opt,name=Encrypted,proto3,enum=Tri" json:"Encrypted,omitempty"`
+	DryRun               bool     `protobuf:"varint,6,opt,name=DryRun,proto3" json:"DryRun,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -339,7 +371,7 @@ func (m *SendReq) Reset()         { *m = SendReq{} }
 func (m *SendReq) String() string { return proto.CompactTextString(m) }
 func (*SendReq) ProtoMessage()    {}
 func (*SendReq) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{6}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{6}
 }
 func (m *SendReq) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SendReq.Unmarshal(m, b)
@@ -366,18 +398,18 @@ func (m *SendReq) GetFilesystem() string {
 	return ""
 }
 
-func (m *SendReq) GetFrom() string {
+func (m *SendReq) GetFrom() *FilesystemVersion {
 	if m != nil {
 		return m.From
 	}
-	return ""
+	return nil
 }
 
-func (m *SendReq) GetTo() string {
+func (m *SendReq) GetTo() *FilesystemVersion {
 	if m != nil {
 		return m.To
 	}
-	return ""
+	return nil
 }
 
 func (m *SendReq) GetResumeToken() string {
@@ -387,18 +419,11 @@ func (m *SendReq) GetResumeToken() string {
 	return ""
 }
 
-func (m *SendReq) GetCompress() bool {
+func (m *SendReq) GetEncrypted() Tri {
 	if m != nil {
-		return m.Compress
+		return m.Encrypted
 	}
-	return false
-}
-
-func (m *SendReq) GetDedup() bool {
-	if m != nil {
-		return m.Dedup
-	}
-	return false
+	return Tri_DontCare
 }
 
 func (m *SendReq) GetDryRun() bool {
@@ -420,7 +445,7 @@ func (m *Property) Reset()         { *m = Property{} }
 func (m *Property) String() string { return proto.CompactTextString(m) }
 func (*Property) ProtoMessage()    {}
 func (*Property) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{7}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{7}
 }
 func (m *Property) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Property.Unmarshal(m, b)
@@ -456,6 +481,7 @@ func (m *Property) GetValue() string {
 
 type SendRes struct {
 	// Whether the resume token provided in the request has been used or not.
+	// If the SendReq.ResumeToken == "", this field has no meaning.
 	UsedResumeToken bool `protobuf:"varint,2,opt,name=UsedResumeToken,proto3" json:"UsedResumeToken,omitempty"`
 	// Expected stream size determined by dry run, not exact.
 	// 0 indicates that for the given SendReq, no size estimate could be made.
@@ -470,7 +496,7 @@ func (m *SendRes) Reset()         { *m = SendRes{} }
 func (m *SendRes) String() string { return proto.CompactTextString(m) }
 func (*SendRes) ProtoMessage()    {}
 func (*SendRes) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{8}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{8}
 }
 func (m *SendRes) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SendRes.Unmarshal(m, b)
@@ -511,10 +537,80 @@ func (m *SendRes) GetProperties() []*Property {
 	return nil
 }
 
+type SendCompletedReq struct {
+	OriginalReq          *SendReq `protobuf:"bytes,2,opt,name=OriginalReq,proto3" json:"OriginalReq,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SendCompletedReq) Reset()         { *m = SendCompletedReq{} }
+func (m *SendCompletedReq) String() string { return proto.CompactTextString(m) }
+func (*SendCompletedReq) ProtoMessage()    {}
+func (*SendCompletedReq) Descriptor() ([]byte, []int) {
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{9}
+}
+func (m *SendCompletedReq) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SendCompletedReq.Unmarshal(m, b)
+}
+func (m *SendCompletedReq) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SendCompletedReq.Marshal(b, m, deterministic)
+}
+func (dst *SendCompletedReq) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SendCompletedReq.Merge(dst, src)
+}
+func (m *SendCompletedReq) XXX_Size() int {
+	return xxx_messageInfo_SendCompletedReq.Size(m)
+}
+func (m *SendCompletedReq) XXX_DiscardUnknown() {
+	xxx_messageInfo_SendCompletedReq.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SendCompletedReq proto.InternalMessageInfo
+
+func (m *SendCompletedReq) GetOriginalReq() *SendReq {
+	if m != nil {
+		return m.OriginalReq
+	}
+	return nil
+}
+
+type SendCompletedRes struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SendCompletedRes) Reset()         { *m = SendCompletedRes{} }
+func (m *SendCompletedRes) String() string { return proto.CompactTextString(m) }
+func (*SendCompletedRes) ProtoMessage()    {}
+func (*SendCompletedRes) Descriptor() ([]byte, []int) {
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{10}
+}
+func (m *SendCompletedRes) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SendCompletedRes.Unmarshal(m, b)
+}
+func (m *SendCompletedRes) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SendCompletedRes.Marshal(b, m, deterministic)
+}
+func (dst *SendCompletedRes) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SendCompletedRes.Merge(dst, src)
+}
+func (m *SendCompletedRes) XXX_Size() int {
+	return xxx_messageInfo_SendCompletedRes.Size(m)
+}
+func (m *SendCompletedRes) XXX_DiscardUnknown() {
+	xxx_messageInfo_SendCompletedRes.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SendCompletedRes proto.InternalMessageInfo
+
 type ReceiveReq struct {
-	Filesystem string `protobuf:"bytes,1,opt,name=Filesystem,proto3" json:"Filesystem,omitempty"`
-	// If true, the receiver should clear the resume token before perfoming the zfs recv of the stream in the request
-	ClearResumeToken     bool     `protobuf:"varint,2,opt,name=ClearResumeToken,proto3" json:"ClearResumeToken,omitempty"`
+	Filesystem string             `protobuf:"bytes,1,opt,name=Filesystem,proto3" json:"Filesystem,omitempty"`
+	To         *FilesystemVersion `protobuf:"bytes,2,opt,name=To,proto3" json:"To,omitempty"`
+	// If true, the receiver should clear the resume token before perfoming the
+	// zfs recv of the stream in the request
+	ClearResumeToken     bool     `protobuf:"varint,3,opt,name=ClearResumeToken,proto3" json:"ClearResumeToken,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -524,7 +620,7 @@ func (m *ReceiveReq) Reset()         { *m = ReceiveReq{} }
 func (m *ReceiveReq) String() string { return proto.CompactTextString(m) }
 func (*ReceiveReq) ProtoMessage()    {}
 func (*ReceiveReq) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{9}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{11}
 }
 func (m *ReceiveReq) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ReceiveReq.Unmarshal(m, b)
@@ -551,6 +647,13 @@ func (m *ReceiveReq) GetFilesystem() string {
 	return ""
 }
 
+func (m *ReceiveReq) GetTo() *FilesystemVersion {
+	if m != nil {
+		return m.To
+	}
+	return nil
+}
+
 func (m *ReceiveReq) GetClearResumeToken() bool {
 	if m != nil {
 		return m.ClearResumeToken
@@ -568,7 +671,7 @@ func (m *ReceiveRes) Reset()         { *m = ReceiveRes{} }
 func (m *ReceiveRes) String() string { return proto.CompactTextString(m) }
 func (*ReceiveRes) ProtoMessage()    {}
 func (*ReceiveRes) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{10}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{12}
 }
 func (m *ReceiveRes) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ReceiveRes.Unmarshal(m, b)
@@ -601,7 +704,7 @@ func (m *DestroySnapshotsReq) Reset()         { *m = DestroySnapshotsReq{} }
 func (m *DestroySnapshotsReq) String() string { return proto.CompactTextString(m) }
 func (*DestroySnapshotsReq) ProtoMessage()    {}
 func (*DestroySnapshotsReq) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{11}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{13}
 }
 func (m *DestroySnapshotsReq) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DestroySnapshotsReq.Unmarshal(m, b)
@@ -647,7 +750,7 @@ func (m *DestroySnapshotRes) Reset()         { *m = DestroySnapshotRes{} }
 func (m *DestroySnapshotRes) String() string { return proto.CompactTextString(m) }
 func (*DestroySnapshotRes) ProtoMessage()    {}
 func (*DestroySnapshotRes) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{12}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{14}
 }
 func (m *DestroySnapshotRes) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DestroySnapshotRes.Unmarshal(m, b)
@@ -692,7 +795,7 @@ func (m *DestroySnapshotsRes) Reset()         { *m = DestroySnapshotsRes{} }
 func (m *DestroySnapshotsRes) String() string { return proto.CompactTextString(m) }
 func (*DestroySnapshotsRes) ProtoMessage()    {}
 func (*DestroySnapshotsRes) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{13}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{15}
 }
 func (m *DestroySnapshotsRes) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DestroySnapshotsRes.Unmarshal(m, b)
@@ -720,21 +823,17 @@ func (m *DestroySnapshotsRes) GetResults() []*DestroySnapshotRes {
 }
 
 type ReplicationCursorReq struct {
-	Filesystem string `protobuf:"bytes,1,opt,name=Filesystem,proto3" json:"Filesystem,omitempty"`
-	// Types that are valid to be assigned to Op:
-	//	*ReplicationCursorReq_Get
-	//	*ReplicationCursorReq_Set
-	Op                   isReplicationCursorReq_Op `protobuf_oneof:"op"`
-	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
-	XXX_unrecognized     []byte                    `json:"-"`
-	XXX_sizecache        int32                     `json:"-"`
+	Filesystem           string   `protobuf:"bytes,1,opt,name=Filesystem,proto3" json:"Filesystem,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ReplicationCursorReq) Reset()         { *m = ReplicationCursorReq{} }
 func (m *ReplicationCursorReq) String() string { return proto.CompactTextString(m) }
 func (*ReplicationCursorReq) ProtoMessage()    {}
 func (*ReplicationCursorReq) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{14}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{16}
 }
 func (m *ReplicationCursorReq) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ReplicationCursorReq.Unmarshal(m, b)
@@ -761,185 +860,6 @@ func (m *ReplicationCursorReq) GetFilesystem() string {
 	return ""
 }
 
-type isReplicationCursorReq_Op interface {
-	isReplicationCursorReq_Op()
-}
-
-type ReplicationCursorReq_Get struct {
-	Get *ReplicationCursorReq_GetOp `protobuf:"bytes,2,opt,name=get,proto3,oneof"`
-}
-
-type ReplicationCursorReq_Set struct {
-	Set *ReplicationCursorReq_SetOp `protobuf:"bytes,3,opt,name=set,proto3,oneof"`
-}
-
-func (*ReplicationCursorReq_Get) isReplicationCursorReq_Op() {}
-
-func (*ReplicationCursorReq_Set) isReplicationCursorReq_Op() {}
-
-func (m *ReplicationCursorReq) GetOp() isReplicationCursorReq_Op {
-	if m != nil {
-		return m.Op
-	}
-	return nil
-}
-
-func (m *ReplicationCursorReq) GetGet() *ReplicationCursorReq_GetOp {
-	if x, ok := m.GetOp().(*ReplicationCursorReq_Get); ok {
-		return x.Get
-	}
-	return nil
-}
-
-func (m *ReplicationCursorReq) GetSet() *ReplicationCursorReq_SetOp {
-	if x, ok := m.GetOp().(*ReplicationCursorReq_Set); ok {
-		return x.Set
-	}
-	return nil
-}
-
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*ReplicationCursorReq) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _ReplicationCursorReq_OneofMarshaler, _ReplicationCursorReq_OneofUnmarshaler, _ReplicationCursorReq_OneofSizer, []interface{}{
-		(*ReplicationCursorReq_Get)(nil),
-		(*ReplicationCursorReq_Set)(nil),
-	}
-}
-
-func _ReplicationCursorReq_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*ReplicationCursorReq)
-	// op
-	switch x := m.Op.(type) {
-	case *ReplicationCursorReq_Get:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Get); err != nil {
-			return err
-		}
-	case *ReplicationCursorReq_Set:
-		b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Set); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("ReplicationCursorReq.Op has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _ReplicationCursorReq_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*ReplicationCursorReq)
-	switch tag {
-	case 2: // op.get
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(ReplicationCursorReq_GetOp)
-		err := b.DecodeMessage(msg)
-		m.Op = &ReplicationCursorReq_Get{msg}
-		return true, err
-	case 3: // op.set
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(ReplicationCursorReq_SetOp)
-		err := b.DecodeMessage(msg)
-		m.Op = &ReplicationCursorReq_Set{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _ReplicationCursorReq_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*ReplicationCursorReq)
-	// op
-	switch x := m.Op.(type) {
-	case *ReplicationCursorReq_Get:
-		s := proto.Size(x.Get)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *ReplicationCursorReq_Set:
-		s := proto.Size(x.Set)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
-}
-
-type ReplicationCursorReq_GetOp struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *ReplicationCursorReq_GetOp) Reset()         { *m = ReplicationCursorReq_GetOp{} }
-func (m *ReplicationCursorReq_GetOp) String() string { return proto.CompactTextString(m) }
-func (*ReplicationCursorReq_GetOp) ProtoMessage()    {}
-func (*ReplicationCursorReq_GetOp) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{14, 0}
-}
-func (m *ReplicationCursorReq_GetOp) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ReplicationCursorReq_GetOp.Unmarshal(m, b)
-}
-func (m *ReplicationCursorReq_GetOp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ReplicationCursorReq_GetOp.Marshal(b, m, deterministic)
-}
-func (dst *ReplicationCursorReq_GetOp) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ReplicationCursorReq_GetOp.Merge(dst, src)
-}
-func (m *ReplicationCursorReq_GetOp) XXX_Size() int {
-	return xxx_messageInfo_ReplicationCursorReq_GetOp.Size(m)
-}
-func (m *ReplicationCursorReq_GetOp) XXX_DiscardUnknown() {
-	xxx_messageInfo_ReplicationCursorReq_GetOp.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ReplicationCursorReq_GetOp proto.InternalMessageInfo
-
-type ReplicationCursorReq_SetOp struct {
-	Snapshot             string   `protobuf:"bytes,2,opt,name=Snapshot,proto3" json:"Snapshot,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *ReplicationCursorReq_SetOp) Reset()         { *m = ReplicationCursorReq_SetOp{} }
-func (m *ReplicationCursorReq_SetOp) String() string { return proto.CompactTextString(m) }
-func (*ReplicationCursorReq_SetOp) ProtoMessage()    {}
-func (*ReplicationCursorReq_SetOp) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{14, 1}
-}
-func (m *ReplicationCursorReq_SetOp) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ReplicationCursorReq_SetOp.Unmarshal(m, b)
-}
-func (m *ReplicationCursorReq_SetOp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ReplicationCursorReq_SetOp.Marshal(b, m, deterministic)
-}
-func (dst *ReplicationCursorReq_SetOp) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ReplicationCursorReq_SetOp.Merge(dst, src)
-}
-func (m *ReplicationCursorReq_SetOp) XXX_Size() int {
-	return xxx_messageInfo_ReplicationCursorReq_SetOp.Size(m)
-}
-func (m *ReplicationCursorReq_SetOp) XXX_DiscardUnknown() {
-	xxx_messageInfo_ReplicationCursorReq_SetOp.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ReplicationCursorReq_SetOp proto.InternalMessageInfo
-
-func (m *ReplicationCursorReq_SetOp) GetSnapshot() string {
-	if m != nil {
-		return m.Snapshot
-	}
-	return ""
-}
-
 type ReplicationCursorRes struct {
 	// Types that are valid to be assigned to Result:
 	//	*ReplicationCursorRes_Guid
@@ -954,7 +874,7 @@ func (m *ReplicationCursorRes) Reset()         { *m = ReplicationCursorRes{} }
 func (m *ReplicationCursorRes) String() string { return proto.CompactTextString(m) }
 func (*ReplicationCursorRes) ProtoMessage()    {}
 func (*ReplicationCursorRes) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{15}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{17}
 }
 func (m *ReplicationCursorRes) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ReplicationCursorRes.Unmarshal(m, b)
@@ -1090,7 +1010,7 @@ func (m *PingReq) Reset()         { *m = PingReq{} }
 func (m *PingReq) String() string { return proto.CompactTextString(m) }
 func (*PingReq) ProtoMessage()    {}
 func (*PingReq) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{16}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{18}
 }
 func (m *PingReq) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PingReq.Unmarshal(m, b)
@@ -1129,7 +1049,7 @@ func (m *PingRes) Reset()         { *m = PingRes{} }
 func (m *PingRes) String() string { return proto.CompactTextString(m) }
 func (*PingRes) ProtoMessage()    {}
 func (*PingRes) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pdu_83b7e2a28d820622, []int{17}
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{19}
 }
 func (m *PingRes) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PingRes.Unmarshal(m, b)
@@ -1156,6 +1076,82 @@ func (m *PingRes) GetEcho() string {
 	return ""
 }
 
+type HintMostRecentCommonAncestorReq struct {
+	Filesystem           string             `protobuf:"bytes,1,opt,name=Filesystem,proto3" json:"Filesystem,omitempty"`
+	SenderVersion        *FilesystemVersion `protobuf:"bytes,2,opt,name=SenderVersion,proto3" json:"SenderVersion,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
+}
+
+func (m *HintMostRecentCommonAncestorReq) Reset()         { *m = HintMostRecentCommonAncestorReq{} }
+func (m *HintMostRecentCommonAncestorReq) String() string { return proto.CompactTextString(m) }
+func (*HintMostRecentCommonAncestorReq) ProtoMessage()    {}
+func (*HintMostRecentCommonAncestorReq) Descriptor() ([]byte, []int) {
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{20}
+}
+func (m *HintMostRecentCommonAncestorReq) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HintMostRecentCommonAncestorReq.Unmarshal(m, b)
+}
+func (m *HintMostRecentCommonAncestorReq) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HintMostRecentCommonAncestorReq.Marshal(b, m, deterministic)
+}
+func (dst *HintMostRecentCommonAncestorReq) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HintMostRecentCommonAncestorReq.Merge(dst, src)
+}
+func (m *HintMostRecentCommonAncestorReq) XXX_Size() int {
+	return xxx_messageInfo_HintMostRecentCommonAncestorReq.Size(m)
+}
+func (m *HintMostRecentCommonAncestorReq) XXX_DiscardUnknown() {
+	xxx_messageInfo_HintMostRecentCommonAncestorReq.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HintMostRecentCommonAncestorReq proto.InternalMessageInfo
+
+func (m *HintMostRecentCommonAncestorReq) GetFilesystem() string {
+	if m != nil {
+		return m.Filesystem
+	}
+	return ""
+}
+
+func (m *HintMostRecentCommonAncestorReq) GetSenderVersion() *FilesystemVersion {
+	if m != nil {
+		return m.SenderVersion
+	}
+	return nil
+}
+
+type HintMostRecentCommonAncestorRes struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *HintMostRecentCommonAncestorRes) Reset()         { *m = HintMostRecentCommonAncestorRes{} }
+func (m *HintMostRecentCommonAncestorRes) String() string { return proto.CompactTextString(m) }
+func (*HintMostRecentCommonAncestorRes) ProtoMessage()    {}
+func (*HintMostRecentCommonAncestorRes) Descriptor() ([]byte, []int) {
+	return fileDescriptor_pdu_0f43b713cd3bf056, []int{21}
+}
+func (m *HintMostRecentCommonAncestorRes) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HintMostRecentCommonAncestorRes.Unmarshal(m, b)
+}
+func (m *HintMostRecentCommonAncestorRes) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HintMostRecentCommonAncestorRes.Marshal(b, m, deterministic)
+}
+func (dst *HintMostRecentCommonAncestorRes) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HintMostRecentCommonAncestorRes.Merge(dst, src)
+}
+func (m *HintMostRecentCommonAncestorRes) XXX_Size() int {
+	return xxx_messageInfo_HintMostRecentCommonAncestorRes.Size(m)
+}
+func (m *HintMostRecentCommonAncestorRes) XXX_DiscardUnknown() {
+	xxx_messageInfo_HintMostRecentCommonAncestorRes.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HintMostRecentCommonAncestorRes proto.InternalMessageInfo
+
 func init() {
 	proto.RegisterType((*ListFilesystemReq)(nil), "ListFilesystemReq")
 	proto.RegisterType((*ListFilesystemRes)(nil), "ListFilesystemRes")
@@ -1166,17 +1162,20 @@ func init() {
 	proto.RegisterType((*SendReq)(nil), "SendReq")
 	proto.RegisterType((*Property)(nil), "Property")
 	proto.RegisterType((*SendRes)(nil), "SendRes")
+	proto.RegisterType((*SendCompletedReq)(nil), "SendCompletedReq")
+	proto.RegisterType((*SendCompletedRes)(nil), "SendCompletedRes")
 	proto.RegisterType((*ReceiveReq)(nil), "ReceiveReq")
 	proto.RegisterType((*ReceiveRes)(nil), "ReceiveRes")
 	proto.RegisterType((*DestroySnapshotsReq)(nil), "DestroySnapshotsReq")
 	proto.RegisterType((*DestroySnapshotRes)(nil), "DestroySnapshotRes")
 	proto.RegisterType((*DestroySnapshotsRes)(nil), "DestroySnapshotsRes")
 	proto.RegisterType((*ReplicationCursorReq)(nil), "ReplicationCursorReq")
-	proto.RegisterType((*ReplicationCursorReq_GetOp)(nil), "ReplicationCursorReq.GetOp")
-	proto.RegisterType((*ReplicationCursorReq_SetOp)(nil), "ReplicationCursorReq.SetOp")
 	proto.RegisterType((*ReplicationCursorRes)(nil), "ReplicationCursorRes")
 	proto.RegisterType((*PingReq)(nil), "PingReq")
 	proto.RegisterType((*PingRes)(nil), "PingRes")
+	proto.RegisterType((*HintMostRecentCommonAncestorReq)(nil), "HintMostRecentCommonAncestorReq")
+	proto.RegisterType((*HintMostRecentCommonAncestorRes)(nil), "HintMostRecentCommonAncestorRes")
+	proto.RegisterEnum("Tri", Tri_name, Tri_value)
 	proto.RegisterEnum("FilesystemVersion_VersionType", FilesystemVersion_VersionType_name, FilesystemVersion_VersionType_value)
 }
 
@@ -1197,6 +1196,8 @@ type ReplicationClient interface {
 	ListFilesystemVersions(ctx context.Context, in *ListFilesystemVersionsReq, opts ...grpc.CallOption) (*ListFilesystemVersionsRes, error)
 	DestroySnapshots(ctx context.Context, in *DestroySnapshotsReq, opts ...grpc.CallOption) (*DestroySnapshotsRes, error)
 	ReplicationCursor(ctx context.Context, in *ReplicationCursorReq, opts ...grpc.CallOption) (*ReplicationCursorRes, error)
+	SendCompleted(ctx context.Context, in *SendCompletedReq, opts ...grpc.CallOption) (*SendCompletedRes, error)
+	HintMostRecentCommonAncestor(ctx context.Context, in *HintMostRecentCommonAncestorReq, opts ...grpc.CallOption) (*HintMostRecentCommonAncestorRes, error)
 }
 
 type replicationClient struct {
@@ -1252,6 +1253,24 @@ func (c *replicationClient) ReplicationCursor(ctx context.Context, in *Replicati
 	return out, nil
 }
 
+func (c *replicationClient) SendCompleted(ctx context.Context, in *SendCompletedReq, opts ...grpc.CallOption) (*SendCompletedRes, error) {
+	out := new(SendCompletedRes)
+	err := c.cc.Invoke(ctx, "/Replication/SendCompleted", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *replicationClient) HintMostRecentCommonAncestor(ctx context.Context, in *HintMostRecentCommonAncestorReq, opts ...grpc.CallOption) (*HintMostRecentCommonAncestorRes, error) {
+	out := new(HintMostRecentCommonAncestorRes)
+	err := c.cc.Invoke(ctx, "/Replication/HintMostRecentCommonAncestor", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ReplicationServer is the server API for Replication service.
 type ReplicationServer interface {
 	Ping(context.Context, *PingReq) (*PingRes, error)
@@ -1259,6 +1278,8 @@ type ReplicationServer interface {
 	ListFilesystemVersions(context.Context, *ListFilesystemVersionsReq) (*ListFilesystemVersionsRes, error)
 	DestroySnapshots(context.Context, *DestroySnapshotsReq) (*DestroySnapshotsRes, error)
 	ReplicationCursor(context.Context, *ReplicationCursorReq) (*ReplicationCursorRes, error)
+	SendCompleted(context.Context, *SendCompletedReq) (*SendCompletedRes, error)
+	HintMostRecentCommonAncestor(context.Context, *HintMostRecentCommonAncestorReq) (*HintMostRecentCommonAncestorRes, error)
 }
 
 func RegisterReplicationServer(s *grpc.Server, srv ReplicationServer) {
@@ -1355,6 +1376,42 @@ func _Replication_ReplicationCursor_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Replication_SendCompleted_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendCompletedReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplicationServer).SendCompleted(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Replication/SendCompleted",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplicationServer).SendCompleted(ctx, req.(*SendCompletedReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Replication_HintMostRecentCommonAncestor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HintMostRecentCommonAncestorReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplicationServer).HintMostRecentCommonAncestor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Replication/HintMostRecentCommonAncestor",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplicationServer).HintMostRecentCommonAncestor(ctx, req.(*HintMostRecentCommonAncestorReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Replication_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "Replication",
 	HandlerType: (*ReplicationServer)(nil),
@@ -1379,63 +1436,77 @@ var _Replication_serviceDesc = grpc.ServiceDesc{
 			MethodName: "ReplicationCursor",
 			Handler:    _Replication_ReplicationCursor_Handler,
 		},
+		{
+			MethodName: "SendCompleted",
+			Handler:    _Replication_SendCompleted_Handler,
+		},
+		{
+			MethodName: "HintMostRecentCommonAncestor",
+			Handler:    _Replication_HintMostRecentCommonAncestor_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "pdu.proto",
 }
 
-func init() { proto.RegisterFile("pdu.proto", fileDescriptor_pdu_83b7e2a28d820622) }
+func init() { proto.RegisterFile("pdu.proto", fileDescriptor_pdu_0f43b713cd3bf056) }
 
-var fileDescriptor_pdu_83b7e2a28d820622 = []byte{
-	// 785 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x55, 0xd1, 0x8e, 0xe3, 0x34,
-	0x14, 0x9d, 0xb4, 0x69, 0x9b, 0xde, 0x0e, 0xbb, 0x1d, 0x4f, 0x59, 0x85, 0x00, 0xab, 0xca, 0xcb,
-	0x43, 0x17, 0x89, 0x80, 0x0a, 0x2f, 0x08, 0x09, 0x89, 0x4e, 0x67, 0x67, 0x10, 0xb0, 0x54, 0x6e,
-	0x59, 0xad, 0xf6, 0x2d, 0x34, 0x57, 0x6d, 0x34, 0x6d, 0x9d, 0xb5, 0x13, 0xb4, 0xe5, 0x91, 0xbf,
-	0x9a, 0x7f, 0xe0, 0x91, 0x0f, 0x42, 0x76, 0xe3, 0x34, 0x6d, 0x52, 0xa9, 0x4f, 0xf1, 0x39, 0xf7,
-	0xda, 0x3e, 0xf7, 0xd8, 0xd7, 0x81, 0x76, 0x1c, 0xa6, 0x7e, 0x2c, 0x78, 0xc2, 0xe9, 0x35, 0x5c,
-	0xfd, 0x1a, 0xc9, 0xe4, 0x55, 0xb4, 0x42, 0xb9, 0x95, 0x09, 0xae, 0x19, 0xbe, 0xa7, 0xa3, 0x32,
-	0x29, 0xc9, 0x57, 0xd0, 0xd9, 0x13, 0xd2, 0xb5, 0xfa, 0xf5, 0x41, 0x67, 0xd8, 0xf1, 0x0b, 0x49,
-	0xc5, 0x38, 0x5d, 0x02, 0xec, 0x21, 0x21, 0x60, 0x4f, 0x82, 0x64, 0xe9, 0x5a, 0x7d, 0x6b, 0xd0,
-	0x66, 0x7a, 0x4c, 0xfa, 0xd0, 0x61, 0x28, 0xd3, 0x35, 0xce, 0xf8, 0x03, 0x6e, 0xdc, 0x9a, 0x0e,
-	0x15, 0x29, 0xf2, 0x05, 0x7c, 0xf4, 0xb3, 0x9c, 0xac, 0x82, 0x39, 0x2e, 0xf9, 0x2a, 0x44, 0xe1,
-	0xd6, 0xfb, 0xd6, 0xc0, 0x61, 0x87, 0x24, 0xfd, 0x01, 0x3e, 0x39, 0x54, 0xfb, 0x06, 0x85, 0x8c,
-	0xf8, 0x46, 0x32, 0x7c, 0x4f, 0x9e, 0x17, 0x65, 0x64, 0xdb, 0x17, 0x18, 0xfa, 0xcb, 0xe9, 0xc9,
-	0x92, 0xf8, 0xe0, 0x18, 0x98, 0xd5, 0x4b, 0xfc, 0x52, 0x26, 0xcb, 0x73, 0xe8, 0x7f, 0x16, 0x5c,
-	0x95, 0xe2, 0x64, 0x08, 0xf6, 0x6c, 0x1b, 0xa3, 0xde, 0xfc, 0xc9, 0xf0, 0x79, 0x79, 0x05, 0x3f,
-	0xfb, 0xaa, 0x2c, 0xa6, 0x73, 0x95, 0x5f, 0xaf, 0x83, 0x35, 0x66, 0xa6, 0xe8, 0xb1, 0xe2, 0xee,
-	0xd2, 0x28, 0xd4, 0x26, 0xd8, 0x4c, 0x8f, 0xc9, 0x67, 0xd0, 0xbe, 0x11, 0x18, 0x24, 0x38, 0x7b,
-	0x7b, 0xe7, 0xda, 0x3a, 0xb0, 0x27, 0x88, 0x07, 0x8e, 0x06, 0x11, 0xdf, 0xb8, 0x0d, 0xbd, 0x52,
-	0x8e, 0xe9, 0x4b, 0xe8, 0x14, 0xb6, 0x25, 0x97, 0xe0, 0x4c, 0x37, 0x41, 0x2c, 0x97, 0x3c, 0xe9,
-	0x5e, 0x28, 0x34, 0xe2, 0xfc, 0x61, 0x1d, 0x88, 0x87, 0xae, 0x45, 0x1f, 0x2d, 0x68, 0x4d, 0x71,
-	0x13, 0x9e, 0xe1, 0xa7, 0x12, 0xf9, 0x4a, 0xf0, 0xb5, 0x11, 0xae, 0xc6, 0xe4, 0x09, 0xd4, 0x66,
-	0x5c, 0xcb, 0x6e, 0xb3, 0xda, 0x8c, 0x1f, 0x1f, 0xbc, 0x5d, 0x3e, 0x78, 0x25, 0x9c, 0xaf, 0x63,
-	0x81, 0x52, 0x6a, 0xe1, 0x0e, 0xcb, 0x31, 0xe9, 0x41, 0x63, 0x8c, 0x61, 0x1a, 0xbb, 0x4d, 0x1d,
-	0xd8, 0x01, 0xf2, 0x0c, 0x9a, 0x63, 0xb1, 0x65, 0xe9, 0xc6, 0x6d, 0x69, 0x3a, 0x43, 0xf4, 0x3b,
-	0x70, 0x26, 0x82, 0xc7, 0x28, 0x92, 0x6d, 0x6e, 0xaa, 0x55, 0x30, 0xb5, 0x07, 0x8d, 0x37, 0xc1,
-	0x2a, 0x35, 0x4e, 0xef, 0x00, 0xfd, 0x27, 0xaf, 0x58, 0x92, 0x01, 0x3c, 0xfd, 0x43, 0x62, 0x78,
-	0x7c, 0x55, 0x1d, 0x76, 0x4c, 0x13, 0x0a, 0x97, 0xb7, 0x1f, 0x62, 0x9c, 0x27, 0x18, 0x4e, 0xa3,
-	0xbf, 0x51, 0x57, 0x5c, 0x67, 0x07, 0x1c, 0x79, 0x09, 0x90, 0xe9, 0x89, 0x50, 0xba, 0xb6, 0xbe,
-	0x54, 0x6d, 0xdf, 0x48, 0x64, 0x85, 0x20, 0x7d, 0x0b, 0xc0, 0x70, 0x8e, 0xd1, 0x5f, 0x78, 0x8e,
-	0xf1, 0x5f, 0x42, 0xf7, 0x66, 0x85, 0x81, 0x28, 0xeb, 0x2c, 0xf1, 0xf4, 0xb2, 0xb0, 0xb2, 0xa4,
-	0x0b, 0xb8, 0x1e, 0xa3, 0x4c, 0x04, 0xdf, 0x9a, 0x1b, 0x70, 0x4e, 0xe7, 0x90, 0x6f, 0xa0, 0x9d,
-	0xe7, 0xbb, 0xb5, 0x93, 0xdd, 0xb1, 0x4f, 0xa2, 0xef, 0x80, 0x1c, 0x6d, 0x94, 0x35, 0x99, 0x81,
-	0x7a, 0x97, 0x13, 0x4d, 0x66, 0x72, 0xd4, 0x89, 0xdd, 0x0a, 0xc1, 0x85, 0x39, 0x31, 0x0d, 0xe8,
-	0xb8, 0xaa, 0x08, 0xf5, 0x68, 0xb5, 0x54, 0xe1, 0xab, 0xc4, 0x34, 0xf0, 0xb5, 0x5f, 0x96, 0xc0,
-	0x4c, 0x0e, 0xfd, 0xd7, 0x82, 0x1e, 0xc3, 0x78, 0x15, 0xcd, 0x75, 0x93, 0xdc, 0xa4, 0x42, 0x72,
-	0x71, 0x8e, 0x19, 0x5f, 0x43, 0x7d, 0x81, 0x89, 0x96, 0xd4, 0x19, 0x7e, 0xea, 0x57, 0xad, 0xe1,
-	0xdf, 0x61, 0xf2, 0x7b, 0x7c, 0x7f, 0xc1, 0x54, 0xa6, 0x9a, 0x20, 0x31, 0xd1, 0x57, 0xe4, 0xe4,
-	0x84, 0xa9, 0x99, 0x20, 0x31, 0xf1, 0x5a, 0xd0, 0xd0, 0x0b, 0x78, 0x2f, 0xa0, 0xa1, 0x03, 0xaa,
-	0x49, 0x72, 0xe3, 0x76, 0x5e, 0xe4, 0x78, 0x64, 0x43, 0x8d, 0xc7, 0x74, 0x56, 0x59, 0x8d, 0x6a,
-	0xa1, 0xdd, 0x4b, 0xa2, 0xea, 0xb0, 0xef, 0x2f, 0xf2, 0xb7, 0xc4, 0x79, 0xcd, 0x13, 0xfc, 0x10,
-	0xc9, 0xdd, 0x7a, 0xce, 0xfd, 0x05, 0xcb, 0x99, 0x91, 0x03, 0xcd, 0x9d, 0x4b, 0xf4, 0x05, 0xb4,
-	0x26, 0xd1, 0x66, 0xa1, 0x6c, 0x71, 0xa1, 0xf5, 0x1b, 0x4a, 0x19, 0x2c, 0x4c, 0x53, 0x19, 0x48,
-	0x3f, 0x37, 0x49, 0x52, 0xb5, 0xdd, 0xed, 0x7c, 0xc9, 0x4d, 0xdb, 0xa9, 0xf1, 0xf0, 0xb1, 0xa6,
-	0xde, 0x80, 0x5c, 0x1a, 0xf1, 0xc0, 0x56, 0xe9, 0xc4, 0xf1, 0xb3, 0xa5, 0x3d, 0x33, 0x92, 0xe4,
-	0x7b, 0x78, 0x7a, 0xf8, 0x44, 0x4b, 0x42, 0xfc, 0xd2, 0x4f, 0xcb, 0x2b, 0x73, 0x92, 0x4c, 0xe0,
-	0x59, 0xf5, 0xeb, 0x4e, 0x3c, 0xff, 0xe4, 0x3f, 0xc3, 0x3b, 0x1d, 0x93, 0xe4, 0x47, 0xe8, 0x1e,
-	0xdf, 0x33, 0xd2, 0xf3, 0x2b, 0xfa, 0xc7, 0xab, 0x62, 0x25, 0xf9, 0x09, 0xae, 0x4a, 0x47, 0x42,
-	0x3e, 0xae, 0x3c, 0x7f, 0xaf, 0x92, 0x96, 0xa3, 0xc6, 0xbb, 0x7a, 0x1c, 0xa6, 0x7f, 0x36, 0xf5,
-	0x0f, 0xfc, 0xdb, 0xff, 0x03, 0x00, 0x00, 0xff, 0xff, 0x37, 0x0e, 0xf2, 0xe4, 0xcd, 0x07, 0x00,
-	0x00,
+var fileDescriptor_pdu_0f43b713cd3bf056 = []byte{
+	// 892 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x56, 0xdf, 0x6f, 0xdb, 0x36,
+	0x10, 0x8e, 0x6c, 0x39, 0x91, 0xcf, 0xe9, 0xea, 0x5c, 0xb2, 0x42, 0x13, 0xba, 0xce, 0xe3, 0x86,
+	0xc1, 0x0d, 0x30, 0x61, 0xc8, 0x7e, 0x60, 0xc3, 0x80, 0x02, 0x8d, 0x93, 0x34, 0xc5, 0xd6, 0xce,
+	0x60, 0xbc, 0x62, 0xe8, 0x9b, 0x6a, 0x1f, 0x12, 0x21, 0xb2, 0xa8, 0x90, 0xf4, 0x50, 0x6f, 0x7b,
+	0xda, 0xe3, 0xfe, 0xbd, 0xe5, 0x0f, 0x2a, 0x44, 0x4b, 0xb6, 0x6c, 0xc9, 0x89, 0x9f, 0xcc, 0xfb,
+	0x78, 0x14, 0xef, 0xbe, 0xfb, 0xee, 0x68, 0x68, 0x26, 0xa3, 0x89, 0x9f, 0x48, 0xa1, 0x05, 0xdb,
+	0x87, 0xbd, 0x5f, 0x43, 0xa5, 0xcf, 0xc2, 0x88, 0xd4, 0x54, 0x69, 0x1a, 0x73, 0xba, 0x61, 0xc7,
+	0x65, 0x50, 0xe1, 0xd7, 0xd0, 0x5a, 0x00, 0xca, 0xb5, 0x3a, 0xf5, 0x6e, 0xeb, 0xa8, 0xe5, 0x17,
+	0x9c, 0x8a, 0xfb, 0xec, 0x3f, 0x0b, 0x60, 0x61, 0x23, 0x82, 0xdd, 0x0f, 0xf4, 0x95, 0x6b, 0x75,
+	0xac, 0x6e, 0x93, 0x9b, 0x35, 0x76, 0xa0, 0xc5, 0x49, 0x4d, 0xc6, 0x34, 0x10, 0xd7, 0x14, 0xbb,
+	0x35, 0xb3, 0x55, 0x84, 0xf0, 0x4b, 0x78, 0xf0, 0x52, 0xf5, 0xa3, 0x60, 0x48, 0x57, 0x22, 0x1a,
+	0x91, 0x74, 0xeb, 0x1d, 0xab, 0xeb, 0xf0, 0x65, 0x30, 0xfd, 0xce, 0x4b, 0x75, 0x1a, 0x0f, 0xe5,
+	0x34, 0xd1, 0x34, 0x72, 0x6d, 0xe3, 0x53, 0x84, 0xd8, 0xcf, 0xf0, 0xc9, 0x72, 0x42, 0x6f, 0x48,
+	0xaa, 0x50, 0xc4, 0x8a, 0xd3, 0x0d, 0x3e, 0x29, 0x06, 0x9a, 0x05, 0x58, 0x40, 0xd8, 0x2f, 0xeb,
+	0x0f, 0x2b, 0xf4, 0xc1, 0xc9, 0xcd, 0x8c, 0x12, 0xf4, 0x4b, 0x9e, 0x7c, 0xee, 0xc3, 0x6e, 0x2d,
+	0xd8, 0x2b, 0xed, 0xe3, 0x11, 0xd8, 0x83, 0x69, 0x42, 0xe6, 0xf2, 0x8f, 0x8e, 0x9e, 0x94, 0xbf,
+	0xe0, 0x67, 0xbf, 0xa9, 0x17, 0x37, 0xbe, 0x29, 0xa3, 0xaf, 0x83, 0x31, 0x65, 0xb4, 0x99, 0x75,
+	0x8a, 0xbd, 0x98, 0x84, 0x23, 0x43, 0x93, 0xcd, 0xcd, 0x1a, 0x1f, 0x43, 0xb3, 0x27, 0x29, 0xd0,
+	0x34, 0xf8, 0xe3, 0x85, 0xe1, 0xc6, 0xe6, 0x0b, 0x00, 0x3d, 0x70, 0x8c, 0x11, 0x8a, 0xd8, 0x6d,
+	0x98, 0x2f, 0xcd, 0x6d, 0xf6, 0x14, 0x5a, 0x85, 0x6b, 0x71, 0x17, 0x9c, 0x8b, 0x38, 0x48, 0xd4,
+	0x95, 0xd0, 0xed, 0xad, 0xd4, 0x3a, 0x16, 0xe2, 0x7a, 0x1c, 0xc8, 0xeb, 0xb6, 0xc5, 0xfe, 0xb7,
+	0x60, 0xe7, 0x82, 0xe2, 0xd1, 0x06, 0x7c, 0xe2, 0x57, 0x60, 0x9f, 0x49, 0x31, 0x36, 0x81, 0x57,
+	0xd3, 0x65, 0xf6, 0x91, 0x41, 0x6d, 0x20, 0x4c, 0x2a, 0xd5, 0x5e, 0xb5, 0x81, 0x58, 0x95, 0x90,
+	0x5d, 0x96, 0x10, 0x83, 0xe6, 0x42, 0x1a, 0x0d, 0xc3, 0xaf, 0xed, 0x0f, 0x64, 0xc8, 0x17, 0x30,
+	0x3e, 0x82, 0xed, 0x13, 0x39, 0xe5, 0x93, 0xd8, 0xdd, 0x36, 0xda, 0xc9, 0x2c, 0xf6, 0x1d, 0x38,
+	0x7d, 0x29, 0x12, 0x92, 0x7a, 0x3a, 0xa7, 0xdb, 0x2a, 0xd0, 0x7d, 0x00, 0x8d, 0x37, 0x41, 0x34,
+	0xc9, 0x6b, 0x30, 0x33, 0xd8, 0xbf, 0x73, 0x2e, 0x14, 0x76, 0xe1, 0xe1, 0xef, 0x8a, 0x46, 0xab,
+	0x32, 0x77, 0xf8, 0x2a, 0x8c, 0x0c, 0x76, 0x4f, 0xdf, 0x27, 0x34, 0xd4, 0x34, 0xba, 0x08, 0xff,
+	0x22, 0x93, 0x77, 0x9d, 0x2f, 0x61, 0xf8, 0x14, 0x20, 0x8b, 0x27, 0x24, 0xe5, 0xda, 0x46, 0x6e,
+	0x4d, 0x3f, 0x0f, 0x91, 0x17, 0x36, 0xd9, 0x33, 0x68, 0xa7, 0x31, 0xf4, 0xc4, 0x38, 0x89, 0x48,
+	0x93, 0x29, 0xcc, 0x21, 0xb4, 0x7e, 0x93, 0xe1, 0x65, 0x18, 0x07, 0x11, 0xa7, 0x9b, 0x8c, 0x7f,
+	0xc7, 0xcf, 0xea, 0xc6, 0x8b, 0x9b, 0x0c, 0x4b, 0xe7, 0x15, 0xfb, 0x07, 0x80, 0xd3, 0x90, 0xc2,
+	0x3f, 0x69, 0x93, 0x32, 0xcf, 0xca, 0x57, 0xbb, 0xb3, 0x7c, 0x87, 0xd0, 0xee, 0x45, 0x14, 0xc8,
+	0x22, 0x3f, 0xb3, 0x16, 0x2f, 0xe1, 0x6c, 0xb7, 0x70, 0xbb, 0x62, 0x97, 0xb0, 0x7f, 0x42, 0x4a,
+	0x4b, 0x31, 0xcd, 0x35, 0xb9, 0x49, 0x2f, 0xe3, 0x37, 0xd0, 0x9c, 0xfb, 0xbb, 0xb5, 0xb5, 0xfd,
+	0xba, 0x70, 0x62, 0x6f, 0x01, 0x57, 0x2e, 0xca, 0xda, 0x3e, 0x37, 0xcd, 0x2d, 0x6b, 0xda, 0x3e,
+	0xf7, 0x49, 0x95, 0x72, 0x2a, 0xa5, 0x90, 0xb9, 0x52, 0x8c, 0xc1, 0x4e, 0xaa, 0x92, 0x48, 0x27,
+	0xed, 0x4e, 0x9a, 0x78, 0xa4, 0xf3, 0x91, 0xb2, 0xef, 0x97, 0x43, 0xe0, 0xb9, 0x0f, 0xfb, 0x01,
+	0x0e, 0x38, 0x25, 0x51, 0x38, 0x34, 0x5d, 0xdb, 0x9b, 0x48, 0x25, 0xe4, 0x26, 0x73, 0x6d, 0x50,
+	0x79, 0x4e, 0xe1, 0x41, 0x36, 0x44, 0xd2, 0x13, 0xf6, 0xf9, 0xd6, 0x7c, 0x8c, 0x38, 0xaf, 0x85,
+	0xa6, 0xf7, 0xa1, 0xd2, 0x33, 0x09, 0x9f, 0x6f, 0xf1, 0x39, 0x72, 0xec, 0xc0, 0xf6, 0x2c, 0x1c,
+	0xf6, 0x05, 0xec, 0xf4, 0xc3, 0xf8, 0x32, 0x0d, 0xc0, 0x85, 0x9d, 0x57, 0xa4, 0x54, 0x70, 0x99,
+	0x77, 0x4d, 0x6e, 0xb2, 0x4f, 0x73, 0x27, 0x95, 0xf6, 0xd5, 0xe9, 0xf0, 0x4a, 0xe4, 0x7d, 0x95,
+	0xae, 0xd9, 0xdf, 0xf0, 0xd9, 0x79, 0x18, 0xeb, 0x57, 0x42, 0xe9, 0xb4, 0xe4, 0xb1, 0xee, 0x89,
+	0xf1, 0x58, 0xc4, 0xcf, 0xe3, 0x21, 0x29, 0xbd, 0x51, 0x72, 0xf8, 0x23, 0x3c, 0x48, 0xf5, 0x4b,
+	0x32, 0xab, 0xc5, 0x1d, 0x42, 0x5c, 0x76, 0x64, 0x9f, 0xdf, 0x77, 0xb9, 0x3a, 0xec, 0x42, 0x7d,
+	0x20, 0xc3, 0x74, 0x04, 0x9e, 0x88, 0x58, 0xf7, 0x02, 0x49, 0xed, 0x2d, 0x6c, 0x42, 0xe3, 0x2c,
+	0x88, 0x14, 0xb5, 0x2d, 0x74, 0xc0, 0x1e, 0xc8, 0x09, 0xb5, 0x6b, 0x47, 0xb7, 0xf5, 0x74, 0x40,
+	0xcd, 0x49, 0x46, 0x0f, 0xec, 0x34, 0x71, 0x74, 0xfc, 0x8c, 0x24, 0x2f, 0x5f, 0x29, 0xfc, 0x09,
+	0x1e, 0x2e, 0xbf, 0x33, 0x0a, 0xd1, 0x2f, 0x3d, 0xce, 0x5e, 0x19, 0x53, 0xd8, 0x87, 0x47, 0xd5,
+	0x4f, 0x14, 0x7a, 0xfe, 0xda, 0x87, 0xcf, 0x5b, 0xbf, 0xa7, 0xf0, 0x19, 0xb4, 0x57, 0xa5, 0x89,
+	0x07, 0x7e, 0x45, 0xcb, 0x79, 0x55, 0xa8, 0xc2, 0xe7, 0xb0, 0x57, 0x12, 0x17, 0x7e, 0xec, 0x57,
+	0x09, 0xd5, 0xab, 0x84, 0x15, 0x7e, 0x3f, 0x2b, 0xe1, 0x7c, 0x04, 0xe1, 0x9e, 0xbf, 0x3a, 0xd2,
+	0xbc, 0x12, 0xa4, 0xf0, 0x1d, 0x3c, 0xbe, 0xab, 0x7e, 0xd8, 0xf1, 0xef, 0xd1, 0x96, 0x77, 0x9f,
+	0x87, 0x3a, 0x6e, 0xbc, 0xad, 0x27, 0xa3, 0xc9, 0xbb, 0x6d, 0xf3, 0x1f, 0xea, 0xdb, 0x0f, 0x01,
+	0x00, 0x00, 0xff, 0xff, 0xad, 0x4e, 0x98, 0x29, 0x50, 0x09, 0x00, 0x00,
 }

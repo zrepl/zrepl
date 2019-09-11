@@ -20,7 +20,7 @@ import (
 
 type PassiveSide struct {
 	mode   passiveMode
-	name   string
+	name   endpoint.JobID
 	listen transport.AuthenticatedListenerFactory
 }
 
@@ -32,43 +32,56 @@ type passiveMode interface {
 }
 
 type modeSink struct {
-	rootDataset *zfs.DatasetPath
+	receiverConfig endpoint.ReceiverConfig
 }
 
 func (m *modeSink) Type() Type { return TypeSink }
 
 func (m *modeSink) Handler() rpc.Handler {
-	return endpoint.NewReceiver(m.rootDataset, true)
+	return endpoint.NewReceiver(m.receiverConfig)
 }
 
 func (m *modeSink) RunPeriodic(_ context.Context)  {}
 func (m *modeSink) SnapperReport() *snapper.Report { return nil }
 
-func modeSinkFromConfig(g *config.Global, in *config.SinkJob) (m *modeSink, err error) {
+func modeSinkFromConfig(g *config.Global, in *config.SinkJob, jobID endpoint.JobID) (m *modeSink, err error) {
 	m = &modeSink{}
-	m.rootDataset, err = zfs.NewDatasetPath(in.RootFS)
+
+	rootDataset, err := zfs.NewDatasetPath(in.RootFS)
 	if err != nil {
 		return nil, errors.New("root dataset is not a valid zfs filesystem path")
 	}
-	if m.rootDataset.Length() <= 0 {
-		return nil, errors.New("root dataset must not be empty") // duplicates error check of receiver
+
+	m.receiverConfig = endpoint.ReceiverConfig{
+		JobID:                      jobID,
+		RootWithoutClientComponent: rootDataset,
+		AppendClientIdentity:       true, // !
+		UpdateLastReceivedHold:     true,
 	}
+	if err := m.receiverConfig.Validate(); err != nil {
+		return nil, errors.Wrap(err, "cannot build receiver config")
+	}
+
 	return m, nil
 }
 
 type modeSource struct {
-	fsfilter zfs.DatasetFilter
-	snapper  *snapper.PeriodicOrManual
+	senderConfig *endpoint.SenderConfig
+	snapper      *snapper.PeriodicOrManual
 }
 
-func modeSourceFromConfig(g *config.Global, in *config.SourceJob) (m *modeSource, err error) {
+func modeSourceFromConfig(g *config.Global, in *config.SourceJob, jobID endpoint.JobID) (m *modeSource, err error) {
 	// FIXME exact dedup of modePush
 	m = &modeSource{}
 	fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannnot build filesystem filter")
 	}
-	m.fsfilter = fsf
+	m.senderConfig = &endpoint.SenderConfig{
+		FSF:     fsf,
+		Encrypt: &zfs.NilBool{B: in.Send.Encrypted},
+		JobID:   jobID,
+	}
 
 	if m.snapper, err = snapper.FromConfig(g, fsf, in.Snapshotting); err != nil {
 		return nil, errors.Wrap(err, "cannot build snapper")
@@ -80,7 +93,7 @@ func modeSourceFromConfig(g *config.Global, in *config.SourceJob) (m *modeSource
 func (m *modeSource) Type() Type { return TypeSource }
 
 func (m *modeSource) Handler() rpc.Handler {
-	return endpoint.NewSender(m.fsfilter)
+	return endpoint.NewSender(*m.senderConfig)
 }
 
 func (m *modeSource) RunPeriodic(ctx context.Context) {
@@ -91,9 +104,25 @@ func (m *modeSource) SnapperReport() *snapper.Report {
 	return m.snapper.Report()
 }
 
-func passiveSideFromConfig(g *config.Global, in *config.PassiveJob, mode passiveMode) (s *PassiveSide, err error) {
+func passiveSideFromConfig(g *config.Global, in *config.PassiveJob, configJob interface{}) (s *PassiveSide, err error) {
 
-	s = &PassiveSide{mode: mode, name: in.Name}
+	s = &PassiveSide{}
+
+	s.name, err = endpoint.MakeJobID(in.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid job name")
+	}
+
+	switch v := configJob.(type) {
+	case *config.SinkJob:
+		s.mode, err = modeSinkFromConfig(g, v, s.name) // shadow
+	case *config.SourceJob:
+		s.mode, err = modeSourceFromConfig(g, v, s.name) // shadow
+	}
+	if err != nil {
+		return nil, err // no wrapping necessary
+	}
+
 	if s.listen, err = fromconfig.ListenerFactoryFromConfig(g, in.Serve); err != nil {
 		return nil, errors.Wrap(err, "cannot build listener factory")
 	}
@@ -101,7 +130,7 @@ func passiveSideFromConfig(g *config.Global, in *config.PassiveJob, mode passive
 	return s, nil
 }
 
-func (j *PassiveSide) Name() string { return j.name }
+func (j *PassiveSide) Name() string { return j.name.String() }
 
 type PassiveStatus struct {
 	Snapper *snapper.Report
@@ -120,7 +149,16 @@ func (j *PassiveSide) OwnedDatasetSubtreeRoot() (rfs *zfs.DatasetPath, ok bool) 
 		_ = j.mode.(*modeSource) // make sure we didn't introduce a new job type
 		return nil, false
 	}
-	return sink.rootDataset.Copy(), true
+	return sink.receiverConfig.RootWithoutClientComponent.Copy(), true
+}
+
+func (j *PassiveSide) SenderConfig() *endpoint.SenderConfig {
+	source, ok := j.mode.(*modeSource)
+	if !ok {
+		_ = j.mode.(*modeSink) // make sure we didn't introduce a new job type
+		return nil
+	}
+	return source.senderConfig
 }
 
 func (*PassiveSide) RegisterMetrics(registerer prometheus.Registerer) {}

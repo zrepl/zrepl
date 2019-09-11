@@ -1,9 +1,13 @@
 package job
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/zrepl/zrepl/config"
 )
 
 func TestValidateReceivingSidesDoNotOverlap(t *testing.T) {
@@ -40,4 +44,67 @@ func TestValidateReceivingSidesDoNotOverlap(t *testing.T) {
 			assert.NoError(t, err)
 		}
 	}
+}
+
+func TestJobIDErrorHandling(t *testing.T) {
+	tmpl := `
+jobs:
+- name: %s
+  type: push
+  connect:
+    type: local
+    listener_name: foo
+    client_identity: bar
+  filesystems: {"<": true}
+  snapshotting:
+    type: manual
+  pruning:
+    keep_sender:
+    - type: last_n
+      count: 10
+    keep_receiver:
+    - type: last_n
+      count: 10
+`
+	fill := func(s string) string { return fmt.Sprintf(tmpl, s) }
+
+	type Case struct {
+		jobName string
+		valid   bool
+	}
+	cases := []Case{
+		{"validjobname", true},
+		{"valid with spaces", true},
+		{"invalid\twith\ttabs", false},
+		{"invalid#withdelimiter", false},
+		{"invalid@withdelimiter", false},
+		{"withnewline\\nmiddle", false},
+		{"withnewline\\n", false},
+		{"withslash/", false},
+		{"withslash/inthemiddle", false},
+		{"/", false},
+	}
+
+	for i := range cases {
+		t.Run(cases[i].jobName, func(t *testing.T) {
+			c := cases[i]
+
+			conf, err := config.ParseConfigBytes([]byte(fill(c.jobName)))
+			require.NoError(t, err, "not expecting yaml-config to know about job ids")
+			require.NotNil(t, conf)
+			jobs, err := JobsFromConfig(conf)
+
+			if c.valid {
+				assert.NoError(t, err)
+				require.Len(t, jobs, 1)
+				assert.Equal(t, c.jobName, jobs[0].Name())
+			} else {
+				t.Logf("error: %s", err)
+				assert.Error(t, err)
+				assert.Nil(t, jobs)
+			}
+
+		})
+	}
+
 }

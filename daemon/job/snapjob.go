@@ -2,7 +2,6 @@ package job
 
 import (
 	"context"
-	"fmt"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -20,7 +19,7 @@ import (
 )
 
 type SnapJob struct {
-	name     string
+	name     endpoint.JobID
 	fsfilter zfs.DatasetFilter
 	snapper  *snapper.PeriodicOrManual
 
@@ -31,7 +30,7 @@ type SnapJob struct {
 	pruner *pruner.Pruner
 }
 
-func (j *SnapJob) Name() string { return j.name }
+func (j *SnapJob) Name() string { return j.name.String() }
 
 func (j *SnapJob) Type() Type { return TypeSnap }
 
@@ -46,13 +45,16 @@ func snapJobFromConfig(g *config.Global, in *config.SnapJob) (j *SnapJob, err er
 	if j.snapper, err = snapper.FromConfig(g, fsf, in.Snapshotting); err != nil {
 		return nil, errors.Wrap(err, "cannot build snapper")
 	}
-	j.name = in.Name
+	j.name, err = endpoint.MakeJobID(in.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid job name")
+	}
 	j.promPruneSecs = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace:   "zrepl",
 		Subsystem:   "pruning",
 		Name:        "time",
 		Help:        "seconds spent in pruner",
-		ConstLabels: prometheus.Labels{"zrepl_job": j.name},
+		ConstLabels: prometheus.Labels{"zrepl_job": j.name.String()},
 	}, []string{"prune_side"})
 	j.prunerFactory, err = pruner.NewLocalPrunerFactory(in.Pruning, j.promPruneSecs)
 	if err != nil {
@@ -83,6 +85,8 @@ func (j *SnapJob) Status() *Status {
 func (j *SnapJob) OwnedDatasetSubtreeRoot() (rfs *zfs.DatasetPath, ok bool) {
 	return nil, false
 }
+
+func (j *SnapJob) SenderConfig() *endpoint.SenderConfig { return nil }
 
 func (j *SnapJob) Run(ctx context.Context) {
 	log := GetLogger(ctx)
@@ -133,9 +137,6 @@ type alwaysUpToDateReplicationCursorHistory struct {
 var _ pruner.History = (*alwaysUpToDateReplicationCursorHistory)(nil)
 
 func (h alwaysUpToDateReplicationCursorHistory) ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
-	if req.GetGet() == nil {
-		return nil, fmt.Errorf("unsupported ReplicationCursor request: SnapJob only supports GETting a (faked) cursor")
-	}
 	fsvReq := &pdu.ListFilesystemVersionsReq{
 		Filesystem: req.GetFilesystem(),
 	}
@@ -162,7 +163,12 @@ func (h alwaysUpToDateReplicationCursorHistory) ListFilesystems(ctx context.Cont
 func (j *SnapJob) doPrune(ctx context.Context) {
 	log := GetLogger(ctx)
 	ctx = logging.WithSubsystemLoggers(ctx, log)
-	sender := endpoint.NewSender(j.fsfilter)
+	sender := endpoint.NewSender(endpoint.SenderConfig{
+		JobID: j.name,
+		FSF:   j.fsfilter,
+		// FIXME encryption setting is irrelevant for SnapJob because the endpoint is only used as pruner.Target
+		Encrypt: &zfs.NilBool{B: true},
+	})
 	j.pruner = j.prunerFactory.BuildLocalPruner(ctx, sender, alwaysUpToDateReplicationCursorHistory{sender})
 	log.Info("start pruning")
 	j.pruner.Prune()

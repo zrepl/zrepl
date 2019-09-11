@@ -1,7 +1,10 @@
 package client
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
@@ -15,7 +18,7 @@ import (
 var TestCmd = &cli.Subcommand{
 	Use: "test",
 	SetupSubcommands: func() []*cli.Subcommand {
-		return []*cli.Subcommand{testFilter, testPlaceholder}
+		return []*cli.Subcommand{testFilter, testPlaceholder, testDecodeResumeToken}
 	},
 }
 
@@ -173,6 +176,35 @@ func runTestPlaceholder(subcommand *cli.Subcommand, args []string) error {
 			is = "no"
 		}
 		fmt.Printf("%s\t%s\t%s\n", is, dp.ToString(), ph.RawLocalPropertyValue)
+	}
+	return nil
+}
+
+var testDecodeResumeTokenArgs struct {
+	token string
+}
+
+var testDecodeResumeToken = &cli.Subcommand{
+	Use:   "decoderesumetoken --token TOKEN",
+	Short: "decode resume token",
+	SetupFlags: func(f *pflag.FlagSet) {
+		f.StringVar(&testDecodeResumeTokenArgs.token, "token", "", "the resume token obtained from the receive_resume_token property")
+	},
+	Run: runTestDecodeResumeTokenCmd,
+}
+
+func runTestDecodeResumeTokenCmd(subcommand *cli.Subcommand, args []string) error {
+	if testDecodeResumeTokenArgs.token == "" {
+		return fmt.Errorf("token argument must be specified")
+	}
+	token, err := zfs.ParseResumeToken(context.Background(), testDecodeResumeTokenArgs.token)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", " ")
+	if err := enc.Encode(&token); err != nil {
+		panic(err)
 	}
 	return nil
 }

@@ -21,6 +21,8 @@
 
 .. |serve-transport| replace:: :ref:`serve specification<transport>`
 .. |connect-transport| replace:: :ref:`connect specification<transport>`
+.. |send-options| replace:: :ref:`send options<job-send-options>`, e.g. for encrypted sends
+.. |recv-options| replace:: :ref:`recv options<job-recv-options>`
 .. |snapshotting-spec| replace:: :ref:`snapshotting specification <job-snapshotting-spec>`
 .. |pruning-spec| replace:: :ref:`pruning specification <prune>`
 .. |filter-spec| replace:: :ref:`filter specification<pattern-filter>`
