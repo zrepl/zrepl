@@ -213,10 +213,17 @@ type readFrameResult struct {
 	err error
 }
 
-func readFrames(reads chan<- readFrameResult, c *heartbeatconn.Conn) {
-	for {
+// readFrames reads from c into reads
+// if a read from c encounters an error, noMoreReads is closed before sending the result into reads
+func readFrames(reads chan<- readFrameResult, noMoreReads chan<- struct{}, c *heartbeatconn.Conn) {
+	// noMoreReads is already closed, don't re-close it
+	defer close(reads)
+	for { // only exits after a read error, make sure noMoreReads is closed
 		var r readFrameResult
 		r.f, r.err = c.ReadFrame()
+		if r.err != nil && noMoreReads != nil {
+			close(noMoreReads)
+		}
 		reads <- r
 		if r.err != nil {
 			return

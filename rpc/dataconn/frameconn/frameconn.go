@@ -321,7 +321,7 @@ func (c *Conn) Shutdown(deadline time.Time) error {
 
 	c.shutdown.Begin()
 	// new calls to c.ReadFrame and c.WriteFrame will now return ErrShutdown
-	// Aquiring writeMtx and readMtx ensures that the last calls exit successfully
+	// Aquiring writeMtx and readMtx afterwards ensures that already-running calls exit successfully
 
 	// disable renewing timeouts now, enforce the requested deadline instead
 	// we need to do this before aquiring locks to enforce the timeout on slow

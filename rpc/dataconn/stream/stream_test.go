@@ -57,7 +57,7 @@ func TestStreamer(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			readFrames(ch, b)
+			readFrames(ch, nil, b)
 		}()
 		err := readStream(ch, b, &buf, stype)
 		log.WithField("errType", fmt.Sprintf("%T %v", err, err)).Debug("ReadStream returned")
@@ -113,7 +113,7 @@ func TestMultiFrameStreamErrTraileror(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			readFrames(ch, b)
+			readFrames(ch, nil, b)
 		}()
 		err := readStream(ch, b, &buf, stype)
 		t.Logf("%s", err)
