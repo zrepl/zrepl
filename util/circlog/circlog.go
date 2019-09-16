@@ -27,6 +27,14 @@ type CircularLog struct {
 	mtx sync.Mutex
 }
 
+func MustNewCircularLog(max int) *CircularLog {
+	log, err := NewCircularLog(max)
+	if err != nil {
+		panic(err)
+	}
+	return log
+}
+
 func NewCircularLog(max int) (*CircularLog, error) {
 	if max <= 0 {
 		return nil, fmt.Errorf("max must be positive")
