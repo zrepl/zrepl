@@ -4,7 +4,7 @@ Pruning Policies
 ================
 
 In zrepl, *pruning* means *destroying snapshots*.
-Pruning must happen on both sides of a replication or the systems would inevitable run out of disk space at some point.
+Pruning must happen on both sides of a replication or the systems would inevitably run out of disk space at some point.
 
 Typically, the requirements to temporal resolution and maximum retention time differ per side.
 For example, when using zrepl to back up a busy database server, you will want high temporal resolution (snapshots every 10 min) for the last 24h in case of administrative disasters, but cannot afford to store them for much longer because you might have high turnover volume in the database.
