@@ -27,6 +27,7 @@ type PassiveSide struct {
 type passiveMode interface {
 	Handler() rpc.Handler
 	RunPeriodic(ctx context.Context)
+	SnapperReport() *snapper.Report // may be nil
 	Type() Type
 }
 
@@ -40,7 +41,8 @@ func (m *modeSink) Handler() rpc.Handler {
 	return endpoint.NewReceiver(m.rootDataset, true)
 }
 
-func (m *modeSink) RunPeriodic(_ context.Context) {}
+func (m *modeSink) RunPeriodic(_ context.Context)  {}
+func (m *modeSink) SnapperReport() *snapper.Report { return nil }
 
 func modeSinkFromConfig(g *config.Global, in *config.SinkJob) (m *modeSink, err error) {
 	m = &modeSink{}
@@ -85,6 +87,10 @@ func (m *modeSource) RunPeriodic(ctx context.Context) {
 	m.snapper.Run(ctx, nil)
 }
 
+func (m *modeSource) SnapperReport() *snapper.Report {
+	return m.snapper.Report()
+}
+
 func passiveSideFromConfig(g *config.Global, in *config.PassiveJob, mode passiveMode) (s *PassiveSide, err error) {
 
 	s = &PassiveSide{mode: mode, name: in.Name}
@@ -97,10 +103,15 @@ func passiveSideFromConfig(g *config.Global, in *config.PassiveJob, mode passive
 
 func (j *PassiveSide) Name() string { return j.name }
 
-type PassiveStatus struct{}
+type PassiveStatus struct {
+	Snapper *snapper.Report
+}
 
 func (s *PassiveSide) Status() *Status {
-	return &Status{Type: s.mode.Type()} // FIXME PassiveStatus
+	st := &PassiveStatus{
+		Snapper: s.mode.SnapperReport(),
+	}
+	return &Status{Type: s.mode.Type(), JobSpecific: st}
 }
 
 func (j *PassiveSide) OwnedDatasetSubtreeRoot() (rfs *zfs.DatasetPath, ok bool) {

@@ -77,8 +77,8 @@ type Step struct {
 	Begin, End time.Time
 	// Report may be nil
 	// FIXME cannot serialize this for client status, but contains interesting info (like what error happened)
-	Report     HookReport
-	state      map[interface{}]interface{}
+	Report HookReport
+	state  map[interface{}]interface{}
 }
 
 func (s Step) String() (out string) {

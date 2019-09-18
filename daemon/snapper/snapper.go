@@ -26,12 +26,14 @@ const (
 	SnapError
 )
 
+// All fields protected by Snapper.mtx
 type snapProgress struct {
 	state SnapState
 
 	// SnapStarted, SnapDone, SnapError
-	name    string
-	startAt time.Time
+	name     string
+	startAt  time.Time
+	hookPlan *hooks.Plan
 
 	// SnapDone
 	doneAt time.Time
@@ -61,7 +63,7 @@ type Snapper struct {
 	lastInvocation time.Time
 
 	// valid for state Snapshotting
-	plan map[*zfs.DatasetPath]snapProgress
+	plan map[*zfs.DatasetPath]*snapProgress
 
 	// valid for state SyncUp and Waiting
 	sleepUntil time.Time
@@ -234,19 +236,20 @@ func plan(a args, u updater) state {
 		return onErr(err, u)
 	}
 
-	plan := make(map[*zfs.DatasetPath]snapProgress, len(fss))
+	plan := make(map[*zfs.DatasetPath]*snapProgress, len(fss))
 	for _, fs := range fss {
-		plan[fs] = snapProgress{state: SnapPending}
+		plan[fs] = &snapProgress{state: SnapPending}
 	}
 	return u(func(s *Snapper) {
 		s.state = Snapshotting
 		s.plan = plan
+		s.err = nil
 	}).sf()
 }
 
 func snapshot(a args, u updater) state {
 
-	var plan map[*zfs.DatasetPath]snapProgress
+	var plan map[*zfs.DatasetPath]*snapProgress
 	u(func(snapper *Snapper) {
 		plan = snapper.plan
 	})
@@ -266,14 +269,6 @@ func snapshot(a args, u updater) state {
 			WithField("fs", fs.ToString()).
 			WithField("snap", snapname)
 
-		u(func(snapper *Snapper) {
-			progress.name = snapname
-			progress.startAt = time.Now()
-			progress.state = SnapStarted
-		})
-
-		var doneAt time.Time
-
 		hookEnvExtra := hooks.Env{
 			hooks.EnvFS:       fs.ToString(),
 			hooks.EnvSnapshot: snapname,
@@ -285,7 +280,6 @@ func snapshot(a args, u updater) state {
 			if err != nil {
 				l.WithError(err).Error("cannot create snapshot")
 			}
-			doneAt = time.Now()
 			return
 		})
 
@@ -312,6 +306,12 @@ func snapshot(a args, u updater) state {
 				goto updateFSState
 			}
 		}
+		u(func(snapper *Snapper) {
+			progress.name = snapname
+			progress.startAt = time.Now()
+			progress.hookPlan = plan
+			progress.state = SnapStarted
+		})
 		{
 			l := hooks.GetLogger(a.ctx).WithField("fs", fs.ToString()).WithField("snap", snapname)
 			l.WithField("report", plan.Report().String()).Debug("begin run job plan")
@@ -328,7 +328,7 @@ func snapshot(a args, u updater) state {
 	updateFSState:
 		anyFsHadErr = anyFsHadErr || fsHadErr
 		u(func(snapper *Snapper) {
-			progress.doneAt = doneAt
+			progress.doneAt = time.Now()
 			progress.state = SnapDone
 			if fsHadErr {
 				progress.state = SnapError
@@ -364,6 +364,7 @@ func snapshot(a args, u updater) state {
 			snapper.err = errors.New("one or more snapshots could not be created, check logs for details")
 		} else {
 			snapper.state = Waiting
+			snapper.err = nil
 		}
 	}).sf()
 }

@@ -83,6 +83,7 @@ type activeMode interface {
 	SenderReceiver() (logic.Sender, logic.Receiver)
 	Type() Type
 	RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{})
+	SnapperReport() *snapper.Report
 	ResetConnectBackoff()
 }
 
@@ -122,6 +123,10 @@ func (m *modePush) Type() Type { return TypePush }
 
 func (m *modePush) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}) {
 	m.snapper.Run(ctx, wakeUpCommon)
+}
+
+func (m *modePush) SnapperReport() *snapper.Report {
+	return m.snapper.Report()
 }
 
 func (m *modePush) ResetConnectBackoff() {
@@ -206,6 +211,10 @@ func (m *modePull) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}
 	}
 }
 
+func (m *modePull) SnapperReport() *snapper.Report {
+	return nil
+}
+
 func (m *modePull) ResetConnectBackoff() {
 	m.setupMtx.Lock()
 	defer m.setupMtx.Unlock()
@@ -279,6 +288,7 @@ func (j *ActiveSide) Name() string { return j.name }
 type ActiveSideStatus struct {
 	Replication                    *report.Report
 	PruningSender, PruningReceiver *pruner.Report
+	Snapshotting                   *snapper.Report
 }
 
 func (j *ActiveSide) Status() *Status {
@@ -295,6 +305,7 @@ func (j *ActiveSide) Status() *Status {
 	if tasks.prunerReceiver != nil {
 		s.PruningReceiver = tasks.prunerReceiver.Report()
 	}
+	s.Snapshotting = j.mode.SnapperReport()
 	return &Status{Type: t, JobSpecific: s}
 }
 

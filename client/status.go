@@ -20,6 +20,7 @@ import (
 	"github.com/zrepl/zrepl/daemon"
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/daemon/pruner"
+	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/replication/report"
 )
 
@@ -335,6 +336,15 @@ func (t *tui) draw() {
 				t.addIndent(1)
 				t.renderPrunerReport(activeStatus.PruningReceiver)
 				t.addIndent(-1)
+
+				if v.Type == job.TypePush {
+					t.printf("Snapshotting:")
+					t.newline()
+					t.addIndent(1)
+					t.renderSnapperReport(activeStatus.Snapshotting)
+					t.addIndent(-1)
+				}
+
 			} else if v.Type == job.TypeSnap {
 				snapStatus, ok := v.JobSpecific.(*job.SnapJobStatus)
 				if !ok || snapStatus == nil {
@@ -347,6 +357,19 @@ func (t *tui) draw() {
 				t.addIndent(1)
 				t.renderPrunerReport(snapStatus.Pruning)
 				t.addIndent(-1)
+				t.printf("Snapshotting:")
+				t.newline()
+				t.addIndent(1)
+				t.renderSnapperReport(snapStatus.Snapshotting)
+				t.addIndent(-1)
+			} else if v.Type == job.TypeSource {
+
+				st := v.JobSpecific.(*job.PassiveStatus)
+				t.printf("Snapshotting:\n")
+				t.addIndent(1)
+				t.renderSnapperReport(st.Snapper)
+				t.addIndent(-1)
+
 			} else {
 				t.printf("No status representation for job type '%s', dumping as YAML", v.Type)
 				t.newline()
@@ -560,6 +583,86 @@ func (t *tui) renderPrunerReport(r *pruner.Report) {
 
 }
 
+func (t *tui) renderSnapperReport(r *snapper.Report) {
+	if r == nil {
+		t.printf("<snapshot type does not have a report>\n")
+		return
+	}
+
+	t.printf("Status: %s", r.State)
+	t.newline()
+
+	if r.Error != "" {
+		t.printf("Error: %s\n", r.Error)
+	}
+	if !r.SleepUntil.IsZero() {
+		t.printf("Sleep until: %s\n", r.SleepUntil)
+	}
+
+	sort.Slice(r.Progress, func(i, j int) bool {
+		return strings.Compare(r.Progress[i].Path, r.Progress[j].Path) == -1
+	})
+
+	t.addIndent(1)
+	defer t.addIndent(-1)
+	dur := func(d time.Duration) string {
+		return d.Round(100 * time.Millisecond).String()
+	}
+
+	type row struct {
+		path, state, duration, remainder, hookReport string
+	}
+	var widths struct {
+		path, state, duration int
+	}
+	rows := make([]*row, len(r.Progress))
+	for i, fs := range r.Progress {
+		r := &row{
+			path:  fs.Path,
+			state: fs.State.String(),
+		}
+		if fs.HooksHadError {
+			r.hookReport = fs.Hooks // FIXME render here, not in daemon
+		}
+		switch fs.State {
+		case snapper.SnapPending:
+			r.duration = "..."
+			r.remainder = ""
+		case snapper.SnapStarted:
+			r.duration = dur(time.Since(fs.StartAt))
+			r.remainder = fmt.Sprintf("snap name: %q", fs.SnapName)
+		case snapper.SnapDone:
+			fallthrough
+		case snapper.SnapError:
+			r.duration = dur(fs.DoneAt.Sub(fs.StartAt))
+			r.remainder = fmt.Sprintf("snap name: %q", fs.SnapName)
+		}
+		rows[i] = r
+		if len(r.path) > widths.path {
+			widths.path = len(r.path)
+		}
+		if len(r.state) > widths.state {
+			widths.state = len(r.state)
+		}
+		if len(r.duration) > widths.duration {
+			widths.duration = len(r.duration)
+		}
+	}
+
+	for _, r := range rows {
+		path := rightPad(r.path, widths.path, " ")
+		state := rightPad(r.state, widths.state, " ")
+		duration := rightPad(r.duration, widths.duration, " ")
+		t.printf("%s %s %s", path, state, duration)
+		t.printfDrawIndentedAndWrappedIfMultiline(" %s", r.remainder)
+		if r.hookReport != "" {
+			t.printfDrawIndentedAndWrappedIfMultiline("%s", r.hookReport)
+		}
+		t.newline()
+	}
+
+}
+
 func times(str string, n int) (out string) {
 	for i := 0; i < n; i++ {
 		out += str
@@ -571,7 +674,7 @@ func rightPad(str string, length int, pad string) string {
 	if len(str) > length {
 		return str[:length]
 	}
-	return str + times(pad, length-len(str))
+	return str + strings.Repeat(pad, length-len(str))
 }
 
 var arrowPositions = `>\|/`

@@ -66,7 +66,8 @@ func (j *SnapJob) RegisterMetrics(registerer prometheus.Registerer) {
 }
 
 type SnapJobStatus struct {
-	Pruning *pruner.Report
+	Pruning      *pruner.Report
+	Snapshotting *snapper.Report // may be nil
 }
 
 func (j *SnapJob) Status() *Status {
@@ -75,6 +76,7 @@ func (j *SnapJob) Status() *Status {
 	if j.pruner != nil {
 		s.Pruning = j.pruner.Report()
 	}
+	s.Snapshotting = j.snapper.Report()
 	return &Status{Type: t, JobSpecific: s}
 }
 

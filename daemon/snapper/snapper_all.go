@@ -24,6 +24,14 @@ func (s *PeriodicOrManual) Run(ctx context.Context, wakeUpCommon chan<- struct{}
 	}
 }
 
+// Returns nil if manual
+func (s *PeriodicOrManual) Report() *Report {
+	if s.s != nil {
+		return s.s.Report()
+	}
+	return nil
+}
+
 func FromConfig(g *config.Global, fsf *filters.DatasetMapFilter, in config.SnapshottingEnum) (*PeriodicOrManual, error) {
 	switch v := in.Ret.(type) {
 	case *config.SnapshottingPeriodic:
