@@ -11,7 +11,14 @@ import (
 	"sync"
 	"time"
 
+	// tcell is the termbox-compatbile library for abstracting away escape sequences, etc.
+	// as of tcell#252, the number of default distributed terminals is relatively limited
+	// additional terminal definitions can be included via side-effect import
+	// See https://github.com/gdamore/tcell/blob/master/terminfo/base/base.go
+	// See https://github.com/gdamore/tcell/issues/252#issuecomment-533836078
 	"github.com/gdamore/tcell/termbox"
+	_ "github.com/gdamore/tcell/terminfo/s/screen" // tmux on FreeBSD 11 & 12 without ncurses
+
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"github.com/zrepl/yaml-config"
