@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -295,11 +296,22 @@ func (c *Conn) Shutdown(deadline time.Time) error {
 
 	closeWire := func(step string) error {
 		// TODO SetLinger(0) or similiar (we want RST frames here, not FINS)
-		if closeErr := c.nc.Close(); closeErr != nil {
-			prom.ShutdownCloseErrors.WithLabelValues("close").Inc()
-			return closeErr
+		closeErr := c.nc.Close()
+		if closeErr == nil {
+			return nil
 		}
-		return nil
+
+		// TODO go1.13: https://github.com/zrepl/zrepl/issues/190
+		//              https://github.com/golang/go/issues/8319
+		// (use errors.Is(closeErr, syscall.ECONNRESET))
+		if pe, ok := closeErr.(*net.OpError); ok && pe.Err == syscall.ECONNRESET {
+			// connection reset by peer on FreeBSD, see https://github.com/zrepl/zrepl/issues/190
+			// We know from kernel code reading that the FD behind c.nc is closed, so let's not consider this an error
+			return nil
+		}
+
+		prom.ShutdownCloseErrors.WithLabelValues("close").Inc()
+		return closeErr
 	}
 
 	hardclose := func(err error, step string) error {
