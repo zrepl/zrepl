@@ -25,16 +25,26 @@ We use the following annotations for classifying changes:
 * |bugfix| Change that fixes a bug, no regressions or incompatibilities expected.
 * |docs| Change to the documentation.
 
-0.1.2 (TBD)
------------
+0.2
+---
 
-* Linux ARM64 Docker build support & binary builds
-* Go modules for dependency management both inside and outside of GOPATH
-  (``lazy.sh`` and ``Makefile`` force ``GO111MODULE=on``)
-* |feature| Use ``zfs destroy pool/fs@snap1,snap2,...`` CLI feature if available
 * |feature| :ref:`Pre- and Post-Snapshot Hooks <job-snapshotting-hooks>`
   with built-in support for MySQL and Postgres checkpointing
-  as well as custom scripts
+  as well as custom scripts (thanks, `@overhacked <https://github.com/overhacked>`_!)
+* |feature| Use ``zfs destroy pool/fs@snap1,snap2,...`` CLI feature if available
+* |feature| Linux ARM64 Docker build support & binary builds
+* |feature| ``zrepl status`` now displays snapshotting reports
+* |feature| ``zrepl status --job <JOBNAME>`` filter flag
+* |bugfix| i386 build
+* |bugfix| early validation of host:port tuples in config
+* |bugfix| ``zrepl status`` now supports ``TERM=screen`` (tmux on FreeBSD / FreeNAS)
+* |bugfix| ignore *connection reset by peer* errors when shutting down connections
+* |bugfix| correct error messages when receive-side pool or ``root_fs`` dataset is not imported
+* |bugfix| fail fast for misconfigured local transport
+* |bugfix| race condition in replication report generation would crash the daemon when running ``zrepl status``
+* |bugfix| rpc goroutine leak in ``push`` mode if zfs recv fails on the ``sink`` side
+* [MAINTAINER NOTICE] Go modules for dependency management both inside and outside of GOPATH
+  (``lazy.sh`` and ``Makefile`` force ``GO111MODULE=on``)
 
 0.1.1
 -----
