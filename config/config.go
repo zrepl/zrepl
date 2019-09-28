@@ -203,13 +203,13 @@ type ConnectCommon struct {
 
 type TCPConnect struct {
 	ConnectCommon `yaml:",inline"`
-	Address       string        `yaml:"address"`
+	Address       string        `yaml:"address,hostport"`
 	DialTimeout   time.Duration `yaml:"dial_timeout,zeropositive,default=10s"`
 }
 
 type TLSConnect struct {
 	ConnectCommon `yaml:",inline"`
-	Address       string        `yaml:"address"`
+	Address       string        `yaml:"address,hostport"`
 	Ca            string        `yaml:"ca"`
 	Cert          string        `yaml:"cert"`
 	Key           string        `yaml:"key"`
@@ -245,13 +245,13 @@ type ServeCommon struct {
 
 type TCPServe struct {
 	ServeCommon `yaml:",inline"`
-	Listen      string            `yaml:"listen"`
+	Listen      string            `yaml:"listen,hostport"`
 	Clients     map[string]string `yaml:"clients"`
 }
 
 type TLSServe struct {
 	ServeCommon      `yaml:",inline"`
-	Listen           string        `yaml:"listen"`
+	Listen           string        `yaml:"listen,hostport"`
 	Ca               string        `yaml:"ca"`
 	Cert             string        `yaml:"cert"`
 	Key              string        `yaml:"key"`
@@ -313,7 +313,7 @@ type SyslogLoggingOutlet struct {
 
 type TCPLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
-	Address             string               `yaml:"address"`
+	Address             string               `yaml:"address,hostport"`
 	Net                 string               `yaml:"net,default=tcp"`
 	RetryInterval       time.Duration        `yaml:"retry_interval,positive,default=10s"`
 	TLS                 *TCPLoggingOutletTLS `yaml:"tls,optional"`
@@ -331,7 +331,7 @@ type MonitoringEnum struct {
 
 type PrometheusMonitoring struct {
 	Type   string `yaml:"type"`
-	Listen string `yaml:"listen"`
+	Listen string `yaml:"listen,hostport"`
 }
 
 type SyslogFacility syslog.Priority

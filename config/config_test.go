@@ -1,13 +1,17 @@
 package config
 
 import (
+	"bufio"
 	"bytes"
+	"fmt"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 	"text/template"
 
 	"github.com/kr/pretty"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -64,4 +68,21 @@ func testValidConfig(t *testing.T, input string) *Config {
 func testConfig(t *testing.T, input string) (*Config, error) {
 	t.Helper()
 	return ParseConfigBytes([]byte(input))
+}
+
+func trimSpaceEachLineAndPad(s, pad string) string {
+	var out strings.Builder
+	scan := bufio.NewScanner(strings.NewReader(s))
+	for scan.Scan() {
+		fmt.Fprintf(&out, "%s%s\n", pad, bytes.TrimSpace(scan.Bytes()))
+	}
+	return out.String()
+}
+
+func TestTrimSpaceEachLineAndPad(t *testing.T) {
+	foo := `
+	foo
+	bar baz 
+	`
+	assert.Equal(t, "  \n  foo\n  bar baz\n  \n", trimSpaceEachLineAndPad(foo, "  "))
 }

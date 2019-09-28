@@ -54,7 +54,7 @@ require (
 	github.com/yudai/gojsondiff v0.0.0-20170107030110-7b1b7adf999d
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // indirect
 	github.com/yudai/pp v2.0.1+incompatible // indirect
-	github.com/zrepl/yaml-config v0.0.0-20190903123849-809f4603401a
+	github.com/zrepl/yaml-config v0.0.0-20190928121844-af7ca3f8448f
 	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c // indirect
 	golang.org/x/net v0.0.0-20190313220215-9f648a60d977
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
