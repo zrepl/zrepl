@@ -141,7 +141,7 @@ func (c *Client) ReqSend(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, z
 
 func (c *Client) ReqRecv(ctx context.Context, req *pdu.ReceiveReq, streamCopier zfs.StreamCopier) (*pdu.ReceiveRes, error) {
 
-	defer c.log.Info("ReqRecv returns")
+	defer c.log.Debug("ReqRecv returns")
 	conn, err := c.getWire(ctx)
 	if err != nil {
 		return nil, err
