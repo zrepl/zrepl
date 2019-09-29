@@ -37,25 +37,10 @@ type DestroyRootOp struct {
 }
 
 func (o *DestroyRootOp) Run(ctx context.Context, e Execer) error {
-	const magicName = "zreplplayground"
-	// sanity check: root must contain
-	if !strings.Contains(o.Path, magicName) {
-		panic("sanity check failed")
-	}
 	// early-exit if it doesn't exist
 	if err := e.RunExpectSuccessNoOutput(ctx, "zfs", "get", "-H", "name", o.Path); err != nil {
 		getLog(ctx).WithField("root_ds", o.Path).Info("assume root ds doesn't exist")
 		return nil
-	}
-	op, err := exec.CommandContext(ctx, "zfs", "destroy", "-nvrp", o.Path).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("cannot clean root dataset %q: %s\n%s", o.Path, err, op)
-	}
-	sc := bufio.NewScanner(bytes.NewReader(op))
-	for sc.Scan() {
-		if !strings.Contains(sc.Text(), magicName) {
-			panic("sanity check failed")
-		}
 	}
 	return e.RunExpectSuccessNoOutput(ctx, "zfs", "destroy", "-r", o.Path)
 }
@@ -141,7 +126,7 @@ func Run(ctx context.Context, rk RunKind, rootds string, stmtsStr string) {
 	if err != nil {
 		panic(err)
 	}
-	execer := newEx(getLog(ctx))
+	execer := NewEx(getLog(ctx))
 	for _, s := range stmt {
 		err := s.Run(ctx, execer)
 		if err == nil {

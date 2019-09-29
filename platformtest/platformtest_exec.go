@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+
+	"github.com/zrepl/zrepl/util/circlog"
 )
 
 type ex struct {
 	log Logger
 }
 
-func newEx(log Logger) *ex {
+func NewEx(log Logger) Execer {
 	return &ex{log}
 }
 
@@ -27,14 +29,15 @@ func (e *ex) runNoOutput(expectSuccess bool, ctx context.Context, cmd string, ar
 	log.Debug("begin executing")
 	defer log.Debug("done executing")
 	ecmd := exec.CommandContext(ctx, cmd, args...)
-	// use circlog and capture stdout
+	buf, _ := circlog.NewCircularLog(32 << 10)
+	ecmd.Stdout, ecmd.Stderr = buf, buf
 	err := ecmd.Run()
-	ee, ok := err.(*exec.ExitError)
-	if err != nil && !ok {
+	log.Printf("command output: %s", buf.String())
+	if _, ok := err.(*exec.ExitError); err != nil && !ok {
 		panic(err)
 	}
 	if expectSuccess && err != nil {
-		return fmt.Errorf("expecting no error, got error: %s\n%s", err, ee.Stderr)
+		return fmt.Errorf("expecting no error, got error: %s\n%s", err, buf.String())
 	} else if !expectSuccess && err == nil {
 		return fmt.Errorf("expecting error, got no error")
 	}

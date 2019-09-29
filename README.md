@@ -37,6 +37,7 @@ Check out the *Coding Workflow* section below for details.
 * Ship other material provided in `./dist`, e.g. in `/usr/share/zrepl/`.
 * Use `make release ZREPL_VERSION='mydistro-1.2.3_1'`
     * Your distro's name and any versioning supplemental to zrepl's (e.g. package revision) should be in this string
+* Use `make platformtest` **on a test system** to validate that zrepl's abstractions on top of ZFS work with the system ZFS.
 * Make sure you are informed about new zrepl versions, e.g. by subscribing to GitHub's release RSS feed.
 
 ## Developer Documentation

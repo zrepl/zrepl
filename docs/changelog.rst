@@ -45,6 +45,10 @@ We use the following annotations for classifying changes:
 * |bugfix| rpc goroutine leak in ``push`` mode if zfs recv fails on the ``sink`` side
 * [MAINTAINER NOTICE] Go modules for dependency management both inside and outside of GOPATH
   (``lazy.sh`` and ``Makefile`` force ``GO111MODULE=on``)
+* [MAINTAINER NOTICE] ``make platformtest`` target to check zrepl's ZFS abstractions (screen scraping, etc.).
+  These tests only work on a system with ZFS installed, and must be run as root because they create a file-backed pool for each test case.
+  The pool name ``zreplplatformtest`` is reserved for this use case.
+  Only run ``make platformtest`` on test systems, e.g. a FreeBSD VM image.
 
 0.1.1
 -----

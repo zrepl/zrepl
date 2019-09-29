@@ -1,4 +1,4 @@
-.PHONY: generate build test vet cover release docs docs-clean clean format lint
+.PHONY: generate build test vet cover release docs docs-clean clean format lint platformtest
 .DEFAULT_GOAL := build
 
 ARTIFACTDIR := artifacts
@@ -53,6 +53,13 @@ vet:
 	GOOS=linux		GOARCH=amd64 	$(GO) vet $(GO_BUILDFLAGS) ./...
 	GOOS=linux		GOARCH=arm64 	$(GO) vet $(GO_BUILDFLAGS) ./...
 	GOOS=darwin		GOARCH=amd64 	$(GO) vet $(GO_BUILDFLAGS) ./...
+
+ZREPL_PLATFORMTEST_POOLNAME := zreplplatformtest
+ZREPL_PLATFORMTEST_IMAGEPATH := /tmp/zreplplatformtest.pool.img
+$(ARTIFACTDIR)/zrepl_platformtest:
+	$(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl_platformtest" ./platformtest/harness
+platformtest: $(ARTIFACTDIR)/zrepl_platformtest
+	"$(ARTIFACTDIR)/zrepl_platformtest" -poolname "$(ZREPL_PLATFORMTEST_POOLNAME)" -imagepath "$(ZREPL_PLATFORMTEST_IMAGEPATH)"
 
 $(ARTIFACTDIR):
 	mkdir -p "$@"
