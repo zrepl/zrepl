@@ -1,3 +1,5 @@
+.. include:: global.rst.inc
+
 .. |break_config| replace:: **[CONFIG]**
 .. |break| replace:: **[BREAK]**
 .. |bugfix| replace:: [BUG]
@@ -49,6 +51,13 @@ We use the following annotations for classifying changes:
   These tests only work on a system with ZFS installed, and must be run as root because they create a file-backed pool for each test case.
   The pool name ``zreplplatformtest`` is reserved for this use case.
   Only run ``make platformtest`` on test systems, e.g. a FreeBSD VM image.
+
+.. NOTE::
+   |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
+   |  You can support maintenance and feature development through one of the following services:
+   |  |Donate via Patreon| |Donate via Liberapay| |Donate via PayPal|
+   |  For commerical support, please `contact Christian directly <https://cschwarz.com>`_.
+
 
 0.1.1
 -----

@@ -6,6 +6,7 @@
 
 zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
 You can support maintenance and feature development through one of the services listed above.
+For commerical support, please `contact Christian directly <https://cschwarz.com>`_.
 
 **Thanks for your support!**
 
