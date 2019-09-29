@@ -345,5 +345,6 @@ The ``client_identity`` is used by the sink as documented above.
         type: local
         listener_name: localsink
         client_identity: local_backup
+        dial_timeout: 2s # optional, 0 for no timeout
       ...
 

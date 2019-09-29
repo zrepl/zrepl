@@ -231,8 +231,9 @@ type SSHStdinserverConnect struct {
 
 type LocalConnect struct {
 	ConnectCommon  `yaml:",inline"`
-	ListenerName   string `yaml:"listener_name"`
-	ClientIdentity string `yaml:"client_identity"`
+	ListenerName   string        `yaml:"listener_name"`
+	ClientIdentity string        `yaml:"client_identity"`
+	DialTimeout    time.Duration `yaml:"dial_timeout,zeropositive,default=2s"`
 }
 
 type ServeEnum struct {
