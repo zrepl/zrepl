@@ -52,7 +52,7 @@ Main Features
 * **Filesystem replication**
 
   * [x] Pull & Push mode
-  * [x] Multiple transport :ref:`transports <transport>`: TCP, TCP + TLS client auth, SSH
+  * [x] Multiple :ref:`transport modes <transport>`: TCP, TCP + TLS client auth, SSH
 
   * Advanced replication features
 
