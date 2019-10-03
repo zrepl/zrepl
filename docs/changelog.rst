@@ -56,7 +56,8 @@ We use the following annotations for classifying changes:
    |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
    |  You can support maintenance and feature development through one of the following services:
    |  |Donate via Patreon| |Donate via Liberapay| |Donate via PayPal|
-   |  For commerical support, please `contact Christian directly <https://cschwarz.com>`_.
+   |  Note that PayPal processing fees are relatively high for small donations.
+   |  For SEPA wire transfer and **commerical support**, please `contact Christian directly <https://cschwarz.com>`_.
 
 
 0.1.1
