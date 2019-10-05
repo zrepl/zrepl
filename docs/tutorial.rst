@@ -96,7 +96,7 @@ We define a **push job** named ``prod_to_backups`` in ``/etc/zrepl/zrepl.yml`` o
         key:  /etc/zrepl/prod.key
         server_cn: "backups"
       filesystems: {
-        "zroot/var/db:": true,
+        "zroot/var/db": true,
         "zroot/usr/home<": true,
         "zroot/usr/home/paranoid": false
       }
