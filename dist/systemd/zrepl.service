@@ -21,8 +21,10 @@ RestrictRealtime=yes
 SystemCallArchitectures=native
 
 # BEGIN ProtectHome
-ProtectHome=read-only   # DEBIAN STRETCH
-# ProtectHome=tmpfs     # FEDORA 28 / 29
+# DEBIAN STRETCH
+ProtectHome=read-only
+# FEDORA 28 / 29
+# ProtectHome=tmpfs
 # END ProtectHome
 
 # BEGIN SystemCallFilter
