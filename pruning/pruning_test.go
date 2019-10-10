@@ -9,6 +9,7 @@ type stubSnap struct {
 	name       string
 	replicated bool
 	date       time.Time
+	bothSides bool
 }
 
 func (s stubSnap) Name() string { return s.name }

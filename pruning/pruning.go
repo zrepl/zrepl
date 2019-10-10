@@ -17,6 +17,7 @@ type Snapshot interface {
 	Name() string
 	Replicated() bool
 	Date() time.Time
+	PresentOnBothSides() bool
 }
 
 // The returned snapshot list is guaranteed to only contains elements of input parameter snaps

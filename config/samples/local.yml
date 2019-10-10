@@ -26,6 +26,7 @@ jobs:
       - type: last_n
         count: 10
       keep_receiver:
+      - type: most_recent_common_snapshot
       - type: grid
         grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
         regex: "zrepl_.*"
