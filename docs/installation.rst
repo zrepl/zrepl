@@ -40,6 +40,12 @@ The following list may be incomplete, feel free to submit a PR with an update:
     * - Arch Linux
       - ``yay install zrepl``
       - Available on `AUR <https://aur.archlinux.org/packages/zrepl>`_
+    * - Fedora
+      - ``dnf install zrepl``
+      - Available on `COPR <https://copr.fedorainfracloud.org/coprs/poettlerric/zrepl/>`_
+    * - CentOS/RHEL
+      - ``yum install zrepl``
+      - Available on `COPR <https://copr.fedorainfracloud.org/coprs/poettlerric/zrepl/>`_
     * - Others
       -
       - Use `binary releases`_ or build from source.
@@ -92,4 +98,3 @@ What next?
 Read the :ref:`configuration chapter<configuration_toc>` and then continue with the :ref:`usage chapter<usage>`.
 
 **Reminder**: If you want a quick introduction, please read the :ref:`tutorial`.
-
