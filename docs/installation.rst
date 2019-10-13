@@ -38,8 +38,8 @@ The following list may be incomplete, feel free to submit a PR with an update:
       - ``brew install zrepl``
       - Available on `homebrew <https://brew.sh>`_
     * - Arch Linux
-      - ``yay install zrepl-bin``
-      - Available on `AUR <https://aur.archlinux.org/packages/zrepl-bin>`_
+      - ``yay install zrepl``
+      - Available on `AUR <https://aur.archlinux.org/packages/zrepl>`_
     * - Others
       -
       - Use `binary releases`_ or build from source.
