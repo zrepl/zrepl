@@ -113,14 +113,11 @@ Most hook types take additional parameters, please refer to the respective subse
       ...
 
 
-The hook type ``command`` is the only currently supported hook type.
-Future versions of zrepl may support other hook types.
-The ``path`` to the hook executables must be absolute (e.g. ``/etc/zrepl/hooks/zrepl-notify.sh``).
+``command`` hooks take a ``path`` to an executable script or binary to be executed before and after the snapshot.
+``path`` must be absolute (e.g. ``/etc/zrepl/hooks/zrepl-notify.sh``).
 No arguments may be specified; create a wrapper script if zrepl must call an executable that requires arguments.
-zrepl will call the hook both before and after the snapshot, but with different values of the ``ZREPL_HOOKTYPE`` environment variable; see below.
 The process standard output is logged at level INFO. Standard error is logged at level WARN.
-
-zrepl sets a number of environment variables for the hook processes:
+The following environment variables are set:
 
 * ``ZREPL_HOOKTYPE``: either "pre_snapshot" or "post_snapshot"
 * ``ZREPL_FS``: the ZFS filesystem name being snapshotted
