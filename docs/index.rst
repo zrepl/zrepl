@@ -126,7 +126,6 @@ Table of Contents
    installation
    configuration
    usage
-   implementation
    pr
    changelog
    GitHub Repository & Issue Tracker <https://github.com/zrepl/zrepl>
