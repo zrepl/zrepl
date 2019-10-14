@@ -68,7 +68,7 @@ func CreateOrReplaceZpool(ctx context.Context, e Execer, args ZpoolCreateArgs) (
 	image.Close()
 
 	// create the pool
-	err = e.RunExpectSuccessNoOutput(ctx, "zpool", "create", "-O", "mountpoint=none", args.PoolName, args.ImagePath)
+	err = e.RunExpectSuccessNoOutput(ctx, "zpool", "create", "-f", "-O", "mountpoint=none", args.PoolName, args.ImagePath)
 	if err != nil {
 		return nil, errors.Wrap(err, "zpool create")
 	}

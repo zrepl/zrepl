@@ -15,9 +15,6 @@ func GetNonexistent(ctx *platformtest.Context) {
 		+  "foo bar"
 		+  "foo bar@1"
 	`)
-	defer platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
-		DESTROYROOT
-	`)
 
 	// test raw
 	_, err := zfs.ZFSGetRawAnySource(fmt.Sprintf("%s/foo bar", ctx.RootDataset), []string{"name"})
