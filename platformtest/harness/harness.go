@@ -48,6 +48,8 @@ func main() {
 	ex := platformtest.NewEx(logger)
 
 	bold := color.New(color.Bold)
+	boldRed := color.New(color.Bold, color.FgHiRed)
+	boldGreen := color.New(color.Bold, color.FgHiGreen)
 	for _, c := range tests.Cases {
 		// ATTENTION future parallelism must pass c by value into closure!
 		err := func() error {
@@ -66,14 +68,14 @@ func main() {
 				RootDataset: filepath.Join(pool.Name(), "rootds"),
 			}
 			c(ctx)
-			bold.Printf("DONE  TEST CASE %s\n", c)
-			fmt.Println()
 			return nil
 		}()
 		if err != nil {
-			bold.Printf("TEST CASE FAILED WITH ERROR:\n")
-			fmt.Println(err)
+			boldRed.Printf("TEST CASE FAILED WITH ERROR:\n")
+		} else {
+			boldGreen.Printf("DONE  TEST CASE %s\n", c)
 		}
+		fmt.Println()
 	}
 
 }

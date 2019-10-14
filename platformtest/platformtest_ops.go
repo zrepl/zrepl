@@ -39,7 +39,7 @@ type DestroyRootOp struct {
 func (o *DestroyRootOp) Run(ctx context.Context, e Execer) error {
 	// early-exit if it doesn't exist
 	if err := e.RunExpectSuccessNoOutput(ctx, "zfs", "get", "-H", "name", o.Path); err != nil {
-		getLog(ctx).WithField("root_ds", o.Path).Info("assume root ds doesn't exist")
+		GetLog(ctx).WithField("root_ds", o.Path).Info("assume root ds doesn't exist")
 		return nil
 	}
 	return e.RunExpectSuccessNoOutput(ctx, "zfs", "destroy", "-r", o.Path)
@@ -94,7 +94,7 @@ func (o *RunOp) Run(ctx context.Context, e Execer) error {
 	cmd := exec.CommandContext(ctx, "/usr/bin/env", "bash", "-c", o.Script)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, fmt.Sprintf("ROOTDS=%s", o.RootDS))
-	log := getLog(ctx).WithField("script", o.Script)
+	log := GetLog(ctx).WithField("script", o.Script)
 	log.Info("start script")
 	defer log.Info("script done")
 	output, err := cmd.CombinedOutput()
@@ -126,7 +126,7 @@ func Run(ctx context.Context, rk RunKind, rootds string, stmtsStr string) {
 	if err != nil {
 		panic(err)
 	}
-	execer := NewEx(getLog(ctx))
+	execer := NewEx(GetLog(ctx))
 	for _, s := range stmt {
 		err := s.Run(ctx, execer)
 		if err == nil {

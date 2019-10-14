@@ -19,6 +19,6 @@ func WithLogger(ctx context.Context, logger Logger) context.Context {
 	return ctx
 }
 
-func getLog(ctx context.Context) Logger {
+func GetLog(ctx context.Context) Logger {
 	return ctx.Value(contextKeyLogger).(Logger)
 }

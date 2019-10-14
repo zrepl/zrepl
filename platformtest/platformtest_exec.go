@@ -32,7 +32,7 @@ func (e *ex) runNoOutput(expectSuccess bool, ctx context.Context, cmd string, ar
 	buf, _ := circlog.NewCircularLog(32 << 10)
 	ecmd.Stdout, ecmd.Stderr = buf, buf
 	err := ecmd.Run()
-	log.Printf("command output: %s", buf.String())
+	log.WithField("output", buf.String()).Debug("command output")
 	if _, ok := err.(*exec.ExitError); err != nil && !ok {
 		panic(err)
 	}
