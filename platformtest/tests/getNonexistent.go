@@ -48,4 +48,17 @@ func GetNonexistent(ctx *platformtest.Context) {
 		panic(err)
 	}
 
+	// test nonexistent bookmark
+	nonexistent = fmt.Sprintf("%s/foo bar#non existent", ctx.RootDataset)
+	props, err = zfs.ZFSGetRawAnySource(nonexistent, []string{"name"})
+	if err == nil {
+		panic(props)
+	}
+	dsne, ok = err.(*zfs.DatasetDoesNotExist)
+	if !ok {
+		panic(err)
+	} else if dsne.Path != nonexistent {
+		panic(err)
+	}
+
 }

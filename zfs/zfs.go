@@ -929,7 +929,7 @@ func ZFSGetRawAnySource(path string, props []string) (*ZFSProperties, error) {
 	return zfsGet(path, props, sourceAny)
 }
 
-var zfsGetDatasetDoesNotExistRegexp = regexp.MustCompile(`^cannot open '([^)]+)': (dataset does not exist|no such pool or dataset)`) // TODO verify this works
+var zfsGetDatasetDoesNotExistRegexp = regexp.MustCompile(`^cannot open '([^)]+)': (dataset does not exist|no such pool or dataset)`) // verified in platformtest
 
 type DatasetDoesNotExist struct {
 	Path string

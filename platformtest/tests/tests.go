@@ -17,4 +17,5 @@ var Cases = []Case{
 	BatchDestroy,
 	UndestroyableSnapshotParsing,
 	GetNonexistent,
+	ReplicationCursor,
 }
