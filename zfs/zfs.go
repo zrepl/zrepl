@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,6 +19,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/util/envconst"
 )
 
@@ -1022,6 +1022,41 @@ func zfsGet(path string, props []string, allowedSources zfsPropertySource) (*ZFS
 		}
 	}
 	return res, nil
+}
+
+type ZFSPropCreateTxgAndGuidProps struct {
+	CreateTXG, Guid uint64
+}
+
+func ZFSGetCreateTXGAndGuid(ds string) (ZFSPropCreateTxgAndGuidProps, error) {
+	props, err := zfsGetNumberProps(ds, []string{"createtxg", "guid"}, sourceAny)
+	if err != nil {
+		return ZFSPropCreateTxgAndGuidProps{}, err
+	}
+	return ZFSPropCreateTxgAndGuidProps{
+		CreateTXG: props["createtxg"],
+		Guid:      props["guid"],
+	}, nil
+}
+
+// returns *DatasetDoesNotExist if the dataset does not exist
+func zfsGetNumberProps(ds string, props []string, src zfsPropertySource) (map[string]uint64, error) {
+	sps, err := zfsGet(ds, props, sourceAny)
+	if err != nil {
+		if _, ok := err.(*DatasetDoesNotExist); ok {
+			return nil, err // pass through as is
+		}
+		return nil, errors.Wrap(err, "zfs: set replication cursor: get snapshot createtxg")
+	}
+	r := make(map[string]uint64, len(props))
+	for _, p := range props {
+		v, err := strconv.ParseUint(sps.Get(p), 10, 64)
+		if err != nil {
+			return nil, errors.Wrapf(err, "zfs get: parse number property %q", p)
+		}
+		r[p] = v
+	}
+	return r, nil
 }
 
 type DestroySnapshotsError struct {
