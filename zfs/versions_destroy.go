@@ -220,7 +220,7 @@ var batchDestroyFeatureCheck struct {
 func (d destroyerImpl) DestroySnapshotsCommaSyntaxSupported() (bool, error) {
 	batchDestroyFeatureCheck.once.Do(func() {
 		// "feature discovery"
-		cmd := exec.Command("zfs", "destroy")
+		cmd := exec.Command(ZFS_BINARY, "destroy")
 		output, err := cmd.CombinedOutput()
 		if _, ok := err.(*exec.ExitError); !ok {
 			debug("destroy feature check failed: %T %s", err, err)
