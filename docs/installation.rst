@@ -46,9 +46,33 @@ The following list may be incomplete, feel free to submit a PR with an update:
     * - CentOS/RHEL
       - ``yum install zrepl``
       - Available on `COPR <https://copr.fedorainfracloud.org/coprs/poettlerric/zrepl/>`_
+    * - Debian + Ubuntu
+      - ``apt install zrepl``
+      - APT repository config :ref:`see below <installation-apt-repos>`
     * - Others
       -
       - Use `binary releases`_ or build from source.
+
+.. _installation-apt-repos:
+
+Debian / Ubuntu APT repositories
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The fingerprint of the signing key for Debian / Ubuntu packages is ``E101 418F D3D6 FBCB 9D65  A62D 7086 99FC 5F2E BF16``.
+It is available at ``https://zrepl.cschwarz.com/apt/apt-key.asc``.
+
+::
+
+    CODENAME="$(lsb_release -i -s | tr '[:upper:]' '[:lower:]') $(lsb_release -c -s | tr '[:upper:]' '[:lower:]')"
+    echo -n "Please confirm Distro and Codename by pressing ENTER: $CODENAME"
+    read -n _unused_
+    curl https://zrepl.cschwarz.com/apt/apt-key.asc | apt-key add -
+    echo "deb https://zrepl.cschwarz.com/apt/$CODENAME main" >> /etc/apt/sources.list
+    apt update
+
+Note that until zrepl reaches 1.0, all APT repositories will be updated to the latest zrepl release immediately.
+This includes breaking changes between zrepl versions.
+Use ``apt-mark hold zrepl`` to prevent upgrades of zrepl.
 
 Compile From Source
 ~~~~~~~~~~~~~~~~~~~
