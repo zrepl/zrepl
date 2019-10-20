@@ -52,7 +52,7 @@ jobs:
           paths:
             - "/usr/include/google/protobuf"
             
-      - run: sudo apt update && sudo apt install python3 python3-pip libgirepository1.0-dev
+      - run: sudo apt update && sudo apt install python3 python3-pip libgirepository1.0-dev gawk
       - run: ./lazy.sh devsetup
 
       - run: make zrepl-bin
