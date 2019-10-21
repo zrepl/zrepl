@@ -62,12 +62,12 @@ The fingerprint of the signing key for Debian / Ubuntu packages is ``E101 418F D
 It is available at ``https://zrepl.cschwarz.com/apt/apt-key.asc``.
 
 ::
-
-    CODENAME="$(lsb_release -i -s | tr '[:upper:]' '[:lower:]') $(lsb_release -c -s | tr '[:upper:]' '[:lower:]')"
-    echo -n "Please confirm Distro and Codename by pressing ENTER: $CODENAME"
-    read -n _unused_
-    curl https://zrepl.cschwarz.com/apt/apt-key.asc | apt-key add -
-    echo "deb https://zrepl.cschwarz.com/apt/$CODENAME main" >> /etc/apt/sources.list
+    apt update && apt install curl gnupg lsb-release; \
+    ARCH="$(dpkg --print-architecture)"; \
+    CODENAME="$(lsb_release -i -s | tr '[:upper:]' '[:lower:]') $(lsb_release -c -s | tr '[:upper:]' '[:lower:]')"; \
+    echo "Using Distro and Codename: $CODENAME"; \
+    (curl https://zrepl.cschwarz.com/apt/apt-key.asc | apt-key add -) && \
+    (echo "deb [arch=$ARCH] https://zrepl.cschwarz.com/apt/$CODENAME main" > /etc/apt/sources.list.d/zrepl.list) && \
     apt update
 
 Note that until zrepl reaches 1.0, all APT repositories will be updated to the latest zrepl release immediately.
