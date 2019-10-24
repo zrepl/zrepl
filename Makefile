@@ -93,10 +93,14 @@ $(RELEASE_BINS): $(ARTIFACTDIR)/zrepl-%: generate $(ARTIFACTDIR) vet test lint
 $(RELEASE_NOARCH): docs $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/go_version.txt
 	tar --mtime='1970-01-01' --sort=name \
 		--transform 's/$(ARTIFACTDIR)/zrepl-$(_ZREPL_VERSION)-noarch/' \
+		--transform 's#dist#zrepl-$(_ZREPL_VERSION)-noarch/dist#' \
+		--transform 's#config/samples#zrepl-$(_ZREPL_VERSION)-noarch/config#' \
 		-acf $@ \
 		$(ARTIFACTDIR)/docs/html \
 		$(ARTIFACTDIR)/bash_completion \
-		$(ARTIFACTDIR)/go_version.txt
+		$(ARTIFACTDIR)/go_version.txt \
+		dist \
+		config/samples
 
 release: $(RELEASE_BINS) $(RELEASE_NOARCH)
 	rm -rf "$(ARTIFACTDIR)/release"
