@@ -806,6 +806,7 @@ func ZFSRecv(ctx context.Context, fs string, streamCopier StreamCopier, opts Rec
 	copierErrChan := make(chan StreamCopierError)
 	go func() {
 		copierErrChan <- streamCopier.WriteStreamTo(stdinWriter)
+		close(copierErrChan)
 	}()
 	waitErrChan := make(chan *ZFSError)
 	go func() {
