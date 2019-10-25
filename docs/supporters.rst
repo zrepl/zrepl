@@ -18,12 +18,26 @@ For SEPA wire transfer and **commerical support**, please `contact Christian dir
 Supporters
 ==========
 
-We would like to thank the following people / organizations for supporting zrepl through monetary and other means:
+We would like to thank the following people and organizations for supporting zrepl through monetary and other means:
 
-* `Marshall Clyburn <https://github.com/mdclyburn>`_
-* `Ross Williams <https://github.com/overhacked>`_
-* Mike T.
-* `Justin Scholz <https://github.com/JMoVS>`_
-* `InsanePrawn <https://github.com/InsanePrawn>`_
-* `Ben Woods <https://www.freshports.org/sysutils/zrepl/>`_
-* `Anton Schirg <https://github.com/antonxy>`_
+.. |supporter-std| raw:: html
+
+   <div class="fa fa-star-o" style="width: 1em;"></div>
+
+.. |supporter-gold| raw:: html
+
+   <div class="fa fa-star" style="width: 1em;"></div>
+
+.. |supporter-code| raw:: html
+
+   <div class="fa fa-code" style="width: 1em;"></div>
+
+
+* |supporter-gold| `MNX.io <https://mnx.io>`_
+* |supporter-std| `Marshall Clyburn <https://github.com/mdclyburn>`_
+* |supporter-code| `Ross Williams <https://github.com/overhacked>`_
+* |supporter-std| Mike T.
+* |supporter-code| `Justin Scholz <https://github.com/JMoVS>`_
+* |supporter-code| `InsanePrawn <https://github.com/InsanePrawn>`_
+* |supporter-code| `Ben Woods <https://www.freshports.org/sysutils/zrepl/>`_
+* |supporter-code| `Anton Schirg <https://github.com/antonxy>`_
