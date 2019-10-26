@@ -13,10 +13,11 @@ ifndef _ZREPL_VERSION
     endif
 endif
 GO := go
+GO_ENV_VARS := GO111MODULE=on
 GO_LDFLAGS := "-X github.com/zrepl/zrepl/version.zreplVersion=$(_ZREPL_VERSION)"
 GO_MOD_READONLY := -mod=readonly
 GO_BUILDFLAGS := $(GO_MOD_READONLY)
-GO_BUILD := GO111MODULE=on $(GO) build $(GO_BUILDFLAGS) -v -ldflags $(GO_LDFLAGS)
+GO_BUILD := $(GO_ENV_VARS) $(GO) build $(GO_BUILDFLAGS) -v -ldflags $(GO_LDFLAGS)
 
 # keep in sync with vet target
 RELEASE_BINS := $(ARTIFACTDIR)/zrepl-freebsd-amd64
@@ -29,7 +30,7 @@ THIS_PLATFORM_RELEASE_BIN := $(shell bash -c 'source <($(GO) env) && echo "zrepl
 
 generate: #not part of the build, must do that manually
 	protoc -I=replication/logic/pdu --go_out=plugins=grpc:replication/logic/pdu replication/logic/pdu/pdu.proto
-	$(GO) generate $(GO_BUILDFLAGS) -x ./...
+	$(GO_ENV_VARS) $(GO) generate $(GO_BUILDFLAGS) -x ./...
 
 format:
 	goimports -srcdir . -local 'github.com/zrepl/zrepl' -w $(shell find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go')
@@ -41,18 +42,18 @@ build:
 	$(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl"
 
 test:
-	$(GO) test $(GO_BUILDFLAGS) ./...
+	$(GO_ENV_VARS) $(GO) test $(GO_BUILDFLAGS) ./...
 	# TODO compile the tests for each supported platform
 	# but `go test -c ./...` is not supported
 
 vet:
-	$(GO) vet $(GO_BUILDFLAGS) ./...
+	$(GO_ENV_VARS) $(GO) vet $(GO_BUILDFLAGS) ./...
 	# for each supported platform to cover conditional compilation
 	# (keep in sync with RELEASE_BINS)
-	GOOS=freebsd	GOARCH=amd64 	$(GO) vet $(GO_BUILDFLAGS) ./...
-	GOOS=linux		GOARCH=amd64 	$(GO) vet $(GO_BUILDFLAGS) ./...
-	GOOS=linux		GOARCH=arm64 	$(GO) vet $(GO_BUILDFLAGS) ./...
-	GOOS=darwin		GOARCH=amd64 	$(GO) vet $(GO_BUILDFLAGS) ./...
+	GOOS=freebsd	GOARCH=amd64 	$(GO_ENV_VARS) $(GO) vet $(GO_BUILDFLAGS) ./...
+	GOOS=linux		GOARCH=amd64 	$(GO_ENV_VARS) $(GO) vet $(GO_BUILDFLAGS) ./...
+	GOOS=linux		GOARCH=arm64 	$(GO_ENV_VARS) $(GO) vet $(GO_BUILDFLAGS) ./...
+	GOOS=darwin		GOARCH=amd64 	$(GO_ENV_VARS) $(GO) vet $(GO_BUILDFLAGS) ./...
 
 ZREPL_PLATFORMTEST_POOLNAME := zreplplatformtest
 ZREPL_PLATFORMTEST_IMAGEPATH := /tmp/zreplplatformtest.pool.img
@@ -72,7 +73,7 @@ $(ARTIFACTDIR)/bash_completion: $(RELEASE_BINS)
 
 .PHONY: $(ARTIFACTDIR)/go_version.txt
 $(ARTIFACTDIR)/go_version.txt:
-	$(GO) version > $@
+	$(GO_ENV_VARS) $(GO) version > $@
 
 docs: $(ARTIFACTDIR)/docs
 	make -C docs \
