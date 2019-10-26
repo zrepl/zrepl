@@ -27,7 +27,8 @@ fi
 CHECKOUTPATH="${GOPATH}/src/github.com/zrepl/zrepl"
 
 godep() {
-    step "install build dependencies (versions pinned using go.mod and tools.go)"
+    step "install build dependencies (versions pinned in build/go.mod and build/tools.go)"
+    pushd "$(dirname "${BASH_SOURCE[0]}")"/build
     set -x
     export GO111MODULE=on # otherwise, a checkout of this repo in GOPATH will disable modules on Go 1.12 and earlier
     go build -v -mod=readonly -o "$GOPATH/bin/stringer"      golang.org/x/tools/cmd/stringer
@@ -36,6 +37,7 @@ godep() {
     go build -v -mod=readonly -o "$GOPATH/bin/goimports"     golang.org/x/tools/cmd/goimports
     go build -v -mod=readonly -o "$GOPATH/bin/golangci-lint" github.com/golangci/golangci-lint/cmd/golangci-lint
     set +x
+    popd
     if ! type stringer || ! type protoc-gen-go || ! type enumer || ! type goimports || ! type golangci-lint; then
         echo "Installed dependencies but can't find them in \$PATH, adjust it to contain \$GOPATH/bin" 1>&2
         exit 1
