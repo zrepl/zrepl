@@ -55,7 +55,7 @@ jobs:
       - run: sudo apt update && sudo apt install python3 python3-pip libgirepository1.0-dev
       - run: ./lazy.sh devsetup
 
-      - run: make
+      - run: make zrepl-bin
       - run: make vet
       - run: make test
       - run: make lint
