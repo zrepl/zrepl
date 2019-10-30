@@ -63,6 +63,7 @@ func (j *prometheusJob) Run(ctx context.Context) {
 	l, err := net.Listen("tcp", j.listen)
 	if err != nil {
 		log.WithError(err).Error("cannot listen")
+		return
 	}
 	go func() {
 		<-ctx.Done()
