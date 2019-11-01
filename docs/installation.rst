@@ -49,6 +49,9 @@ The following list may be incomplete, feel free to submit a PR with an update:
     * - Debian + Ubuntu
       - ``apt install zrepl``
       - APT repository config :ref:`see below <installation-apt-repos>`
+    * - OmniOS
+      - ``pkg install zrepl``
+      - Available since `r151030 <https://pkg.omniosce.org/r151030/extra/en/search.shtml?token=zrepl&action=Search>`_
     * - Others
       -
       - Use `binary releases`_ or build from source.
