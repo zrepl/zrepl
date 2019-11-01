@@ -119,7 +119,7 @@ We define a **push job** named ``prod_to_backups`` in ``/etc/zrepl/zrepl.yml`` o
 Configure server ``backups``
 ----------------------------
 
-We define a corresponding **sink job** named ``sink`` in ``/etc/zrepl/zrepl.yml`` on host ``prod`` : ::
+We define a corresponding **sink job** named ``sink`` in ``/etc/zrepl/zrepl.yml`` on host ``backups`` : ::
 
     jobs:
     - name: sink
