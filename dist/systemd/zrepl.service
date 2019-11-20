@@ -21,24 +21,13 @@ RestrictNamespaces=true
 RestrictRealtime=yes
 SystemCallArchitectures=native
 
-# BEGIN ProtectHome
-# DEBIAN STRETCH
 ProtectHome=read-only
-# FEDORA 28 / 29
-# ProtectHome=tmpfs
-# END ProtectHome
+# ProtectHome=tmpfs totally possible, not by default though because of Debian stretch
 
-# BEGIN SystemCallFilter
-## BEGIN DEBIAN STRETCH
-SystemCallFilter=~ @mount @cpu-emulation @keyring @module @obsolete @privileged @raw-io @debug @clock @resources
-## END DEBIAN STRETCH
-## BEGIN FEDORA 28/29 
-## Syscall blacklist (should be fairly stable)
-#SystemCallFilter=~ @mount @aio @cpu-emulation @keyring @memlock @module @obsolete @privileged @raw-io @reboot @setuid @swap @sync @timer @debug @clock @chown @resources
-## Syscall whitelist (not sure how stable)
-#SystemCallFilter=@default @file-system @process @basic-io @ipc @network-io @signal @io-event brk mprotect sched_getaffinity ioctl getrandom
-## END END FEDORA 28/29
-# END SystemCallFilter
+# SystemCallFilter
+#   ~@privileged doesn't work with Ubuntu 18.04 ssh
+SystemCallFilter=~ @mount @cpu-emulation @keyring @module @obsolete @raw-io @debug @clock @resources
+
 
 [Install]
 WantedBy=multi-user.target
