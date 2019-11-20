@@ -27,6 +27,17 @@ We use the following annotations for classifying changes:
 * |bugfix| Change that fixes a bug, no regressions or incompatibilities expected.
 * |docs| Change to the documentation.
 
+0.2.1
+-----
+
+* |feature| Illumos (and Solaris) compatibility and binary builds (thanks, `MNX.io <https://mnx.io>`_ )
+* |feature| 32bit binaries for Linux and FreeBSD (untested, though)
+* |bugfix| better error messages in ``ssh+stdinserver`` transport
+* |bugfix| systemd + ``ssh+stdinserver``: automatically create ``/var/run/zrepl/stdinserver``
+* |bugfix| crash if Prometheus listening socket cannot be opened
+
+* [MAINTAINER NOTICE] ``Makefile`` refactoring, see :commit:`080f2c0`
+
 0.2
 ---
 
