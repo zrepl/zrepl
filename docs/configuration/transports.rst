@@ -288,7 +288,7 @@ Connect
         port: 22
         identity_file: /etc/zrepl/ssh/identity
         # options: # optional, default [], `-o` arguments passed to ssh
-        # - "Compression=on"
+        # - "Compression=yes"
         # dial_timeout: 10s # optional, default 10s, max time.Duration until initial handshake is completed
 
 The connecting zrepl daemon
