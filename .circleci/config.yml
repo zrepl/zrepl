@@ -7,7 +7,9 @@ workflows:
       - build-1.12
       - build-1.13
       - build-latest
+      - test-build-in-docker
 jobs:
+
   # build-latest serves as the template
   # we use YAML anchors & aliases to exchange the docker image (and hence Go version used for the build)
   build-latest: &build-latest
@@ -108,3 +110,30 @@ jobs:
     <<: *build-latest
     docker:
     - image: circleci/golang:1.13
+
+  # this job tries to mimic the build-in-docker instructions
+  # given in docs/installation.rst
+  #
+  # However, CircleCI doesn't support volume mounts, so we have to copy
+  # the source into the build-container by modifying the Dockerfile
+  test-build-in-docker:
+    description: Check that build-in-docker works
+    docker:
+      - image: circleci/golang:latest
+    environment:
+    working_directory: /go/src/github.com/zrepl/zrepl
+    steps:
+    - checkout
+    - setup_remote_docker
+    - run:
+        name: (hacky) circleci doesn't allow volume mounts, so copy src to container
+        command: echo "ADD . /src" >> build.Dockerfile
+    - run:
+        name: (hacky) commit modified Dockerfile to avoid failing git clean check in Makefile
+        command: git -c user.name='circleci' -c user.email='circleci@localhost' commit -m 'CIRCLECI modified Dockerfile with zrepl src' --author 'autoauthor <circleci@localhost>' -- build.Dockerfile
+    - run:
+        name: build the build image (build deps)
+        command: docker build -t zrepl_build -f build.Dockerfile .
+    - run:
+        name: try compiling
+        command: docker run -it zrepl_build make release

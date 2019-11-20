@@ -2,7 +2,8 @@ FROM golang:latest
 
 RUN apt-get update && apt-get install -y \
     python3-pip \
-    unzip
+    unzip \
+    gawk
 
 ADD build.installprotoc.bash ./
 RUN bash build.installprotoc.bash
@@ -22,7 +23,7 @@ RUN mkdir -p /.cache && chmod -R 0777 /.cache
 WORKDIR /src
 
 # Install build tools (e.g. protobuf generator, stringer) into $GOPATH/bin
-ADD go.mod go.sum ./
+ADD build/ /tmp/build
 RUN /tmp/lazy.sh godep
 
 RUN chmod -R 0777 /go
