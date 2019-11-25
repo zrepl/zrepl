@@ -32,6 +32,8 @@ We would like to thank the following people and organizations for supporting zre
 
    <div class="fa fa-code" style="width: 1em;"></div>
 
+* |supporter-std| `Gaelan D'costa <https://www.robot-disco.net>`_
+* |supporter-std| `F. Schmid <https://github.com/tdschmidl>`_
 * |supporter-std| `Tenzin Lhakhang <https://confluence.tenzin.io>`_
 * |supporter-gold| `MNX.io <https://mnx.io>`_
 * |supporter-std| `Marshall Clyburn <https://github.com/mdclyburn>`_
