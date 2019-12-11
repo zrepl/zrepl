@@ -76,7 +76,7 @@ func Run(conf *config.Config) error {
 			return errors.Errorf("unknown monitoring job #%d (type %T)", i, v)
 		}
 		if err != nil {
-			return errors.Wrapf(err, "cannot build monitorin gjob #%d", i)
+			return errors.Wrapf(err, "cannot build monitoring job #%d", i)
 		}
 		jobs.start(ctx, job, true)
 	}

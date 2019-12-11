@@ -39,7 +39,7 @@ func snapJobFromConfig(g *config.Global, in *config.SnapJob) (j *SnapJob, err er
 	j = &SnapJob{}
 	fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
 	if err != nil {
-		return nil, errors.Wrap(err, "cannnot build filesystem filter")
+		return nil, errors.Wrap(err, "cannot build filesystem filter")
 	}
 	j.fsfilter = fsf
 
