@@ -15,6 +15,8 @@ type Context struct {
 
 var FailNowSentinel = fmt.Errorf("platformtest: FailNow called on context")
 
+var SkipNowSentinel = fmt.Errorf("platformtest: SkipNow called on context")
+
 var _ assert.TestingT = (*Context)(nil)
 var _ require.TestingT = (*Context)(nil)
 
@@ -24,4 +26,8 @@ func (c *Context) Errorf(format string, args ...interface{}) {
 
 func (c *Context) FailNow() {
 	panic(FailNowSentinel)
+}
+
+func (c *Context) SkipNow() {
+	panic(SkipNowSentinel)
 }
