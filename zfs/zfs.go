@@ -343,7 +343,7 @@ func buildCommonSendArgs(fs string, from, to string, token string) ([]string, er
 	return args, nil
 }
 
-type sendStreamCopier struct {
+type ReadCloserCopier struct {
 	recorder readErrRecorder
 }
 
@@ -374,11 +374,11 @@ func (r *readErrRecorder) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
-func newSendStreamCopier(stream io.ReadCloser) *sendStreamCopier {
-	return &sendStreamCopier{recorder: readErrRecorder{stream, nil}}
+func NewReadCloserCopier(stream io.ReadCloser) *ReadCloserCopier {
+	return &ReadCloserCopier{recorder: readErrRecorder{stream, nil}}
 }
 
-func (c *sendStreamCopier) WriteStreamTo(w io.Writer) StreamCopierError {
+func (c *ReadCloserCopier) WriteStreamTo(w io.Writer) StreamCopierError {
 	debug("sendStreamCopier.WriteStreamTo: begin")
 	_, err := io.Copy(w, &c.recorder)
 	debug("sendStreamCopier.WriteStreamTo: copy done")
@@ -392,11 +392,11 @@ func (c *sendStreamCopier) WriteStreamTo(w io.Writer) StreamCopierError {
 	return nil
 }
 
-func (c *sendStreamCopier) Read(p []byte) (n int, err error) {
+func (c *ReadCloserCopier) Read(p []byte) (n int, err error) {
 	return c.recorder.Read(p)
 }
 
-func (c *sendStreamCopier) Close() error {
+func (c *ReadCloserCopier) Close() error {
 	return c.recorder.ReadCloser.Close()
 }
 
@@ -518,7 +518,7 @@ var zfsSendStderrCaptureMaxSize = envconst.Int("ZREPL_ZFS_SEND_STDERR_MAX_CAPTUR
 // if token != "", then send -t token is used
 // otherwise send [-i from] to is used
 // (if from is "" a full ZFS send is done)
-func ZFSSend(ctx context.Context, fs string, from, to string, token string) (streamCopier StreamCopier, err error) {
+func ZFSSend(ctx context.Context, fs string, from, to string, token string) (*ReadCloserCopier, error) {
 
 	args := make([]string, 0)
 	args = append(args, "send")
@@ -559,7 +559,7 @@ func ZFSSend(ctx context.Context, fs string, from, to string, token string) (str
 		stderrBuf:    stderrBuf,
 	}
 
-	return newSendStreamCopier(stream), nil
+	return NewReadCloserCopier(stream), nil
 }
 
 type DrySendType string
