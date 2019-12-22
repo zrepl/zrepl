@@ -35,9 +35,10 @@ type HandlerContextInterceptor func(ctx context.Context) context.Context
 // config must be valid (use its Validate function).
 func NewServer(handler Handler, loggers Loggers, ctxInterceptor HandlerContextInterceptor) *Server {
 
+	// setup control server
 	controlServerServe := func(ctx context.Context, controlListener transport.AuthenticatedListener, errOut chan<- error) {
 
-		controlServer, serve := grpchelper.NewServer(controlListener, endpoint.ClientIdentityKey, loggers.Control)
+		controlServer, serve := grpchelper.NewServer(controlListener, endpoint.ClientIdentityKey, loggers.Control, ctxInterceptor)
 		pdu.RegisterReplicationServer(controlServer, handler)
 
 		// give time for graceful stop until deadline expires, then hard stop

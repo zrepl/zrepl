@@ -92,7 +92,7 @@ func server() {
 		onErr(err, "cannot listen")
 	}
 
-	srv, serve := grpchelper.NewServer(authListener, clientIdentityKey, log)
+	srv, serve := grpchelper.NewServer(authListener, clientIdentityKey, log, nil)
 
 	svc := &greeter{"hello "}
 	pdu.RegisterGreeterServer(srv, svc)
