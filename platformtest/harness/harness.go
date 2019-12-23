@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/fatih/color"
@@ -25,6 +26,9 @@ var boldGreen = color.New(color.Bold, color.FgHiGreen)
 var args struct {
 	createArgs            platformtest.ZpoolCreateArgs
 	stopAndKeepPoolOnFail bool
+
+	run   string
+	runRE *regexp.Regexp
 }
 
 func main() {
@@ -42,7 +46,10 @@ func doMain() error {
 	flag.Int64Var(&args.createArgs.ImageSize, "imagesize", 100*(1<<20), "")
 	flag.StringVar(&args.createArgs.Mountpoint, "mountpoint", "none", "")
 	flag.BoolVar(&args.stopAndKeepPoolOnFail, "failure.stop-and-keep-pool", false, "if a test case fails, stop test execution and keep pool as it was when the test failed")
+	flag.StringVar(&args.run, "run", "", "")
 	flag.Parse()
+
+	args.runRE = regexp.MustCompile(args.run)
 
 	outlets := logger.NewOutlets()
 	outlet, level, err := logging.ParseOutlet(config.LoggingOutletEnum{Ret: &config.StdoutLoggingOutlet{
@@ -64,9 +71,21 @@ func doMain() error {
 	ctx := platformtest.WithLogger(context.Background(), logger)
 	ex := platformtest.NewEx(logger)
 
-	for _, c := range tests.Cases {
+	type invocation struct {
+		runFunc tests.Case
+		result  *testCaseResult
+	}
 
-		bold.Printf("BEGIN TEST CASE %s\n", c)
+	invocations := make([]*invocation, 0, len(tests.Cases))
+	for _, c := range tests.Cases {
+		if args.runRE.MatchString(c.String()) {
+			invocations = append(invocations, &invocation{runFunc: c})
+		}
+	}
+
+	for _, inv := range invocations {
+
+		bold.Printf("BEGIN TEST CASE %s\n", inv.runFunc.String())
 
 		pool, err := platformtest.CreateOrReplaceZpool(ctx, ex, args.createArgs)
 		if err != nil {
@@ -78,7 +97,8 @@ func doMain() error {
 			RootDataset: filepath.Join(pool.Name(), "rootds"),
 		}
 
-		res := runTestCase(ctx, ex, c)
+		res := runTestCase(ctx, ex, inv.runFunc)
+		inv.result = res
 		if res.failed {
 			fmt.Printf("%+v\n", res.failedStack) // print with stack trace
 		}
@@ -98,11 +118,47 @@ func doMain() error {
 			bold.Printf("TEST SKIPPED\n")
 		} else if res.succeeded {
 			boldGreen.Printf("TEST PASSED\n")
+		} else {
+			panic("unreachable")
 		}
 
 		fmt.Println()
 	}
 
+	var summary struct {
+		succ, fail, skip []*invocation
+	}
+	for _, inv := range invocations {
+		var bucket *[]*invocation
+		if inv.result.failed {
+			bucket = &summary.fail
+		} else if inv.result.skipped {
+			bucket = &summary.skip
+		} else if inv.result.succeeded {
+			bucket = &summary.succ
+		} else {
+			panic("unreachable")
+		}
+		*bucket = append(*bucket, inv)
+	}
+	printBucket := func(bucketName string, c *color.Color, bucket []*invocation) {
+		c.Printf("%s:", bucketName)
+		if len(bucket) == 0 {
+			fmt.Printf(" []\n")
+			return
+		}
+		fmt.Printf("\n")
+		for _, inv := range bucket {
+			fmt.Printf("  %s\n", inv.runFunc.String())
+		}
+	}
+	printBucket("PASSING TESTS", boldGreen, summary.succ)
+	printBucket("SKIPPED TESTS", bold, summary.skip)
+	printBucket("FAILED TESTS", boldRed, summary.fail)
+
+	if len(summary.fail) > 0 {
+		return errors.New("at least one test failed")
+	}
 	return nil
 }
 
@@ -113,7 +169,7 @@ type testCaseResult struct {
 	failedStack error // has stack inside, valid if failed=true
 }
 
-func runTestCase(ctx *platformtest.Context, ex platformtest.Execer, c tests.Case) testCaseResult {
+func runTestCase(ctx *platformtest.Context, ex platformtest.Execer, c tests.Case) *testCaseResult {
 
 	// run case
 	var paniced = false
@@ -133,14 +189,14 @@ func runTestCase(ctx *platformtest.Context, ex platformtest.Execer, c tests.Case
 	if paniced {
 		switch panicValue {
 		case platformtest.SkipNowSentinel:
-			return testCaseResult{skipped: true}
+			return &testCaseResult{skipped: true}
 		case platformtest.FailNowSentinel:
-			return testCaseResult{failed: true, failedStack: panicStack}
+			return &testCaseResult{failed: true, failedStack: panicStack}
 		default:
-			return testCaseResult{failed: true, failedStack: panicStack}
+			return &testCaseResult{failed: true, failedStack: panicStack}
 		}
 	} else {
-		return testCaseResult{succeeded: true}
+		return &testCaseResult{succeeded: true}
 	}
 
 }

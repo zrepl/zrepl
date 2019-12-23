@@ -144,8 +144,9 @@ format:
 
 ZREPL_PLATFORMTEST_POOLNAME := zreplplatformtest
 ZREPL_PLATFORMTEST_IMAGEPATH := /tmp/zreplplatformtest.pool.img
+ZREPL_PLATFORMTEST_ARGS := 
 platformtest: # do not track dependency on platformtest-bin to allow build of platformtest outside of test VM
-	"$(ARTIFACTDIR)/platformtest-$(ZREPL_TARGET_TUPLE)" -poolname "$(ZREPL_PLATFORMTEST_POOLNAME)" -imagepath "$(ZREPL_PLATFORMTEST_IMAGEPATH)"
+	"$(ARTIFACTDIR)/platformtest-$(ZREPL_TARGET_TUPLE)" -poolname "$(ZREPL_PLATFORMTEST_POOLNAME)" -imagepath "$(ZREPL_PLATFORMTEST_IMAGEPATH)" $(ZREPL_PLATFORMTEST_ARGS)
 
 ##################### NOARCH #####################
 .PHONY: noarch $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/go_env.txt docs docs-clean
