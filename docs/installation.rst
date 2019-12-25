@@ -52,6 +52,9 @@ The following list may be incomplete, feel free to submit a PR with an update:
     * - OmniOS
       - ``pkg install zrepl``
       - Available since `r151030 <https://pkg.omniosce.org/r151030/extra/en/search.shtml?token=zrepl&action=Search>`_
+    * - Void Linux
+      - ``xbps-install zrepl``
+      - Available since `a88a2a4 <https://github.com/void-linux/void-packages/commit/a88a2a4d7bf56072dadf61ab56b8424e39155890>`_
     * - Others
       -
       - Use `binary releases`_ or build from source.
