@@ -50,11 +50,17 @@ Serve
       serve:
         type: tcp
         listen: ":8888"
+        listen_freebind: true # optional, default false
         clients: {
           "192.168.122.123" : "mysql01"
           "192.168.122.123" : "mx01"
         }
       ...
+
+.. _listen-freebind-explanation:
+
+``listen_freebind`` controls whether the socket is allowed to bind to non-local or unconfigured IP addresses (Linux ``IP_FREEBIND`` , FreeBSD ``IP_BINDANY``).
+Enable this option if you want to ``listen`` on a specific IP address that might not yet be configured when the zrepl daemon starts.
 
 Connect
 ~~~~~~~
@@ -101,6 +107,7 @@ Serve
         serve:
           type: tls
           listen: ":8888"
+          listen_freebind: true # optional, default false
           ca:   /etc/zrepl/ca.crt
           cert: /etc/zrepl/prod.fullchain
           key:  /etc/zrepl/prod.key
@@ -110,6 +117,7 @@ Serve
 
 The ``ca`` field specified the certificate authority used to validate client certificates.
 The ``client_cns`` list specifies a list of accepted client common names (which are also the client identities for this transport).
+The ``listen_freebind`` field is :ref:`explained here <listen-freebind-explanation>`.
 
 Connect
 ~~~~~~~

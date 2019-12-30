@@ -9,6 +9,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"

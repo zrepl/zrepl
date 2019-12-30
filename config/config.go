@@ -245,14 +245,16 @@ type ServeCommon struct {
 }
 
 type TCPServe struct {
-	ServeCommon `yaml:",inline"`
-	Listen      string            `yaml:"listen,hostport"`
-	Clients     map[string]string `yaml:"clients"`
+	ServeCommon    `yaml:",inline"`
+	Listen         string            `yaml:"listen,hostport"`
+	ListenFreeBind bool              `yaml:"listen_freebind,default=false"`
+	Clients        map[string]string `yaml:"clients"`
 }
 
 type TLSServe struct {
 	ServeCommon      `yaml:",inline"`
 	Listen           string        `yaml:"listen,hostport"`
+	ListenFreeBind   bool          `yaml:"listen_freebind,default=false"`
 	Ca               string        `yaml:"ca"`
 	Cert             string        `yaml:"cert"`
 	Key              string        `yaml:"key"`
@@ -331,8 +333,9 @@ type MonitoringEnum struct {
 }
 
 type PrometheusMonitoring struct {
-	Type   string `yaml:"type"`
-	Listen string `yaml:"listen,hostport"`
+	Type           string `yaml:"type"`
+	Listen         string `yaml:"listen,hostport"`
+	ListenFreeBind bool   `yaml:"listen_freebind,default=false"`
 }
 
 type SyslogFacility syslog.Priority

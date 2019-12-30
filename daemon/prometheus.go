@@ -12,18 +12,20 @@ import (
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/rpc/dataconn/frameconn"
+	"github.com/zrepl/zrepl/util/tcpsock"
 	"github.com/zrepl/zrepl/zfs"
 )
 
 type prometheusJob struct {
-	listen string
+	listen   string
+	freeBind bool
 }
 
 func newPrometheusJobFromConfig(in *config.PrometheusMonitoring) (*prometheusJob, error) {
 	if _, _, err := net.SplitHostPort(in.Listen); err != nil {
 		return nil, err
 	}
-	return &prometheusJob{in.Listen}, nil
+	return &prometheusJob{in.Listen, in.ListenFreeBind}, nil
 }
 
 var prom struct {
@@ -60,7 +62,7 @@ func (j *prometheusJob) Run(ctx context.Context) {
 
 	log := job.GetLogger(ctx)
 
-	l, err := net.Listen("tcp", j.listen)
+	l, err := tcpsock.Listen(j.listen, j.freeBind)
 	if err != nil {
 		log.WithError(err).Error("cannot listen")
 		return

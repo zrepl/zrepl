@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/pkg/errors"
@@ -12,6 +11,7 @@ import (
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/tlsconf"
 	"github.com/zrepl/zrepl/transport"
+	"github.com/zrepl/zrepl/util/tcpsock"
 )
 
 type TLSListenerFactory struct{}
@@ -45,12 +45,11 @@ func TLSListenerFactoryFromConfig(c *config.Global, in *config.TLSServe) (transp
 	}
 
 	lf := func() (transport.AuthenticatedListener, error) {
-		l, err := net.Listen("tcp", address)
+		l, err := tcpsock.Listen(address, in.ListenFreeBind)
 		if err != nil {
 			return nil, err
 		}
-		tcpL := l.(*net.TCPListener)
-		tl := tlsconf.NewClientAuthListener(tcpL, clientCA, serverCert, handshakeTimeout)
+		tl := tlsconf.NewClientAuthListener(l, clientCA, serverCert, handshakeTimeout)
 		return &tlsAuthListener{tl, clientCNs}, nil
 	}
 

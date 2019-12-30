@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/util/envconst"
 )
 
