@@ -91,19 +91,21 @@ type StepInfo struct {
 	BytesReplicated int64
 }
 
-func (a *AttemptReport) BytesSum() (expected, replicated int64) {
+func (a *AttemptReport) BytesSum() (expected, replicated int64, containsInvalidSizeEstimates bool) {
 	for _, fs := range a.Filesystems {
-		e, r := fs.BytesSum()
+		e, r, fsContainsInvalidEstimate := fs.BytesSum()
+		containsInvalidSizeEstimates = containsInvalidSizeEstimates || fsContainsInvalidEstimate
 		expected += e
 		replicated += r
 	}
-	return expected, replicated
+	return expected, replicated, containsInvalidSizeEstimates
 }
 
-func (f *FilesystemReport) BytesSum() (expected, replicated int64) {
+func (f *FilesystemReport) BytesSum() (expected, replicated int64, containsInvalidSizeEstimates bool) {
 	for _, step := range f.Steps {
 		expected += step.Info.BytesExpected
 		replicated += step.Info.BytesReplicated
+		containsInvalidSizeEstimates = containsInvalidSizeEstimates || step.Info.BytesExpected == 0
 	}
 	return
 }
