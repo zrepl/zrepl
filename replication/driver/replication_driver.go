@@ -371,9 +371,21 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 }
 
 func (fs *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
-	psteps, err := fs.fs.PlanFS(ctx)
-	errTime := time.Now()
+
 	defer fs.l.Lock().Unlock()
+
+	// get planned steps from replication logic
+	var psteps []Step
+	var errTime time.Time
+	var err error
+	fs.l.DropWhile(func() {
+		// TODO hacky
+		// choose target time that is earlier than any snapshot, so fs planning is always prioritized
+		targetDate := time.Unix(0, 0)
+		defer pq.WaitReady(fs, targetDate)()
+		psteps, err = fs.fs.PlanFS(ctx) // no shadow
+		errTime = time.Now()            // no shadow
+	})
 	debug := debugPrefix("fs=%s", fs.fs.ReportInfo().Name)
 	fs.planning.done = true
 	if err != nil {
