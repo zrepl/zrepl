@@ -4,13 +4,10 @@ import (
 	"context"
 	"time"
 
-	"google.golang.org/grpc"
-
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn"
-	"github.com/zrepl/zrepl/rpc/grpcclientidentity"
-	"github.com/zrepl/zrepl/rpc/netadaptor"
+	"github.com/zrepl/zrepl/rpc/grpcclientidentity/grpchelper"
 	"github.com/zrepl/zrepl/rpc/versionhandshake"
 	"github.com/zrepl/zrepl/transport"
 	"github.com/zrepl/zrepl/util/envconst"
@@ -28,7 +25,6 @@ type serveFunc func(ctx context.Context, demuxedListener transport.Authenticated
 type Server struct {
 	logger             Logger
 	handler            Handler
-	controlServer      *grpc.Server
 	controlServerServe serveFunc
 	dataServer         *dataconn.Server
 	dataServerServe    serveFunc
@@ -39,12 +35,11 @@ type HandlerContextInterceptor func(ctx context.Context) context.Context
 // config must be valid (use its Validate function).
 func NewServer(handler Handler, loggers Loggers, ctxInterceptor HandlerContextInterceptor) *Server {
 
-	// setup control server
-	tcs := grpcclientidentity.NewTransportCredentials(loggers.Control) // TODO different subsystem for log
-	unary, stream := grpcclientidentity.NewInterceptors(loggers.Control, endpoint.ClientIdentityKey)
-	controlServer := grpc.NewServer(grpc.Creds(tcs), grpc.UnaryInterceptor(unary), grpc.StreamInterceptor(stream))
-	pdu.RegisterReplicationServer(controlServer, handler)
 	controlServerServe := func(ctx context.Context, controlListener transport.AuthenticatedListener, errOut chan<- error) {
+
+		controlServer, serve := grpchelper.NewServer(controlListener, endpoint.ClientIdentityKey, loggers.Control)
+		pdu.RegisterReplicationServer(controlServer, handler)
+
 		// give time for graceful stop until deadline expires, then hard stop
 		go func() {
 			<-ctx.Done()
@@ -55,7 +50,7 @@ func NewServer(handler Handler, loggers Loggers, ctxInterceptor HandlerContextIn
 			controlServer.GracefulStop()
 		}()
 
-		errOut <- controlServer.Serve(netadaptor.New(controlListener, loggers.Control))
+		errOut <- serve()
 	}
 
 	// setup data server
@@ -76,7 +71,6 @@ func NewServer(handler Handler, loggers Loggers, ctxInterceptor HandlerContextIn
 	server := &Server{
 		logger:             loggers.General,
 		handler:            handler,
-		controlServer:      controlServer,
 		controlServerServe: controlServerServe,
 		dataServer:         dataServer,
 		dataServerServe:    dataServerServe,

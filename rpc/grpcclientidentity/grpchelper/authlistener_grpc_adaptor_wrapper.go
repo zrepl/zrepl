@@ -50,25 +50,25 @@ func ClientConn(cn transport.Connecter, log Logger) *grpc.ClientConn {
 }
 
 // NewServer is a convenience interface around the TransportCredentials and Interceptors interface.
-func NewServer(authListenerFactory transport.AuthenticatedListenerFactory, clientIdentityKey interface{}, logger grpcclientidentity.Logger) (srv *grpc.Server, serve func() error, err error) {
+func NewServer(authListener transport.AuthenticatedListener, clientIdentityKey interface{}, logger grpcclientidentity.Logger) (srv *grpc.Server, serve func() error) {
 	ka := grpc.KeepaliveParams(keepalive.ServerParameters{
 		Time:    StartKeepalivesAfterInactivityDuration,
 		Timeout: KeepalivePeerTimeout,
 	})
+	ep := grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+		MinTime:             StartKeepalivesAfterInactivityDuration / 2, // avoid skew
+		PermitWithoutStream: true,
+	})
 	tcs := grpcclientidentity.NewTransportCredentials(logger)
 	unary, stream := grpcclientidentity.NewInterceptors(logger, clientIdentityKey)
-	srv = grpc.NewServer(grpc.Creds(tcs), grpc.UnaryInterceptor(unary), grpc.StreamInterceptor(stream), ka)
+	srv = grpc.NewServer(grpc.Creds(tcs), grpc.UnaryInterceptor(unary), grpc.StreamInterceptor(stream), ka, ep)
 
 	serve = func() error {
-		l, err := authListenerFactory()
-		if err != nil {
-			return err
-		}
-		if err := srv.Serve(netadaptor.New(l, logger)); err != nil {
+		if err := srv.Serve(netadaptor.New(authListener, logger)); err != nil {
 			return err
 		}
 		return nil
 	}
 
-	return srv, serve, nil
+	return srv, serve
 }
