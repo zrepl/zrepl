@@ -9,7 +9,14 @@ The ``push``, ``source`` and ``snap`` jobs can automatically take periodic snaps
 The snapshot names are composed of a user-defined prefix followed by a UTC date formatted like ``20060102_150405_000``.
 We use UTC because it will avoid name conflicts when switching time zones or between summer and winter time.
 
+When a job is started, the snapshotter attempts to get the snapshotting rhythms of the matched ``filesystems`` in sync because snapshotting all filesystems at the same time results in a more consistent backup.
+To find that sync point, the most recent snapshot, made by the snapshotter, in any of the matched ``filesystems`` is used.
+A filesystem that does not have snapshots by the snapshotter has lower priority than filesystem that do, and thus might not be snapshotted (and replicated) until it is snapshotted at the next sync point.
+
 For ``push`` jobs, replication is automatically triggered after all filesystems have been snapshotted.
+
+Note that the ``zrepl signal wakeup JOB`` subcommand does not trigger snapshotting.
+
 
 ::
 

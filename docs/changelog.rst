@@ -31,6 +31,8 @@ We use the following annotations for classifying changes:
 ------------------
 
 * |feature| New option ``listen_freebind`` (tcp, tls, prometheus listener)
+* |bugfix| |docs| snapshotting: clarify sync-up behavior and warn about filesystems
+  that will not be snapshotted until the sync-up phase is over
 
 0.2.1
 -----
