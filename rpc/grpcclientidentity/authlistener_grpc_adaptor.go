@@ -101,7 +101,11 @@ func (*transportCredentials) OverrideServerName(string) error {
 
 type ContextInterceptor = func(ctx context.Context) context.Context
 
-func NewInterceptors(logger Logger, clientIdentityKey interface{}, ctxInterceptor ContextInterceptor) (unary grpc.UnaryServerInterceptor, stream grpc.StreamServerInterceptor) {
+type PreHandlerInspector func(ctx context.Context, endpoint string, req interface{})
+
+type PostHandlerInspector func(ctx context.Context, response interface{}, err error)
+
+func NewInterceptors(logger Logger, clientIdentityKey interface{}, ctxInterceptor ContextInterceptor, pre PreHandlerInspector, post PostHandlerInspector) (unary grpc.UnaryServerInterceptor, stream grpc.StreamServerInterceptor) {
 	unary = func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		logger.WithField("fullMethod", info.FullMethod).Debug("request")
 		p, ok := peer.FromContext(ctx)
@@ -118,7 +122,10 @@ func NewInterceptors(logger Logger, clientIdentityKey interface{}, ctxIntercepto
 		if ctxInterceptor != nil {
 			ctx = ctxInterceptor(ctx)
 		}
-		return handler(ctx, req)
+		pre(ctx, info.FullMethod, req)
+		res, err := handler(ctx, req)
+		post(ctx, res, err)
+		return res, err
 	}
 	stream = func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		panic("unimplemented")

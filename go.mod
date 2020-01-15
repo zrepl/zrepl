@@ -7,6 +7,7 @@ require (
 	github.com/gdamore/tcell v1.2.0
 	github.com/go-logfmt/logfmt v0.4.0
 	github.com/go-sql-driver/mysql v1.4.1-0.20190907122137-b2c03bcae3d4
+	github.com/gogo/protobuf v1.1.1
 	github.com/golang/protobuf v1.3.2
 	github.com/google/uuid v1.1.1
 	github.com/jinzhu/copier v0.0.0-20170922082739-db4671f3a9b8

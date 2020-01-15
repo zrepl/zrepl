@@ -606,7 +606,7 @@ func (s *Step) doReplication(ctx context.Context) error {
 	log := getLogger(ctx)
 	sr := s.buildSendRequest(false)
 
-	log.Debug("initiate send request")
+	log.WithField("sr", sr.String()).Debug("initiate send request")
 	sres, sstreamCopier, err := s.sender.Send(ctx, sr)
 	if err != nil {
 		log.WithError(err).Error("send request failed")
@@ -633,7 +633,7 @@ func (s *Step) doReplication(ctx context.Context) error {
 		To:               sr.GetTo(),
 		ClearResumeToken: !sres.UsedResumeToken,
 	}
-	log.Debug("initiate receive request")
+	log.WithField("rr", rr.String()).Debug("initiate receive request")
 	_, err = s.receiver.Receive(ctx, rr, byteCountingStream)
 	if err != nil {
 		log.
@@ -649,10 +649,11 @@ func (s *Step) doReplication(ctx context.Context) error {
 	}
 	log.Debug("receive finished")
 
-	log.Debug("tell sender replication completed")
-	_, err = s.sender.SendCompleted(ctx, &pdu.SendCompletedReq{
+	scr := &pdu.SendCompletedReq{
 		OriginalReq: sr,
-	})
+	}
+	log.WithField("scr", scr.String()).Debug("tell sender replication completed")
+	_, err = s.sender.SendCompleted(ctx, scr)
 	if err != nil {
 		log.WithError(err).Error("error telling sender that replication completed successfully")
 		return err

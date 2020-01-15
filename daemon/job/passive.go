@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -180,11 +181,39 @@ func (j *PassiveSide) Run(ctx context.Context) {
 	}
 
 	ctxInterceptor := func(handlerCtx context.Context) context.Context {
-		return logging.WithSubsystemLoggers(handlerCtx, log)
+		reqLog := log.WithField(logging.ReqIDField, rpc.MustGetRequestID(handlerCtx))
+		return logging.WithSubsystemLoggers(handlerCtx, reqLog)
+	}
+
+	// ctxInterceptor already injected request loggers (with request id)
+	pre := func(ctx context.Context, method string, req interface{}) {
+		l := endpoint.GetLogger(ctx).WithField("method", method).WithField("reqT", fmt.Sprintf("%T", req))
+		if p, ok := req.(proto.Message); ok {
+			l = l.WithField("req", proto.CompactTextString(p))
+		}
+		ci, ok := ctx.Value(endpoint.ClientIdentityKey).(string)
+		if !ok {
+			// like endpoint, we must assume that rpc.Server sets it
+			panic(method)
+		}
+		l = l.WithField("clientIdentity", ci)
+		l.Debug("incoming")
+	}
+	post := func(ctx context.Context, res interface{}, err error) {
+		l := endpoint.GetLogger(ctx).
+			WithField("responseT", fmt.Sprintf("%T", res)).
+			WithField("errT", fmt.Sprintf("%T", err))
+		if s, ok := res.(fmt.Stringer); ok {
+			l = l.WithField("response", s.String())
+		}
+		if err != nil {
+			l = l.WithError(err)
+		}
+		l.Debug("handler done")
 	}
 
 	rpcLoggers := rpc.GetLoggersOrPanic(ctx) // WithSubsystemLoggers above
-	server := rpc.NewServer(handler, rpcLoggers, ctxInterceptor)
+	server := rpc.NewServer(handler, rpcLoggers, ctxInterceptor, pre, post)
 
 	listener, err := j.listen()
 	if err != nil {

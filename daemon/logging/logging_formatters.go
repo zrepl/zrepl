@@ -22,6 +22,7 @@ const (
 const (
 	JobField    string = "job"
 	SubsysField string = "subsystem"
+	ReqIDField  string = "reqid"
 )
 
 type MetadataFlags int64
@@ -85,7 +86,7 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 		fmt.Fprintf(&line, "[%s]", col.Sprint(e.Level.Short()))
 	}
 
-	prefixFields := []string{JobField, SubsysField}
+	prefixFields := []string{JobField, SubsysField, ReqIDField}
 	prefixed := make(map[string]bool, len(prefixFields)+2)
 	for _, field := range prefixFields {
 		val, ok := e.Fields[field]

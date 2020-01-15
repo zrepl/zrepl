@@ -26,6 +26,7 @@ import (
 // Client implements the active side of a replication setup.
 // It satisfies the Endpoint, Sender and Receiver interface defined by package replication.
 type Client struct {
+	reqIDGen      *requestIDGenerator
 	dataClient    *dataconn.Client
 	controlClient pdu.ReplicationClient // this the grpc client instance, see constructor
 	controlConn   *grpc.ClientConn
@@ -47,10 +48,13 @@ func NewClient(cn transport.Connecter, loggers Loggers) *Client {
 	muxedConnecter := mux(cn)
 
 	c := &Client{
-		loggers: loggers,
-		closed:  make(chan struct{}),
+		loggers:  loggers,
+		closed:   make(chan struct{}),
+		reqIDGen: newRequestIDGenerator(),
 	}
-	grpcConn := grpchelper.ClientConn(muxedConnecter.control, loggers.Control)
+	grpcConn := grpchelper.ClientConn(muxedConnecter.control, loggers.Control, func() string {
+		return c.reqIDGen.newID().String()
+	})
 
 	go func() {
 		ctx, cancel := context.WithCancel(context.Background())

@@ -159,6 +159,7 @@ func sendArgsFromPDUAndValidateExists(ctx context.Context, fs string, fsv *pdu.F
 }
 
 func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error) {
+	getLogger(ctx).WithField("req", r.String()).Debug("incoming Send request")
 
 	_, err := s.filterCheckFS(r.Filesystem)
 	if err != nil {
@@ -259,6 +260,7 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.St
 }
 
 func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*pdu.SendCompletedRes, error) {
+	getLogger(ctx).WithField("req", r.String()).Debug("incoming SendCompleted request")
 	orig := r.GetOriginalReq() // may be nil, always use proto getters
 	fs := orig.GetFilesystem()
 
@@ -510,7 +512,7 @@ func (s *Receiver) ListFilesystems(ctx context.Context, req *pdu.ListFilesystemR
 	// present filesystem without the root_fs prefix
 	fss := make([]*pdu.Filesystem, 0, len(filtered))
 	for _, a := range filtered {
-		l := getLogger(ctx).WithField("fs", a)
+		l := getLogger(ctx).WithField("fs", a.ToString())
 		ph, err := zfs.ZFSGetFilesystemPlaceholderState(a)
 		if err != nil {
 			l.WithError(err).Error("error getting placeholder state")
@@ -597,7 +599,7 @@ func (s *Receiver) Send(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, zf
 var maxConcurrentZFSRecvSemaphore = semaphore.New(envconst.Int64("ZREPL_ENDPOINT_MAX_CONCURRENT_RECV", 10))
 
 func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs.StreamCopier) (*pdu.ReceiveRes, error) {
-	getLogger(ctx).Debug("incoming Receive")
+	getLogger(ctx).WithField("rr", req.String()).Debug("incoming Receive")
 	defer receive.Close()
 
 	root := s.clientRootFromCtx(ctx)

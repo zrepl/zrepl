@@ -14,8 +14,8 @@ import (
 	"github.com/zrepl/zrepl/zfs"
 )
 
-// WireInterceptor has a chance to exchange the context and connection on each client connection.
-type WireInterceptor func(ctx context.Context, rawConn *transport.AuthConn) (context.Context, *transport.AuthConn)
+// ReqInterceptor has a chance to exchange the context and connection on each request.
+type ReqInterceptor func(ctx context.Context, rawConn *transport.AuthConn) (context.Context, *transport.AuthConn)
 
 // Handler implements the functionality that is exposed by Server to the Client.
 type Handler interface {
@@ -30,19 +30,27 @@ type Handler interface {
 	PingDataconn(ctx context.Context, r *pdu.PingReq) (*pdu.PingRes, error)
 }
 
+type PreHandlerInspector = func(ctx context.Context, endpoint string, req interface{})
+
+type PostHandlerInspector = func(ctx context.Context, response interface{}, err error)
+
 type Logger = logger.Logger
 
 type Server struct {
-	h   Handler
-	wi  WireInterceptor
-	log Logger
+	h    Handler
+	ri   ReqInterceptor
+	log  Logger
+	pre  PreHandlerInspector
+	post PostHandlerInspector
 }
 
-func NewServer(wi WireInterceptor, logger Logger, handler Handler) *Server {
+func NewServer(ri ReqInterceptor, logger Logger, pre PreHandlerInspector, handler Handler, post PostHandlerInspector) *Server {
 	return &Server{
 		h:   handler,
-		wi:  wi,
+		ri:  ri,
 		log: logger,
+		pre: pre,
+		post: post,
 	}
 }
 
@@ -83,8 +91,8 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 	defer s.log.Debug("serveConn done")
 
 	ctx := context.Background()
-	if s.wi != nil {
-		ctx, nc = s.wi(ctx, nc)
+	if s.ri != nil {
+		ctx, nc = s.ri(ctx, nc)
 	}
 
 	c := stream.Wrap(nc, HeartbeatInterval, HeartbeatPeerTimeout)
@@ -100,7 +108,7 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 		s.log.WithError(err).Error("error reading structured part")
 		return
 	}
-	endpoint := string(header)
+	endpoint := string(header) // FIXME
 
 	reqStructured, err := c.ReadStreamedMessage(ctx, RequestStructuredMaxSize, ReqStructured)
 	if err != nil {
@@ -120,6 +128,7 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 			s.log.WithError(err).Error("cannot unmarshal send request")
 			return
 		}
+		s.pre(ctx, endpoint, &req)
 		res, sendStream, handlerErr = s.h.Send(ctx, &req) // SHADOWING
 	case EndpointRecv:
 		var req pdu.ReceiveReq
@@ -127,6 +136,7 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 			s.log.WithError(err).Error("cannot unmarshal receive request")
 			return
 		}
+		s.pre(ctx, endpoint, &req)
 		res, handlerErr = s.h.Receive(ctx, &req, &streamCopier{streamConn: c, closeStreamOnClose: false}) // SHADOWING
 	case EndpointPing:
 		var req pdu.PingReq
@@ -134,6 +144,7 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 			s.log.WithError(err).Error("cannot unmarshal ping request")
 			return
 		}
+		s.pre(ctx, endpoint, &req)
 		res, handlerErr = s.h.PingDataconn(ctx, &req) // SHADOWING
 	default:
 		s.log.WithField("endpoint", endpoint).Error("unknown endpoint")
@@ -141,6 +152,8 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 	}
 
 	s.log.WithField("endpoint", endpoint).WithField("errType", fmt.Sprintf("%T", handlerErr)).Debug("handler returned")
+
+	s.post(ctx, res, handlerErr)
 
 	// prepare protobuf now to return the protobuf error in the header
 	// if marshaling fails. We consider failed marshaling a handler error

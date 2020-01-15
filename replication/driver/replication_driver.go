@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/zrepl/zrepl/replication/report"
+	"github.com/zrepl/zrepl/tracing"
 	"github.com/zrepl/zrepl/util/chainlock"
 	"github.com/zrepl/zrepl/util/envconst"
 )
@@ -206,6 +208,7 @@ func Do(ctx context.Context, planner Planner) (ReportFunc, WaitFunc) {
 			}
 			run.attempts = append(run.attempts, cur)
 			run.l.DropWhile(func() {
+				ctx := tracing.Child(ctx, fmt.Sprintf("attempt#%d", ano)) // shadow
 				cur.do(ctx, prev)
 			})
 			prev = cur
@@ -281,7 +284,7 @@ func Do(ctx context.Context, planner Planner) (ReportFunc, WaitFunc) {
 }
 
 func (a *attempt) do(ctx context.Context, prev *attempt) {
-	pfss, err := a.planner.Plan(ctx)
+	pfss, err := a.planner.Plan(tracing.Child(ctx, "plan"))
 	errTime := time.Now()
 	defer a.l.Lock().Unlock()
 	if err != nil {
@@ -361,7 +364,7 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 		fssesDone.Add(1)
 		go func(f *fs) {
 			defer fssesDone.Done()
-			f.do(ctx, stepQueue, prevs[f])
+			f.do(tracing.Child(ctx, f.fs.ReportInfo().Name), stepQueue, prevs[f])
 		}(f)
 	}
 	a.l.DropWhile(func() {
@@ -371,6 +374,8 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 }
 
 func (fs *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
+
+	fmt.Fprintf(os.Stderr, "CHILD STACK: %v\n", tracing.GetStack(ctx))
 
 	defer fs.l.Lock().Unlock()
 

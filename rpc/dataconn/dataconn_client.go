@@ -75,7 +75,7 @@ func (c *Client) recv(ctx context.Context, conn *stream.Conn, res proto.Message)
 	if err != nil {
 		return err
 	}
-	header := string(headerBuf)
+	header := string(headerBuf) // FIXME
 	if strings.HasPrefix(header, responseHeaderHandlerErrorPrefix) {
 		// FIXME distinguishable error type
 		return &RemoteHandlerError{strings.TrimPrefix(header, responseHeaderHandlerErrorPrefix)}

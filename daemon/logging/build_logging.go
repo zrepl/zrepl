@@ -96,6 +96,11 @@ func WithSubsystemLoggers(ctx context.Context, log logger.Logger) context.Contex
 			Control: log.WithField(SubsysField, SubsysRPCControl),
 			Data:    log.WithField(SubsysField, SubsysRPCData),
 		},
+		// rpc.Loggers{
+		// 	General: logger.NewNullLogger(),
+		// 	Control: logger.NewNullLogger(),
+		// 	Data:    logger.NewNullLogger(),
+		// },
 	)
 	return ctx
 }

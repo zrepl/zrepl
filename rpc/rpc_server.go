@@ -7,6 +7,7 @@ import (
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn"
+	"github.com/zrepl/zrepl/rpc/grpcclientidentity"
 	"github.com/zrepl/zrepl/rpc/grpcclientidentity/grpchelper"
 	"github.com/zrepl/zrepl/rpc/versionhandshake"
 	"github.com/zrepl/zrepl/transport"
@@ -30,15 +31,35 @@ type Server struct {
 	dataServerServe    serveFunc
 }
 
-type HandlerContextInterceptor func(ctx context.Context) context.Context
+type CtxInterceptor = grpcclientidentity.ContextInterceptor
+
+func chainInterceptors(interceptors []CtxInterceptor) CtxInterceptor {
+	return func(ctx context.Context) (_ context.Context) {
+		for _, i := range interceptors {
+			ctx = i(ctx)
+		}
+		return ctx
+	}
+}
+
+type PreHandlerInspector = func(ctx context.Context, endpoint string, req interface{})
+
+type PostHandlerInspector = func(ctx context.Context, response interface{}, err error)
 
 // config must be valid (use its Validate function).
-func NewServer(handler Handler, loggers Loggers, ctxInterceptor HandlerContextInterceptor) *Server {
+func NewServer(handler Handler, loggers Loggers, ctxInterceptor CtxInterceptor, pre PreHandlerInspector, post PostHandlerInspector) *Server {
+
+	reqIdGen := newRequestIDGenerator()
+
+	ctxInterceptor = chainInterceptors([]CtxInterceptor{
+		reqIdGen.inject,
+		ctxInterceptor,
+	})
 
 	// setup control server
 	controlServerServe := func(ctx context.Context, controlListener transport.AuthenticatedListener, errOut chan<- error) {
 
-		controlServer, serve := grpchelper.NewServer(controlListener, endpoint.ClientIdentityKey, loggers.Control, ctxInterceptor)
+		controlServer, serve := grpchelper.NewServer(controlListener, endpoint.ClientIdentityKey, loggers.Control, ctxInterceptor, pre, post)
 		pdu.RegisterReplicationServer(controlServer, handler)
 
 		// give time for graceful stop until deadline expires, then hard stop
@@ -63,7 +84,7 @@ func NewServer(handler Handler, loggers Loggers, ctxInterceptor HandlerContextIn
 		}
 		return ctx, wire
 	}
-	dataServer := dataconn.NewServer(dataServerClientIdentitySetter, loggers.Data, handler)
+	dataServer := dataconn.NewServer(dataServerClientIdentitySetter, loggers.Data, pre, handler, post)
 	dataServerServe := func(ctx context.Context, dataListener transport.AuthenticatedListener, errOut chan<- error) {
 		dataServer.Serve(ctx, dataListener)
 		errOut <- nil // TODO bad design of dataServer?
