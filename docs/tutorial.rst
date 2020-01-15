@@ -52,9 +52,9 @@ Follow the :ref:`OS-specific installation instructions <installation>` and come 
 Generate TLS Certificates
 -------------------------
 
-We use the `TLS client authentication transport <transport-tcp+tlsclientauth>` to protect our data on the wire.
+We use the :ref:`TLS client authentication transport <transport-tcp+tlsclientauth>` to protect our data on the wire.
 To get things going quickly, we skip setting up a CA and generate two self-signed certificates as described :ref:`here <transport-tcp+tlsclientauth-2machineopenssl>`.
-Again, for convenience, We generate the key pairs on our local machine and distribute them using ssh:
+For convenience, we generate the key pairs on our local machine and distribute them using ssh:
 
 .. code-block:: bash
    :emphasize-lines: 6,13
@@ -138,7 +138,7 @@ We define a corresponding **sink job** named ``sink`` in ``/etc/zrepl/zrepl.yml`
 Apply Configuration Changes
 ---------------------------
 
-We use ``zrepl configcheck`` before to catch any configuration errors: no output indicates that everything is fine.
+We use ``zrepl configcheck`` to catch any configuration errors: no output indicates that everything is fine.
 If that is the case, restart the zrepl daemon on **both** ``prod`` and ``backups`` using ``service zrepl restart`` or ``systemctl restart zrepl``.
 
 
