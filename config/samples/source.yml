@@ -5,7 +5,11 @@ jobs:
     type: tcp
     listen: "0.0.0.0:8888"
     clients: {
-      "192.168.122.123" : "client1"
+      "192.168.122.123" :               "mysql01",
+      "192.168.122.42" :                "mx01",
+      "2001:0db8:85a3::8a2e:0370:7334": "gateway",
+      "10.23.42.0/24":       "cluster-*",
+      "fde4:8dba:82e1::/64": "san-*",
     }
   filesystems: {
     "<": true,

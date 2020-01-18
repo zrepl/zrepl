@@ -4,10 +4,10 @@ package transport
 
 import (
 	"context"
-	"errors"
 	"net"
 	"syscall"
 
+	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/rpc/dataconn/timeoutconn"
 	"github.com/zrepl/zrepl/zfs"
@@ -55,13 +55,10 @@ type Connecter interface {
 }
 
 // A client identity must be a single component in a ZFS filesystem path
-func ValidateClientIdentity(in string) (err error) {
-	path, err := zfs.NewDatasetPath(in)
+func ValidateClientIdentity(in string) error {
+	err := zfs.ComponentNamecheck(in)
 	if err != nil {
-		return err
-	}
-	if path.Length() != 1 {
-		return errors.New("client identity must be a single path component (not empty, no '/')")
+		return errors.Wrap(err, "client identity must be usable as a single dataset path component")
 	}
 	return nil
 }

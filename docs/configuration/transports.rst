@@ -52,8 +52,15 @@ Serve
         listen: ":8888"
         listen_freebind: true # optional, default false
         clients: {
-          "192.168.122.123" : "mysql01"
-          "192.168.122.123" : "mx01"
+          "192.168.122.123" :               "mysql01",
+          "192.168.122.42" :                "mx01",
+          "2001:0db8:85a3::8a2e:0370:7334": "gateway",
+
+          # CIDR masks require a '*' in the client identity string
+          # that is expanded to the client's IP address
+
+          "10.23.42.0/24":       "cluster-*"
+          "fde4:8dba:82e1::/64": "san-*"
         }
       ...
 
