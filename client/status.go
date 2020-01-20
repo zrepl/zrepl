@@ -463,9 +463,16 @@ func (t *tui) renderReplicationReport(rep *report.Report, history *bytesProgress
 		// Progress: [---------------]
 		expected, replicated := latest.BytesSum()
 		rate, changeCount := history.Update(replicated)
+		eta := time.Duration(0)
+		if rate > 0 {
+			eta = time.Duration((expected-replicated)/rate) * time.Second
+		}
 		t.write("Progress: ")
 		t.drawBar(50, replicated, expected, changeCount)
 		t.write(fmt.Sprintf(" %s / %s @ %s/s", ByteCountBinary(replicated), ByteCountBinary(expected), ByteCountBinary(rate)))
+		if eta != 0 {
+			t.write(fmt.Sprintf(" (%s remaining)", humanizeDuration(eta)))
+		}
 		t.newline()
 
 		var maxFSLen int
@@ -754,4 +761,28 @@ func ByteCountBinary(b int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+func humanizeDuration(duration time.Duration) string {
+	days := int64(duration.Hours() / 24)
+	hours := int64(math.Mod(duration.Hours(), 24))
+	minutes := int64(math.Mod(duration.Minutes(), 60))
+	seconds := int64(math.Mod(duration.Seconds(), 60))
+
+	var parts []string
+
+	force := false
+	chunks := []int64{days, hours, minutes, seconds}
+	for i, chunk := range chunks {
+		if force || chunk > 0 {
+			padding := 0
+			if force {
+				padding = 2
+			}
+			parts = append(parts, fmt.Sprintf("%*d%c", padding, chunk, "dhms"[i]))
+			force = true
+		}
+	}
+
+	return strings.Join(parts, " ")
 }
