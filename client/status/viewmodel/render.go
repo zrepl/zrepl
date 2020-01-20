@@ -356,9 +356,17 @@ func renderReplicationReport(t *stringbuilder.B, rep *report.Report, history *by
 		// Progress: [---------------]
 		expected, replicated, containsInvalidSizeEstimates := latest.BytesSum()
 		rate, changeCount := history.Update(replicated)
+		eta := time.Duration(0)
+		if rate > 0 {
+			eta = time.Duration((expected-replicated)/rate) * time.Second
+		}
+
 		t.Write("Progress: ")
 		t.DrawBar(50, replicated, expected, changeCount)
 		t.Write(fmt.Sprintf(" %s / %s @ %s/s", ByteCountBinary(replicated), ByteCountBinary(expected), ByteCountBinary(rate)))
+		if eta != 0 {
+			t.Write(fmt.Sprintf(" (%s remaining)", humanizeDuration(eta)))
+		}
 		t.Newline()
 		if containsInvalidSizeEstimates {
 			t.Write("NOTE: not all steps could be size-estimated, total estimate is likely imprecise!")
@@ -381,6 +389,30 @@ func renderReplicationReport(t *stringbuilder.B, rep *report.Report, history *by
 		}
 
 	}
+}
+
+func humanizeDuration(duration time.Duration) string {
+	days := int64(duration.Hours() / 24)
+	hours := int64(math.Mod(duration.Hours(), 24))
+	minutes := int64(math.Mod(duration.Minutes(), 60))
+	seconds := int64(math.Mod(duration.Seconds(), 60))
+
+	var parts []string
+
+	force := false
+	chunks := []int64{days, hours, minutes, seconds}
+	for i, chunk := range chunks {
+		if force || chunk > 0 {
+			padding := 0
+			if force {
+				padding = 2
+			}
+			parts = append(parts, fmt.Sprintf("%*d%c", padding, chunk, "dhms"[i]))
+			force = true
+		}
+	}
+
+	return strings.Join(parts, " ")
 }
 
 func renderPrunerReport(t *stringbuilder.B, r *pruner.Report, fsfilter FilterFunc) {
