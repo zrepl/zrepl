@@ -18,6 +18,7 @@ func TestValidateReceivingSidesDoNotOverlap(t *testing.T) {
 		{false, []string{"a"}},
 		{false, []string{"some/path"}},
 		{false, []string{"zroot/sink1", "zroot/sink2", "zroot/sink3"}},
+		{false, []string{"zroot/foo", "zroot/foobar"}},
 		{true, []string{"zroot/b", "zroot/b"}},
 		{true, []string{"zroot/foo", "zroot/foo/bar", "zroot/baz"}},
 		{false, []string{"a/x", "b/x"}},

@@ -104,6 +104,11 @@ func validateReceivingSidesDoNotOverlap(receivingRootFSs []string) error {
 	sort.Slice(rfss, func(i, j int) bool {
 		return strings.Compare(rfss[i], rfss[j]) == -1
 	})
+	// add tailing slash because of hierarchy-simulation
+	// rootfs/ is not root of rootfs2/
+	for i := 0; i < len(rfss); i++ {
+		rfss[i] += "/"
+	}
 	// idea:
 	//   no path in rfss must be prefix of another
 	//
