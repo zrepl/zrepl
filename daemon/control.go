@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -46,6 +47,8 @@ func (j *controlJob) Status() *job.Status { return &job.Status{Type: job.TypeInt
 func (j *controlJob) OwnedDatasetSubtreeRoot() (p *zfs.DatasetPath, ok bool) { return nil, false }
 
 func (j *controlJob) SenderConfig() *endpoint.SenderConfig { return nil }
+
+func (j *controlJob) SetConcurrency(concurrency int) error { return errors.Errorf("not supported") }
 
 var promControl struct {
 	requestBegin    *prometheus.CounterVec
@@ -126,6 +129,7 @@ func (j *controlJob) Run(ctx context.Context) {
 			type reqT struct {
 				Name string
 				Op   string
+				Data string
 			}
 			var req reqT
 			if decoder(&req) != nil {
@@ -138,6 +142,14 @@ func (j *controlJob) Run(ctx context.Context) {
 				err = j.jobs.wakeup(req.Name)
 			case "reset":
 				err = j.jobs.reset(req.Name)
+			case "set-concurrency":
+				var concurrency int
+				concurrency, err = strconv.Atoi(req.Data) // shadow
+				if err != nil {
+					// fallthrough outer
+				} else {
+					err = j.jobs.setConcurrency(req.Name, concurrency)
+				}
 			default:
 				err = fmt.Errorf("operation %q is invalid", req.Op)
 			}

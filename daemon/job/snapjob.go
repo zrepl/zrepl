@@ -117,6 +117,8 @@ outer:
 	}
 }
 
+func (*SnapJob) SetConcurrency(concurrency int) error { return errors.Errorf("not supported") }
+
 // Adaptor that implements pruner.History around a pruner.Target.
 // The ReplicationCursor method is Get-op only and always returns
 // the filesystem's most recent version's GUID.

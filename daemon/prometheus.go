@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -50,6 +51,8 @@ func (j *prometheusJob) Status() *job.Status { return &job.Status{Type: job.Type
 func (j *prometheusJob) OwnedDatasetSubtreeRoot() (p *zfs.DatasetPath, ok bool) { return nil, false }
 
 func (j *prometheusJob) SenderConfig() *endpoint.SenderConfig { return nil }
+
+func (j *prometheusJob) SetConcurrency(concurrency int) error { return errors.Errorf("not supported") }
 
 func (j *prometheusJob) RegisterMetrics(registerer prometheus.Registerer) {}
 

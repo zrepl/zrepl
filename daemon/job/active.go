@@ -55,9 +55,12 @@ const (
 type activeSideTasks struct {
 	state ActiveSideState
 
+	concurrency int
+
 	// valid for state ActiveSideReplicating, ActiveSidePruneSender, ActiveSidePruneReceiver, ActiveSideDone
-	replicationReport driver.ReportFunc
-	replicationCancel context.CancelFunc
+	replicationReport         driver.ReportFunc
+	replicationCancel         context.CancelFunc
+	replicationSetConcurrency driver.SetConcurrencyFunc
 
 	// valid for state ActiveSidePruneSender, ActiveSidePruneReceiver, ActiveSideDone
 	prunerSender, prunerReceiver *pruner.Pruner
@@ -278,6 +281,8 @@ func activeSide(g *config.Global, in *config.ActiveJob, configJob interface{}) (
 		return nil, errors.Wrap(err, "invalid job name")
 	}
 
+	j.tasks.concurrency = 1 // FIXME
+
 	switch v := configJob.(type) {
 	case *config.PushJob:
 		j.mode, err = modePushFromConfig(g, v, j.name) // shadow
@@ -375,6 +380,22 @@ func (j *ActiveSide) SenderConfig() *endpoint.SenderConfig {
 	return push.senderConfig
 }
 
+func (j *ActiveSide) SetConcurrency(concurrency int) (err error) {
+	j.updateTasks(func(tasks *activeSideTasks) {
+		if tasks.replicationSetConcurrency != nil {
+			err = tasks.replicationSetConcurrency(concurrency) // no shadow
+			if err == nil {
+				tasks.concurrency = concurrency
+			}
+		} else {
+			// FIXME this is not great, should always be able to set it
+			err = errors.Errorf("cannot set while not replicating")
+		}
+
+	})
+	return err
+}
+
 func (j *ActiveSide) Run(ctx context.Context) {
 	log := GetLogger(ctx)
 	ctx = logging.WithSubsystemLoggers(ctx, log)
@@ -436,11 +457,14 @@ func (j *ActiveSide) do(ctx context.Context) {
 		ctx, repCancel := context.WithCancel(ctx)
 		var repWait driver.WaitFunc
 		j.updateTasks(func(tasks *activeSideTasks) {
-			// reset it
-			*tasks = activeSideTasks{}
+			// reset it (almost)
+			old := *tasks
+			*tasks = activeSideTasks{
+				concurrency: old.concurrency,
+			}
 			tasks.replicationCancel = repCancel
-			tasks.replicationReport, repWait = replication.Do(
-				ctx, logic.NewPlanner(j.promRepStateSecs, j.promBytesReplicated, sender, receiver, j.mode.PlannerPolicy()),
+			tasks.replicationReport, repWait, tasks.replicationSetConcurrency = replication.Do(
+				ctx, tasks.concurrency, logic.NewPlanner(j.promRepStateSecs, j.promBytesReplicated, sender, receiver, j.mode.PlannerPolicy()),
 			)
 			tasks.state = ActiveSideReplicating
 		})

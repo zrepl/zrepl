@@ -89,6 +89,8 @@ type attempt struct {
 	// if both are nil, it must be assumed that Planner.Plan is active
 	planErr *timedError
 	fss     []*fs
+
+	concurrency int
 }
 
 type timedError struct {
@@ -170,17 +172,20 @@ type step struct {
 
 type ReportFunc func() *report.Report
 type WaitFunc func(block bool) (done bool)
+type SetConcurrencyFunc func(concurrency int) error
 
 var maxAttempts = envconst.Int64("ZREPL_REPLICATION_MAX_ATTEMPTS", 3)
 var reconnectHardFailTimeout = envconst.Duration("ZREPL_REPLICATION_RECONNECT_HARD_FAIL_TIMEOUT", 10*time.Minute)
 
-func Do(ctx context.Context, planner Planner) (ReportFunc, WaitFunc) {
+func Do(ctx context.Context, initialConcurrency int, planner Planner) (ReportFunc, WaitFunc, SetConcurrencyFunc) {
 	log := getLog(ctx)
 	l := chainlock.New()
 	run := &run{
 		l:         l,
 		startedAt: time.Now(),
 	}
+
+	concurrencyChanges := make(chan concurrencyChange)
 
 	done := make(chan struct{})
 	go func() {
@@ -198,15 +203,21 @@ func Do(ctx context.Context, planner Planner) (ReportFunc, WaitFunc) {
 			run.waitReconnect.SetZero()
 			run.waitReconnectError = nil
 
+			prevConcurrency := initialConcurrency // FIXME default concurrency
+			if prev != nil {
+				prevConcurrency = prev.concurrency
+			}
+
 			// do current attempt
 			cur := &attempt{
-				l:         l,
-				startedAt: time.Now(),
-				planner:   planner,
+				l:           l,
+				startedAt:   time.Now(),
+				planner:     planner,
+				concurrency: prevConcurrency,
 			}
 			run.attempts = append(run.attempts, cur)
 			run.l.DropWhile(func() {
-				cur.do(ctx, prev)
+				cur.do(ctx, prev, concurrencyChanges)
 			})
 			prev = cur
 			if ctx.Err() != nil {
@@ -277,10 +288,25 @@ func Do(ctx context.Context, planner Planner) (ReportFunc, WaitFunc) {
 		defer run.l.Lock().Unlock()
 		return run.report()
 	}
-	return report, wait
+	setConcurrency := func(concurrency int) (reterr error) {
+		var wg sync.WaitGroup
+		wg.Add(1)
+		concurrencyChanges <- concurrencyChange{ concurrency, func(err error) {
+			defer wg.Done()
+			reterr = err // shadow
+		}}
+		wg.Wait()
+		return reterr
+	}
+	return report, wait, setConcurrency
 }
 
-func (a *attempt) do(ctx context.Context, prev *attempt) {
+type concurrencyChange struct {
+	value          int
+	resultCallback func(error)
+}
+
+func (a *attempt) do(ctx context.Context, prev *attempt, setConcurrency <-chan concurrencyChange) {
 	pfss, err := a.planner.Plan(ctx)
 	errTime := time.Now()
 	defer a.l.Lock().Unlock()
@@ -354,8 +380,8 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 	}
 	// invariant: prevs contains an entry for each unambigious correspondence
 
-	stepQueue := newStepQueue()
-	defer stepQueue.Start(1)() // TODO parallel replication
+	stepQueue := newStepQueue(a.concurrency)
+	defer stepQueue.Start()()
 	var fssesDone sync.WaitGroup
 	for _, f := range a.fss {
 		fssesDone.Add(1)
@@ -364,8 +390,27 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 			f.do(ctx, stepQueue, prevs[f])
 		}(f)
 	}
+	changeConcurrencyDone := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case change := <-setConcurrency:
+				err := stepQueue.SetConcurrency(change.value)
+				go change.resultCallback(err)
+				if err == nil {
+					a.l.Lock()
+					a.concurrency = change.value
+					a.l.Unlock()
+				}
+			case <-changeConcurrencyDone:
+				return
+				// not waiting for ctx.Done here, the main job are the fsses
+			}
+		}
+	}()
 	a.l.DropWhile(func() {
 		fssesDone.Wait()
+		close(changeConcurrencyDone)
 	})
 	a.finishedAt = time.Now()
 }
@@ -461,7 +506,8 @@ func (fs *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 		// lock must not be held while executing step in order for reporting to work
 		fs.l.DropWhile(func() {
 			targetDate := s.step.TargetDate()
-			defer pq.WaitReady(fs, targetDate)()
+			ctx, done := pq.WaitReady(ctx, fs, targetDate)()
+			defer done()
 			err = s.step.Step(ctx) // no shadow
 			errTime = time.Now()   // no shadow
 		})
@@ -482,6 +528,7 @@ func (r *run) report() *report.Report {
 		WaitReconnectSince: r.waitReconnect.begin,
 		WaitReconnectUntil: r.waitReconnect.end,
 		WaitReconnectError: r.waitReconnectError.IntoReportError(),
+		// Concurrency:        r.concurrency,
 	}
 	for i := range report.Attempts {
 		report.Attempts[i] = r.attempts[i].report()

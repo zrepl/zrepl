@@ -163,6 +163,8 @@ func (j *PassiveSide) SenderConfig() *endpoint.SenderConfig {
 
 func (*PassiveSide) RegisterMetrics(registerer prometheus.Registerer) {}
 
+func (*PassiveSide) SetConcurrency(concurrency int) error { return errors.Errorf("not supported") }
+
 func (j *PassiveSide) Run(ctx context.Context) {
 
 	log := GetLogger(ctx)

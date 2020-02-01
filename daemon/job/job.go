@@ -40,6 +40,7 @@ type Job interface {
 	// must return the root of that subtree as rfs and ok = true
 	OwnedDatasetSubtreeRoot() (rfs *zfs.DatasetPath, ok bool)
 	SenderConfig() *endpoint.SenderConfig
+	SetConcurrency(concurrency int) error
 }
 
 type Type string

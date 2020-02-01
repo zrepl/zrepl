@@ -176,6 +176,18 @@ func (s *jobs) reset(job string) error {
 	return wu()
 }
 
+func (s *jobs) setConcurrency(jobName string, concurrency int) error {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	job, ok := s.jobs[jobName]
+	if !ok {
+		return errors.Errorf("Job %q does not exist", job)
+	}
+
+	return job.SetConcurrency(concurrency)
+}
+
 const (
 	jobNamePrometheus = "_prometheus"
 	jobNameControl    = "_control"

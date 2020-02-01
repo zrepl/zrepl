@@ -17,7 +17,7 @@ import (
 // (relies on scheduler responsivity of < 500ms)
 func TestPqNotconcurrent(t *testing.T) {
 	var ctr uint32
-	q := newStepQueue()
+	q := newStepQueue(1)
 	var wg sync.WaitGroup
 	wg.Add(4)
 	go func() {
@@ -29,7 +29,7 @@ func TestPqNotconcurrent(t *testing.T) {
 	}()
 
 	// give goroutine "1" 500ms to enter queue, get the active slot and enter time.Sleep
-	defer q.Start(1)()
+	defer q.Start()()
 	time.Sleep(500 * time.Millisecond)
 
 	// while "1" is still running, queue in "2", "3" and "4"
@@ -77,8 +77,9 @@ func (r record) String() string {
 // Hence, perform some statistics on the wakeup times and assert that the mean wakeup
 // times for each step are close together.
 func TestPqConcurrent(t *testing.T) {
-
-	q := newStepQueue()
+	
+	concurrency := 5
+	q := newStepQueue(concurrency)
 	var wg sync.WaitGroup
 	filesystems := 100
 	stepsPerFS := 20
@@ -104,8 +105,7 @@ func TestPqConcurrent(t *testing.T) {
 			records <- recs
 		}(fs)
 	}
-	concurrency := 5
-	defer q.Start(concurrency)()
+	defer q.Start()()
 	wg.Wait()
 	close(records)
 	t.Logf("loop done")

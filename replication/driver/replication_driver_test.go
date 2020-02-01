@@ -151,7 +151,7 @@ func TestReplication(t *testing.T) {
 	ctx := context.Background()
 
 	mp := &mockPlanner{}
-	getReport, wait := Do(ctx, mp)
+	getReport, wait, _ := Do(ctx, 1, mp)
 	begin := time.Now()
 	fireAt := []time.Duration{
 		// the following values are relative to the start

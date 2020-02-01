@@ -2,6 +2,8 @@ package driver
 
 import (
 	"container/heap"
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/zrepl/zrepl/util/chainlock"
@@ -11,51 +13,88 @@ type stepQueueRec struct {
 	ident      interface{}
 	targetDate time.Time
 	wakeup     chan StepCompletedFunc
+	cancelDueToConcurrencyDownsize interace{}
 }
 
 type stepQueue struct {
 	stop chan struct{}
 	reqs chan stepQueueRec
+
+	// l protects all members except the channels above
+
+	l           *chainlock.L
+	pendingCond *sync.Cond
+
+	// ident => queueItem
+	pending    *stepQueueHeap
+	active     *stepQueueHeap
+	queueItems map[interface{}]*stepQueueHeapItem // for tracking used idents in both pending and active
+
+	// stopped is used for cancellation of "wake" goroutine
+	stopped bool
+
+	concurrency int
 }
 
 type stepQueueHeapItem struct {
 	idx int
-	req stepQueueRec
+	req *stepQueueRec
 }
-type stepQueueHeap []*stepQueueHeapItem
+type stepQueueHeap struct {
+	items   []*stepQueueHeapItem
+	reverse bool // never change after pushing first element
+}
 
 func (h stepQueueHeap) Less(i, j int) bool {
-	return h[i].req.targetDate.Before(h[j].req.targetDate)
+	res := h.items[i].req.targetDate.Before(h.items[j].req.targetDate)
+	if h.reverse {
+		return !res
+	}
+	return res
 }
 
 func (h stepQueueHeap) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-	h[i].idx = i
-	h[j].idx = j
+	h.items[i], h.items[j] = h.items[j], h.items[i]
+	h.items[i].idx = i
+	h.items[j].idx = j
 }
 
 func (h stepQueueHeap) Len() int {
-	return len(h)
+	return len(h.items)
 }
 
 func (h *stepQueueHeap) Push(elem interface{}) {
 	hitem := elem.(*stepQueueHeapItem)
 	hitem.idx = h.Len()
-	*h = append(*h, hitem)
+	h.items = append(h.items, hitem)
 }
 
 func (h *stepQueueHeap) Pop() interface{} {
-	elem := (*h)[h.Len()-1]
+	elem := h.items[h.Len()-1]
 	elem.idx = -1
-	*h = (*h)[:h.Len()-1]
+	h.items = h.items[:h.Len()-1]
 	return elem
 }
 
 // returned stepQueue must be closed with method Close
-func newStepQueue() *stepQueue {
+func newStepQueue(concurrency int) *stepQueue {
+	l := chainlock.New()
 	q := &stepQueue{
-		stop: make(chan struct{}),
-		reqs: make(chan stepQueueRec),
+		stop:        make(chan struct{}),
+		reqs:        make(chan stepQueueRec),
+		l:           l,
+		pendingCond: l.NewCond(),
+		// priority queue
+		pending: &stepQueueHeap{reverse: false},
+		active:  &stepQueueHeap{reverse: true},
+		// ident => queueItem
+		queueItems: make(map[interface{}]*stepQueueHeapItem),
+		// stopped is used for cancellation of "wake" goroutine
+		stopped: false,
+	}
+	err := q.setConcurrencyLocked(concurrency)
+	if err != nil {
+		panic(err)
 	}
 	return q
 }
@@ -65,25 +104,12 @@ func newStepQueue() *stepQueue {
 //
 // No WaitReady calls must be active at the time done is called
 // The behavior of calling WaitReady after done was called is undefined
-func (q *stepQueue) Start(concurrency int) (done func()) {
-	if concurrency < 1 {
-		panic("concurrency must be >= 1")
-	}
-	// l protects pending and queueItems
-	l := chainlock.New()
-	pendingCond := l.NewCond()
-	// priority queue
-	pending := &stepQueueHeap{}
-	// ident => queueItem
-	queueItems := make(map[interface{}]*stepQueueHeapItem)
-	// stopped is used for cancellation of "wake" goroutine
-	stopped := false
-	active := 0
+func (q *stepQueue) Start() (done func()) {
 	go func() { // "stopper" goroutine
 		<-q.stop
-		defer l.Lock().Unlock()
-		stopped = true
-		pendingCond.Broadcast()
+		defer q.l.Lock().Unlock()
+		q.stopped = true
+		q.pendingCond.Broadcast()
 	}()
 	go func() { // "reqs" goroutine
 		for {
@@ -97,41 +123,52 @@ func (q *stepQueue) Start(concurrency int) (done func()) {
 				}
 			case req := <-q.reqs:
 				func() {
-					defer l.Lock().Unlock()
-					if _, ok := queueItems[req.ident]; ok {
+					defer q.l.Lock().Unlock()
+					if _, ok := q.queueItems[req.ident]; ok {
 						panic("WaitReady must not be called twice for the same ident")
 					}
 					qitem := &stepQueueHeapItem{
 						req: req,
 					}
-					queueItems[req.ident] = qitem
-					heap.Push(pending, qitem)
-					pendingCond.Broadcast()
+					q.queueItems[req.ident] = qitem
+					heap.Push(q.pending, qitem)
+					q.pendingCond.Broadcast()
 				}()
 			}
 		}
 	}()
 	go func() { // "wake" goroutine
-		defer l.Lock().Unlock()
+		defer q.l.Lock().Unlock()
 		for {
 
-			for !stopped && (active >= concurrency || pending.Len() == 0) {
-				pendingCond.Wait()
+			for !q.stopped && (q.active.Len() >= q.concurrency || q.pending.Len() == 0) {
+				q.pendingCond.Wait()
 			}
-			if stopped {
+			if q.stopped {
 				return
 			}
-			if pending.Len() <= 0 {
+			if q.pending.Len() <= 0 {
 				return
 			}
-			active++
-			next := heap.Pop(pending).(*stepQueueHeapItem).req
-			delete(queueItems, next.ident)
 
-			next.wakeup <- func() {
-				defer l.Lock().Unlock()
-				active--
-				pendingCond.Broadcast()
+			// pop from tracked items
+			next := heap.Pop(q.pending).(*stepQueueHeapItem)
+
+			next.req.cancelDueToConcurrencyDownsize = 
+
+			heap.Push(q.active, next)
+
+			next.req.wakeup <- func() {
+				defer q.l.Lock().Unlock()
+
+				//
+				qitem := &stepQueueHeapItem{
+					req: req,
+				}
+
+				// delete(q.queueItems, next.req.ident) // def
+
+				q.pendingCond.Broadcast()
 			}
 		}
 	}()
@@ -160,4 +197,25 @@ func (q *stepQueue) WaitReady(ident interface{}, targetDate time.Time) StepCompl
 		panic("targetDate of zero is reserved for marking Done")
 	}
 	return q.sendAndWaitForWakeup(ident, targetDate)
+}
+
+// caller must hold lock
+func (q *stepQueue) setConcurrencyLocked(newConcurrency int) error {
+	if !(newConcurrency >= 1) {
+		return fmt.Errorf("concurrency must be >= 1 but requested %v", newConcurrency)
+	}
+	q.concurrency = newConcurrency
+	q.pendingCond.Broadcast() // wake up waiters who could make progress
+
+	for q.active.Len() > q.concurrency {
+		item := heap.Pop(q.active).(*stepQueueHeapItem)
+		item.req.cancelDueToConcurrencyDownsize()
+		heap.Push(q.pending, item)
+	}
+	return nil
+}
+
+func (q *stepQueue) SetConcurrency(new int) error {
+	defer q.l.Lock().Unlock()
+	return q.setConcurrencyLocked(new)
 }

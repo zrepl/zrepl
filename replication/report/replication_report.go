@@ -10,6 +10,7 @@ type Report struct {
 	WaitReconnectSince, WaitReconnectUntil time.Time
 	WaitReconnectError                     *TimedError
 	Attempts                               []*AttemptReport
+	Concurrency                            int
 }
 
 var _, _ = json.Marshal(&Report{})
