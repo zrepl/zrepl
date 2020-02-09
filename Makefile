@@ -17,6 +17,7 @@ endif
 GO := go
 GOOS ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOOS"')
 GOARCH ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOARCH"')
+GOARM ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOARM"')
 GOHOSTOS ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOHOSTOS"')
 GOHOSTARCH ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOHOSTARCH"')
 GO_ENV_VARS := GO111MODULE=on
@@ -25,11 +26,17 @@ GO_MOD_READONLY := -mod=readonly
 GO_BUILDFLAGS := $(GO_MOD_READONLY)
 GO_BUILD := $(GO_ENV_VARS) $(GO) build $(GO_BUILDFLAGS) -ldflags $(GO_LDFLAGS)
 GOLANGCI_LINT := golangci-lint
+ifneq ($(GOARM),)
+	ZREPL_TARGET_TUPLE := $(GOOS)-$(GOARCH)v$(GOARM)
+else
+	ZREPL_TARGET_TUPLE := $(GOOS)-$(GOARCH)
+endif
 
 .PHONY: printvars
 printvars:
 	@echo GOOS=$(GOOS)
 	@echo GOARCH=$(GOARCH)
+	@echo GOARM=$(GOARM)
 
 
 ##################### PRODUCING A RELEASE #############
@@ -99,6 +106,7 @@ bins-all:
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=freebsd   GOARCH=386
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=linux     GOARCH=amd64
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=linux     GOARCH=arm64
+	$(MAKE) $(BINS_ALL_TARGETS) GOOS=linux     GOARCH=arm     GOARM=7
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=linux     GOARCH=386
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=darwin    GOARCH=amd64
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=solaris   GOARCH=amd64
@@ -118,10 +126,10 @@ vet:
 	$(GO_ENV_VARS) $(GO) vet $(GO_BUILDFLAGS) ./...
 
 zrepl-bin:
-	$(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-$(GOOS)-$(GOARCH)"
+	$(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-$(ZREPL_TARGET_TUPLE)"
 
 platformtest-bin:
-		$(GO_BUILD) -o "$(ARTIFACTDIR)/platformtest-$(GOOS)-$(GOARCH)" ./platformtest/harness
+	$(GO_BUILD) -o "$(ARTIFACTDIR)/platformtest-$(ZREPL_TARGET_TUPLE)" ./platformtest/harness
 
 ##################### DEV TARGETS #####################
 # not part of the build, must do that manually
@@ -137,7 +145,7 @@ format:
 ZREPL_PLATFORMTEST_POOLNAME := zreplplatformtest
 ZREPL_PLATFORMTEST_IMAGEPATH := /tmp/zreplplatformtest.pool.img
 platformtest: # do not track dependency on platformtest-bin to allow build of platformtest outside of test VM
-	"$(ARTIFACTDIR)/platformtest-$(GOOS)-$(GOARCH)" -poolname "$(ZREPL_PLATFORMTEST_POOLNAME)" -imagepath "$(ZREPL_PLATFORMTEST_IMAGEPATH)"
+	"$(ARTIFACTDIR)/platformtest-$(ZREPL_TARGET_TUPLE)" -poolname "$(ZREPL_PLATFORMTEST_POOLNAME)" -imagepath "$(ZREPL_PLATFORMTEST_IMAGEPATH)"
 
 ##################### NOARCH #####################
 .PHONY: noarch $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/go_env.txt docs docs-clean
