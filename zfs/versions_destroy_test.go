@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"syscall"
 	"testing"
@@ -19,7 +20,7 @@ type mockBatchDestroy struct {
 	mtx              chainlock.L
 	calls            []string
 	commaUnsupported bool
-	undestroyable    string
+	undestroyable    *regexp.Regexp
 	randomerror      string
 	e2biglen         int
 }
@@ -38,17 +39,38 @@ func (m *mockBatchDestroy) Destroy(args []string) error {
 		return &os.PathError{Err: syscall.E2BIG} // TestExcessiveArgumentsResultInE2BIG checks that this errors is produced
 	}
 	m.calls = append(m.calls, a)
+
+	var snapnames []string
 	if m.commaUnsupported {
+		snapnames = append(snapnames, a)
 		if strings.Contains(a, ",") {
 			return fmt.Errorf("unsupported syntax mock error")
 		}
+	} else {
+		snapnames = append(snapnames, strings.Split(a, ",")...)
 	}
+	fs, vt, firstsnapname, err := DecomposeVersionString(snapnames[0])
+	if err != nil {
+		panic(err)
+	}
+	if vt != Snapshot {
+		panic(vt)
+	}
+	snapnames[0] = firstsnapname
 
-	if m.undestroyable != "" && strings.Contains(a, m.undestroyable) {
+	var undestroyable []string
+	if m.undestroyable != nil {
+		for _, snap := range snapnames {
+			if m.undestroyable.MatchString(snap) {
+				undestroyable = append(undestroyable, snap)
+			}
+		}
+	}
+	if len(undestroyable) > 0 {
 		return &DestroySnapshotsError{
-			Filesystem:    "PLACEHOLDER",
-			Undestroyable: []string{m.undestroyable},
-			Reason:        []string{"undestroyable reason"},
+			Filesystem:    fs,
+			Undestroyable: undestroyable,
+			Reason:        []string{"undestroyable mock with regexp " + m.undestroyable.String()},
 		}
 	}
 	if m.randomerror != "" && strings.Contains(a, m.randomerror) {
@@ -82,7 +104,7 @@ func TestBatchDestroySnaps(t *testing.T) {
 		nilErrs()
 		mock := &mockBatchDestroy{
 			commaUnsupported: false,
-			undestroyable:    "undestroyable",
+			undestroyable:    regexp.MustCompile(`undestroyable`),
 			randomerror:      "randomerror",
 		}
 
@@ -118,11 +140,37 @@ func TestBatchDestroySnaps(t *testing.T) {
 		)
 	})
 
+	t.Run("all_undestroyable", func(t *testing.T) {
+
+		opsTemplate := []*DestroySnapOp{
+			&DestroySnapOp{"zroot/a", "foo", new(error)},
+			&DestroySnapOp{"zroot/a", "bar", new(error)},
+		}
+
+		mock := &mockBatchDestroy{
+			commaUnsupported: false,
+			undestroyable:    regexp.MustCompile(`.*`),
+		}
+
+		doDestroy(context.TODO(), opsTemplate, mock)
+
+		defer mock.mtx.Lock().Unlock()
+		assert.Equal(
+			t,
+			[]string{
+				"zroot/a@bar,foo", // reordered snaps in lexicographical order
+				"zroot/a@bar",
+				"zroot/a@foo",
+			},
+			mock.calls,
+		)
+	})
+
 	t.Run("comma_syntax_unsupported", func(t *testing.T) {
 		nilErrs()
 		mock := &mockBatchDestroy{
 			commaUnsupported: true,
-			undestroyable:    "undestroyable",
+			undestroyable:    regexp.MustCompile(`undestroyable`),
 			randomerror:      "randomerror",
 		}
 

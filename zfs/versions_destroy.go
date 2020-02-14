@@ -126,6 +126,10 @@ func buildBatches(reqs []*DestroySnapOp) [][]*DestroySnapOp {
 
 // batch must be on same Filesystem, panics otherwise
 func tryBatch(ctx context.Context, batch []*DestroySnapOp, d destroyer) error {
+	if len(batch) == 0 {
+		return nil
+	}
+
 	batchFS := batch[0].Filesystem
 	batchNames := make([]string, len(batch))
 	for i := range batchNames {
