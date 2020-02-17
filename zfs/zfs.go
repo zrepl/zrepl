@@ -350,7 +350,8 @@ func (a ZFSSendArgs) buildCommonSendArgs() ([]string, error) {
 }
 
 type ReadCloserCopier struct {
-	recorder readErrRecorder
+	recorder          readErrRecorder
+	postCloseCallback func(closeErr error)
 }
 
 type readErrRecorder struct {
@@ -402,8 +403,17 @@ func (c *ReadCloserCopier) Read(p []byte) (n int, err error) {
 	return c.recorder.Read(p)
 }
 
+// caller must ensure that this function is not executing concurrently to Close
+func (c *ReadCloserCopier) SetPostCloseCallback(callback func(closeErr error)) {
+	c.postCloseCallback = callback
+}
+
 func (c *ReadCloserCopier) Close() error {
-	return c.recorder.ReadCloser.Close()
+	err := c.recorder.Close()
+	if c.postCloseCallback != nil {
+		c.postCloseCallback(err)
+	}
+	return err
 }
 
 func pipeWithCapacityHint(capacity int) (r, w *os.File, err error) {

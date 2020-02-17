@@ -198,7 +198,11 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.St
 	if err != nil {
 		return nil, nil, err
 	}
-	defer guard.Release()
+	defer func(guardp **semaphore.AcquireGuard) {
+		if *guardp != nil {
+			(*guardp).Release()
+		}
+	}(&guard)
 
 	si, err := zfs.ZFSSendDry(ctx, sendArgs)
 	if err != nil {
@@ -255,6 +259,13 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.St
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "zfs send failed")
 	}
+
+	// defer releasing guard until streamCopier is closed
+	streamCopier.SetPostCloseCallback(func(_ error) {
+		guard.Release()
+	})
+	guard = nil
+
 	return res, streamCopier, nil
 }
 
