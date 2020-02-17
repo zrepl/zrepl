@@ -49,7 +49,7 @@ type Wire interface {
 	// No data that could otherwise be Read is lost as a consequence of this call.
 	// The use case for this API is abortive connection shutdown.
 	// To provide any value over draining Wire using io.Read, an implementation
-	// will likely use out-of-bounds messaging mechanisms.
+	// will likely use out-of-band messaging mechanisms.
 	// TODO WaitForPeerClose() (supported bool, err error)
 }
 

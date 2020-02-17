@@ -32,7 +32,7 @@ func TLSListenerFactoryFromConfig(c *config.Global, in *config.TLSServe) (transp
 
 	serverCert, err := tls.LoadX509KeyPair(in.Cert, in.Key)
 	if err != nil {
-		return nil, errors.Wrap(err, "cannot parse cer/key pair")
+		return nil, errors.Wrap(err, "cannot parse cert/key pair")
 	}
 
 	clientCNs := make(map[string]struct{}, len(in.ClientCNs))

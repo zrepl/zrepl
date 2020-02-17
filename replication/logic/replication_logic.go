@@ -262,7 +262,6 @@ func (p *Planner) doPlanning(ctx context.Context) ([]*Filesystem, error) {
 		return nil, err
 	}
 	sfss := slfssres.GetFilesystems()
-	// no progress here since we could run in a live-lock on connectivity issues
 
 	rlfssres, err := p.receiver.ListFilesystems(ctx, &pdu.ListFilesystemReq{})
 	if err != nil {
