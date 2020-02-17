@@ -101,9 +101,9 @@ and serves as a reference for build dependencies and procedure:
 
 ::
 
-    git clone https://github.com/zrepl/zrepl.git
-    cd zrepl
-    sudo docker build -t zrepl_build -f build.Dockerfile .
+    git clone https://github.com/zrepl/zrepl.git && \
+    cd zrepl && \
+    sudo docker build -t zrepl_build -f build.Dockerfile . && \
     sudo docker run -it --rm \
         -v "${PWD}:/src" \
         --user "$(id -u):$(id -g)" \
