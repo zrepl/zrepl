@@ -60,6 +60,8 @@ func runTestFilterCmd(subcommand *cli.Subcommand, args []string) error {
 		confFilter = j.Filesystems
 	case *config.PushJob:
 		confFilter = j.Filesystems
+	case *config.SnapJob:
+		confFilter = j.Filesystems
 	default:
 		return fmt.Errorf("job type %T does not have filesystems filter", j)
 	}
