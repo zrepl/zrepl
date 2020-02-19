@@ -3,6 +3,7 @@ package tests
 import (
 	"fmt"
 
+	"github.com/stretchr/testify/require"
 	"github.com/zrepl/zrepl/platformtest"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -13,35 +14,28 @@ func IdempotentHold(ctx *platformtest.Context) {
 		DESTROYROOT
 		CREATEROOT
 		+  "foo bar"
-		+  "foo bar@1"
-	`)
-	defer platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
-		R zfs release zrepl_platformtest "${ROOTDS}/foo bar@1"
-		-  "foo bar@1"
-		-  "foo bar"
+		+  "foo bar@1 2"
 	`)
 
 	fs := fmt.Sprintf("%s/foo bar", ctx.RootDataset)
-	v1 := sendArgVersion(fs, "@1")
+	snap := sendArgVersion(fs, "@1 2")
 
 	tag := "zrepl_platformtest"
-	err := zfs.ZFSHold(ctx, fs, v1, tag)
+	err := zfs.ZFSHold(ctx, fs, snap, tag)
 	if err != nil {
 		panic(err)
 	}
 
-	err = zfs.ZFSHold(ctx, fs, v1, tag)
-	if err != nil {
-		panic(err)
-	}
+	// existing holds
+	holds, err := zfs.ZFSHolds(ctx, fs, "1 2")
+	require.NoError(ctx, err)
+	require.Equal(ctx, []string{tag}, holds)
 
-	vnonexistent := zfs.ZFSSendArgVersion{
-		RelName: "@nonexistent",
-		GUID:    0xbadf00d,
-	}
-	err = zfs.ZFSHold(ctx, fs, vnonexistent, tag)
-	if err == nil {
-		panic("still expecting error for nonexistent snapshot")
-	}
-
+	holds, err = zfs.ZFSHolds(ctx, fs, "non existent")
+	ctx.Logf("holds=%v", holds)
+	ctx.Logf("errT=%T", err)
+	ctx.Logf("err=%s", err)
+	notExist, ok := err.(*zfs.DatasetDoesNotExist)
+	require.True(ctx, ok)
+	require.Equal(ctx, fs+"@non existent", notExist.Path)
 }

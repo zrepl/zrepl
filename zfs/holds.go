@@ -59,6 +59,7 @@ success:
 	return nil
 }
 
+// If the snapshot does not exist, the returned error is of type *DatasetDoesNotExist
 func ZFSHolds(ctx context.Context, fs, snap string) ([]string, error) {
 	if err := validateZFSFilesystem(fs); err != nil {
 		return nil, errors.Wrap(err, "`fs` is not a valid filesystem path")

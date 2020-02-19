@@ -31,4 +31,5 @@ var Cases = []Case{
 	SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden,
 	SendArgsValidationResumeTokenEncryptionMismatchForbidden,
 	SendArgsValidationResumeTokenDifferentFilesystemForbidden,
+	ListHolds,
 }

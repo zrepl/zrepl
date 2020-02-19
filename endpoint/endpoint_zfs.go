@@ -411,6 +411,7 @@ func ListZFSHoldsAndBookmarks(ctx context.Context, fsfilter zfs.DatasetFilter) (
 	for _, fs := range fss {
 		err := listZFSHoldsAndBookmarksImplFS(ctx, out, fs)
 		if err != nil {
+			// FIXME if _, ok := err.(*zfs.DatasetDoesNotExist); ok { noop }
 			return nil, errors.Wrapf(err, "list holds and bookmarks on %q", fs.ToString())
 		}
 	}
@@ -420,7 +421,8 @@ func ListZFSHoldsAndBookmarks(ctx context.Context, fsfilter zfs.DatasetFilter) (
 func listZFSHoldsAndBookmarksImplFS(ctx context.Context, out *ListHoldsAndBookmarksOutput, fs *zfs.DatasetPath) error {
 	fsvs, err := zfs.ZFSListFilesystemVersions(fs, nil)
 	if err != nil {
-		return errors.Wrapf(err, "list filesystem versions of %q", fs)
+		// FIXME if _, ok := err.(*zfs.DatasetDoesNotExist); ok { noop }
+		return errors.Wrapf(err, "list filesystem versions of %q", fs.ToString())
 	}
 	for _, v := range fsvs {
 		switch v.Type {
@@ -429,7 +431,12 @@ func listZFSHoldsAndBookmarksImplFS(ctx context.Context, out *ListHoldsAndBookma
 		case zfs.Snapshot:
 			holds, err := zfs.ZFSHolds(ctx, fs.ToString(), v.Name)
 			if err != nil {
-				return errors.Wrapf(err, "get holds of %q", v.ToAbsPath(fs))
+				if _, ok := err.(*zfs.DatasetDoesNotExist); ok {
+					holds  = []string{}
+					// fallthrough
+				} else {
+					return errors.Wrapf(err, "get holds of %q", v.ToAbsPath(fs))
+				}
 			}
 			for _, tag := range holds {
 				listZFSHoldsAndBookmarksImplSnapshotTryParseHold(ctx, out, fs, v, tag)
