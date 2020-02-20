@@ -374,13 +374,6 @@ type ListHoldsAndBookmarksOutput struct {
 	LastReceivedHolds          []*ListHoldsAndBookmarksOutputHold
 }
 
-type ListHoldsAndBookmarksOutputBookmark struct {
-	FS, Name string
-	Guid     uint64
-	JobID    JobID
-	v        zfs.FilesystemVersion
-}
-
 type ListHoldsAndBookmarksOutputHold struct {
 	FS            string
 	Snap          string
@@ -388,6 +381,76 @@ type ListHoldsAndBookmarksOutputHold struct {
 	SnapCreateTXG uint64
 	Tag           string
 	JobID         JobID
+}
+
+type ListHoldsAndBookmarksOutputBookmark struct {
+	FS, Name string
+	Guid     uint64
+	JobID    JobID
+	v        zfs.FilesystemVersion
+}
+
+type ListHoldsAndBookmarksOutputHoldOrBookmark interface {
+	GetFS() string
+	GetName() string
+	GetFullPath() string
+	GetJobID() JobID
+	GetCreationTXG() uint64
+	Release(ctx context.Context) error
+}
+
+func (b ListHoldsAndBookmarksOutputBookmark) GetFS() string {
+	return b.FS
+}
+
+func (b ListHoldsAndBookmarksOutputBookmark) GetName() string {
+	return b.Name
+}
+
+func (b ListHoldsAndBookmarksOutputBookmark) GetFullPath() string {
+	return fmt.Sprintf("%s#%s", b.FS, b.Name)
+}
+
+func (b ListHoldsAndBookmarksOutputBookmark) GetJobID() JobID {
+	return b.JobID
+}
+
+func (b ListHoldsAndBookmarksOutputBookmark) GetCreationTXG() uint64 {
+	return b.v.CreateTXG
+}
+
+func (b ListHoldsAndBookmarksOutputBookmark) Release(ctx context.Context) error {
+	if err := zfs.ZFSDestroyIdempotent(b.GetFullPath()); err != nil {
+		return errors.Wrap(err, "bookmark destroy: zfs")
+	}
+	return nil
+}
+
+func (h ListHoldsAndBookmarksOutputHold) GetFS() string {
+	return h.FS
+}
+
+func (h ListHoldsAndBookmarksOutputHold) GetName() string {
+	return h.Tag
+}
+
+func (h ListHoldsAndBookmarksOutputHold) GetFullPath() string {
+	return fmt.Sprintf("%s@%s", h.FS, h.Snap)
+}
+
+func (h ListHoldsAndBookmarksOutputHold) GetJobID() JobID {
+	return h.JobID
+}
+
+func (h ListHoldsAndBookmarksOutputHold) GetCreationTXG() uint64 {
+	return h.SnapCreateTXG
+}
+
+func (h ListHoldsAndBookmarksOutputHold) Release(ctx context.Context) error {
+	if err := zfs.ZFSRelease(ctx, h.Tag, h.GetFullPath()); err != nil {
+		return errors.Wrap(err, "release: zfs")
+	}
+	return nil
 }
 
 // List all holds and bookmarks managed by endpoint
@@ -415,6 +478,95 @@ func ListZFSHoldsAndBookmarks(ctx context.Context, fsfilter zfs.DatasetFilter) (
 		}
 	}
 	return out, nil
+}
+
+func ReleaseRedundantZFSHoldsAndBookmarks(ctx context.Context, fsfilter zfs.DatasetFilter, jobID JobID, keep uint, dryrun bool) error {
+	fss, err := zfs.ZFSListMapping(ctx, fsfilter)
+	if err != nil {
+		return errors.Wrap(err, "list filesystems")
+	}
+
+	for _, fs := range fss {
+		err, abort := ReleaseRedundantZFSHoldsAndBookmarksFS(ctx, fs, jobID, keep, dryrun)
+		if abort {
+			return err
+		}
+	}
+	return nil
+}
+
+func ReleaseRedundantZFSHoldsAndBookmarksFS(ctx context.Context, fs *zfs.DatasetPath, jobID JobID, keep uint, dryrun bool) (error, bool) {
+	keep_n := int(keep)
+	lists := &ListHoldsAndBookmarksOutput{}
+	err := listZFSHoldsAndBookmarksImplFS(ctx, lists, fs)
+	if err != nil {
+		return errors.Wrapf(err, "list holds and bookmarks on %q", fs.ToString()), true
+	}
+
+	fmt.Printf("dataset: %v Stepholds: %v LastReceivedHolds: %v Stepbookmarks: %v ReplicationCursorBookmarks: %v\n",
+		fs.ToString(), len(lists.StepHolds), len(lists.LastReceivedHolds), len(lists.StepBookmarks), len(lists.ReplicationCursorBookmarks))
+
+	for _, holdList := range []*[]*ListHoldsAndBookmarksOutputHold{&lists.StepHolds, &lists.LastReceivedHolds} {
+		outputList := make([]ListHoldsAndBookmarksOutputHoldOrBookmark, len(*holdList))
+		for i, element := range *holdList {
+			outputList[i] = element
+		}
+		for hold := range getRedundantBookmarksOrHolds(&outputList, jobID, keep_n) {
+			if dryrun {
+				fmt.Printf("Would release hold %s on %s\n", hold.GetName(), hold.GetFullPath())
+			} else {
+				fmt.Printf("Will release hold %s on %s\n", hold.GetName(), hold.GetFullPath())
+				if err := hold.Release(ctx); err != nil {
+					fmt.Printf("Error releasing! %v\n", err)
+				}
+
+			}
+		}
+	}
+
+	for _, bookList := range []*[]*ListHoldsAndBookmarksOutputBookmark{&lists.StepBookmarks, &lists.ReplicationCursorBookmarks} {
+		outputList := make([]ListHoldsAndBookmarksOutputHoldOrBookmark, len(*bookList))
+		for i, element := range *bookList {
+			outputList[i] = element
+		}
+		for bookmark := range getRedundantBookmarksOrHolds(&outputList, jobID, keep_n) {
+			if dryrun {
+				fmt.Printf("Would destroy %s\n", bookmark.GetFullPath())
+			} else {
+				fmt.Printf("Will destroy %s\n", bookmark.GetFullPath())
+				if err := bookmark.Release(ctx); err != nil {
+					fmt.Printf("Error destroying! %v\n", err)
+				}
+			}
+		}
+	}
+	return nil, false
+}
+
+func getRedundantBookmarksOrHolds(list *[]ListHoldsAndBookmarksOutputHoldOrBookmark, jobID JobID, keep int) <-chan ListHoldsAndBookmarksOutputHoldOrBookmark {
+	seen := make(map[JobID][]ListHoldsAndBookmarksOutputHoldOrBookmark) // TODO: match by JobID or Tag?
+	chn := make(chan ListHoldsAndBookmarksOutputHoldOrBookmark, 5)
+	go func() {
+		for _, element := range *list {
+			if jobID.jid == "" || jobID == element.GetJobID() {
+				seen[element.GetJobID()] = append(seen[element.GetJobID()], element)
+			}
+		}
+		for _, elements := range seen {
+			if len(elements) > 0 {
+				if len(elements) > keep {
+					sort.Slice(elements, func(i, j int) bool {
+						return elements[i].GetCreationTXG() < elements[j].GetCreationTXG()
+					})
+				}
+				for _, e := range elements[:len(elements)-keep] {
+					chn <- e
+				}
+			}
+		}
+		close(chn)
+	}()
+	return chn
 }
 
 func listZFSHoldsAndBookmarksImplFS(ctx context.Context, out *ListHoldsAndBookmarksOutput, fs *zfs.DatasetPath) error {
