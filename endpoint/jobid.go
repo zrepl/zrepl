@@ -9,8 +9,8 @@ import (
 	"github.com/zrepl/zrepl/zfs"
 )
 
-// An instance of this type returned by MakeJobID guarantees
-// that that instance's JobID.String() can be used in a ZFS dataset name and hold tag.
+// JobID instances returned by MakeJobID() guarantee JobID.String() to
+// return a string that can be used in a ZFS dataset name and hold tag.
 type JobID struct {
 	jid string
 }
@@ -21,7 +21,7 @@ func MakeJobID(s string) (JobID, error) {
 	}
 
 	if err := zfs.ComponentNamecheck(s); err != nil {
-		return JobID{}, errors.Wrap(err, "muse be usable as a dataset path component")
+		return JobID{}, errors.Wrap(err, "must be usable as a dataset path component")
 	}
 
 	if _, err := stepBookmarkNameImpl("pool/ds", 0xface601d, s); err != nil {
@@ -34,7 +34,7 @@ func MakeJobID(s string) (JobID, error) {
 	}
 
 	if _, err := lastReceivedHoldImpl(s); err != nil {
-		return JobID{}, errors.Wrap(err, "must be usabel as a last-recieved-hold tag")
+		return JobID{}, errors.Wrap(err, "must be usable as a last-received-hold tag")
 	}
 
 	// FIXME replication cursor bookmark name
