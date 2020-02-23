@@ -34,7 +34,7 @@ func (a ZpoolCreateArgs) Validate() error {
 		return errors.Errorf("Mountpoint must be an absolute path to a directory")
 	}
 	if a.PoolName == "" {
-		return errors.Errorf("PoolName must not be emtpy")
+		return errors.Errorf("PoolName must not be empty")
 	}
 	return nil
 }

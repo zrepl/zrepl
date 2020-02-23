@@ -61,7 +61,7 @@ func ValidateClientIdentity(in string) (err error) {
 		return err
 	}
 	if path.Length() != 1 {
-		return errors.New("client identity must be a single path comonent (not empty, no '/')")
+		return errors.New("client identity must be a single path component (not empty, no '/')")
 	}
 	return nil
 }

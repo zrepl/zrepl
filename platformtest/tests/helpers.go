@@ -113,7 +113,7 @@ func makeResumeSituation(ctx *platformtest.Context, src dummySnapshotSituation, 
 
 	situation.sendArgs = sendArgs
 	situation.recvOpts = recvOptions
-	require.True(ctx, recvOptions.SavePartialRecvState, "this method would be pointeless otherwise")
+	require.True(ctx, recvOptions.SavePartialRecvState, "this method would be pointless otherwise")
 	require.Equal(ctx, sendArgs.FS, src.sendFS)
 
 	copier, err := zfs.ZFSSend(ctx, sendArgs)

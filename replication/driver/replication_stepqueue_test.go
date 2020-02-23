@@ -14,7 +14,7 @@ import (
 )
 
 // FIXME: this test relies on timing and is thus rather flaky
-// (relies on scheduler responsivity of < 500ms)
+// (relies on scheduler responsiveness of < 500ms)
 func TestPqNotconcurrent(t *testing.T) {
 	var ctr uint32
 	q := newStepQueue()

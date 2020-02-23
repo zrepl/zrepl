@@ -15,7 +15,7 @@ import (
 	"github.com/zrepl/zrepl/util/envconst"
 )
 
-// NOTE: Update ZFSSendARgs.Validate when changning fields (potentially SECURITY SENSITIVE)
+// NOTE: Update ZFSSendARgs.Validate when changing fields (potentially SECURITY SENSITIVE)
 type ResumeToken struct {
 	HasFromGUID, HasToGUID    bool
 	FromGUID, ToGUID          uint64
@@ -25,6 +25,7 @@ type ResumeToken struct {
 }
 
 var resumeTokenNVListRE = regexp.MustCompile(`\t(\S+) = (.*)`)
+
 var resumeTokenContentsRE = regexp.MustCompile(`resume token contents:\nnvlist version: 0`)
 var resumeTokenIsCorruptRE = regexp.MustCompile(`resume token is corrupt`)
 

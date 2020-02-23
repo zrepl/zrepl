@@ -39,7 +39,7 @@ type DatasetPathsVisitor func(v DatasetPathVisit) (visitChildTree bool)
 
 // Traverse a list of DatasetPaths top down, i.e. given a set of datasets with same
 // path prefix, those with shorter prefix are traversed first.
-// If there are gaps, i.e. the intermediary component a/b bewtween a and a/b/c,
+// If there are gaps, i.e. the intermediary component a/b between a and a/b/c,
 // those gaps are still visited but the FilledIn property of the visit is set to true.
 func (f *DatasetPathForest) WalkTopDown(visitor DatasetPathsVisitor) {
 

@@ -13,7 +13,7 @@ func TestDoZFSReleaseAllOlderAndIncOrExcludingGUIDFindSnapshots(t *testing.T) {
 	// what we test here: sort bookmark #3 before @3
 	// => assert that the function doesn't stop at the first guid match
 	//    (which might be a bookmark, depending on zfs list ordering)
-	//    but instead considers the entire stride of boomarks and snapshots with that guid
+	//    but instead considers the entire stride of bookmarks and snapshots with that guid
 	//
 	// also, throw in unordered createtxg for good measure
 	list, err := doZFSReleaseAllOlderAndIncOrExcludingGUIDParseListOutput(

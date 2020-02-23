@@ -100,7 +100,7 @@ func (l *LocalListener) Accept(ctx context.Context) (*transport.AuthConn, error)
 			WithField("res.conn", res.conn).WithField("res.err", res.err).
 			Debug("responding to client request")
 
-		// contract bewteen Connect and Accept is that Connect sends a req.callback
+		// contract between Connect and Accept is that Connect sends a req.callback
 		// into which we can send one result non-blockingly.
 		// We want to panic if that contract is violated (impl error)
 		//
@@ -112,7 +112,7 @@ func (l *LocalListener) Accept(ctx context.Context) (*transport.AuthConn, error)
 		defer func() {
 			errv := recover()
 			if errv == clientCallbackBlocked {
-				// this would be a violation of contract betwee Connect and Accept, see above
+				// this would be a violation of contract between Connect and Accept, see above
 				panic(clientCallbackBlocked)
 			} else {
 				transport.GetLogger(ctx).WithField("recover_err", errv).

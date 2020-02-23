@@ -100,7 +100,7 @@ func (c *Conn) ReadFrame() (Frame, error) {
 		return Frame{}, ErrShutdown
 	}
 
-	// only aquire readMtx now to prioritize the draining in Shutdown()
+	// only acquire readMtx now to prioritize the draining in Shutdown()
 	// over external callers (= drain public callers)
 
 	c.readMtx.Lock()
@@ -148,7 +148,7 @@ func (c *Conn) readFrame() (Frame, error) {
 		//                | |         |           |
 		//                | |         |           F3
 		//                | |         |
-		//                | F2        |signficant time between frames because
+		//                | F2        |significant time between frames because
 		//                F1           the peer has nothing to say to us
 		//
 		// Assume we're at the point were F2's header is in c.readNext.
@@ -246,7 +246,7 @@ func (c *Conn) Shutdown(deadline time.Time) error {
 	//
 	// 1. Naive Option: We just call Close() right after CloseWrite.
 	// This yields the same race condition as explained above (DIF, first
-	// paragraph): The situation just becomae a little more unlikely because
+	// paragraph): The situation just became a little more unlikely because
 	// our rstFrameType + CloseWrite dance gave the client a full RTT worth of
 	// time to read the data from its TCP recv buffer.
 	//
@@ -295,7 +295,7 @@ func (c *Conn) Shutdown(deadline time.Time) error {
 	defer prometheus.NewTimer(prom.ShutdownSeconds).ObserveDuration()
 
 	closeWire := func(step string) error {
-		// TODO SetLinger(0) or similiar (we want RST frames here, not FINS)
+		// TODO SetLinger(0) or similar (we want RST frames here, not FINS)
 		closeErr := c.nc.Close()
 		if closeErr == nil {
 			return nil
@@ -321,10 +321,10 @@ func (c *Conn) Shutdown(deadline time.Time) error {
 
 	c.shutdown.Begin()
 	// new calls to c.ReadFrame and c.WriteFrame will now return ErrShutdown
-	// Aquiring writeMtx and readMtx afterwards ensures that already-running calls exit successfully
+	// Acquiring writeMtx and readMtx afterwards ensures that already-running calls exit successfully
 
 	// disable renewing timeouts now, enforce the requested deadline instead
-	// we need to do this before aquiring locks to enforce the timeout on slow
+	// we need to do this before acquiring locks to enforce the timeout on slow
 	// clients / if something hangs (DoS mitigation)
 	if err := c.nc.DisableTimeouts(); err != nil {
 		return hardclose(err, "disable_timeouts")

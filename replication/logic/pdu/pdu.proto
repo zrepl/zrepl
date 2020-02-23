@@ -91,7 +91,7 @@ message ReceiveReq {
   string Filesystem = 1;
   FilesystemVersion To = 2;
 
-  // If true, the receiver should clear the resume token before perfoming the
+  // If true, the receiver should clear the resume token before performing the
   // zfs recv of the stream in the request
   bool ClearResumeToken = 3;
 }

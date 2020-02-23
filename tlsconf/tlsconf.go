@@ -56,7 +56,7 @@ func NewClientAuthListener(
 }
 
 // Accept() accepts a connection from the *net.TCPListener passed to the constructor
-// and sets up the TLS connection, including handshake and peer CommmonName validation
+// and sets up the TLS connection, including handshake and peer CommonName validation
 // within the specified handshakeTimeout.
 //
 // It returns both the raw TCP connection (tcpConn) and the TLS connection (tlsConn) on top of it.

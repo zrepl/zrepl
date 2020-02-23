@@ -1,4 +1,4 @@
-// microbenchmark to manually test rpc/dataconn perforamnce
+// microbenchmark to manually test rpc/dataconn performance
 //
 // With stdin / stdout on client and server, simulating zfs send|recv piping
 //
@@ -6,7 +6,7 @@
 //   ./microbenchmark -appmode client -direction recv < /dev/zero
 //
 //
-// Without the overhead of pipes (just protocol perforamnce, mostly useful with perf bc no bw measurement)
+// Without the overhead of pipes (just protocol performance, mostly useful with perf bc no bw measurement)
 //
 //   ./microbenchmark -appmode client -direction recv -devnoopWriter -devnoopReader
 //   ./microbenchmark -appmode server -devnoopReader -devnoopWriter

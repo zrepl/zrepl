@@ -70,7 +70,7 @@ type Subsystem string
 
 const (
 	SubsysReplication  Subsystem = "repl"
-	SubsyEndpoint      Subsystem = "endpoint"
+	SubsysEndpoint     Subsystem = "endpoint"
 	SubsysPruning      Subsystem = "pruning"
 	SubsysSnapshot     Subsystem = "snapshot"
 	SubsysHooks        Subsystem = "hook"
@@ -84,7 +84,7 @@ const (
 func WithSubsystemLoggers(ctx context.Context, log logger.Logger) context.Context {
 	ctx = logic.WithLogger(ctx, log.WithField(SubsysField, SubsysReplication))
 	ctx = driver.WithLogger(ctx, log.WithField(SubsysField, SubsysReplication))
-	ctx = endpoint.WithLogger(ctx, log.WithField(SubsysField, SubsyEndpoint))
+	ctx = endpoint.WithLogger(ctx, log.WithField(SubsysField, SubsysEndpoint))
 	ctx = pruner.WithLogger(ctx, log.WithField(SubsysField, SubsysPruning))
 	ctx = snapper.WithLogger(ctx, log.WithField(SubsysField, SubsysSnapshot))
 	ctx = hooks.WithLogger(ctx, log.WithField(SubsysField, SubsysHooks))

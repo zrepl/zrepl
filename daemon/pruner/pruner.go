@@ -18,13 +18,13 @@ import (
 	"github.com/zrepl/zrepl/util/envconst"
 )
 
-// Try to keep it compatible with gitub.com/zrepl/zrepl/endpoint.Endpoint
+// Try to keep it compatible with github.com/zrepl/zrepl/endpoint.Endpoint
 type History interface {
 	ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error)
 	ListFilesystems(ctx context.Context, req *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error)
 }
 
-// Try to keep it compatible with gitub.com/zrepl/zrepl/endpoint.Endpoint
+// Try to keep it compatible with github.com/zrepl/zrepl/endpoint.Endpoint
 type Target interface {
 	ListFilesystems(ctx context.Context, req *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error)
 	ListFilesystemVersions(ctx context.Context, req *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error)

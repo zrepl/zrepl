@@ -35,7 +35,7 @@ The algorithm **ensures resumability** of the replication step in presence of
 * network failures at any time
 * other instances of this algorithm executing the same step in parallel (e.g. concurrent replication to different destinations)
 
-To accomplish this goal, the algorithm **assumes ownersip of parts of the ZFS hold tag namespace and the bookmark namespace**:
+To accomplish this goal, the algorithm **assumes ownership of parts of the ZFS hold tag namespace and the bookmark namespace**:
 * holds with prefix `zrepl_STEP` on any snapshot are reserved for zrepl
 * bookmarks with prefix `zrepl_STEP` are reserved for zrepl
 
@@ -55,7 +55,7 @@ The replication step (full `to` send or `from => to` send) is *complete* iff the
 Specifically, the algorithm may be invoked with the same `from` and `to` arguments, and potentially a `resume_token`, after a temporary (like network-related) failure:
 **Unless permanent errors occur, repeated invocations of the algorithm with updated resume token will converge monotonically (but not strictly monotonically) toward completion.**
 
-Note that the mere existence of `to` on the receiving side does not constitue completion, since there may still be post-recv actions to be performed on sender and receiver.
+Note that the mere existence of `to` on the receiving side does not constitute completion, since there may still be post-recv actions to be performed on sender and receiver.
 
 #### Job and Job ID
 This algorithm supports that *multiple* instance of it run in parallel on the *same* step (full `to` / `from => to` pair).
@@ -117,7 +117,7 @@ Recv-side: no-op
     # => doesn't work, because zfs recv is implemented as a `clone` internally, that's exactly what we want
     ```
 
-- if recv-side `to` exists, goto cleaup-phase (no replication to do)
+- if recv-side `to` exists, goto cleanup-phase (no replication to do)
   
 - `to` cannot be destroyed while being received, because it isn't visible as a snapshot yet (it isn't yet one after all)
 
@@ -142,7 +142,7 @@ Network failures during replication can be recovered from using resumable send &
 - Network failure during the replication
   - send-side `from` and `to` are still present due to zfs holds
   - recv-side `from` is still present because the partial receive state prevents its destruction (see prepare-phase)
-  - if recv-side hasa resume token, the resume token will continue to work on the sender because `from`s and `to` are still present
+  - if recv-side has a resume token, the resume token will continue to work on the sender because `from`s and `to` are still present
 - Network failure at the end of the replication step stream transmission
   - Variant A: failure from the sender's perspective, success from the receiver's perspective
     - receive-side `to` doesn't have a hold and could be destroyed anytime
@@ -221,7 +221,7 @@ It builds a diff between the sender and receiver filesystem bookmarks+snapshots 
 In case of conflict, the algorithm errors out with a conflict description that can be used to manually or automatically resolve the conflict.
 Otherwise, the algorithm builds a list of replication steps that are then worked on sequentially by the "Algorithm for a Single Replication Step".
 
-The algorithm ensures that a plan can be executed exactly as planned by aquiring appropriate zfs holds.
+The algorithm ensures that a plan can be executed exactly as planned by acquiring appropriate zfs holds.
 The algorithm can be configured to retry a plan when encountering non-permanent errors (e.g. network errors).
 However, permanent errors result in the plan being cancelled.
 
@@ -262,22 +262,22 @@ If fast-forward is not possible, produce a conflict description and ERROR OUT.<b
 TODOs:
 - make it configurable what snapshots are included in the list (i.e. every one we see, only most recent, at least one every X hours, ...)
 
-**Ensure that we will be able to carry out all steps** by aquiring holds or fsstep bookmarks on the sending side
+**Ensure that we will be able to carry out all steps** by acquiring holds or fsstep bookmarks on the sending side
 - `idempotent_hold([s.to for s in STEPS], zrepl_FS_J_${jobid})`
 - `if STEPS[0].from != nil: idempotent_FSSTEP_bookmark(STEPS[0].from, zrepl_FSSTEP_bm_G_${STEPS[0].from.guid}_J_${jobid})` 
   
 **Determine which steps have not been completed (`uncompleted_steps`)** (we might be in an second invocation of this algorithm after a network failure and some steps might already be done):
 - `res_tok := receiver.ResumeToken(fs)`
 - `rmrfsv := receiver.MostRecentFilesystemVersion(fs)`
-- if `res_tok !=  nil`: ensure that `res_tok` has a correspondinng step in `STEPS`, otherwise ERROR OUT
-- if `rmrfsv != nil`: ensure that `res_tok` has a correspondinng step in `STEPS`, otherwise ERROR OUT
+- if `res_tok !=  nil`: ensure that `res_tok` has a corresponding step in `STEPS`, otherwise ERROR OUT
+- if `rmrfsv != nil`: ensure that `res_tok` has a corresponding step in `STEPS`, otherwise ERROR OUT
 - if `(res_token != nil && rmrfsv != nil)`: ensure that `res_tok` is the subsequent step to the one we found for `rmrfsv`
 - if both are nil, we are at the beginning, `uncompleted_steps = STEPS` and goto next block
 - `rstep := if res_tok != nil { res_tok } else { rmrfsv }`
 - `uncompleted_steps := STEPS[find_step_idx(STEPS, rstep).expect("must exist, checked above"):]`
   - Note that we do not explicitly check for the completion of prior replication steps.
     All we care about is what needs to be done from `rstep`.
-  - This is intentional and necessary because we cummutatively release all holds and step bookmarks made for steps that preceed a just-completed step (see next paragraph)
+  - This is intentional and necessary because we cumulatively release all holds and step bookmarks made for steps that precede a just-completed step (see next paragraph)
 
 **Execute uncompleted steps**<br/>
 Invoke the "Algorithm for a Single Replication Step" for each step in `uncompleted_steps`.

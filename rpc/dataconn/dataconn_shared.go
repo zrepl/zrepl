@@ -52,7 +52,7 @@ func (s *streamCopier) WriteStreamTo(w io.Writer) zfs.StreamCopierError {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	if s.used {
-		panic("streamCopier used mulitple times")
+		panic("streamCopier used multiple times")
 	}
 	s.used = true
 	return s.streamConn.ReadStreamInto(w, ZFSStream)

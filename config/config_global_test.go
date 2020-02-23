@@ -21,7 +21,7 @@ jobs:
     clients: {
       "10.0.0.1":"foo"
     }
-  root_fs: zoot/foo
+  root_fs: zroot/foo
 `
 	_, err := ParseConfigBytes([]byte(jobdef))
 	require.NoError(t, err)

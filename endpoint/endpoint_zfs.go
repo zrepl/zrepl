@@ -227,7 +227,7 @@ func HoldStep(ctx context.Context, fs string, v *zfs.ZFSSendArgVersion, jobID Jo
 			// TODO we could actually try to find a local snapshot that has the requested GUID
 			// 		however, the replication algorithm prefers snapshots anyways, so this quest
 			// 		is most likely not going to be successful. Also, there's the possibility that
-			//      the caller might want to filter what snapshots are eligibile, and this would
+			//      the caller might want to filter what snapshots are eligible, and this would
 			//      complicate things even further.
 			return err // TODO go1.13 use wrapping
 		}
@@ -393,7 +393,7 @@ type ListHoldsAndBookmarksOutputHold struct {
 // List all holds and bookmarks managed by endpoint
 func ListZFSHoldsAndBookmarks(ctx context.Context, fsfilter zfs.DatasetFilter) (*ListHoldsAndBookmarksOutput, error) {
 
-	// initialize all fields so that JSON serializion of output looks pretty (see client/holds.go)
+	// initialize all fields so that JSON serialization of output looks pretty (see client/holds.go)
 	// however, listZFSHoldsAndBookmarksImplFS shouldn't rely on it
 	out := &ListHoldsAndBookmarksOutput{
 		StepBookmarks:              make([]*ListHoldsAndBookmarksOutputBookmark, 0),

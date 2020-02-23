@@ -24,7 +24,7 @@ Send Options
 ---------------------
 
 The ``encryption`` variable controls whether the matched filesystems are sent as `OpenZFS native encryption <http://open-zfs.org/wiki/ZFS-Native_Encryption>`_ raw sends.
-More specificially, if ``encryption=true``, zrepl
+More specifically, if ``encryption=true``, zrepl
 
 * checks for any of the filesystems matched by ``filesystems`` whether the ZFS ``encryption`` property indicates that the filesystem is actually encrypted with ZFS native encryption and
 * invokes the ``zfs send`` subcommand with the ``-w`` option (raw sends) and

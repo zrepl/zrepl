@@ -119,7 +119,7 @@ restart:
 	return n, err
 }
 
-// Writes the given buffers to Conn, following the sematincs of io.Copy,
+// Writes the given buffers to Conn, following the semantics of io.Copy,
 // but is guaranteed to use the writev system call if the wrapped Wire
 // support it.
 // Note the Conn does not support writev through io.Copy(aConn, aNetBuffers).
@@ -158,9 +158,9 @@ var _ SyscallConner = (*net.TCPConn)(nil)
 // Think of io.ReadvFull, but for net.Buffers + using the readv syscall.
 //
 // If the underlying Wire is not a SyscallConner, a fallback
-// ipmlementation based on repeated Conn.Read invocations is used.
+// implementation based on repeated Conn.Read invocations is used.
 //
-// If the connection returned io.EOF, the number of bytes up ritten until
+// If the connection returned io.EOF, the number of bytes written until
 // then + io.EOF is returned. This behavior is different to io.ReadFull
 // which returns io.ErrUnexpectedEOF.
 func (c Conn) ReadvFull(buffers net.Buffers) (n int64, err error) {

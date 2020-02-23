@@ -202,7 +202,7 @@ The latter is particularly useful in combination with log aggregation services.
 .. WARNING::
 
     zrepl drops log messages to the TCP outlet if the underlying connection is not fast enough.
-    Note that TCP buffering in the kernel must first run full becfore messages are dropped.
+    Note that TCP buffering in the kernel must first run full before messages are dropped.
 
     Make sure to always configure a ``stdout`` outlet as the special error outlet to be informed about problems
     with the TCP outlet (see :ref:`above <logging-error-outlet>` ).

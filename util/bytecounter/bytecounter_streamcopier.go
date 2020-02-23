@@ -7,7 +7,7 @@ import (
 	"github.com/zrepl/zrepl/zfs"
 )
 
-// StreamCopier wraps a zfs.StreamCopier, reimplemening
+// StreamCopier wraps a zfs.StreamCopier, reimplementing
 // its interface and counting the bytes written to during copying.
 type StreamCopier interface {
 	zfs.StreamCopier

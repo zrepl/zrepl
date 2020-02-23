@@ -48,7 +48,7 @@ zrepl daemon
 All actual work zrepl does is performed by a daemon process.
 The daemon supports structured :ref:`logging <logging>` and provides :ref:`monitoring endpoints <monitoring>`.
 
-When installating from a package, the package maintainer should have provided an init script / systemd.service file.
+When installing from a package, the package maintainer should have provided an init script / systemd.service file.
 You should thus be able to start zrepl daemon using your init system.
 
 Alternatively, or for running zrepl in the foreground, simply execute ``zrepl daemon``.
@@ -73,6 +73,6 @@ The daemon exits as soon as all jobs have reported shut down.
 Systemd Unit File
 ~~~~~~~~~~~~~~~~~
 
-A systemd service defintion template is available in :repomasterlink:`dist/systemd`.
+A systemd service definition template is available in :repomasterlink:`dist/systemd`.
 Note that some of the options only work on recent versions of systemd.
 Any help & improvements are very welcome, see :issue:`145`.

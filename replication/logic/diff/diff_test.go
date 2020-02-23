@@ -17,7 +17,7 @@ func fsvlist(fsv ...string) (r []*FilesystemVersion) {
 	r = make([]*FilesystemVersion, len(fsv))
 	for i, f := range fsv {
 
-		// parse the id from fsvlist. it is used to derivce Guid,CreateTXG and Creation attrs
+		// parse the id from fsvlist. it is used to derive Guid,CreateTXG and Creation attrs
 		split := strings.Split(f, ",")
 		if len(split) != 2 {
 			panic("invalid fsv spec")
@@ -114,7 +114,7 @@ func TestIncrementalPath_BookmarkSupport(t *testing.T) {
 		assert.Equal(t, l("#a,1", "@b,2"), path)
 	})
 
-	// boomarks are stripped from IncrementalPath (cannot send incrementally)
+	// bookmarks are stripped from IncrementalPath (cannot send incrementally)
 	doTest(l("@a,1"), l("#a,1", "#b,2", "@c,3"), func(path []*FilesystemVersion, conflict error) {
 		assert.Equal(t, l("#a,1", "@c,3"), path)
 	})

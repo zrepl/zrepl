@@ -104,7 +104,7 @@ nvlist version: 0
 incremental	zroot/test/a@1	zroot/test/a@2	5383936
 `
 
-	// # incremental send with token + bookmarmk
+	// # incremental send with token + bookmark
 	// $ zfs send -nvP -t 1-ef01e717e-e0-789c636064000310a501c49c50360710a715e5e7a69766a63040c1d904b9e342877e062900d9ec48eaf293b252934b181898a0ea30e4d3d28a534b40323e70793624f9a4ca92d46220fdc1ce0fabfe927c882bc46c8a0a9f71ad3baf8124cf0996cf4bcc4d6560a82acacf2fd1079a55a29fe86004710b00d8ae1f93
 	incSendBookmark := `
 resume token contents:
