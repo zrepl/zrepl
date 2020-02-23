@@ -170,7 +170,7 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.St
 		// ok, fallthrough outer
 	case pdu.Tri_False:
 		if s.encrypt.B {
-			return nil, nil, errors.New("only encrytped sends allowed (send -w + encryption!= off), but unencrytped send requested")
+			return nil, nil, errors.New("only encrypted sends allowed (send -w + encryption!= off), but unencrypted send requested")
 		}
 		// fallthrough outer
 	case pdu.Tri_True:
@@ -206,7 +206,7 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.St
 	}
 
 	// From now on, assume that sendArgs has been validated by ZFSSendDry
-	// (because validation invovles shelling out, it's actually a little expensive)
+	// (because validation involves shelling out, it's actually a little expensive)
 
 	var expSize int64 = 0      // protocol says 0 means no estimate
 	if si.SizeEstimate != -1 { // but si returns -1 for no size estimate
@@ -625,9 +625,9 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs
 	//       ZFS dataset hierarchy subtrees.
 	var visitErr error
 	func() {
-		getLogger(ctx).Debug("begin aquire recvParentCreationMtx")
+		getLogger(ctx).Debug("begin acquire recvParentCreationMtx")
 		defer s.recvParentCreationMtx.Lock().Unlock()
-		getLogger(ctx).Debug("end aquire recvParentCreationMtx")
+		getLogger(ctx).Debug("end acquire recvParentCreationMtx")
 		defer getLogger(ctx).Debug("release recvParentCreationMtx")
 
 		f := zfs.NewDatasetPathForest()

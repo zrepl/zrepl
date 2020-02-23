@@ -116,7 +116,7 @@ func (m *MultiStdinserverListener) Close() error {
 	return oneErr
 }
 
-// a single stdinserverListener (part of multiStinserverListener)
+// a single stdinserverListener (part of multiStdinserverListener)
 type stdinserverListener struct {
 	l              *netssh.Listener
 	clientIdentity string

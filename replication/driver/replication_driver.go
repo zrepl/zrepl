@@ -352,7 +352,7 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 			}
 		}
 	}
-	// invariant: prevs contains an entry for each unambigious correspondence
+	// invariant: prevs contains an entry for each unambiguous correspondence
 
 	stepQueue := newStepQueue()
 	defer stepQueue.Start(1)() // TODO parallel replication
@@ -399,7 +399,7 @@ func (fs *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 		}
 		fs.planned.steps = append(fs.planned.steps, step)
 	}
-	debug("iniital len(fs.planned.steps) = %d", len(fs.planned.steps))
+	debug("initial len(fs.planned.steps) = %d", len(fs.planned.steps))
 
 	// for not-first attempts, only allow fs.planned.steps
 	// up to including the originally planned target snapshot

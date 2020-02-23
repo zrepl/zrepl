@@ -26,9 +26,9 @@ Config File Structure
      type: push
    - ...
 
-zrepl is confgured using a single YAML configuration file with two main sections: ``global`` and ``jobs``.
+zrepl is configured using a single YAML configuration file with two main sections: ``global`` and ``jobs``.
 The ``global`` section is filled with sensible defaults and is covered later in this chapter.
-The ``jobs`` section is a list of jobs which we are goind to explain now.
+The ``jobs`` section is a list of jobs which we are going to explain now.
 
 .. _job-overview:
 
@@ -41,7 +41,7 @@ Jobs are identified by their ``name``, both in log files and the ``zrepl status`
 
 Replication always happens between a pair of jobs: one is the **active side**, and one the **passive side**.
 The active side connects to the passive side using a :ref:`transport <transport>` and starts executing the replication logic.
-The passive side responds to requests from the active side after checking its persmissions.
+The passive side responds to requests from the active side after checking its permissions.
 
 The following table shows how different job types can be combined to achieve **both push and pull mode setups**.
 Note that snapshot-creation denoted by "(snap)" is orthogonal to whether a job is active or passive.
@@ -120,7 +120,7 @@ The following steps take place during replication and can be monitored using the
   * Perform replication steps in the following order:
     Among all filesystems with pending replication steps, pick the filesystem whose next replication step's snapshot is the oldest.
   * Create placeholder filesystems on the receiving side to mirror the dataset paths on the sender to ``root_fs/${client_identity}``.
-  * Aquire send-side step-holds on the step's `from` and `to` snapshots.
+  * Acquire send-side step-holds on the step's `from` and `to` snapshots.
   * Perform the replication step.
   * Move the **replication cursor** bookmark on the sending side (see below).
   * Move the **last-received-hold** on the receiving side (see below).
@@ -141,7 +141,7 @@ The ``zrepl holds list`` provides a listing of all bookmarks and holds managed b
 .. _replication-placeholder-property:
 
 **Placeholder filesystems** on the receiving side are regular ZFS filesystems with the placeholder property ``zrepl:placeholder=on``.
-Placeholders allow the receiving side to mirror the sender's ZFS dataset hierachy without replicating every filesystem at every intermediary dataset path component.
+Placeholders allow the receiving side to mirror the sender's ZFS dataset hierarchy without replicating every filesystem at every intermediary dataset path component.
 Consider the following example: ``S/H/J`` shall be replicated to ``R/sink/job/S/H/J``, but neither ``S/H`` nor ``S`` shall be replicated.
 ZFS requires the existence of ``R/sink/job/S`` and ``R/sink/job/S/H`` in order to receive into ``R/sink/job/S/H/J``.
 Thus, zrepl creates the parent filesystems as placeholders on the receiving side.
@@ -181,7 +181,7 @@ No Overlapping
 
 Jobs run independently of each other.
 If two jobs match the same filesystem with their ``filesystems`` filter, they will operate on that filesystem independently and potentially in parallel.
-For example, if job A prunes snapshots that job B is planning to replicate, the replication will fail because B asssumed the snapshot to still be present.
+For example, if job A prunes snapshots that job B is planning to replicate, the replication will fail because B assumed the snapshot to still be present.
 However, the next replication attempt will re-examine the situation from scratch and should work.
 
 N push jobs to 1 sink
@@ -198,5 +198,5 @@ Multiple pull jobs pulling from the same source have potential for race conditio
 each pull job prunes the source side independently, causing replication-prune and prune-prune races.
 
 There is currently no way for a pull job to filter which snapshots it should attempt to replicate.
-Thus, it is not possibe to just manually assert that the prune rules of all pull jobs are disjoint to avoid replication-prune and prune-prune races.
+Thus, it is not possible to just manually assert that the prune rules of all pull jobs are disjoint to avoid replication-prune and prune-prune races.
 

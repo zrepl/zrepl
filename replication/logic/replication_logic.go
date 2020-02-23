@@ -352,7 +352,7 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 	}
 
 	// give both sides a hint about how far the replication got
-	// This serves as a cummulative variant of SendCompleted and can be useful
+	// This serves as a cumulative variant of SendCompleted and can be useful
 	// for example to release stale holds from an earlier (interrupted) replication.
 	// TODO FIXME: enqueue this as a replication step instead of doing it here during planning
 	//             then again, the step should run regardless of planning success

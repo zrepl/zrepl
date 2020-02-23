@@ -127,7 +127,7 @@ func NewDatasetPath(s string) (p *DatasetPath, err error) {
 		return p, nil // the empty dataset path
 	}
 	const FORBIDDEN = "@#|\t<>*"
-	/* Documenation of allowed characters in zfs names:
+	/* Documentation of allowed characters in zfs names:
 	https://docs.oracle.com/cd/E19253-01/819-5461/gbcpt/index.html
 	Space is missing in the oracle list, but according to
 	https://github.com/zfsonlinux/zfs/issues/439
@@ -511,7 +511,7 @@ func (s *sendStream) killAndWait(precedingReadErr error) error {
 
 	// detect the edge where we're called from s.Read
 	// after the pipe EOFed and zfs send exited without errors
-	// this is actullay the "hot" / nice path
+	// this is actually the "hot" / nice path
 	if exitErr == nil && precedingReadErr == io.EOF {
 		return precedingReadErr
 	}
@@ -618,13 +618,13 @@ func (n *NilBool) String() string {
 	return fmt.Sprintf("%v", n.B)
 }
 
-// When updating this struct, check Validate and ValidateCorrespondsToResumeToken (Potentiall SECURITY SENSITIVE)
+// When updating this struct, check Validate and ValidateCorrespondsToResumeToken (POTENTIALLY SECURITY SENSITIVE)
 type ZFSSendArgs struct {
 	FS        string
 	From, To  *ZFSSendArgVersion // From may be nil
 	Encrypted *NilBool
 
-	// Prefereed if not empty
+	// Preferred if not empty
 	ResumeToken string // if not nil, must match what is specified in From, To (covered by ValidateCorrespondsToResumeToken)
 }
 
@@ -660,7 +660,7 @@ func (e ZFSSendArgsValidationError) Error() string {
 }
 
 // - Recursively call Validate on each field.
-// - Make sure that if ResumeToken != "", it reflects the same operation as the other paramters would.
+// - Make sure that if ResumeToken != "", it reflects the same operation as the other parameters would.
 //
 // This function is not pure because GUIDs are checked against the local host's datasets.
 func (a ZFSSendArgs) Validate(ctx context.Context) error {
@@ -679,7 +679,7 @@ func (a ZFSSendArgs) Validate(ctx context.Context) error {
 		if err := a.From.ValidateExists(ctx, a.FS); err != nil {
 			return newGenericValidationError(a, errors.Wrap(err, "`From` invalid"))
 		}
-		// falthrough
+		// fallthrough
 	}
 
 	if err := a.Encrypted.Validate(); err != nil {
@@ -743,7 +743,7 @@ func (a ZFSSendArgs) validateCorrespondsToResumeToken(ctx context.Context, valCt
 
 	debug("decoding resume token %q", a.ResumeToken)
 	t, err := ParseResumeToken(ctx, a.ResumeToken)
-	debug("decode resumee token result: %#v %T %v", t, err, err)
+	debug("decode resume token result: %#v %T %v", t, err, err)
 	if err != nil {
 		return err
 	}
@@ -894,7 +894,7 @@ type DrySendInfo struct {
 }
 
 var (
-	// keep same number of capture groups for unmarshalInfoLine homogenity
+	// keep same number of capture groups for unmarshalInfoLine homogeneity
 
 	sendDryRunInfoLineRegexFull = regexp.MustCompile(`^(full)\t()([^\t]+@[^\t]+)\t([0-9]+)$`)
 	// cannot enforce '[#@]' in incremental source, see test cases

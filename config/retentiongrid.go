@@ -64,7 +64,7 @@ func parseRetentionGridIntervalString(e string) (intervals []RetentionInterval, 
 		return nil, fmt.Errorf("contains factor <= 0")
 	}
 
-	duration, err := parsePostitiveDuration(comps[2])
+	duration, err := parsePositiveDuration(comps[2])
 	if err != nil {
 		return nil, err
 	}

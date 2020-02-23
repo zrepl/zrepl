@@ -99,7 +99,7 @@ func (c Conn) doOneReadv(rawConn syscall.RawConn, iovecs *[]syscall.Iovec) (n in
 				// Update left, cannot go below 0 due to
 				// a) definition of thisIovecConsumedCompletely
 				// b) left > 0 due to loop invariant
-				// Convertion .Len to int64 is thus also safe now, because it is < left < INT_MAX
+				// Converting .Len to int64 is thus also safe now, because it is < left < INT_MAX
 				left -= int((*iovecs)[0].Len)
 				*iovecs = (*iovecs)[1:]
 			} else {

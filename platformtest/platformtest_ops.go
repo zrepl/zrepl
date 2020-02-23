@@ -180,8 +180,8 @@ func splitQuotedWords(data []byte, atEOF bool) (advance int, token []byte, err e
 				// unescaped quote, end of this string
 				// remove backslash-escapes
 				withBackslash := data[begin+1 : end]
-				withoutBaskslash := bytes.Replace(withBackslash, []byte("\\\""), []byte("\""), -1)
-				return end + 1, withoutBaskslash, nil
+				withoutBackslash := bytes.Replace(withBackslash, []byte("\\\""), []byte("\""), -1)
+				return end + 1, withoutBackslash, nil
 			} else {
 				// continue to next quote
 				end += 1

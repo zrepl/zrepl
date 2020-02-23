@@ -277,7 +277,7 @@ func snapshot(a args, u updater) state {
 
 		jobCallback := hooks.NewCallbackHookForFilesystem("snapshot", fs, func(_ context.Context) (err error) {
 			l.Debug("create snapshot")
-			err = zfs.ZFSSnapshot(fs, snapname, false) // TODO propagagte context to ZFSSnapshot
+			err = zfs.ZFSSnapshot(fs, snapname, false) // TODO propagate context to ZFSSnapshot
 			if err != nil {
 				l.WithError(err).Error("cannot create snapshot")
 			}

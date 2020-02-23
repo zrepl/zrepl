@@ -63,7 +63,7 @@ func NewTCPOutlet(formatter EntryFormatter, network, address string, tlsConfig *
 		return
 	}
 
-	entryChan := make(chan *bytes.Buffer, 1) // allow one message in flight while previos is in io.Copy()
+	entryChan := make(chan *bytes.Buffer, 1) // allow one message in flight while previous is in io.Copy()
 
 	o := &TCPOutlet{
 		formatter: formatter,

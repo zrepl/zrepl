@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	// tcell is the termbox-compatbile library for abstracting away escape sequences, etc.
+	// tcell is the termbox-compatible library for abstracting away escape sequences, etc.
 	// as of tcell#252, the number of default distributed terminals is relatively limited
 	// additional terminal definitions can be included via side-effect import
 	// See https://github.com/gdamore/tcell/blob/master/terminfo/base/base.go
@@ -264,7 +264,7 @@ loop:
 
 }
 
-func (t *tui) getReplicationProgresHistory(jobName string) *bytesProgressHistory {
+func (t *tui) getReplicationProgressHistory(jobName string) *bytesProgressHistory {
 	p, ok := t.replicationProgress[jobName]
 	if !ok {
 		p = &bytesProgressHistory{}
@@ -329,7 +329,7 @@ func (t *tui) draw() {
 				t.printf("Replication:")
 				t.newline()
 				t.addIndent(1)
-				t.renderReplicationReport(activeStatus.Replication, t.getReplicationProgresHistory(k))
+				t.renderReplicationReport(activeStatus.Replication, t.getReplicationProgressHistory(k))
 				t.addIndent(-1)
 
 				t.printf("Pruning Sender:")
@@ -697,7 +697,7 @@ func rightPad(str string, length int, pad string) string {
 
 var arrowPositions = `>\|/`
 
-// changeCount = 0 indicates stall / no progresss
+// changeCount = 0 indicates stall / no progress
 func (t *tui) drawBar(length int, bytes, totalBytes int64, changeCount int) {
 	var completedLength int
 	if totalBytes > 0 {

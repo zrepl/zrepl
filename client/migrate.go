@@ -165,7 +165,7 @@ func doMigrateReplicationCursor(sc *cli.Subcommand, args []string) error {
 	var hadError bool
 	for _, fs := range fss {
 
-		bold.Printf("INSPECT FILESYTEM %q\n", fs.ToString())
+		bold.Printf("INSPECT FILESYSTEM %q\n", fs.ToString())
 
 		err := doMigrateReplicationCursorFS(ctx, v1cursorJobs, fs)
 		if err == migrateReplicationCursorSkipSentinel {

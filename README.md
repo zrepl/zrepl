@@ -136,7 +136,7 @@ However, new contributions & patches should fix naming without further notice in
 
 ### RPC debugging
 
-Optionally, there are various RPC-related environment varibles, that if set to something != `""` will produce additional debug output on stderr:
+Optionally, there are various RPC-related environment variables, that if set to something != `""` will produce additional debug output on stderr:
 
 https://github.com/zrepl/zrepl/blob/master/rpc/rpc_debug.go#L11
 

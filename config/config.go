@@ -620,7 +620,7 @@ func ParseConfigBytes(bytes []byte) (*Config, error) {
 
 var durationStringRegex *regexp.Regexp = regexp.MustCompile(`^\s*(\d+)\s*(s|m|h|d|w)\s*$`)
 
-func parsePostitiveDuration(e string) (d time.Duration, err error) {
+func parsePositiveDuration(e string) (d time.Duration, err error) {
 	comps := durationStringRegex.FindStringSubmatch(e)
 	if len(comps) != 3 {
 		err = fmt.Errorf("does not match regex: %s %#v", e, comps)

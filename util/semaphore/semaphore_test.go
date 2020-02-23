@@ -20,7 +20,7 @@ func TestSemaphore(t *testing.T) {
 
 	sem := New(concurrentSemaphore)
 
-	var aquisitions struct {
+	var acquisitions struct {
 		beforeT, afterT uint32
 	}
 
@@ -33,9 +33,9 @@ func TestSemaphore(t *testing.T) {
 			require.NoError(t, err)
 			defer res.Release()
 			if time.Since(begin) > sleepTime {
-				atomic.AddUint32(&aquisitions.beforeT, 1)
+				atomic.AddUint32(&acquisitions.beforeT, 1)
 			} else {
-				atomic.AddUint32(&aquisitions.afterT, 1)
+				atomic.AddUint32(&acquisitions.afterT, 1)
 			}
 			time.Sleep(sleepTime)
 		}()
@@ -43,7 +43,7 @@ func TestSemaphore(t *testing.T) {
 
 	wg.Wait()
 
-	assert.True(t, aquisitions.beforeT == concurrentSemaphore)
-	assert.True(t, aquisitions.afterT == numGoroutines-concurrentSemaphore)
+	assert.True(t, acquisitions.beforeT == concurrentSemaphore)
+	assert.True(t, acquisitions.afterT == numGoroutines-concurrentSemaphore)
 
 }

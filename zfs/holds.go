@@ -266,7 +266,7 @@ func doZFSReleaseAllOlderAndIncOrExcludingGUIDFindSnapshots(snapOrBookmarkGuid u
 				case EntityTypeBookmark:
 					return 1
 				default:
-					panic("unepxected entity type " + t.String())
+					panic("unexpected entity type " + t.String())
 				}
 			}
 			return iET(lines[i].entityType) < iET(lines[j].entityType)
@@ -290,7 +290,7 @@ func doZFSReleaseAllOlderAndIncOrExcludingGUIDFindSnapshots(snapOrBookmarkGuid u
 		}
 		if foundGuid {
 			// The secondary key in sorting (snap < bookmark) guarantees that we
-			//   A) either found the snapshot with snapOrBoomkarkGuid
+			//   A) either found the snapshot with snapOrBookmarkGuid
 			//   B) or no snapshot with snapGuid exists, but one or more bookmarks of it exists
 			// In the case of A, we already added the snapshot to releaseSnaps if includeGuid requests it,
 			// and can ignore possible subsequent bookmarks of the snapshot.

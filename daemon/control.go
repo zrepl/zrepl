@@ -64,7 +64,7 @@ func (j *controlJob) RegisterMetrics(registerer prometheus.Registerer) {
 		Namespace: "zrepl",
 		Subsystem: "control",
 		Name:      "request_finished",
-		Help:      "time it took a request to finih",
+		Help:      "time it took a request to finish",
 		Buckets:   []float64{1e-6, 10e-6, 100e-6, 500e-6, 1e-3, 10e-3, 100e-3, 200e-3, 400e-3, 800e-3, 1, 10, 20},
 	}, []string{"endpoint"})
 	registerer.MustRegister(promControl.requestBegin)
@@ -250,7 +250,7 @@ func (j jsonRequestResponder) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	var buf bytes.Buffer
 	encodeErr := json.NewEncoder(&buf).Encode(res)
 	if encodeErr != nil {
-		j.log.WithError(producerErr).Error("control handler json marhsal error")
+		j.log.WithError(producerErr).Error("control handler json marshal error")
 		w.WriteHeader(http.StatusInternalServerError)
 		_, err := io.WriteString(w, encodeErr.Error())
 		logIoErr(err)

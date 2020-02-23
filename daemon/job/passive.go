@@ -75,7 +75,7 @@ func modeSourceFromConfig(g *config.Global, in *config.SourceJob, jobID endpoint
 	m = &modeSource{}
 	fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
 	if err != nil {
-		return nil, errors.Wrap(err, "cannnot build filesystem filter")
+		return nil, errors.Wrap(err, "cannot build filesystem filter")
 	}
 	m.senderConfig = &endpoint.SenderConfig{
 		FSF:     fsf,

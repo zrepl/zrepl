@@ -56,7 +56,7 @@ func TestDatasetPathForestWalkTopDown(t *testing.T) {
 
 	buildForest(paths).WalkTopDown(v)
 
-	expectedVisists := []DatasetPathVisit{
+	expectedVisits := []DatasetPathVisit{
 		{toDatasetPath("pool1"), false},
 		{toDatasetPath("pool1/foo"), true},
 		{toDatasetPath("pool1/foo/bar"), false},
@@ -65,7 +65,7 @@ func TestDatasetPathForestWalkTopDown(t *testing.T) {
 		{toDatasetPath("pool2/test"), true},
 		{toDatasetPath("pool2/test/bar"), false},
 	}
-	assert.Equal(t, expectedVisists, rec.visits)
+	assert.Equal(t, expectedVisits, rec.visits)
 
 }
 
@@ -82,7 +82,7 @@ func TestDatasetPathWalkTopDownWorksUnordered(t *testing.T) {
 
 	buildForest(paths).WalkTopDown(v)
 
-	expectedVisists := []DatasetPathVisit{
+	expectedVisits := []DatasetPathVisit{
 		{toDatasetPath("pool1"), false},
 		{toDatasetPath("pool1/foo"), true},
 		{toDatasetPath("pool1/foo/bar"), false},
@@ -91,6 +91,6 @@ func TestDatasetPathWalkTopDownWorksUnordered(t *testing.T) {
 		{toDatasetPath("pool1/bang/baz"), false},
 	}
 
-	assert.Equal(t, expectedVisists, rec.visits)
+	assert.Equal(t, expectedVisits, rec.visits)
 
 }

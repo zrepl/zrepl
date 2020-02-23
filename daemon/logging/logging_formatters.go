@@ -211,7 +211,7 @@ func logfmtTryEncodeKeyval(enc *logfmt.Encoder, field, value interface{}) error 
 	case logfmt.ErrUnsupportedValueType:
 		err := enc.EncodeKeyval(field, fmt.Sprintf("<%T>", value))
 		if err != nil {
-			return errors.Wrap(err, "cannot encode unsuuported value type Go type")
+			return errors.Wrap(err, "cannot encode unsupported value type Go type")
 		}
 		return nil
 	}

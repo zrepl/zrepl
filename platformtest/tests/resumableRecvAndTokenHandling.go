@@ -40,7 +40,7 @@ func ResumableRecvAndTokenHandling(ctx *platformtest.Context) {
 		require.True(ctx, ok)
 
 		// we know that support on sendFS implies support on recvFS
-		// => asser that if we don't support resumed recv, the method returns ""
+		// => assert that if we don't support resumed recv, the method returns ""
 		tok, err := zfs.ZFSGetReceiveResumeTokenOrEmptyStringIfNotSupported(ctx, mustDatasetPath(recvFS))
 		check(err)
 		require.Equal(ctx, "", tok)

@@ -8,12 +8,12 @@ import (
 
 type Logger = logger.Logger
 
-type contexKey int
+type contextKey int
 
-const contexKeyLogger contexKey = iota + 1
+const contextKeyLogger contextKey = iota + 1
 
 func getLog(ctx context.Context) Logger {
-	l, ok := ctx.Value(contexKeyLogger).(Logger)
+	l, ok := ctx.Value(contextKeyLogger).(Logger)
 	if !ok {
 		l = logger.NewNullLogger()
 	}
@@ -21,5 +21,5 @@ func getLog(ctx context.Context) Logger {
 }
 
 func WithLogger(ctx context.Context, log Logger) context.Context {
-	return context.WithValue(ctx, contexKeyLogger, log)
+	return context.WithValue(ctx, contextKeyLogger, log)
 }

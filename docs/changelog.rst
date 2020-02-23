@@ -105,7 +105,7 @@ Actual changelog:
    |  You can support maintenance and feature development through one of the following services:
    |  |Donate via Patreon| |Donate via Liberapay| |Donate via PayPal|
    |  Note that PayPal processing fees are relatively high for small donations.
-   |  For SEPA wire transfer and **commerical support**, please `contact Christian directly <https://cschwarz.com>`_.
+   |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
 
 
 0.1.1

@@ -117,7 +117,7 @@ func SendArgsValidationResumeTokenEncryptionMismatchForbidden(ctx *platformtest.
 		require.Equal(ctx, mismatchError.What, zfs.ZFSSendArgsResumeTokenMismatchEncryptionNotSet)
 	}
 
-	// threat model: use of a crafted resume token that requests an encryped send
+	// threat model: use of a crafted resume token that requests an encrypted send
 	//               but send args require unencrypted send
 	{
 		var maliciousSend zfs.ZFSSendArgs = unencS.sendArgs

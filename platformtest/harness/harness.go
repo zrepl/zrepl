@@ -172,21 +172,21 @@ type testCaseResult struct {
 func runTestCase(ctx *platformtest.Context, ex platformtest.Execer, c tests.Case) *testCaseResult {
 
 	// run case
-	var paniced = false
+	var panicked = false
 	var panicValue interface{} = nil
 	var panicStack error
 	func() {
 		defer func() {
 			if item := recover(); item != nil {
 				panicValue = item
-				paniced = true
+				panicked = true
 				panicStack = errors.Errorf("panic while running test: %v", panicValue)
 			}
 		}()
 		c(ctx)
 	}()
 
-	if paniced {
+	if panicked {
 		switch panicValue {
 		case platformtest.SkipNowSentinel:
 			return &testCaseResult{skipped: true}

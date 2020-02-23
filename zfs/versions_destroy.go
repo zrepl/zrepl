@@ -188,7 +188,7 @@ func doDestroyBatchedRec(ctx context.Context, fsbatch []*DestroySnapOp, d destro
 		err := tryBatch(ctx, strippedBatch, d)
 		if err != nil {
 			// run entire batch sequentially if the stripped one fails
-			// (it shouldn't because we stripped erronous datasets)
+			// (it shouldn't because we stripped erroneous datasets)
 			singleRun = fsbatch // shadow
 		} else {
 			setDestroySnapOpErr(strippedBatch, nil) // these ones worked

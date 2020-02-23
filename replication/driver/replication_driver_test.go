@@ -174,7 +174,7 @@ func TestReplication(t *testing.T) {
 	waitBegin := time.Now()
 	wait(true)
 	waitDuration := time.Since(waitBegin)
-	assert.True(t, waitDuration < 10*time.Millisecond, "%v", waitDuration) // and that's gratious
+	assert.True(t, waitDuration < 10*time.Millisecond, "%v", waitDuration) // and that's gracious
 
 	prev, err := json.Marshal(reports[0])
 	require.NoError(t, err)
