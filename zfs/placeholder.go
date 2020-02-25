@@ -63,7 +63,6 @@ type FilesystemPlaceholderState struct {
 // For nonexistent FS, err == nil and state.FSExists == false
 func ZFSGetFilesystemPlaceholderState(p *DatasetPath) (state *FilesystemPlaceholderState, err error) {
 	state = &FilesystemPlaceholderState{FS: p.ToString()}
-	state.FS = p.ToString()
 	props, err := zfsGet(p.ToString(), []string{PlaceholderPropertyName}, sourceLocal)
 	var _ error = (*DatasetDoesNotExist)(nil) // weak assertion on zfsGet's interface
 	if _, ok := err.(*DatasetDoesNotExist); ok {
