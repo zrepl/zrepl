@@ -54,7 +54,7 @@ func rollupReleaseTest(ctx *platformtest.Context, cb func(fs string) []rollupRel
 
 func RollupReleaseIncluding(ctx *platformtest.Context) {
 	rollupReleaseTest(ctx, func(fs string) []rollupReleaseExpectTags {
-		guid5, err := zfs.ZFSGetGUID(fs, "@5")
+		guid5, err := zfs.ZFSGetGUID(ctx, fs, "@5")
 		require.NoError(ctx, err)
 
 		err = zfs.ZFSReleaseAllOlderAndIncludingGUID(ctx, fs, guid5, "zrepl_platformtest")
@@ -73,7 +73,7 @@ func RollupReleaseIncluding(ctx *platformtest.Context) {
 
 func RollupReleaseExcluding(ctx *platformtest.Context) {
 	rollupReleaseTest(ctx, func(fs string) []rollupReleaseExpectTags {
-		guid5, err := zfs.ZFSGetGUID(fs, "@5")
+		guid5, err := zfs.ZFSGetGUID(ctx, fs, "@5")
 		require.NoError(ctx, err)
 
 		err = zfs.ZFSReleaseAllOlderThanGUID(ctx, fs, guid5, "zrepl_platformtest")
@@ -92,13 +92,13 @@ func RollupReleaseExcluding(ctx *platformtest.Context) {
 
 func RollupReleaseMostRecentIsBookmarkWithoutSnapshot(ctx *platformtest.Context) {
 	rollupReleaseTest(ctx, func(fs string) []rollupReleaseExpectTags {
-		guid5, err := zfs.ZFSGetGUID(fs, "#5")
+		guid5, err := zfs.ZFSGetGUID(ctx, fs, "#5")
 		require.NoError(ctx, err)
 
 		err = zfs.ZFSRelease(ctx, "zrepl_platformtest", fs+"@5")
 		require.NoError(ctx, err)
 
-		err = zfs.ZFSDestroy(fs + "@5")
+		err = zfs.ZFSDestroy(ctx, fs+"@5")
 		require.NoError(ctx, err)
 
 		err = zfs.ZFSReleaseAllOlderAndIncludingGUID(ctx, fs, guid5, "zrepl_platformtest")
@@ -117,7 +117,7 @@ func RollupReleaseMostRecentIsBookmarkWithoutSnapshot(ctx *platformtest.Context)
 
 func RollupReleaseMostRecentIsBookmarkAndSnapshotStillExists(ctx *platformtest.Context) {
 	rollupReleaseTest(ctx, func(fs string) []rollupReleaseExpectTags {
-		guid5, err := zfs.ZFSGetGUID(fs, "#5")
+		guid5, err := zfs.ZFSGetGUID(ctx, fs, "#5")
 		require.NoError(ctx, err)
 
 		err = zfs.ZFSReleaseAllOlderAndIncludingGUID(ctx, fs, guid5, "zrepl_platformtest")

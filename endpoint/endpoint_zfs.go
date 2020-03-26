@@ -170,7 +170,7 @@ func MoveReplicationCursor(ctx context.Context, fs string, target *zfs.ZFSSendAr
 	// idempotently create bookmark (guid is encoded in it, hence we'll most likely add a new one
 	// cleanup the old one afterwards
 
-	err = zfs.ZFSBookmark(fs, *target, bookmarkname)
+	err = zfs.ZFSBookmark(ctx, fs, *target, bookmarkname)
 	if err != nil {
 		if err == zfs.ErrBookmarkCloningNotSupported {
 			return nil, err // TODO go1.13 use wrapping
@@ -221,7 +221,7 @@ func HoldStep(ctx context.Context, fs string, v *zfs.ZFSSendArgVersion, jobID Jo
 		return errors.Wrap(err, "create step bookmark: determine bookmark name")
 	}
 	// idempotently create bookmark
-	err = zfs.ZFSBookmark(fs, *v, bmname)
+	err = zfs.ZFSBookmark(ctx, fs, *v, bmname)
 	if err != nil {
 		if err == zfs.ErrBookmarkCloningNotSupported {
 			// TODO we could actually try to find a local snapshot that has the requested GUID
@@ -269,7 +269,7 @@ func ReleaseStep(ctx context.Context, fs string, v *zfs.ZFSSendArgVersion, jobID
 	}
 	// idempotently destroy bookmark
 
-	if err := zfs.ZFSDestroyIdempotent(bmname); err != nil {
+	if err := zfs.ZFSDestroyIdempotent(ctx, bmname); err != nil {
 		return errors.Wrap(err, "step release: bookmark destroy: zfs")
 	}
 

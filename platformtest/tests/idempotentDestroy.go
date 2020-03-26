@@ -18,8 +18,8 @@ func IdempotentDestroy(ctx *platformtest.Context) {
 	`)
 
 	fs := fmt.Sprintf("%s/foo bar", ctx.RootDataset)
-	asnap := sendArgVersion(fs, "@a snap")
-	err := zfs.ZFSBookmark(fs, asnap, "a bookmark")
+	asnap := sendArgVersion(ctx, fs, "@a snap")
+	err := zfs.ZFSBookmark(ctx, fs, asnap, "a bookmark")
 	if err != nil {
 		panic(err)
 	}
@@ -41,17 +41,17 @@ func IdempotentDestroy(ctx *platformtest.Context) {
 			log.Printf("SUBBEGIN testing idempotent destroy %q for path %q", c.description, c.path)
 
 			log.Println("destroy existing")
-			err = zfs.ZFSDestroy(c.path)
+			err = zfs.ZFSDestroy(ctx, c.path)
 			if err != nil {
 				panic(err)
 			}
 			log.Println("destroy again, non-idempotently, must error")
-			err = zfs.ZFSDestroy(c.path)
+			err = zfs.ZFSDestroy(ctx, c.path)
 			if _, ok := err.(*zfs.DatasetDoesNotExist); !ok {
 				panic(fmt.Sprintf("%T: %s", err, err))
 			}
 			log.Println("destroy again, idempotently, must not error")
-			err = zfs.ZFSDestroyIdempotent(c.path)
+			err = zfs.ZFSDestroyIdempotent(ctx, c.path)
 			if err != nil {
 				panic(err)
 			}
@@ -62,12 +62,12 @@ func IdempotentDestroy(ctx *platformtest.Context) {
 	}
 
 	// also test idempotent destroy for cases where the parent dataset does not exist
-	err = zfs.ZFSDestroyIdempotent(fmt.Sprintf("%s/not foo bar@nonexistent snapshot", ctx.RootDataset))
+	err = zfs.ZFSDestroyIdempotent(ctx, fmt.Sprintf("%s/not foo bar@nonexistent snapshot", ctx.RootDataset))
 	if err != nil {
 		panic(err)
 	}
 
-	err = zfs.ZFSDestroyIdempotent(fmt.Sprintf("%s/not foo bar#nonexistent bookmark", ctx.RootDataset))
+	err = zfs.ZFSDestroyIdempotent(ctx, fmt.Sprintf("%s/not foo bar#nonexistent bookmark", ctx.RootDataset))
 	if err != nil {
 		panic(err)
 	}

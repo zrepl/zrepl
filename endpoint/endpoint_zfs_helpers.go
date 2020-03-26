@@ -100,7 +100,7 @@ func destroyBookmarksOlderThan(ctx context.Context, fs string, mostRecent *zfs.Z
 
 	// FIXME use batch destroy, must adopt code to handle bookmarks
 	for _, v := range destroy {
-		if err := zfs.ZFSDestroyIdempotent(v.ToAbsPath(fsp)); err != nil {
+		if err := zfs.ZFSDestroyIdempotent(ctx, v.ToAbsPath(fsp)); err != nil {
 			return nil, errors.Wrap(err, "destroy bookmark")
 		}
 	}

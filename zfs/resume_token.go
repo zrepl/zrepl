@@ -39,10 +39,10 @@ var resumeSendSupportedCheck struct {
 	err       error
 }
 
-func ResumeSendSupported() (bool, error) {
+func ResumeSendSupported(ctx context.Context) (bool, error) {
 	resumeSendSupportedCheck.once.Do(func() {
 		// "feature discovery"
-		cmd := exec.Command("zfs", "send")
+		cmd := exec.CommandContext(ctx, "zfs", "send")
 		output, err := cmd.CombinedOutput()
 		if ee, ok := err.(*exec.ExitError); !ok || ok && !ee.Exited() {
 			resumeSendSupportedCheck.err = errors.Wrap(err, "resumable send cli support feature check failed")
@@ -155,7 +155,7 @@ func ResumeRecvSupported(ctx context.Context, fs *DatasetPath) (bool, error) {
 // FIXME: implement nvlist unpacking in Go and read through libzfs_sendrecv.c
 func ParseResumeToken(ctx context.Context, token string) (*ResumeToken, error) {
 
-	if supported, err := ResumeSendSupported(); err != nil {
+	if supported, err := ResumeSendSupported(ctx); err != nil {
 		return nil, err
 	} else if !supported {
 		return nil, ResumeTokenDecodingNotSupported
@@ -258,7 +258,7 @@ func ZFSGetReceiveResumeTokenOrEmptyStringIfNotSupported(ctx context.Context, fs
 		return "", nil
 	}
 	const prop_receive_resume_token = "receive_resume_token"
-	props, err := ZFSGet(fs, []string{prop_receive_resume_token})
+	props, err := ZFSGet(ctx, fs, []string{prop_receive_resume_token})
 	if err != nil {
 		return "", err
 	}

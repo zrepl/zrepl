@@ -21,7 +21,7 @@ var encryptionCLISupport struct {
 func EncryptionCLISupported(ctx context.Context) (bool, error) {
 	encryptionCLISupport.once.Do(func() {
 		// "feature discovery"
-		cmd := exec.Command("zfs", "load-key")
+		cmd := exec.CommandContext(ctx, "zfs", "load-key")
 		output, err := cmd.CombinedOutput()
 		if ee, ok := err.(*exec.ExitError); !ok || ok && !ee.Exited() {
 			encryptionCLISupport.err = errors.Wrap(err, "native encryption cli support feature check failed")
@@ -50,7 +50,7 @@ func ZFSGetEncryptionEnabled(ctx context.Context, fs string) (enabled bool, err 
 		return false, err
 	}
 
-	props, err := zfsGet(fs, []string{"encryption"}, sourceAny)
+	props, err := zfsGet(ctx, fs, []string{"encryption"}, sourceAny)
 	if err != nil {
 		return false, errors.Wrap(err, "cannot get `encryption` property")
 	}

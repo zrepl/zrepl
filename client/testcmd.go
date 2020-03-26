@@ -49,6 +49,7 @@ func runTestFilterCmd(subcommand *cli.Subcommand, args []string) error {
 	}
 
 	conf := subcommand.Config()
+	ctx := context.Background()
 
 	var confFilter config.FilesystemsFilter
 	job, err := conf.Job(testFilterArgs.job)
@@ -75,7 +76,7 @@ func runTestFilterCmd(subcommand *cli.Subcommand, args []string) error {
 	if testFilterArgs.input != "" {
 		fsnames = []string{testFilterArgs.input}
 	} else {
-		out, err := zfs.ZFSList([]string{"name"})
+		out, err := zfs.ZFSList(ctx, []string{"name"})
 		if err != nil {
 			return fmt.Errorf("could not list ZFS filesystems: %s", err)
 		}
@@ -139,10 +140,11 @@ var testPlaceholder = &cli.Subcommand{
 func runTestPlaceholder(subcommand *cli.Subcommand, args []string) error {
 
 	var checkDPs []*zfs.DatasetPath
+	ctx := context.Background()
 
 	// all actions first
 	if testPlaceholderArgs.all {
-		out, err := zfs.ZFSList([]string{"name"})
+		out, err := zfs.ZFSList(ctx, []string{"name"})
 		if err != nil {
 			return errors.Wrap(err, "could not list ZFS filesystems")
 		}
@@ -166,7 +168,7 @@ func runTestPlaceholder(subcommand *cli.Subcommand, args []string) error {
 
 	fmt.Printf("IS_PLACEHOLDER\tDATASET\tzrepl:placeholder\n")
 	for _, dp := range checkDPs {
-		ph, err := zfs.ZFSGetFilesystemPlaceholderState(dp)
+		ph, err := zfs.ZFSGetFilesystemPlaceholderState(ctx, dp)
 		if err != nil {
 			return errors.Wrap(err, "cannot get placeholder state")
 		}

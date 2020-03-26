@@ -164,7 +164,7 @@ func (e *ZFSError) Error() string {
 
 var ZFS_BINARY string = "zfs"
 
-func ZFSList(properties []string, zfsArgs ...string) (res [][]string, err error) {
+func ZFSList(ctx context.Context, properties []string, zfsArgs ...string) (res [][]string, err error) {
 
 	args := make([]string, 0, 4+len(zfsArgs))
 	args = append(args,
@@ -172,7 +172,7 @@ func ZFSList(properties []string, zfsArgs ...string) (res [][]string, err error)
 		"-o", strings.Join(properties, ","))
 	args = append(args, zfsArgs...)
 
-	cmd := exec.Command(ZFS_BINARY, args...)
+	cmd := exec.CommandContext(ctx, ZFS_BINARY, args...)
 
 	var stdout io.Reader
 	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
@@ -564,7 +564,7 @@ func (a ZFSSendArgVersion) ValidateExistsAndGetCheckedProps(ctx context.Context,
 		return ZFSPropCreateTxgAndGuidProps{}, nil
 	}
 
-	realProps, err := ZFSGetCreateTXGAndGuid(a.FullPath(fs))
+	realProps, err := ZFSGetCreateTXGAndGuid(ctx, a.FullPath(fs))
 	if err != nil {
 		return ZFSPropCreateTxgAndGuidProps{}, err
 	}
@@ -996,7 +996,7 @@ func ZFSSendDry(ctx context.Context, sendArgs ZFSSendArgs) (_ *DrySendInfo, err 
 	}
 	args = append(args, sargs...)
 
-	cmd := exec.Command(ZFS_BINARY, args...)
+	cmd := exec.CommandContext(ctx, ZFS_BINARY, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, &ZFSError{output, err}
@@ -1090,11 +1090,11 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, streamCopier 
 			rollbackTarget := snaps[0]
 			rollbackTargetAbs := rollbackTarget.ToAbsPath(fsdp)
 			debug("recv: rollback to %q", rollbackTargetAbs)
-			if err := ZFSRollback(fsdp, rollbackTarget, "-r"); err != nil {
+			if err := ZFSRollback(ctx, fsdp, rollbackTarget, "-r"); err != nil {
 				return fmt.Errorf("cannot rollback %s to %s for forced receive: %s", fsdp.ToString(), rollbackTarget, err)
 			}
 			debug("recv: destroy %q", rollbackTargetAbs)
-			if err := ZFSDestroy(rollbackTargetAbs); err != nil {
+			if err := ZFSDestroy(ctx, rollbackTargetAbs); err != nil {
 				return fmt.Errorf("cannot destroy %s for forced receive: %s", rollbackTargetAbs, err)
 			}
 		}
@@ -1225,12 +1225,12 @@ func (e ClearResumeTokenError) Error() string {
 }
 
 // always returns *ClearResumeTokenError
-func ZFSRecvClearResumeToken(fs string) (err error) {
+func ZFSRecvClearResumeToken(ctx context.Context, fs string) (err error) {
 	if err := validateZFSFilesystem(fs); err != nil {
 		return err
 	}
 
-	cmd := exec.Command(ZFS_BINARY, "recv", "-A", fs)
+	cmd := exec.CommandContext(ctx, ZFS_BINARY, "recv", "-A", fs)
 	o, err := cmd.CombinedOutput()
 	if err != nil {
 		if bytes.Contains(o, []byte("does not have any resumable receive state to abort")) {
@@ -1267,11 +1267,11 @@ func (p *ZFSProperties) appendArgs(args *[]string) (err error) {
 	return nil
 }
 
-func ZFSSet(fs *DatasetPath, props *ZFSProperties) (err error) {
-	return zfsSet(fs.ToString(), props)
+func ZFSSet(ctx context.Context, fs *DatasetPath, props *ZFSProperties) (err error) {
+	return zfsSet(ctx, fs.ToString(), props)
 }
 
-func zfsSet(path string, props *ZFSProperties) (err error) {
+func zfsSet(ctx context.Context, path string, props *ZFSProperties) (err error) {
 	args := make([]string, 0)
 	args = append(args, "set")
 	err = props.appendArgs(&args)
@@ -1280,7 +1280,7 @@ func zfsSet(path string, props *ZFSProperties) (err error) {
 	}
 	args = append(args, path)
 
-	cmd := exec.Command(ZFS_BINARY, args...)
+	cmd := exec.CommandContext(ctx, ZFS_BINARY, args...)
 
 	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
 	cmd.Stderr = stderr
@@ -1299,12 +1299,12 @@ func zfsSet(path string, props *ZFSProperties) (err error) {
 	return
 }
 
-func ZFSGet(fs *DatasetPath, props []string) (*ZFSProperties, error) {
-	return zfsGet(fs.ToString(), props, sourceAny)
+func ZFSGet(ctx context.Context, fs *DatasetPath, props []string) (*ZFSProperties, error) {
+	return zfsGet(ctx, fs.ToString(), props, sourceAny)
 }
 
 // The returned error includes requested filesystem and version as quoted strings in its error message
-func ZFSGetGUID(fs string, version string) (g uint64, err error) {
+func ZFSGetGUID(ctx context.Context, fs string, version string) (g uint64, err error) {
 	defer func(e *error) {
 		if *e != nil {
 			*e = fmt.Errorf("zfs get guid fs=%q version=%q: %s", fs, version, *e)
@@ -1320,7 +1320,7 @@ func ZFSGetGUID(fs string, version string) (g uint64, err error) {
 		return 0, errors.New("version does not start with @ or #")
 	}
 	path := fmt.Sprintf("%s%s", fs, version)
-	props, err := zfsGet(path, []string{"guid"}, sourceAny) // always local
+	props, err := zfsGet(ctx, path, []string{"guid"}, sourceAny) // always local
 	if err != nil {
 		return 0, err
 	}
@@ -1332,11 +1332,11 @@ type GetMountpointOutput struct {
 	Mountpoint string
 }
 
-func ZFSGetMountpoint(fs string) (*GetMountpointOutput, error) {
+func ZFSGetMountpoint(ctx context.Context, fs string) (*GetMountpointOutput, error) {
 	if err := EntityNamecheck(fs, EntityTypeFilesystem); err != nil {
 		return nil, err
 	}
-	props, err := zfsGet(fs, []string{"mountpoint", "mounted"}, sourceAny)
+	props, err := zfsGet(ctx, fs, []string{"mountpoint", "mounted"}, sourceAny)
 	if err != nil {
 		return nil, err
 	}
@@ -1352,8 +1352,8 @@ func ZFSGetMountpoint(fs string) (*GetMountpointOutput, error) {
 	return o, nil
 }
 
-func ZFSGetRawAnySource(path string, props []string) (*ZFSProperties, error) {
-	return zfsGet(path, props, sourceAny)
+func ZFSGetRawAnySource(ctx context.Context, path string, props []string) (*ZFSProperties, error) {
+	return zfsGet(ctx, path, props, sourceAny)
 }
 
 var zfsGetDatasetDoesNotExistRegexp = regexp.MustCompile(`^cannot open '([^)]+)': (dataset does not exist|no such pool or dataset)`) // verified in platformtest
@@ -1412,9 +1412,9 @@ func (s zfsPropertySource) zfsGetSourceFieldPrefixes() []string {
 	return prefixes
 }
 
-func zfsGet(path string, props []string, allowedSources zfsPropertySource) (*ZFSProperties, error) {
+func zfsGet(ctx context.Context, path string, props []string, allowedSources zfsPropertySource) (*ZFSProperties, error) {
 	args := []string{"get", "-Hp", "-o", "property,value,source", strings.Join(props, ","), path}
-	cmd := exec.Command(ZFS_BINARY, args...)
+	cmd := exec.CommandContext(ctx, ZFS_BINARY, args...)
 	stdout, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
@@ -1462,8 +1462,8 @@ type ZFSPropCreateTxgAndGuidProps struct {
 	CreateTXG, Guid uint64
 }
 
-func ZFSGetCreateTXGAndGuid(ds string) (ZFSPropCreateTxgAndGuidProps, error) {
-	props, err := zfsGetNumberProps(ds, []string{"createtxg", "guid"}, sourceAny)
+func ZFSGetCreateTXGAndGuid(ctx context.Context, ds string) (ZFSPropCreateTxgAndGuidProps, error) {
+	props, err := zfsGetNumberProps(ctx, ds, []string{"createtxg", "guid"}, sourceAny)
 	if err != nil {
 		return ZFSPropCreateTxgAndGuidProps{}, err
 	}
@@ -1474,8 +1474,8 @@ func ZFSGetCreateTXGAndGuid(ds string) (ZFSPropCreateTxgAndGuidProps, error) {
 }
 
 // returns *DatasetDoesNotExist if the dataset does not exist
-func zfsGetNumberProps(ds string, props []string, src zfsPropertySource) (map[string]uint64, error) {
-	sps, err := zfsGet(ds, props, sourceAny)
+func zfsGetNumberProps(ctx context.Context, ds string, props []string, src zfsPropertySource) (map[string]uint64, error) {
+	sps, err := zfsGet(ctx, ds, props, sourceAny)
 	if err != nil {
 		if _, ok := err.(*DatasetDoesNotExist); ok {
 			return nil, err // pass through as is
@@ -1557,7 +1557,7 @@ func tryParseDestroySnapshotsError(arg string, stderr []byte) *DestroySnapshotsE
 	}
 }
 
-func ZFSDestroy(arg string) (err error) {
+func ZFSDestroy(ctx context.Context, arg string) (err error) {
 
 	var dstype, filesystem string
 	idx := strings.IndexAny(arg, "@#")
@@ -1576,7 +1576,7 @@ func ZFSDestroy(arg string) (err error) {
 
 	defer prometheus.NewTimer(prom.ZFSDestroyDuration.WithLabelValues(dstype, filesystem))
 
-	cmd := exec.Command(ZFS_BINARY, "destroy", arg)
+	cmd := exec.CommandContext(ctx, ZFS_BINARY, "destroy", arg)
 
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -1607,15 +1607,15 @@ func ZFSDestroy(arg string) (err error) {
 
 }
 
-func ZFSDestroyIdempotent(path string) error {
-	err := ZFSDestroy(path)
+func ZFSDestroyIdempotent(ctx context.Context, path string) error {
+	err := ZFSDestroy(ctx, path)
 	if _, ok := err.(*DatasetDoesNotExist); ok {
 		return nil
 	}
 	return err
 }
 
-func ZFSSnapshot(fs *DatasetPath, name string, recursive bool) (err error) {
+func ZFSSnapshot(ctx context.Context, fs *DatasetPath, name string, recursive bool) (err error) {
 
 	promTimer := prometheus.NewTimer(prom.ZFSSnapshotDuration.WithLabelValues(fs.ToString()))
 	defer promTimer.ObserveDuration()
@@ -1624,7 +1624,7 @@ func ZFSSnapshot(fs *DatasetPath, name string, recursive bool) (err error) {
 	if err := EntityNamecheck(snapname, EntityTypeSnapshot); err != nil {
 		return errors.Wrap(err, "zfs snapshot")
 	}
-	cmd := exec.Command(ZFS_BINARY, "snapshot", snapname)
+	cmd := exec.CommandContext(ctx, ZFS_BINARY, "snapshot", snapname)
 
 	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
 	cmd.Stderr = stderr
@@ -1667,7 +1667,7 @@ var ErrBookmarkCloningNotSupported = fmt.Errorf("bookmark cloning feature is not
 //
 // does not destroy an existing bookmark, returns
 //
-func ZFSBookmark(fs string, v ZFSSendArgVersion, bookmark string) (err error) {
+func ZFSBookmark(ctx context.Context, fs string, v ZFSSendArgVersion, bookmark string) (err error) {
 
 	promTimer := prometheus.NewTimer(prom.ZFSBookmarkDuration.WithLabelValues(fs))
 	defer promTimer.ObserveDuration()
@@ -1687,7 +1687,7 @@ func ZFSBookmark(fs string, v ZFSSendArgVersion, bookmark string) (err error) {
 
 	debug("bookmark: %q %q", snapname, bookmarkname)
 
-	cmd := exec.Command(ZFS_BINARY, "bookmark", snapname, bookmarkname)
+	cmd := exec.CommandContext(ctx, ZFS_BINARY, "bookmark", snapname, bookmarkname)
 
 	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
 	cmd.Stderr = stderr
@@ -1703,7 +1703,7 @@ func ZFSBookmark(fs string, v ZFSSendArgVersion, bookmark string) (err error) {
 		} else if zfsBookmarkExistsRegex.Match(stderr.Bytes()) {
 
 			// check if this was idempotent
-			bookGuid, err := ZFSGetGUID(fs, "#"+bookmark)
+			bookGuid, err := ZFSGetGUID(ctx, fs, "#"+bookmark)
 			if err != nil {
 				return errors.Wrap(err, "bookmark idempotency check") // guid error expressive enough
 			}
@@ -1731,7 +1731,7 @@ func ZFSBookmark(fs string, v ZFSSendArgVersion, bookmark string) (err error) {
 
 }
 
-func ZFSRollback(fs *DatasetPath, snapshot FilesystemVersion, rollbackArgs ...string) (err error) {
+func ZFSRollback(ctx context.Context, fs *DatasetPath, snapshot FilesystemVersion, rollbackArgs ...string) (err error) {
 
 	snapabs := snapshot.ToAbsPath(fs)
 	if snapshot.Type != Snapshot {
@@ -1742,7 +1742,7 @@ func ZFSRollback(fs *DatasetPath, snapshot FilesystemVersion, rollbackArgs ...st
 	args = append(args, rollbackArgs...)
 	args = append(args, snapabs)
 
-	cmd := exec.Command(ZFS_BINARY, args...)
+	cmd := exec.CommandContext(ctx, ZFS_BINARY, args...)
 
 	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
 	cmd.Stderr = stderr

@@ -25,11 +25,11 @@ type mockBatchDestroy struct {
 	e2biglen         int
 }
 
-func (m *mockBatchDestroy) DestroySnapshotsCommaSyntaxSupported() (bool, error) {
+func (m *mockBatchDestroy) DestroySnapshotsCommaSyntaxSupported(_ context.Context) (bool, error) {
 	return !m.commaUnsupported, nil
 }
 
-func (m *mockBatchDestroy) Destroy(args []string) error {
+func (m *mockBatchDestroy) Destroy(ctx context.Context, args []string) error {
 	defer m.mtx.Lock().Unlock()
 	if len(args) != 1 {
 		panic("unexpected use of Destroy")
