@@ -6,6 +6,7 @@ workflows:
       - build-1.11
       - build-1.12
       - build-1.13
+      - build-1.14
       - build-latest
       - test-build-in-docker
 jobs:
@@ -110,6 +111,11 @@ jobs:
     <<: *build-latest
     docker:
     - image: circleci/golang:1.13
+
+  build-1.14:
+    <<: *build-latest
+    docker:
+    - image: circleci/golang:1.14
 
   # this job tries to mimic the build-in-docker instructions
   # given in docs/installation.rst
