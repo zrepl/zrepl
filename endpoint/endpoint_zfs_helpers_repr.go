@@ -1,7 +1,6 @@
 package endpoint
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -56,54 +55,4 @@ func parseJobAndGuidBookmarkName(fullname string, prefix string) (guid uint64, j
 	}
 
 	return guid, jobID, nil
-}
-
-func destroyBookmarksOlderThan(ctx context.Context, fs string, mostRecent *zfs.ZFSSendArgVersion, jobID JobID, filter func(shortname string) (accept bool)) (destroyed []zfs.FilesystemVersion, err error) {
-	if filter == nil {
-		panic(filter)
-	}
-
-	fsp, err := zfs.NewDatasetPath(fs)
-	if err != nil {
-		return nil, errors.Wrap(err, "invalid filesystem path")
-	}
-
-	mostRecentProps, err := mostRecent.ValidateExistsAndGetCheckedProps(ctx, fs)
-	if err != nil {
-		return nil, errors.Wrap(err, "validate most recent version argument")
-	}
-
-	stepBookmarks, err := zfs.ZFSListFilesystemVersions(fsp, zfs.FilterFromClosure(
-		func(t zfs.VersionType, name string) (accept bool, err error) {
-			if t != zfs.Bookmark {
-				return false, nil
-			}
-			return filter(name), nil
-		}))
-	if err != nil {
-		return nil, errors.Wrap(err, "list bookmarks")
-	}
-
-	// cut off all bookmarks prior to mostRecent's CreateTXG
-	var destroy []zfs.FilesystemVersion
-	for _, v := range stepBookmarks {
-		if v.Type != zfs.Bookmark {
-			panic("implementation error")
-		}
-		if !filter(v.Name) {
-			panic("inconsistent filter result")
-		}
-		if v.CreateTXG < mostRecentProps.CreateTXG {
-			destroy = append(destroy, v)
-		}
-	}
-
-	// FIXME use batch destroy, must adopt code to handle bookmarks
-	for _, v := range destroy {
-		if err := zfs.ZFSDestroyIdempotent(v.ToAbsPath(fsp)); err != nil {
-			return nil, errors.Wrap(err, "destroy bookmark")
-		}
-	}
-
-	return destroy, nil
 }

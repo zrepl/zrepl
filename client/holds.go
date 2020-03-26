@@ -1,13 +1,11 @@
 package client
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"os"
+	"sort"
 	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/spf13/pflag"
 
 	"github.com/zrepl/zrepl/cli"
 	"github.com/zrepl/zrepl/daemon/filters"
@@ -20,68 +18,126 @@ var (
 		Use:   "holds",
 		Short: "manage holds & step bookmarks",
 		SetupSubcommands: func() []*cli.Subcommand {
-			return holdsList
+			return []*cli.Subcommand{
+				holdsCmdList,
+				holdsCmdReleaseAll,
+				holdsCmdReleaseStale,
+			}
 		},
 	}
 )
 
-var holdsList = []*cli.Subcommand{
-	&cli.Subcommand{
-		Use:             "list [FSFILTER]",
-		Run:             doHoldsList,
-		NoRequireConfig: true,
-		Short: `
-FSFILTER SYNTAX:
-representation of a 'filesystems' filter statement on the command line
-		`,
-	},
+// a common set of CLI flags that map to the fields of an
+// endpoint.ListZFSHoldsAndBookmarksQuery
+type holdsFilterFlags struct {
+	Filesystems FilesystemsFilterFlag
+	Job         JobIDFlag
+	Types       AbstractionTypesFlag
 }
 
-func fsfilterFromCliArg(arg string) (zfs.DatasetFilter, error) {
-	mappings := strings.Split(arg, ",")
+// produce a query from the CLI flags
+func (f holdsFilterFlags) Query() (endpoint.ListZFSHoldsAndBookmarksQuery, error) {
+	q := endpoint.ListZFSHoldsAndBookmarksQuery{
+		FS:    f.Filesystems.FlagValue(),
+		What:  f.Types.FlagValue(),
+		JobID: f.Job.FlagValue(),
+		Until: nil, // TODO support this as a flag
+	}
+	return q, q.Validate()
+}
+
+func (f *holdsFilterFlags) registerHoldsFilterFlags(s *pflag.FlagSet, verb string) {
+	// Note: the default value is defined in the .FlagValue methods
+	s.Var(&f.Filesystems, "fs", fmt.Sprintf("only %s holds on the specified filesystem [default: all filesystems] [comma-separated list of <dataset-pattern>:<ok|!> pairs]", verb))
+	s.Var(&f.Job, "job", fmt.Sprintf("only %s holds created by the specified job [default: any job]", verb))
+
+	variants := make([]string, 0, len(endpoint.AbstractionTypesAll))
+	for v := range endpoint.AbstractionTypesAll {
+		variants = append(variants, string(v))
+	}
+	variants = sort.StringSlice(variants)
+	variantsJoined := strings.Join(variants, "|")
+	s.Var(&f.Types, "type", fmt.Sprintf("only %s holds of the specified type [default: all] [comma-separated list of %s]", verb, variantsJoined))
+}
+
+type JobIDFlag struct{ J *endpoint.JobID }
+
+func (f *JobIDFlag) Set(s string) error {
+	if len(s) == 0 {
+		*f = JobIDFlag{J: nil}
+		return nil
+	}
+
+	jobID, err := endpoint.MakeJobID(s)
+	if err != nil {
+		return err
+	}
+	*f = JobIDFlag{J: &jobID}
+	return nil
+}
+func (f JobIDFlag) Type() string               { return "job-ID" }
+func (f JobIDFlag) String() string             { return fmt.Sprint(f.J) }
+func (f JobIDFlag) FlagValue() *endpoint.JobID { return f.J }
+
+type AbstractionTypesFlag map[endpoint.AbstractionType]bool
+
+func (f *AbstractionTypesFlag) Set(s string) error {
+	ats, err := endpoint.AbstractionTypeSetFromStrings(strings.Split(s, ","))
+	if err != nil {
+		return err
+	}
+	*f = AbstractionTypesFlag(ats)
+	return nil
+}
+func (f AbstractionTypesFlag) Type() string { return "abstraction-type" }
+func (f AbstractionTypesFlag) String() string {
+	return endpoint.AbstractionTypeSet(f).String()
+}
+func (f AbstractionTypesFlag) FlagValue() map[endpoint.AbstractionType]bool {
+	if len(f) > 0 {
+		return f
+	}
+	return endpoint.AbstractionTypesAll
+}
+
+type FilesystemsFilterFlag struct {
+	F endpoint.ListZFSHoldsAndBookmarksQueryFilesystemFilter
+}
+
+func (flag *FilesystemsFilterFlag) Set(s string) error {
+	mappings := strings.Split(s, ",")
+	if len(mappings) == 1 {
+		flag.F = endpoint.ListZFSHoldsAndBookmarksQueryFilesystemFilter{
+			FS: &mappings[0],
+		}
+		return nil
+	}
+
 	f := filters.NewDatasetMapFilter(len(mappings), true)
 	for _, m := range mappings {
 		thisMappingErr := fmt.Errorf("expecting comma-separated list of <dataset-pattern>:<ok|!> pairs, got %q", m)
 		lhsrhs := strings.SplitN(m, ":", 2)
 		if len(lhsrhs) != 2 {
-			return nil, thisMappingErr
+			return thisMappingErr
 		}
 		err := f.Add(lhsrhs[0], lhsrhs[1])
 		if err != nil {
-			return nil, fmt.Errorf("%s: %s", thisMappingErr, err)
+			return fmt.Errorf("%s: %s", thisMappingErr, err)
 		}
 	}
-	return f.AsFilter(), nil
-}
-
-func doHoldsList(sc *cli.Subcommand, args []string) error {
-	var err error
-	ctx := context.Background()
-
-	if len(args) > 1 {
-		return errors.New("this subcommand takes at most one argument")
+	flag.F = endpoint.ListZFSHoldsAndBookmarksQueryFilesystemFilter{
+		Filter: f,
 	}
-
-	var filter zfs.DatasetFilter
-	if len(args) == 0 {
-		filter = zfs.NoFilter()
-	} else {
-		filter, err = fsfilterFromCliArg(args[0])
-		if err != nil {
-			return errors.Wrap(err, "cannot parse filesystem filter args")
-		}
-	}
-
-	listing, err := endpoint.ListZFSHoldsAndBookmarks(ctx, filter)
-	if err != nil {
-		return err // context clear by invocation of command
-	}
-
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("  ", "  ")
-	if err := enc.Encode(listing); err != nil {
-		panic(err)
-	}
-
 	return nil
+}
+func (flag FilesystemsFilterFlag) Type() string { return "filesystem filter spec" }
+func (flag FilesystemsFilterFlag) String() string {
+	return fmt.Sprintf("%v", flag.F)
+}
+func (flag FilesystemsFilterFlag) FlagValue() endpoint.ListZFSHoldsAndBookmarksQueryFilesystemFilter {
+	var z FilesystemsFilterFlag
+	if flag == z {
+		return endpoint.ListZFSHoldsAndBookmarksQueryFilesystemFilter{Filter: zfs.NoFilter()}
+	}
+	return flag.F
 }

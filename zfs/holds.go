@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"sort"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -36,12 +34,9 @@ func ValidHoldTag(tag string) error {
 }
 
 // Idemptotent: does not return an error if the tag already exists
-func ZFSHold(ctx context.Context, fs string, v ZFSSendArgVersion, tag string) error {
-	if err := v.ValidateInMemory(fs); err != nil {
-		return errors.Wrap(err, "invalid version")
-	}
+func ZFSHold(ctx context.Context, fs string, v FilesystemVersion, tag string) error {
 	if !v.IsSnapshot() {
-		return errors.Errorf("can only hold snapshots, got %s", v.RelName)
+		return errors.Errorf("can only hold snapshots, got %s", v.RelName())
 	}
 
 	if err := validateNotEmpty("tag", tag); err != nil {
@@ -131,177 +126,7 @@ func ZFSRelease(ctx context.Context, tag string, snaps ...string) error {
 		debug("zfs release: no such tag lines=%v otherLines=%v", noSuchTagLines, otherLines)
 	}
 	if len(otherLines) > 0 {
-		return fmt.Errorf("unknown zfs error while releasing hold with tag %q: unidentified stderr lines\n%s", tag, strings.Join(otherLines, "\n"))
+		return fmt.Errorf("unknown zfs error while releasing hold with tag %q:\n%s", tag, strings.Join(otherLines, "\n"))
 	}
 	return nil
-}
-
-// Idempotent: if the hold doesn't exist, this is not an error
-func ZFSReleaseAllOlderAndIncludingGUID(ctx context.Context, fs string, snapOrBookmarkGuid uint64, tag string) error {
-	return doZFSReleaseAllOlderAndIncOrExcludingGUID(ctx, fs, snapOrBookmarkGuid, tag, true)
-}
-
-// Idempotent: if the hold doesn't exist, this is not an error
-func ZFSReleaseAllOlderThanGUID(ctx context.Context, fs string, snapOrBookmarkGuid uint64, tag string) error {
-	return doZFSReleaseAllOlderAndIncOrExcludingGUID(ctx, fs, snapOrBookmarkGuid, tag, false)
-}
-
-type zfsReleaseAllOlderAndIncOrExcludingGUIDZFSListLine struct {
-	entityType EntityType
-	name       string
-	createtxg  uint64
-	guid       uint64
-	userrefs   uint64 // always 0 for bookmarks
-}
-
-func doZFSReleaseAllOlderAndIncOrExcludingGUID(ctx context.Context, fs string, snapOrBookmarkGuid uint64, tag string, includeGuid bool) error {
-	// TODO channel program support still unreleased but
-	// might be a huge performance improvement
-	// https://github.com/zfsonlinux/zfs/pull/7902/files
-
-	if err := validateZFSFilesystem(fs); err != nil {
-		return errors.Wrap(err, "`fs` is not a valid filesystem path")
-	}
-	if tag == "" {
-		return fmt.Errorf("`tag` must not be empty`")
-	}
-
-	output, err := exec.CommandContext(ctx,
-		"zfs", "list", "-o", "type,name,createtxg,guid,userrefs",
-		"-H", "-t", "snapshot,bookmark", "-r", "-d", "1", fs).CombinedOutput()
-	if err != nil {
-		return &ZFSError{output, errors.Wrap(err, "cannot list snapshots and their userrefs")}
-	}
-
-	lines, err := doZFSReleaseAllOlderAndIncOrExcludingGUIDParseListOutput(output)
-	if err != nil {
-		return errors.Wrap(err, "unexpected ZFS output")
-	}
-
-	releaseSnaps, err := doZFSReleaseAllOlderAndIncOrExcludingGUIDFindSnapshots(snapOrBookmarkGuid, includeGuid, lines)
-	if err != nil {
-		return err
-	}
-
-	if len(releaseSnaps) == 0 {
-		return nil
-	}
-	return ZFSRelease(ctx, tag, releaseSnaps...)
-}
-
-func doZFSReleaseAllOlderAndIncOrExcludingGUIDParseListOutput(output []byte) ([]zfsReleaseAllOlderAndIncOrExcludingGUIDZFSListLine, error) {
-
-	scan := bufio.NewScanner(bytes.NewReader(output))
-
-	var lines []zfsReleaseAllOlderAndIncOrExcludingGUIDZFSListLine
-
-	for scan.Scan() {
-		const numCols = 5
-		comps := strings.SplitN(scan.Text(), "\t", numCols)
-		if len(comps) != numCols {
-			return nil, fmt.Errorf("not %d columns\n%s", numCols, output)
-		}
-		dstype := comps[0]
-		name := comps[1]
-
-		var entityType EntityType
-		switch dstype {
-		case "snapshot":
-			entityType = EntityTypeSnapshot
-		case "bookmark":
-			entityType = EntityTypeBookmark
-		default:
-			return nil, fmt.Errorf("column 0 is %q, expecting \"snapshot\" or \"bookmark\"", dstype)
-		}
-
-		createtxg, err := strconv.ParseUint(comps[2], 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("cannot parse createtxg %q: %s\n%s", comps[2], err, output)
-		}
-
-		guid, err := strconv.ParseUint(comps[3], 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("cannot parse guid %q: %s\n%s", comps[3], err, output)
-		}
-
-		var userrefs uint64
-		switch entityType {
-		case EntityTypeBookmark:
-			if comps[4] != "-" {
-				return nil, fmt.Errorf("entity type \"bookmark\" should have userrefs=\"-\", got %q", comps[4])
-			}
-			userrefs = 0
-		case EntityTypeSnapshot:
-			userrefs, err = strconv.ParseUint(comps[4], 10, 64) // shadow
-			if err != nil {
-				return nil, fmt.Errorf("cannot parse userrefs %q: %s\n%s", comps[4], err, output)
-			}
-		default:
-			panic(entityType)
-		}
-
-		lines = append(lines, zfsReleaseAllOlderAndIncOrExcludingGUIDZFSListLine{
-			entityType: entityType,
-			name:       name,
-			createtxg:  createtxg,
-			guid:       guid,
-			userrefs:   userrefs,
-		})
-	}
-
-	return lines, nil
-
-}
-
-func doZFSReleaseAllOlderAndIncOrExcludingGUIDFindSnapshots(snapOrBookmarkGuid uint64, includeGuid bool, lines []zfsReleaseAllOlderAndIncOrExcludingGUIDZFSListLine) (releaseSnaps []string, err error) {
-
-	// sort lines by createtxg,(snap < bookmark)
-	// we cannot do this using zfs list -s because `type` is not a
-	sort.Slice(lines, func(i, j int) (less bool) {
-		if lines[i].createtxg == lines[j].createtxg {
-			iET := func(t EntityType) int {
-				switch t {
-				case EntityTypeSnapshot:
-					return 0
-				case EntityTypeBookmark:
-					return 1
-				default:
-					panic("unexpected entity type " + t.String())
-				}
-			}
-			return iET(lines[i].entityType) < iET(lines[j].entityType)
-		}
-		return lines[i].createtxg < lines[j].createtxg
-	})
-
-	// iterate over snapshots oldest to newest and collect snapshots that have holds and
-	// are older than (inclusive or exclusive, depends on includeGuid) a snapshot or bookmark
-	// with snapOrBookmarkGuid
-	foundGuid := false
-	for _, line := range lines {
-		if line.guid == snapOrBookmarkGuid {
-			foundGuid = true
-		}
-		if line.userrefs > 0 {
-			if !foundGuid || (foundGuid && includeGuid) {
-				// only snapshots have userrefs > 0, no need to check entityType
-				releaseSnaps = append(releaseSnaps, line.name)
-			}
-		}
-		if foundGuid {
-			// The secondary key in sorting (snap < bookmark) guarantees that we
-			//   A) either found the snapshot with snapOrBookmarkGuid
-			//   B) or no snapshot with snapGuid exists, but one or more bookmarks of it exists
-			// In the case of A, we already added the snapshot to releaseSnaps if includeGuid requests it,
-			// and can ignore possible subsequent bookmarks of the snapshot.
-			// In the case of B, there is nothing to add to releaseSnaps.
-			break
-		}
-	}
-
-	if !foundGuid {
-		return nil, fmt.Errorf("cannot find snapshot or bookmark with guid %v", snapOrBookmarkGuid)
-	}
-
-	return releaseSnaps, nil
 }

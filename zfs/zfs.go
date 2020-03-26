@@ -314,7 +314,7 @@ func absVersion(fs string, v *ZFSSendArgVersion) (full string, err error) {
 // a must already be validated
 //
 // SECURITY SENSITIVE because Raw must be handled correctly
-func (a ZFSSendArgs) buildCommonSendArgs() ([]string, error) {
+func (a ZFSSendArgsUnvalidated) buildCommonSendArgs() ([]string, error) {
 
 	args := make([]string, 0, 3)
 	// ResumeToken takes precedence, we assume that it has been validated to reflect
@@ -525,6 +525,9 @@ type ZFSSendArgVersion struct {
 	GUID    uint64
 }
 
+func (v ZFSSendArgVersion) GetGuid() uint64                     { return v.GUID }
+func (v ZFSSendArgVersion) ToSendArgVersion() ZFSSendArgVersion { return v }
+
 func (v ZFSSendArgVersion) ValidateInMemory(fs string) error {
 	if fs == "" {
 		panic(fs)
@@ -558,26 +561,26 @@ func (v ZFSSendArgVersion) mustValidateInMemory(fs string) {
 }
 
 // fs must be not empty
-func (a ZFSSendArgVersion) ValidateExistsAndGetCheckedProps(ctx context.Context, fs string) (ZFSPropCreateTxgAndGuidProps, error) {
+func (a ZFSSendArgVersion) ValidateExistsAndGetVersion(ctx context.Context, fs string) (v FilesystemVersion, _ error) {
 
 	if err := a.ValidateInMemory(fs); err != nil {
-		return ZFSPropCreateTxgAndGuidProps{}, nil
+		return v, nil
 	}
 
-	realProps, err := ZFSGetCreateTXGAndGuid(a.FullPath(fs))
+	realVersion, err := ZFSGetFilesystemVersion(a.FullPath(fs))
 	if err != nil {
-		return ZFSPropCreateTxgAndGuidProps{}, err
+		return v, err
 	}
 
-	if realProps.Guid != a.GUID {
-		return ZFSPropCreateTxgAndGuidProps{}, fmt.Errorf("`GUID` field does not match real dataset's GUID: %q != %q", realProps.Guid, a.GUID)
+	if realVersion.Guid != a.GUID {
+		return v, fmt.Errorf("`GUID` field does not match real dataset's GUID: %q != %q", realVersion.Guid, a.GUID)
 	}
 
-	return realProps, nil
+	return realVersion, nil
 }
 
 func (a ZFSSendArgVersion) ValidateExists(ctx context.Context, fs string) error {
-	_, err := a.ValidateExistsAndGetCheckedProps(ctx, fs)
+	_, err := a.ValidateExistsAndGetVersion(ctx, fs)
 	return err
 }
 
@@ -619,13 +622,19 @@ func (n *NilBool) String() string {
 }
 
 // When updating this struct, check Validate and ValidateCorrespondsToResumeToken (POTENTIALLY SECURITY SENSITIVE)
-type ZFSSendArgs struct {
+type ZFSSendArgsUnvalidated struct {
 	FS        string
 	From, To  *ZFSSendArgVersion // From may be nil
 	Encrypted *NilBool
 
 	// Preferred if not empty
 	ResumeToken string // if not nil, must match what is specified in From, To (covered by ValidateCorrespondsToResumeToken)
+}
+
+type ZFSSendArgsValidated struct {
+	ZFSSendArgsUnvalidated
+	FromVersion *FilesystemVersion
+	ToVersion   FilesystemVersion
 }
 
 type zfsSendArgsValidationContext struct {
@@ -642,16 +651,16 @@ const (
 )
 
 type ZFSSendArgsValidationError struct {
-	Args ZFSSendArgs
+	Args ZFSSendArgsUnvalidated
 	What ZFSSendArgsValidationErrorCode
 	Msg  error
 }
 
-func newValidationError(sendArgs ZFSSendArgs, what ZFSSendArgsValidationErrorCode, cause error) *ZFSSendArgsValidationError {
+func newValidationError(sendArgs ZFSSendArgsUnvalidated, what ZFSSendArgsValidationErrorCode, cause error) *ZFSSendArgsValidationError {
 	return &ZFSSendArgsValidationError{sendArgs, what, cause}
 }
 
-func newGenericValidationError(sendArgs ZFSSendArgs, cause error) *ZFSSendArgsValidationError {
+func newGenericValidationError(sendArgs ZFSSendArgsUnvalidated, cause error) *ZFSSendArgsValidationError {
 	return &ZFSSendArgsValidationError{sendArgs, ZFSSendArgsGenericValidationError, cause}
 }
 
@@ -663,49 +672,57 @@ func (e ZFSSendArgsValidationError) Error() string {
 // - Make sure that if ResumeToken != "", it reflects the same operation as the other parameters would.
 //
 // This function is not pure because GUIDs are checked against the local host's datasets.
-func (a ZFSSendArgs) Validate(ctx context.Context) error {
+func (a ZFSSendArgsUnvalidated) Validate(ctx context.Context) (v ZFSSendArgsValidated, _ error) {
 	if dp, err := NewDatasetPath(a.FS); err != nil || dp.Length() == 0 {
-		return newGenericValidationError(a, fmt.Errorf("`FS` must be a valid non-zero dataset path"))
+		return v, newGenericValidationError(a, fmt.Errorf("`FS` must be a valid non-zero dataset path"))
 	}
 
 	if a.To == nil {
-		return newGenericValidationError(a, fmt.Errorf("`To` must not be nil"))
+		return v, newGenericValidationError(a, fmt.Errorf("`To` must not be nil"))
 	}
-	if err := a.To.ValidateExists(ctx, a.FS); err != nil {
-		return newGenericValidationError(a, errors.Wrap(err, "`To` invalid"))
+	toVersion, err := a.To.ValidateExistsAndGetVersion(ctx, a.FS)
+	if err != nil {
+		return v, newGenericValidationError(a, errors.Wrap(err, "`To` invalid"))
 	}
 
+	var fromVersion *FilesystemVersion
 	if a.From != nil {
-		if err := a.From.ValidateExists(ctx, a.FS); err != nil {
-			return newGenericValidationError(a, errors.Wrap(err, "`From` invalid"))
+		fromV, err := a.From.ValidateExistsAndGetVersion(ctx, a.FS)
+		if err != nil {
+			return v, newGenericValidationError(a, errors.Wrap(err, "`From` invalid"))
 		}
+		fromVersion = &fromV
 		// fallthrough
 	}
 
 	if err := a.Encrypted.Validate(); err != nil {
-		return newGenericValidationError(a, errors.Wrap(err, "`Raw` invalid"))
+		return v, newGenericValidationError(a, errors.Wrap(err, "`Raw` invalid"))
 	}
 
 	valCtx := &zfsSendArgsValidationContext{}
 	fsEncrypted, err := ZFSGetEncryptionEnabled(ctx, a.FS)
 	if err != nil {
-		return newValidationError(a, ZFSSendArgsFSEncryptionCheckFail,
+		return v, newValidationError(a, ZFSSendArgsFSEncryptionCheckFail,
 			errors.Wrapf(err, "cannot check whether filesystem %q is encrypted", a.FS))
 	}
 	valCtx.encEnabled = &NilBool{fsEncrypted}
 
 	if a.Encrypted.B && !fsEncrypted {
-		return newValidationError(a, ZFSSendArgsEncryptedSendRequestedButFSUnencrypted,
+		return v, newValidationError(a, ZFSSendArgsEncryptedSendRequestedButFSUnencrypted,
 			errors.Errorf("encrypted send requested, but filesystem %q is not encrypted", a.FS))
 	}
 
 	if a.ResumeToken != "" {
 		if err := a.validateCorrespondsToResumeToken(ctx, valCtx); err != nil {
-			return newValidationError(a, ZFSSendArgsResumeTokenMismatch, err)
+			return v, newValidationError(a, ZFSSendArgsResumeTokenMismatch, err)
 		}
 	}
 
-	return nil
+	return ZFSSendArgsValidated{
+		ZFSSendArgsUnvalidated: a,
+		FromVersion:            fromVersion,
+		ToVersion:              toVersion,
+	}, nil
 }
 
 type ZFSSendArgsResumeTokenMismatchError struct {
@@ -735,7 +752,7 @@ func (c ZFSSendArgsResumeTokenMismatchErrorCode) fmt(format string, args ...inte
 // This is SECURITY SENSITIVE and requires exhaustive checking of both side's values
 // An attacker requesting a Send with a crafted ResumeToken may encode different parameters in the resume token than expected:
 // for example, they may specify another file system (e.g. the filesystem with secret data) or request unencrypted send instead of encrypted raw send.
-func (a ZFSSendArgs) validateCorrespondsToResumeToken(ctx context.Context, valCtx *zfsSendArgsValidationContext) error {
+func (a ZFSSendArgsUnvalidated) validateCorrespondsToResumeToken(ctx context.Context, valCtx *zfsSendArgsValidationContext) error {
 
 	if a.ResumeToken == "" {
 		return nil // nothing to do
@@ -808,7 +825,7 @@ var ErrEncryptedSendNotSupported = fmt.Errorf("raw sends which are required for 
 // (if from is "" a full ZFS send is done)
 //
 // Returns ErrEncryptedSendNotSupported if encrypted send is requested but not supported by CLI
-func ZFSSend(ctx context.Context, sendArgs ZFSSendArgs) (*ReadCloserCopier, error) {
+func ZFSSend(ctx context.Context, sendArgs ZFSSendArgsValidated) (*ReadCloserCopier, error) {
 
 	args := make([]string, 0)
 	args = append(args, "send")
@@ -823,10 +840,6 @@ func ZFSSend(ctx context.Context, sendArgs ZFSSendArgs) (*ReadCloserCopier, erro
 		if !supported {
 			return nil, ErrEncryptedSendNotSupported
 		}
-	}
-
-	if err := sendArgs.Validate(ctx); err != nil {
-		return nil, err // do not wrap, part of API, tested by platformtest
 	}
 
 	sargs, err := sendArgs.buildCommonSendArgs()
@@ -959,11 +972,7 @@ func (s *DrySendInfo) unmarshalInfoLine(l string) (regexMatched bool, err error)
 
 // to may be "", in which case a full ZFS send is done
 // May return BookmarkSizeEstimationNotSupported as err if from is a bookmark.
-func ZFSSendDry(ctx context.Context, sendArgs ZFSSendArgs) (_ *DrySendInfo, err error) {
-
-	if err := sendArgs.Validate(ctx); err != nil {
-		return nil, errors.Wrap(err, "cannot validate send args")
-	}
+func ZFSSendDry(ctx context.Context, sendArgs ZFSSendArgsValidated) (_ *DrySendInfo, err error) {
 
 	if sendArgs.From != nil && strings.Contains(sendArgs.From.RelName, "#") {
 		/* TODO:
@@ -1456,41 +1465,6 @@ func zfsGet(path string, props []string, allowedSources zfsPropertySource) (*ZFS
 		}
 	}
 	return res, nil
-}
-
-type ZFSPropCreateTxgAndGuidProps struct {
-	CreateTXG, Guid uint64
-}
-
-func ZFSGetCreateTXGAndGuid(ds string) (ZFSPropCreateTxgAndGuidProps, error) {
-	props, err := zfsGetNumberProps(ds, []string{"createtxg", "guid"}, sourceAny)
-	if err != nil {
-		return ZFSPropCreateTxgAndGuidProps{}, err
-	}
-	return ZFSPropCreateTxgAndGuidProps{
-		CreateTXG: props["createtxg"],
-		Guid:      props["guid"],
-	}, nil
-}
-
-// returns *DatasetDoesNotExist if the dataset does not exist
-func zfsGetNumberProps(ds string, props []string, src zfsPropertySource) (map[string]uint64, error) {
-	sps, err := zfsGet(ds, props, sourceAny)
-	if err != nil {
-		if _, ok := err.(*DatasetDoesNotExist); ok {
-			return nil, err // pass through as is
-		}
-		return nil, errors.Wrap(err, "zfs: set replication cursor: get snapshot createtxg")
-	}
-	r := make(map[string]uint64, len(props))
-	for _, p := range props {
-		v, err := strconv.ParseUint(sps.Get(p), 10, 64)
-		if err != nil {
-			return nil, errors.Wrapf(err, "zfs get: parse number property %q", p)
-		}
-		r[p] = v
-	}
-	return r, nil
 }
 
 type DestroySnapshotsError struct {

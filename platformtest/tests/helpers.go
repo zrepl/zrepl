@@ -25,6 +25,14 @@ func sendArgVersion(fs, relName string) zfs.ZFSSendArgVersion {
 	}
 }
 
+func fsversion(fs, relname string) zfs.FilesystemVersion {
+	v, err := zfs.ZFSGetFilesystemVersion(fs + relname)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func mustDatasetPath(fs string) *zfs.DatasetPath {
 	p, err := zfs.NewDatasetPath(fs)
 	if err != nil {
@@ -47,8 +55,8 @@ func mustSnapshot(snap string) {
 	}
 }
 
-func mustGetProps(entity string) zfs.ZFSPropCreateTxgAndGuidProps {
-	props, err := zfs.ZFSGetCreateTXGAndGuid(entity)
+func mustGetFilesystemVersion(snapOrBookmark string) zfs.FilesystemVersion {
+	props, err := zfs.ZFSGetFilesystemVersion(snapOrBookmark)
 	check(err)
 	return props
 }
@@ -78,7 +86,7 @@ type dummySnapshotSituation struct {
 }
 
 type resumeSituation struct {
-	sendArgs         zfs.ZFSSendArgs
+	sendArgs         zfs.ZFSSendArgsUnvalidated
 	recvOpts         zfs.RecvOptions
 	sendErr, recvErr error
 	recvErrDecoded   *zfs.RecvFailedWithResumeTokenErr
@@ -107,7 +115,7 @@ func makeDummyDataSnapshots(ctx *platformtest.Context, sendFS string) (situation
 	return situation
 }
 
-func makeResumeSituation(ctx *platformtest.Context, src dummySnapshotSituation, recvFS string, sendArgs zfs.ZFSSendArgs, recvOptions zfs.RecvOptions) *resumeSituation {
+func makeResumeSituation(ctx *platformtest.Context, src dummySnapshotSituation, recvFS string, sendArgs zfs.ZFSSendArgsUnvalidated, recvOptions zfs.RecvOptions) *resumeSituation {
 
 	situation := &resumeSituation{}
 
@@ -115,8 +123,13 @@ func makeResumeSituation(ctx *platformtest.Context, src dummySnapshotSituation, 
 	situation.recvOpts = recvOptions
 	require.True(ctx, recvOptions.SavePartialRecvState, "this method would be pointless otherwise")
 	require.Equal(ctx, sendArgs.FS, src.sendFS)
+	sendArgsValidated, err := sendArgs.Validate(ctx)
+	situation.sendErr = err
+	if err != nil {
+		return situation
+	}
 
-	copier, err := zfs.ZFSSend(ctx, sendArgs)
+	copier, err := zfs.ZFSSend(ctx, sendArgsValidated)
 	situation.sendErr = err
 	if err != nil {
 		return situation

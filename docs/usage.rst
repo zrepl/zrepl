@@ -38,6 +38,8 @@ CLI Overview
     * - ``zrepl migrate``
       - | perform on-disk state / ZFS property migrations
         | (see :ref:`changelog <changelog>` for details)
+    * - ``zrepl holds``
+      - list and remove holds and step bookmarks created by zrepl (see :ref:`overview <replication-cursor-and-last-received-hold>` )
 
 .. _usage-zrepl-daemon:
 

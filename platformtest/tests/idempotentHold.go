@@ -22,7 +22,7 @@ func IdempotentHold(ctx *platformtest.Context) {
 	`)
 
 	fs := fmt.Sprintf("%s/foo bar", ctx.RootDataset)
-	v1 := sendArgVersion(fs, "@1")
+	v1 := fsversion(fs, "@1")
 
 	tag := "zrepl_platformtest"
 	err := zfs.ZFSHold(ctx, fs, v1, tag)
@@ -34,14 +34,4 @@ func IdempotentHold(ctx *platformtest.Context) {
 	if err != nil {
 		panic(err)
 	}
-
-	vnonexistent := zfs.ZFSSendArgVersion{
-		RelName: "@nonexistent",
-		GUID:    0xbadf00d,
-	}
-	err = zfs.ZFSHold(ctx, fs, vnonexistent, tag)
-	if err == nil {
-		panic("still expecting error for nonexistent snapshot")
-	}
-
 }

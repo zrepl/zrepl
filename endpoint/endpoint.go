@@ -113,25 +113,40 @@ func (p *Sender) HintMostRecentCommonAncestor(ctx context.Context, r *pdu.HintMo
 	var err error
 
 	fs := r.GetFilesystem()
-	mostRecent, err := sendArgsFromPDUAndValidateExists(ctx, fs, r.GetSenderVersion())
+	log := getLogger(ctx).WithField("fs", fs).WithField("hinted_most_recent", fmt.Sprintf("%#v", r.GetSenderVersion()))
+	// FIXME check if fs exists AND IS PERMITTED by p.filesystems
+
+	log.WithField("full_hint", r).Debug("full hint")
+
+	if r.GetSenderVersion() == nil {
+		// no common ancestor found, likely due to failed prior replication attempt
+		// => release stale step holds to prevent them from accumulating
+		//    (they can accumulate on initial replication because each inital replication step might hold a different `to`)
+		// => replication cursors cannot accumulate because we always _move_ the replication cursor
+		log.Debug("releasing all step holds on the filesystem")
+		TryReleaseStepStaleFS(ctx, fs, p.jobId)
+		return &pdu.HintMostRecentCommonAncestorRes{}, nil
+	}
+	// we were hinted a specific common ancestor
+
+	mostRecentVersion, err := sendArgsFromPDUAndValidateExistsAndGetVersion(ctx, fs, r.GetSenderVersion())
 	if err != nil {
 		msg := "HintMostRecentCommonAncestor rpc with nonexistent most recent version"
-		getLogger(ctx).WithField("fs", fs).WithField("hinted_most_recent", fmt.Sprintf("%#v", mostRecent)).
-			Warn(msg)
+		log.Warn(msg)
 		return nil, errors.Wrap(err, msg)
 	}
 
 	// move replication cursor to this position
-	_, err = MoveReplicationCursor(ctx, fs, mostRecent, p.jobId)
+	_, err = MoveReplicationCursor(ctx, fs, mostRecentVersion, p.jobId)
 	if err == zfs.ErrBookmarkCloningNotSupported {
-		getLogger(ctx).Debug("not creating replication cursor from bookmark because ZFS does not support it")
+		log.Debug("not creating replication cursor from bookmark because ZFS does not support it")
 		// fallthrough
 	} else if err != nil {
 		return nil, errors.Wrap(err, "cannot set replication cursor to hinted version")
 	}
 
 	// cleanup previous steps
-	if err := ReleaseStepAll(ctx, fs, mostRecent, p.jobId); err != nil {
+	if err := ReleaseStepCummulativeInclusive(ctx, fs, mostRecentVersion, p.jobId); err != nil {
 		return nil, errors.Wrap(err, "cannot cleanup prior invocation's step holds and bookmarks")
 	}
 
@@ -147,15 +162,16 @@ func uncheckedSendArgsFromPDU(fsv *pdu.FilesystemVersion) *zfs.ZFSSendArgVersion
 	return &zfs.ZFSSendArgVersion{RelName: fsv.GetRelName(), GUID: fsv.Guid}
 }
 
-func sendArgsFromPDUAndValidateExists(ctx context.Context, fs string, fsv *pdu.FilesystemVersion) (*zfs.ZFSSendArgVersion, error) {
-	v := uncheckedSendArgsFromPDU(fsv)
-	if v == nil {
-		return nil, errors.New("must not be nil")
+func sendArgsFromPDUAndValidateExistsAndGetVersion(ctx context.Context, fs string, fsv *pdu.FilesystemVersion) (v zfs.FilesystemVersion, err error) {
+	sendArgs := uncheckedSendArgsFromPDU(fsv)
+	if sendArgs == nil {
+		return v, errors.New("must not be nil")
 	}
-	if err := v.ValidateExists(ctx, fs); err != nil {
-		return nil, err
+	version, err := sendArgs.ValidateExistsAndGetVersion(ctx, fs)
+	if err != nil {
+		return v, err
 	}
-	return v, nil
+	return version, nil
 }
 
 func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error) {
@@ -182,12 +198,17 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.St
 		return nil, nil, fmt.Errorf("unknown pdu.Tri variant %q", r.Encrypted)
 	}
 
-	sendArgs := zfs.ZFSSendArgs{
+	sendArgsUnvalidated := zfs.ZFSSendArgsUnvalidated{
 		FS:          r.Filesystem,
 		From:        uncheckedSendArgsFromPDU(r.GetFrom()), // validated by zfs.ZFSSendDry / zfs.ZFSSend
 		To:          uncheckedSendArgsFromPDU(r.GetTo()),   // validated by zfs.ZFSSendDry / zfs.ZFSSend
 		Encrypted:   s.encrypt,
 		ResumeToken: r.ResumeToken, // nil or not nil, depending on decoding success
+	}
+
+	sendArgs, err := sendArgsUnvalidated.Validate(ctx)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "validate send arguments")
 	}
 
 	getLogger(ctx).Debug("acquire concurrent send semaphore")
@@ -224,7 +245,7 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.St
 	// update replication cursor
 	if sendArgs.From != nil {
 		// For all but the first replication, this should always be a no-op because SendCompleted already moved the cursor
-		_, err = MoveReplicationCursor(ctx, sendArgs.FS, sendArgs.From, s.jobId)
+		_, err = MoveReplicationCursor(ctx, sendArgs.FS, sendArgs.FromVersion, s.jobId)
 		if err == zfs.ErrBookmarkCloningNotSupported {
 			getLogger(ctx).Debug("not creating replication cursor from bookmark because ZFS does not support it")
 			// fallthrough
@@ -235,18 +256,18 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.St
 
 	// make sure `From` doesn't go away in order to make this step resumable
 	if sendArgs.From != nil {
-		err := HoldStep(ctx, sendArgs.FS, sendArgs.From, s.jobId)
+		err := HoldStep(ctx, sendArgs.FS, *sendArgs.FromVersion, s.jobId)
 		if err == zfs.ErrBookmarkCloningNotSupported {
 			getLogger(ctx).Debug("not creating step bookmark because ZFS does not support it")
 			// fallthrough
 		} else if err != nil {
-			return nil, nil, errors.Wrap(err, "cannot create step bookmark")
+			return nil, nil, errors.Wrapf(err, "cannot hold `from` version %q before starting send", *sendArgs.FromVersion)
 		}
 	}
 	// make sure `To` doesn't go away in order to make this step resumable
-	err = HoldStep(ctx, sendArgs.FS, sendArgs.To, s.jobId)
+	err = HoldStep(ctx, sendArgs.FS, sendArgs.ToVersion, s.jobId)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "cannot hold `to` version %q before starting send", sendArgs.To.RelName)
+		return nil, nil, errors.Wrapf(err, "cannot hold `to` version %q before starting send", sendArgs.ToVersion)
 	}
 
 	// step holds & replication cursor released / moved forward in s.SendCompleted => s.moveCursorAndReleaseSendHolds
@@ -263,23 +284,24 @@ func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*p
 	fs := orig.GetFilesystem()
 
 	var err error
-	var from *zfs.ZFSSendArgVersion
+	var from *zfs.FilesystemVersion
 	if orig.GetFrom() != nil {
-		from, err = sendArgsFromPDUAndValidateExists(ctx, fs, orig.GetFrom()) // no shadow
+		f, err := sendArgsFromPDUAndValidateExistsAndGetVersion(ctx, fs, orig.GetFrom()) // no shadow
 		if err != nil {
 			return nil, errors.Wrap(err, "validate `from` exists")
 		}
+		from = &f
 	}
-	to, err := sendArgsFromPDUAndValidateExists(ctx, fs, orig.GetTo())
+	to, err := sendArgsFromPDUAndValidateExistsAndGetVersion(ctx, fs, orig.GetTo())
 	if err != nil {
 		return nil, errors.Wrap(err, "validate `to` exists")
 	}
 
-	log := getLogger(ctx).WithField("to_guid", to.GUID).
+	log := getLogger(ctx).WithField("to_guid", to.Guid).
 		WithField("fs", fs).
 		WithField("to", to.RelName)
 	if from != nil {
-		log = log.WithField("from", from.RelName).WithField("from_guid", from.GUID)
+		log = log.WithField("from", from.RelName).WithField("from_guid", from.Guid)
 	}
 
 	log.Debug("move replication cursor to most recent common version")
@@ -320,18 +342,14 @@ func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*p
 			return
 		}
 		log.Debug("release step-hold of or step-bookmark on `from`")
-		err := ReleaseStep(ctx, fs, from, p.jobId)
+		err := ReleaseStep(ctx, fs, *from, p.jobId)
 		if err != nil {
 			if dne, ok := err.(*zfs.DatasetDoesNotExist); ok {
 				// If bookmark cloning is not supported, `from` might be the old replication cursor
 				// and thus have already been destroyed by MoveReplicationCursor above
 				// In that case, nonexistence of `from` is not an error, otherwise it is.
-				fsp, err := zfs.NewDatasetPath(fs)
-				if err != nil {
-					panic(err) // fs has been validated multiple times above
-				}
-				for _, fsv := range destroyedCursors {
-					if fsv.ToAbsPath(fsp) == dne.Path {
+				for _, c := range destroyedCursors {
+					if c.GetFullPath() == dne.Path {
 						log.Info("`from` was a replication cursor and has already been destroyed")
 						return
 					}
@@ -610,9 +628,6 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs
 	if to == nil {
 		return nil, errors.New("`To` must not be nil")
 	}
-	if err := to.ValidateInMemory(lp.ToString()); err != nil {
-		return nil, errors.Wrap(err, "`To` invalid")
-	}
 	if !to.IsSnapshot() {
 		return nil, errors.New("`To` must be a snapshot")
 	}
@@ -725,7 +740,8 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs
 	}
 
 	// validate that we actually received what the sender claimed
-	if err := to.ValidateExists(ctx, lp.ToString()); err != nil {
+	toRecvd, err := to.ValidateExistsAndGetVersion(ctx, lp.ToString())
+	if err != nil {
 		msg := "receive request's `To` version does not match what we received in the stream"
 		getLogger(ctx).WithError(err).WithField("snap", snapFullPath).Error(msg)
 		getLogger(ctx).Error("aborting recv request, but keeping received snapshot for inspection")
@@ -734,7 +750,7 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs
 
 	if s.conf.UpdateLastReceivedHold {
 		getLogger(ctx).Debug("move last-received-hold")
-		if err := MoveLastReceivedHold(ctx, lp.ToString(), *to, s.conf.JobID); err != nil {
+		if err := MoveLastReceivedHold(ctx, lp.ToString(), toRecvd, s.conf.JobID); err != nil {
 			return nil, errors.Wrap(err, "cannot move last-received-hold")
 		}
 	}
