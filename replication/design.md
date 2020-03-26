@@ -18,7 +18,32 @@ Hence, when trying to map algorithm to implementation, use the code in package `
       * the recv-side fs doesn't get newer snapshots than `to` in the meantime
         * guaranteed because the zrepl model of the receiver assumes ownership of the filesystems it receives into
           * if that assumption is broken, future replication attempts will fail with a conflict
-* The [Algorithm for Planning and Executing Replication of an Filesystems](#zrepl-algo-filesystem) is a design draft and not used
+* The [Algorithm for Planning and Executing Replication of an Filesystems](#zrepl-algo-filesystem) is a design draft and not used.
+  However, there were some noteworthy lessons learned when implementing the algorithm for a single step:
+  * In order to avoid leaking `step-hold`s and `step-bookmarks`, if the replication planner is invoked a second time after a replication step (either initial or incremental) has been attempted but failed to completed, the replication planner must
+    * A) either guarantee that it will resume that replication step, and continue as if nothing happened or
+    * B) release the step holds and bookmarks and clear the partially received state on the sending side.
+  * Option A is what we want to do: we use the step algorithm to achieve resumability in the first place!
+  * Option B is not done by zrepl except if the sending side doesn't support resuming.
+    In that case however, we need not release any holds since the behavior is to re-start the send
+    from the beginning.
+  * However, there is one **edge-case to Option A for initial replication**:
+    * If initial replication "`full a`" fails without leaving resumable state, the step holds on the sending side are still present, which makes sense because
+      * a) we want resumability and
+      * b) **the sending side cannot immediately be informed post-failure whether the initial replication left any state that would mandate keeping the step hold**, because the network connection might have failed.
+    * Thus, the sending side must keep the step hold for "`full a`" until it knows more.
+    * In the current implementation, it knows more when the next replication attempt is made, the planner is invoked, the diffing algorithm run, and the `HintMostRecentCommonAncestor` RPC is sent by the active side, communicating the most recent common version shared betwen sender and receiver.
+    * At this point, the sender can safely throw away any step holds with CreateTXG's older than that version.
+  * **The `step-hold`, `step-bookmark`, `last-received-hold` and `replication-cursor` abstractions are currently local concepts of package `endpoint` and not part of the replication protocol**
+    * This is not necessarilty the best design decision and should be revisited some point:
+      * The (quite expensive) `HintMostRecentCommonAncestor` RPC impl on the sender would not be necessary if step holds were part of the replication protocol:
+        * We only need the `HintMostRecentCommonAncestor` info for the aforementioned edge-case during initial replication, where the receive is aborted without any partial received state being stored on the receiver (due to network failure, wrong zfs invocation, bad permissions, etc):
+        * **The replication planner does not know about the step holds, thus it cannot deterministically pick up where it left of (right at the start of the last failing initial replication).**
+        * Instead, it will seem like no prior invocation happened at all, and it will apply its policy for initial replication to pick a new `full b != full a`, **thereby leaking the step holds of `full a`**.
+        * In contrast, if the replication planner created the step holds and knew about them, it could use the step holds as an indicator where it left off and re-start from there (of course asserting that the thereby inferred step is compatible with the state of the receiving side).
+      * (What we do in zrepl right now is to hard-code the initial replication policy, and hard-code that assumption in `endpoint.ListStale` as well.)
+      * The cummulative cleanup done in `HintMostRecentCommonAncestor` provides a nice self-healing aspect, though.
+
 * We also have [Notes on Planning and Executing Replication of Multiple Filesystems](#zrepl-algo-multiple-filesystems-notes)
 
 ---

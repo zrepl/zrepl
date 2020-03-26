@@ -59,7 +59,7 @@ func ZFSListMappingProperties(ctx context.Context, filter DatasetFilter, propert
 	defer cancel()
 	rchan := make(chan ZFSListResult)
 
-	go ZFSListChan(ctx, rchan, properties, "-r", "-t", "filesystem,volume")
+	go ZFSListChan(ctx, rchan, properties, nil, "-r", "-t", "filesystem,volume")
 
 	datasets = make([]ZFSListMappingPropertiesResult, 0)
 	for r := range rchan {

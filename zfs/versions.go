@@ -20,6 +20,30 @@ const (
 	Snapshot VersionType = "snapshot"
 )
 
+type VersionTypeSet map[VersionType]bool
+
+var (
+	AllVersionTypes = VersionTypeSet{
+		Bookmark: true,
+		Snapshot: true,
+	}
+	Bookmarks = VersionTypeSet{
+		Bookmark: true,
+	}
+	Snapshots = VersionTypeSet{
+		Snapshot: true,
+	}
+)
+
+func (s VersionTypeSet) zfsListTFlagRepr() string {
+	var types []string
+	for t := range s {
+		types = append(types, t.String())
+	}
+	return strings.Join(types, ",")
+}
+func (s VersionTypeSet) String() string { return s.zfsListTFlagRepr() }
+
 func (t VersionType) DelimiterChar() string {
 	switch t {
 	case Bookmark:
@@ -55,6 +79,7 @@ func DecomposeVersionString(v string) (fs string, versionType VersionType, name 
 	}
 }
 
+// The data in a FilesystemVersion is guaranteed to stem from a ZFS CLI invocation.
 type FilesystemVersion struct {
 	Type VersionType
 
@@ -70,11 +95,26 @@ type FilesystemVersion struct {
 
 	// The time the dataset was created
 	Creation time.Time
+
+	// userrefs field (snapshots only)
+	UserRefs OptionUint64
 }
 
-func (v FilesystemVersion) String() string {
+type OptionUint64 struct {
+	Value uint64
+	Valid bool
+}
+
+func (v FilesystemVersion) GetCreateTXG() uint64 { return v.CreateTXG }
+func (v FilesystemVersion) GetGUID() uint64      { return v.Guid }
+func (v FilesystemVersion) GetGuid() uint64      { return v.Guid }
+func (v FilesystemVersion) GetName() string      { return v.Name }
+func (v FilesystemVersion) IsSnapshot() bool     { return v.Type == Snapshot }
+func (v FilesystemVersion) IsBookmark() bool     { return v.Type == Bookmark }
+func (v FilesystemVersion) RelName() string {
 	return fmt.Sprintf("%s%s", v.Type.DelimiterChar(), v.Name)
 }
+func (v FilesystemVersion) String() string { return v.RelName() }
 
 func (v FilesystemVersion) ToAbsPath(p *DatasetPath) string {
 	var b bytes.Buffer
@@ -84,24 +124,89 @@ func (v FilesystemVersion) ToAbsPath(p *DatasetPath) string {
 	return b.String()
 }
 
-type FilesystemVersionFilter interface {
-	Filter(t VersionType, name string) (accept bool, err error)
+func (v FilesystemVersion) FullPath(fs string) string {
+	return fmt.Sprintf("%s%s", fs, v.RelName())
 }
 
-type closureFilesystemVersionFilter struct {
-	cb func(t VersionType, name string) (accept bool, err error)
+func (v FilesystemVersion) ToSendArgVersion() ZFSSendArgVersion {
+	return ZFSSendArgVersion{
+		RelName: v.RelName(),
+		GUID:    v.Guid,
+	}
 }
 
-func (f *closureFilesystemVersionFilter) Filter(t VersionType, name string) (accept bool, err error) {
-	return f.cb(t, name)
+type ParseFilesystemVersionArgs struct {
+	fullname                            string
+	guid, createtxg, creation, userrefs string
 }
 
-func FilterFromClosure(cb func(t VersionType, name string) (accept bool, err error)) FilesystemVersionFilter {
-	return &closureFilesystemVersionFilter{cb}
+func ParseFilesystemVersion(args ParseFilesystemVersionArgs) (v FilesystemVersion, err error) {
+	_, v.Type, v.Name, err = DecomposeVersionString(args.fullname)
+	if err != nil {
+		return v, err
+	}
+
+	if v.Guid, err = strconv.ParseUint(args.guid, 10, 64); err != nil {
+		err = errors.Wrapf(err, "cannot parse GUID %q", args.guid)
+		return v, err
+	}
+
+	if v.CreateTXG, err = strconv.ParseUint(args.createtxg, 10, 64); err != nil {
+		err = errors.Wrapf(err, "cannot parse CreateTXG %q", args.createtxg)
+		return v, err
+	}
+
+	creationUnix, err := strconv.ParseInt(args.creation, 10, 64)
+	if err != nil {
+		err = errors.Wrapf(err, "cannot parse creation date %q", args.creation)
+		return v, err
+	} else {
+		v.Creation = time.Unix(creationUnix, 0)
+	}
+
+	switch v.Type {
+	case Bookmark:
+		if args.userrefs != "-" {
+			return v, errors.Errorf("expecting %q for bookmark property userrefs, got %q", "-", args.userrefs)
+		}
+		v.UserRefs = OptionUint64{Valid: false}
+	case Snapshot:
+		if v.UserRefs.Value, err = strconv.ParseUint(args.userrefs, 10, 64); err != nil {
+			err = errors.Wrapf(err, "cannot parse userrefs %q", args.userrefs)
+			return v, err
+		}
+		v.UserRefs.Valid = true
+	default:
+		panic(v.Type)
+	}
+
+	return v, nil
 }
 
-// returned versions are sorted by createtxg
-func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) (res []FilesystemVersion, err error) {
+type ListFilesystemVersionsOptions struct {
+	// the prefix of the version name, without the delimiter char
+	// empty means any prefix matches
+	ShortnamePrefix string
+
+	// which types should be returned
+	// nil or len(0) means any prefix matches
+	Types VersionTypeSet
+}
+
+func (o *ListFilesystemVersionsOptions) typesFlagArgs() string {
+	if len(o.Types) == 0 {
+		return AllVersionTypes.zfsListTFlagRepr()
+	} else {
+		return o.Types.zfsListTFlagRepr()
+	}
+}
+
+func (o *ListFilesystemVersionsOptions) matches(v FilesystemVersion) bool {
+	return (len(o.Types) == 0 || o.Types[v.Type]) && strings.HasPrefix(v.Name, o.ShortnamePrefix)
+}
+
+// returned versions are sorted by createtxg FIXME drop sort by createtxg requirement
+func ZFSListFilesystemVersions(fs *DatasetPath, options ListFilesystemVersionsOptions) (res []FilesystemVersion, err error) {
 	listResults := make(chan ZFSListResult)
 
 	promTimer := prometheus.NewTimer(prom.ZFSListFilesystemVersionDuration.WithLabelValues(fs.ToString()))
@@ -110,9 +215,10 @@ func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go ZFSListChan(ctx, listResults,
-		[]string{"name", "guid", "createtxg", "creation"},
+		[]string{"name", "guid", "createtxg", "creation", "userrefs"},
+		fs,
 		"-r", "-d", "1",
-		"-t", "bookmark,snapshot",
+		"-t", options.typesFlagArgs(),
 		"-s", "createtxg", fs.ToString())
 
 	res = make([]FilesystemVersion, 0)
@@ -126,44 +232,36 @@ func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) 
 		}
 
 		line := listResult.Fields
-
-		var v FilesystemVersion
-
-		_, v.Type, v.Name, err = DecomposeVersionString(line[0])
+		args := ParseFilesystemVersionArgs{
+			fullname:  line[0],
+			guid:      line[1],
+			createtxg: line[2],
+			creation:  line[3],
+			userrefs:  line[4],
+		}
+		v, err := ParseFilesystemVersion(args)
 		if err != nil {
 			return nil, err
 		}
 
-		if v.Guid, err = strconv.ParseUint(line[1], 10, 64); err != nil {
-			err = errors.Wrap(err, "cannot parse GUID")
-			return
-		}
-
-		if v.CreateTXG, err = strconv.ParseUint(line[2], 10, 64); err != nil {
-			err = errors.Wrap(err, "cannot parse CreateTXG")
-			return
-		}
-
-		creationUnix, err := strconv.ParseInt(line[3], 10, 64)
-		if err != nil {
-			err = fmt.Errorf("cannot parse creation date '%s': %s", line[3], err)
-			return nil, err
-		} else {
-			v.Creation = time.Unix(creationUnix, 0)
-		}
-
-		accept := true
-		if filter != nil {
-			accept, err = filter.Filter(v.Type, v.Name)
-			if err != nil {
-				err = fmt.Errorf("error executing filter: %s", err)
-				return nil, err
-			}
-		}
-		if accept {
+		if options.matches(v) {
 			res = append(res, v)
 		}
 
 	}
 	return
+}
+
+func ZFSGetFilesystemVersion(ctx context.Context, ds string) (v FilesystemVersion, _ error) {
+	props, err := zfsGet(ctx, ds, []string{"createtxg", "guid", "creation", "userrefs"}, sourceAny)
+	if err != nil {
+		return v, err
+	}
+	return ParseFilesystemVersion(ParseFilesystemVersionArgs{
+		fullname:  ds,
+		createtxg: props.Get("createtxg"),
+		guid:      props.Get("guid"),
+		creation:  props.Get("creation"),
+		userrefs:  props.Get("userrefs"),
+	})
 }

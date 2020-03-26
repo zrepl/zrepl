@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"os"
 	"path"
+	"sort"
 	"strings"
 
 	"github.com/stretchr/testify/require"
@@ -23,6 +24,14 @@ func sendArgVersion(ctx *platformtest.Context, fs, relName string) zfs.ZFSSendAr
 		RelName: relName,
 		GUID:    guid,
 	}
+}
+
+func fsversion(ctx *platformtest.Context, fs, relname string) zfs.FilesystemVersion {
+	v, err := zfs.ZFSGetFilesystemVersion(ctx, fs+relname)
+	if err != nil {
+		panic(err)
+	}
+	return v
 }
 
 func mustDatasetPath(fs string) *zfs.DatasetPath {
@@ -47,10 +56,10 @@ func mustSnapshot(ctx *platformtest.Context, snap string) {
 	}
 }
 
-func mustGetProps(ctx *platformtest.Context, entity string) zfs.ZFSPropCreateTxgAndGuidProps {
-	props, err := zfs.ZFSGetCreateTXGAndGuid(ctx, entity)
+func mustGetFilesystemVersion(ctx *platformtest.Context, snapOrBookmark string) zfs.FilesystemVersion {
+	v, err := zfs.ZFSGetFilesystemVersion(ctx, snapOrBookmark)
 	check(err)
-	return props
+	return v
 }
 
 func check(err error) {
@@ -78,7 +87,7 @@ type dummySnapshotSituation struct {
 }
 
 type resumeSituation struct {
-	sendArgs         zfs.ZFSSendArgs
+	sendArgs         zfs.ZFSSendArgsUnvalidated
 	recvOpts         zfs.RecvOptions
 	sendErr, recvErr error
 	recvErrDecoded   *zfs.RecvFailedWithResumeTokenErr
@@ -107,7 +116,7 @@ func makeDummyDataSnapshots(ctx *platformtest.Context, sendFS string) (situation
 	return situation
 }
 
-func makeResumeSituation(ctx *platformtest.Context, src dummySnapshotSituation, recvFS string, sendArgs zfs.ZFSSendArgs, recvOptions zfs.RecvOptions) *resumeSituation {
+func makeResumeSituation(ctx *platformtest.Context, src dummySnapshotSituation, recvFS string, sendArgs zfs.ZFSSendArgsUnvalidated, recvOptions zfs.RecvOptions) *resumeSituation {
 
 	situation := &resumeSituation{}
 
@@ -115,8 +124,13 @@ func makeResumeSituation(ctx *platformtest.Context, src dummySnapshotSituation, 
 	situation.recvOpts = recvOptions
 	require.True(ctx, recvOptions.SavePartialRecvState, "this method would be pointless otherwise")
 	require.Equal(ctx, sendArgs.FS, src.sendFS)
+	sendArgsValidated, err := sendArgs.Validate(ctx)
+	situation.sendErr = err
+	if err != nil {
+		return situation
+	}
 
-	copier, err := zfs.ZFSSend(ctx, sendArgs)
+	copier, err := zfs.ZFSSend(ctx, sendArgsValidated)
 	situation.sendErr = err
 	if err != nil {
 		return situation
@@ -136,4 +150,27 @@ func makeResumeSituation(ctx *platformtest.Context, src dummySnapshotSituation, 
 	situation.recvErrDecoded = resumeErr
 
 	return situation
+}
+
+func versionRelnamesSorted(versions []zfs.FilesystemVersion) []string {
+	var vstrs []string
+	for _, v := range versions {
+		vstrs = append(vstrs, v.RelName())
+	}
+	sort.Strings(vstrs)
+	return vstrs
+}
+
+func datasetToStringSortedTrimPrefix(prefix *zfs.DatasetPath, paths []*zfs.DatasetPath) []string {
+	var pstrs []string
+	for _, p := range paths {
+		trimmed := p.Copy()
+		trimmed.TrimPrefix(prefix)
+		if trimmed.Length() == 0 {
+			continue
+		}
+		pstrs = append(pstrs, trimmed.ToString())
+	}
+	sort.Strings(pstrs)
+	return pstrs
 }

@@ -120,7 +120,7 @@ The following steps take place during replication and can be monitored using the
   * Perform replication steps in the following order:
     Among all filesystems with pending replication steps, pick the filesystem whose next replication step's snapshot is the oldest.
   * Create placeholder filesystems on the receiving side to mirror the dataset paths on the sender to ``root_fs/${client_identity}``.
-  * Acquire send-side step-holds on the step's `from` and `to` snapshots.
+  * Acquire send-side *step-holds* on the step's `from` and `to` snapshots.
   * Perform the replication step.
   * Move the **replication cursor** bookmark on the sending side (see below).
   * Move the **last-received-hold** on the receiving side (see below).

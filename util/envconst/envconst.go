@@ -1,7 +1,10 @@
 package envconst
 
 import (
+	"flag"
+	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"sync"
 	"time"
@@ -84,4 +87,32 @@ func String(varname string, def string) string {
 	}
 	cache.Store(varname, e)
 	return e
+}
+
+func Var(varname string, def flag.Value) interface{} {
+
+	// use def's type to instantiate a new object of that same type
+	// and call flag.Value.Set() on it
+	defType := reflect.TypeOf(def)
+	if defType.Kind() != reflect.Ptr {
+		panic(fmt.Sprintf("envconst var must be a pointer, got %T", def))
+	}
+	defElemType := defType.Elem()
+
+	if v, ok := cache.Load(varname); ok {
+		return v.(string)
+	}
+	e := os.Getenv(varname)
+	if e == "" {
+		return def
+	}
+
+	newInstance := reflect.New(defElemType)
+	if err := newInstance.Interface().(flag.Value).Set(e); err != nil {
+		panic(err)
+	}
+
+	res := newInstance.Interface()
+	cache.Store(varname, res)
+	return res
 }

@@ -32,7 +32,7 @@ func ReplicationCursor(ctx *platformtest.Context) {
 	}
 
 	fs := ds.ToString()
-	snap := sendArgVersion(ctx, fs, "@1 with space")
+	snap := fsversion(ctx, fs, "@1 with space")
 
 	destroyed, err := endpoint.MoveReplicationCursor(ctx, fs, &snap, jobid)
 	if err != nil {
@@ -40,7 +40,7 @@ func ReplicationCursor(ctx *platformtest.Context) {
 	}
 	assert.Empty(ctx, destroyed)
 
-	snapProps, err := zfs.ZFSGetCreateTXGAndGuid(ctx, snap.FullPath(fs))
+	snapProps, err := zfs.ZFSGetFilesystemVersion(ctx, snap.FullPath(fs))
 	if err != nil {
 		panic(err)
 	}
@@ -57,13 +57,13 @@ func ReplicationCursor(ctx *platformtest.Context) {
 	}
 
 	// try moving
-	cursor1BookmarkName, err := endpoint.ReplicationCursorBookmarkName(fs, snap.GUID, jobid)
+	cursor1BookmarkName, err := endpoint.ReplicationCursorBookmarkName(fs, snap.Guid, jobid)
 	require.NoError(ctx, err)
 
-	snap2 := sendArgVersion(ctx, fs, "@2 with space")
+	snap2 := fsversion(ctx, fs, "@2 with space")
 	destroyed, err = endpoint.MoveReplicationCursor(ctx, fs, &snap2, jobid)
 	require.NoError(ctx, err)
 	require.Equal(ctx, 1, len(destroyed))
-	require.Equal(ctx, zfs.Bookmark, destroyed[0].Type)
-	require.Equal(ctx, cursor1BookmarkName, destroyed[0].Name)
+	require.Equal(ctx, endpoint.AbstractionReplicationCursorBookmarkV2, destroyed[0].GetType())
+	require.Equal(ctx, cursor1BookmarkName, destroyed[0].GetName())
 }
