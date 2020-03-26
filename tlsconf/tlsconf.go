@@ -121,7 +121,6 @@ func ClientAuthClient(serverName string, rootCA *x509.CertPool, clientCert tls.C
 		ServerName:   serverName,
 		KeyLogWriter: keylogFromEnv(),
 	}
-	tlsConfig.BuildNameToCertificate()
 	return tlsConfig, nil
 }
 
