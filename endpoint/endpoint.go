@@ -110,9 +110,13 @@ func (s *Sender) ListFilesystemVersions(ctx context.Context, r *pdu.ListFilesyst
 }
 
 func (p *Sender) HintMostRecentCommonAncestor(ctx context.Context, r *pdu.HintMostRecentCommonAncestorReq) (*pdu.HintMostRecentCommonAncestorRes, error) {
-	var err error
 
-	fs := r.GetFilesystem()
+	fsp, err := p.filterCheckFS(r.GetFilesystem())
+	if err != nil {
+		return nil, err
+	}
+	fs := fsp.ToString()
+
 	log := getLogger(ctx).WithField("fs", fs).WithField("hinted_most_recent", fmt.Sprintf("%#v", r.GetSenderVersion()))
 	// FIXME check if fs exists AND IS PERMITTED by p.filesystems
 
@@ -280,10 +284,14 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.St
 }
 
 func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*pdu.SendCompletedRes, error) {
-	orig := r.GetOriginalReq() // may be nil, always use proto getters
-	fs := orig.GetFilesystem()
 
-	var err error
+	orig := r.GetOriginalReq() // may be nil, always use proto getters
+	fsp, err := p.filterCheckFS(orig.GetFilesystem())
+	if err != nil {
+		return nil, err
+	}
+	fs := fsp.ToString()
+
 	var from *zfs.FilesystemVersion
 	if orig.GetFrom() != nil {
 		f, err := sendArgsFromPDUAndValidateExistsAndGetVersion(ctx, fs, orig.GetFrom()) // no shadow
