@@ -23,9 +23,9 @@ func SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden(ctx *platformt
 	`)
 
 	fs := fmt.Sprintf("%s/send er", ctx.RootDataset)
-	props := mustGetProps(ctx, fs+"@a snap")
+	props := mustGetFilesystemVersion(ctx, fs+"@a snap")
 
-	sendArgs := zfs.ZFSSendArgs{
+	sendArgs, err := zfs.ZFSSendArgsUnvalidated{
 		FS: fs,
 		To: &zfs.ZFSSendArgVersion{
 			RelName: "@a snap",
@@ -33,10 +33,15 @@ func SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden(ctx *platformt
 		},
 		Encrypted:   &zfs.NilBool{B: true},
 		ResumeToken: "",
-	}
-	stream, err := zfs.ZFSSend(ctx, sendArgs)
+	}.Validate(ctx)
+
+	var stream *zfs.ReadCloserCopier
 	if err == nil {
-		defer stream.Close()
+		stream, err = zfs.ZFSSend(ctx, sendArgs) // no shadow
+		if err == nil {
+			defer stream.Close()
+		}
+		// fallthrough
 	}
 
 	if expectNotSupportedErr {
@@ -76,7 +81,7 @@ func SendArgsValidationResumeTokenEncryptionMismatchForbidden(ctx *platformtest.
 
 	src := makeDummyDataSnapshots(ctx, sendFS)
 
-	unencS := makeResumeSituation(ctx, src, unencRecvFS, zfs.ZFSSendArgs{
+	unencS := makeResumeSituation(ctx, src, unencRecvFS, zfs.ZFSSendArgsUnvalidated{
 		FS:        sendFS,
 		To:        src.snapA,
 		Encrypted: &zfs.NilBool{B: false}, // !
@@ -85,7 +90,7 @@ func SendArgsValidationResumeTokenEncryptionMismatchForbidden(ctx *platformtest.
 		SavePartialRecvState: true,
 	})
 
-	encS := makeResumeSituation(ctx, src, encRecvFS, zfs.ZFSSendArgs{
+	encS := makeResumeSituation(ctx, src, encRecvFS, zfs.ZFSSendArgsUnvalidated{
 		FS:        sendFS,
 		To:        src.snapA,
 		Encrypted: &zfs.NilBool{B: true}, // !
@@ -97,16 +102,10 @@ func SendArgsValidationResumeTokenEncryptionMismatchForbidden(ctx *platformtest.
 	// threat model: use of a crafted resume token that requests an unencrypted send
 	//               but send args require encrypted send
 	{
-		var maliciousSend zfs.ZFSSendArgs = encS.sendArgs
+		var maliciousSend zfs.ZFSSendArgsUnvalidated = encS.sendArgs
 		maliciousSend.ResumeToken = unencS.recvErrDecoded.ResumeTokenRaw
 
-		stream, err := zfs.ZFSSend(ctx, maliciousSend)
-		if err == nil {
-			defer stream.Close()
-		}
-		require.Nil(ctx, stream)
-		require.Error(ctx, err)
-		ctx.Logf("send err: %T %s", err, err)
+		_, err := maliciousSend.Validate(ctx)
 		validationErr, ok := err.(*zfs.ZFSSendArgsValidationError)
 		require.True(ctx, ok)
 		require.Equal(ctx, validationErr.What, zfs.ZFSSendArgsResumeTokenMismatch)
@@ -120,14 +119,10 @@ func SendArgsValidationResumeTokenEncryptionMismatchForbidden(ctx *platformtest.
 	// threat model: use of a crafted resume token that requests an encrypted send
 	//               but send args require unencrypted send
 	{
-		var maliciousSend zfs.ZFSSendArgs = unencS.sendArgs
+		var maliciousSend zfs.ZFSSendArgsUnvalidated = unencS.sendArgs
 		maliciousSend.ResumeToken = encS.recvErrDecoded.ResumeTokenRaw
 
-		stream, err := zfs.ZFSSend(ctx, maliciousSend)
-		if err == nil {
-			defer stream.Close()
-		}
-		require.Nil(ctx, stream)
+		_, err := maliciousSend.Validate(ctx)
 		require.Error(ctx, err)
 		ctx.Logf("send err: %T %s", err, err)
 		validationErr, ok := err.(*zfs.ZFSSendArgsValidationError)
@@ -169,7 +164,7 @@ func SendArgsValidationResumeTokenDifferentFilesystemForbidden(ctx *platformtest
 	src1 := makeDummyDataSnapshots(ctx, sendFS1)
 	src2 := makeDummyDataSnapshots(ctx, sendFS2)
 
-	rs := makeResumeSituation(ctx, src1, recvFS, zfs.ZFSSendArgs{
+	rs := makeResumeSituation(ctx, src1, recvFS, zfs.ZFSSendArgsUnvalidated{
 		FS:        sendFS1,
 		To:        src1.snapA,
 		Encrypted: &zfs.NilBool{B: false},
@@ -180,7 +175,7 @@ func SendArgsValidationResumeTokenDifferentFilesystemForbidden(ctx *platformtest
 
 	// threat model: forged resume token tries to steal a full send of snapA on fs2 by
 	//               presenting a resume token for full send of snapA on fs1
-	var maliciousSend zfs.ZFSSendArgs = zfs.ZFSSendArgs{
+	var maliciousSend zfs.ZFSSendArgsUnvalidated = zfs.ZFSSendArgsUnvalidated{
 		FS: sendFS2,
 		To: &zfs.ZFSSendArgVersion{
 			RelName: src2.snapA.RelName,
@@ -189,12 +184,7 @@ func SendArgsValidationResumeTokenDifferentFilesystemForbidden(ctx *platformtest
 		Encrypted:   &zfs.NilBool{B: false},
 		ResumeToken: rs.recvErrDecoded.ResumeTokenRaw,
 	}
-
-	stream, err := zfs.ZFSSend(ctx, maliciousSend)
-	if err == nil {
-		defer stream.Close()
-	}
-	require.Nil(ctx, stream)
+	_, err = maliciousSend.Validate(ctx)
 	require.Error(ctx, err)
 	ctx.Logf("send err: %T %s", err, err)
 	validationErr, ok := err.(*zfs.ZFSSendArgsValidationError)

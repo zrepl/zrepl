@@ -128,7 +128,17 @@ message PingRes {
 }
 
 message HintMostRecentCommonAncestorReq {
-    string Filesystem = 1;
-    FilesystemVersion SenderVersion = 2;
+  string Filesystem = 1;
+
+  // A copy of the FilesystemVersion on the sending side that the replication
+  // algorithm identified as a shared most recent common version between sending
+  // and receiving side.
+  //
+  // If nil, this is an indication that the replication algorithm could not
+  // find a common ancestor between the two sides.
+  // NOTE: nilness does not mean that replication never happened - there could
+  // as well be a replication conflict. thus, dont' jump to conclusions too
+  // rapidly here.
+  FilesystemVersion SenderVersion = 2;
 }
 message HintMostRecentCommonAncestorRes {}

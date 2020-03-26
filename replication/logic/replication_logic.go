@@ -234,6 +234,7 @@ func resolveConflict(conflict error) (path []*pdu.FilesystemVersion, msg string)
 	if noCommonAncestor, ok := conflict.(*ConflictNoCommonAncestor); ok {
 		if len(noCommonAncestor.SortedReceiverVersions) == 0 {
 			// TODO this is hard-coded replication policy: most recent snapshot as source
+			// NOTE: Keep in sync with listStaleFiltering, it depends on this hard-coded assumption
 			var mostRecentSnap *pdu.FilesystemVersion
 			for n := len(noCommonAncestor.SortedSenderVersions) - 1; n >= 0; n-- {
 				if noCommonAncestor.SortedSenderVersions[n].Type == pdu.FilesystemVersion_Snapshot {
@@ -351,18 +352,19 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 		log.WithField("token", resumeToken).Debug("decode resume token")
 	}
 
-	// give both sides a hint about how far the replication got
-	// This serves as a cumulative variant of SendCompleted and can be useful
+	// give both sides a hint about how far prior replication attempts got
+	// This serves as a cummulative variant of SendCompleted and can be useful
 	// for example to release stale holds from an earlier (interrupted) replication.
 	// TODO FIXME: enqueue this as a replication step instead of doing it here during planning
 	//             then again, the step should run regardless of planning success
 	//             so maybe a separate phase before PLANNING, then?
 	path, conflict := IncrementalPath(rfsvs, sfsvs)
-	var sender_mrca *pdu.FilesystemVersion // from sfsvs
+	var sender_mrca *pdu.FilesystemVersion
 	if conflict == nil && len(path) > 0 {
 		sender_mrca = path[0] // shadow
 	}
-	if sender_mrca != nil {
+	// yes, sender_mrca may be nil, indicating that we do not have an mrca
+	{
 		var wg sync.WaitGroup
 		doHint := func(ep Endpoint, name string) {
 			defer wg.Done()
@@ -382,8 +384,6 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 		go doHint(fs.sender, "sender")
 		go doHint(fs.receiver, "receiver")
 		wg.Wait()
-	} else {
-		log.Debug("cannot identify most recent common ancestor, skipping hint")
 	}
 
 	var steps []*Step
