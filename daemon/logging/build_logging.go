@@ -22,6 +22,7 @@ import (
 	"github.com/zrepl/zrepl/rpc/transportmux"
 	"github.com/zrepl/zrepl/tlsconf"
 	"github.com/zrepl/zrepl/transport"
+	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
 func OutletsFromConfig(in config.LoggingOutletEnumList) (*logger.Outlets, error) {
@@ -79,6 +80,7 @@ const (
 	SubsysRPC          Subsystem = "rpc"
 	SubsysRPCControl   Subsystem = "rpc.ctrl"
 	SubsysRPCData      Subsystem = "rpc.data"
+	SubsysZFSCmd       Subsystem = "zfs.cmd"
 )
 
 func WithSubsystemLoggers(ctx context.Context, log logger.Logger) context.Context {
@@ -90,6 +92,7 @@ func WithSubsystemLoggers(ctx context.Context, log logger.Logger) context.Contex
 	ctx = hooks.WithLogger(ctx, log.WithField(SubsysField, SubsysHooks))
 	ctx = transport.WithLogger(ctx, log.WithField(SubsysField, SubsysTransport))
 	ctx = transportmux.WithLogger(ctx, log.WithField(SubsysField, SubsysTransportMux))
+	ctx = zfscmd.WithLogger(ctx, log.WithField(SubsysField, SubsysZFSCmd))
 	ctx = rpc.WithLoggers(ctx,
 		rpc.Loggers{
 			General: log.WithField(SubsysField, SubsysRPC),
