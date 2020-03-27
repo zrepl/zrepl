@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/zrepl/zrepl/util/envconst"
+	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
 func ZFSDestroyFilesystemVersion(ctx context.Context, filesystem *DatasetPath, version *FilesystemVersion) (err error) {
@@ -224,7 +225,7 @@ var batchDestroyFeatureCheck struct {
 func (d destroyerImpl) DestroySnapshotsCommaSyntaxSupported(ctx context.Context) (bool, error) {
 	batchDestroyFeatureCheck.once.Do(func() {
 		// "feature discovery"
-		cmd := exec.CommandContext(ctx, ZFS_BINARY, "destroy")
+		cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, "destroy")
 		output, err := cmd.CombinedOutput()
 		if _, ok := err.(*exec.ExitError); !ok {
 			debug("destroy feature check failed: %T %s", err, err)

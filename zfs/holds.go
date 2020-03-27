@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/util/envconst"
+	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
 // no need for feature tests, holds have been around forever
@@ -48,7 +48,7 @@ func ZFSHold(ctx context.Context, fs string, v ZFSSendArgVersion, tag string) er
 		return err
 	}
 	fullPath := v.FullPath(fs)
-	output, err := exec.CommandContext(ctx, "zfs", "hold", tag, fullPath).CombinedOutput()
+	output, err := zfscmd.CommandContext(ctx, "zfs", "hold", tag, fullPath).CombinedOutput()
 	if err != nil {
 		if bytes.Contains(output, []byte("tag already exists on this dataset")) {
 			goto success
@@ -67,7 +67,7 @@ func ZFSHolds(ctx context.Context, fs, snap string) ([]string, error) {
 		return nil, fmt.Errorf("`snap` must not be empty")
 	}
 	dp := fmt.Sprintf("%s@%s", fs, snap)
-	output, err := exec.CommandContext(ctx, "zfs", "holds", "-H", dp).CombinedOutput()
+	output, err := zfscmd.CommandContext(ctx, "zfs", "holds", "-H", dp).CombinedOutput()
 	if err != nil {
 		return nil, &ZFSError{output, errors.Wrap(err, "zfs holds failed")}
 	}
@@ -104,11 +104,13 @@ func ZFSRelease(ctx context.Context, tag string, snaps ...string) error {
 		}
 		args := []string{"release", tag}
 		args = append(args, snaps[i:j]...)
-		output, err := exec.CommandContext(ctx, "zfs", args...).CombinedOutput()
+		output, err := zfscmd.CommandContext(ctx, "zfs", args...).CombinedOutput()
 		if pe, ok := err.(*os.PathError); err != nil && ok && pe.Err == syscall.E2BIG {
 			maxInvocationLen = maxInvocationLen / 2
 			continue
 		}
+		// further error handling part of error scraper below
+
 		maxInvocationLen = maxInvocationLen + os.Getpagesize()
 		i = j
 
@@ -166,7 +168,7 @@ func doZFSReleaseAllOlderAndIncOrExcludingGUID(ctx context.Context, fs string, s
 		return fmt.Errorf("`tag` must not be empty`")
 	}
 
-	output, err := exec.CommandContext(ctx,
+	output, err := zfscmd.CommandContext(ctx,
 		"zfs", "list", "-o", "type,name,createtxg,guid,userrefs",
 		"-H", "-t", "snapshot,bookmark", "-r", "-d", "1", fs).CombinedOutput()
 	if err != nil {

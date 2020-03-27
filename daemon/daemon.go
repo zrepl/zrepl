@@ -20,6 +20,7 @@ import (
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/version"
+	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
 func Run(conf *config.Config) error {
@@ -81,6 +82,9 @@ func Run(conf *config.Config) error {
 		jobs.start(ctx, job, true)
 	}
 
+	// register global (=non job-local) metrics
+	zfscmd.RegisterMetrics(prometheus.DefaultRegisterer)
+
 	log.Info("starting daemon")
 
 	// start regular jobs
@@ -126,6 +130,15 @@ func (s *jobs) wait() <-chan struct{} {
 		s.wg.Wait()
 	}()
 	return ch
+}
+
+type Status struct {
+	Jobs   map[string]*job.Status
+	Global GlobalStatus
+}
+
+type GlobalStatus struct {
+	ZFSCmds *zfscmd.Report
 }
 
 func (s *jobs) status() map[string]*job.Status {
@@ -207,6 +220,7 @@ func (s *jobs) start(ctx context.Context, j job.Job, internal bool) {
 
 	s.jobs[jobName] = j
 	ctx = job.WithLogger(ctx, jobLog)
+	ctx = zfscmd.WithJobID(ctx, j.Name())
 	ctx, wakeup := wakeup.Context(ctx)
 	ctx, resetFunc := reset.Context(ctx)
 	s.wakeups[jobName] = wakeup
