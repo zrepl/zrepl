@@ -81,7 +81,7 @@ type tui struct {
 	indent int
 
 	lock   sync.Mutex //For report and error
-	report map[string]job.Status
+	report map[string]*job.Status
 	err    error
 
 	jobFilter string
@@ -219,7 +219,7 @@ func runStatus(s *cli.Subcommand, args []string) error {
 	defer termbox.Close()
 
 	update := func() {
-		m := make(map[string]job.Status)
+		var m daemon.Status
 
 		err2 := jsonRequestResponse(httpc, daemon.ControlJobEndpointStatus,
 			struct{}{},
@@ -228,7 +228,7 @@ func runStatus(s *cli.Subcommand, args []string) error {
 
 		t.lock.Lock()
 		t.err = err2
-		t.report = m
+		t.report = m.Jobs
 		t.lock.Unlock()
 		t.draw()
 	}
