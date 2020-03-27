@@ -235,7 +235,7 @@ func lastReceivedHoldImpl(jobid string) (string, error) {
 
 func MoveLastReceivedHold(ctx context.Context, fs string, to zfs.FilesystemVersion, jobID JobID) error {
 
-	if to.IsSnapshot() {
+	if !to.IsSnapshot() {
 		return errors.Errorf("last-received-hold: target must be a snapshot: %s", to.FullPath(fs))
 	}
 
