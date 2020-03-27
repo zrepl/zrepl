@@ -20,6 +20,7 @@ import (
 	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/version"
 	"github.com/zrepl/zrepl/zfs"
+	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
 type controlJob struct {
@@ -117,7 +118,9 @@ func (j *controlJob) Run(ctx context.Context) {
 	mux.Handle(ControlJobEndpointStatus,
 		// don't log requests to status endpoint, too spammy
 		jsonResponder{log, func() (interface{}, error) {
-			s := j.jobs.status()
+			jobs := j.jobs.status()
+			globalZFS := zfscmd.GetReport()
+			s := Status{Jobs: jobs, Global: GlobalStatus{ZFSCmds: globalZFS}}
 			return s, nil
 		}})
 
