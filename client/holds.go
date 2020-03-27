@@ -33,15 +33,17 @@ type holdsFilterFlags struct {
 	Filesystems FilesystemsFilterFlag
 	Job         JobIDFlag
 	Types       AbstractionTypesFlag
+	Concurrency int64
 }
 
 // produce a query from the CLI flags
 func (f holdsFilterFlags) Query() (endpoint.ListZFSHoldsAndBookmarksQuery, error) {
 	q := endpoint.ListZFSHoldsAndBookmarksQuery{
-		FS:    f.Filesystems.FlagValue(),
-		What:  f.Types.FlagValue(),
-		JobID: f.Job.FlagValue(),
-		Until: nil, // TODO support this as a flag
+		FS:          f.Filesystems.FlagValue(),
+		What:        f.Types.FlagValue(),
+		JobID:       f.Job.FlagValue(),
+		Until:       nil, // TODO support this as a flag
+		Concurrency: f.Concurrency,
 	}
 	return q, q.Validate()
 }
@@ -58,6 +60,8 @@ func (f *holdsFilterFlags) registerHoldsFilterFlags(s *pflag.FlagSet, verb strin
 	variants = sort.StringSlice(variants)
 	variantsJoined := strings.Join(variants, "|")
 	s.Var(&f.Types, "type", fmt.Sprintf("only %s holds of the specified type [default: all] [comma-separated list of %s]", verb, variantsJoined))
+
+	s.Int64VarP(&f.Concurrency, "concurrency", "p", 1, "number of concurrently queried filesystems")
 }
 
 type JobIDFlag struct{ J *endpoint.JobID }
@@ -106,7 +110,7 @@ type FilesystemsFilterFlag struct {
 
 func (flag *FilesystemsFilterFlag) Set(s string) error {
 	mappings := strings.Split(s, ",")
-	if len(mappings) == 1 {
+	if len(mappings) == 1 && !strings.Contains(mappings[0], ":") {
 		flag.F = endpoint.ListZFSHoldsAndBookmarksQueryFilesystemFilter{
 			FS: &mappings[0],
 		}

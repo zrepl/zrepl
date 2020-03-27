@@ -154,6 +154,7 @@ func ReleaseStepCummulativeInclusive(ctx context.Context, fs string, mostRecent 
 			CreateTXG: mostRecent.CreateTXG,
 			Inclusive: &zfs.NilBool{B: true},
 		},
+		Concurrency: 1,
 	}
 	abs, absErrs, err := ListAbstractions(ctx, q)
 	if err != nil {
@@ -195,6 +196,7 @@ func TryReleaseStepStaleFS(ctx context.Context, fs string, jobID JobID) {
 			AbstractionStepHold:     true,
 			AbstractionStepBookmark: true,
 		},
+		Concurrency: 1,
 	}
 	staleness, err := ListStale(ctx, q)
 	if err != nil {

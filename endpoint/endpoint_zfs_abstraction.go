@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/util/envconst"
+	"github.com/zrepl/zrepl/util/semaphore"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -207,8 +209,8 @@ type ListZFSHoldsAndBookmarksQuery struct {
 	// else: CreateTXG of the hold or bookmark can be any value
 	Until *InclusiveExclusiveCreateTXG
 
-	// TODO
-	// Concurrent: uint > 0
+	// Number of concurrently queried filesystems. Must be >= 1
+	Concurrency int64
 }
 
 type InclusiveExclusiveCreateTXG struct {
@@ -236,6 +238,9 @@ func (q *ListZFSHoldsAndBookmarksQuery) Validate() error {
 	}
 	if err := q.What.Validate(); err != nil {
 		return err
+	}
+	if q.Concurrency < 1 {
+		return errors.New("Concurrency must be >= 1")
 	}
 	return nil
 }
@@ -330,6 +335,33 @@ func (e ListAbstractionsErrors) Error() string {
 }
 
 func ListAbstractions(ctx context.Context, query ListZFSHoldsAndBookmarksQuery) (out []Abstraction, outErrs []ListAbstractionsError, err error) {
+	outChan, outErrsChan, err := ListAbstractionsStreamed(ctx, query)
+	if err != nil {
+		return nil, nil, err
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for a := range outChan {
+			out = append(out, a)
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for err := range outErrsChan {
+			outErrs = append(outErrs, err)
+		}
+	}()
+	wg.Wait()
+	return out, outErrs, nil
+}
+
+// if err != nil, the returned channels are both nil
+// if err == nil, both channels must be fully drained by the caller to avoid leaking goroutines
+func ListAbstractionsStreamed(ctx context.Context, query ListZFSHoldsAndBookmarksQuery) (<-chan Abstraction, <-chan ListAbstractionsError, error) {
+
 	// impl note: structure the query processing in such a way that
 	// a minimum amount of zfs shell-outs needs to be done
 
@@ -342,8 +374,11 @@ func ListAbstractions(ctx context.Context, query ListZFSHoldsAndBookmarksQuery) 
 		return nil, nil, errors.Wrap(err, "list filesystems")
 	}
 
+	outErrs := make(chan ListAbstractionsError)
+	out := make(chan Abstraction)
+
 	errCb := func(err error, fs string, what string) {
-		outErrs = append(outErrs, ListAbstractionsError{Err: err, FS: fs, What: what})
+		outErrs <- ListAbstractionsError{Err: err, FS: fs, What: what}
 	}
 	emitAbstraction := func(a Abstraction) {
 		jobIdMatches := query.JobID == nil || a.GetJobID() == nil || *a.GetJobID() == *query.JobID
@@ -358,15 +393,34 @@ func ListAbstractions(ctx context.Context, query ListZFSHoldsAndBookmarksQuery) 
 		}
 
 		if jobIdMatches && untilMatches {
-			out = append(out, a)
+			out <- a
 		}
 	}
-	for _, fs := range fss {
-		listAbstractionsImplFS(ctx, fs, &query, emitAbstraction, errCb)
-	}
+
+	sem := semaphore.New(int64(query.Concurrency))
+	go func() {
+		defer close(out)
+		defer close(outErrs)
+		var wg sync.WaitGroup
+		defer wg.Wait()
+		for i := range fss {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				g, err := sem.Acquire(ctx)
+				if err != nil {
+					errCb(err, fss[i], err.Error())
+					return
+				}
+				func() {
+					defer g.Release()
+					listAbstractionsImplFS(ctx, fss[i], &query, emitAbstraction, errCb)
+				}()
+			}(i)
+		}
+	}()
 
 	return out, outErrs, nil
-
 }
 
 func listAbstractionsImplFS(ctx context.Context, fs string, query *ListZFSHoldsAndBookmarksQuery, emitCandidate putListAbstraction, errCb putListAbstractionErr) {
