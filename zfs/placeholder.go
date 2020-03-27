@@ -1,12 +1,12 @@
 package zfs
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
-	"os/exec"
+
+	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
 const (
@@ -82,21 +82,15 @@ func ZFSCreatePlaceholderFilesystem(ctx context.Context, p *DatasetPath) (err er
 	if p.Length() == 1 {
 		return fmt.Errorf("cannot create %q: pools cannot be created with zfs create", p.ToString())
 	}
-	cmd := exec.CommandContext(ctx, ZFS_BINARY, "create",
+	cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, "create",
 		"-o", fmt.Sprintf("%s=%s", PlaceholderPropertyName, placeholderPropertyOn),
 		"-o", "mountpoint=none",
 		p.ToString())
 
-	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
-	cmd.Stderr = stderr
-
-	if err = cmd.Start(); err != nil {
-		return err
-	}
-
-	if err = cmd.Wait(); err != nil {
+	stdio, err := cmd.CombinedOutput()
+	if err != nil {
 		err = &ZFSError{
-			Stderr:  stderr.Bytes(),
+			Stderr:  stdio,
 			WaitErr: err,
 		}
 	}

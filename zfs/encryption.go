@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/util/envconst"
+	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
 var encryptionCLISupport struct {
@@ -21,7 +22,7 @@ var encryptionCLISupport struct {
 func EncryptionCLISupported(ctx context.Context) (bool, error) {
 	encryptionCLISupport.once.Do(func() {
 		// "feature discovery"
-		cmd := exec.CommandContext(ctx, "zfs", "load-key")
+		cmd := zfscmd.CommandContext(ctx, "zfs", "load-key")
 		output, err := cmd.CombinedOutput()
 		if ee, ok := err.(*exec.ExitError); !ok || ok && !ee.Exited() {
 			encryptionCLISupport.err = errors.Wrap(err, "native encryption cli support feature check failed")
