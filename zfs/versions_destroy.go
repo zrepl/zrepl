@@ -11,9 +11,10 @@ import (
 	"syscall"
 
 	"github.com/zrepl/zrepl/util/envconst"
+	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
-func ZFSDestroyFilesystemVersion(filesystem *DatasetPath, version *FilesystemVersion) (err error) {
+func ZFSDestroyFilesystemVersion(ctx context.Context, filesystem *DatasetPath, version *FilesystemVersion) (err error) {
 
 	datasetPath := version.ToAbsPath(filesystem)
 
@@ -22,7 +23,7 @@ func ZFSDestroyFilesystemVersion(filesystem *DatasetPath, version *FilesystemVer
 		return fmt.Errorf("sanity check failed: no @ or # character found in %q", datasetPath)
 	}
 
-	return ZFSDestroy(datasetPath)
+	return ZFSDestroy(ctx, datasetPath)
 }
 
 var destroyerSingleton = destroyerImpl{}
@@ -48,8 +49,8 @@ func setDestroySnapOpErr(b []*DestroySnapOp, err error) {
 }
 
 type destroyer interface {
-	Destroy(args []string) error
-	DestroySnapshotsCommaSyntaxSupported() (bool, error)
+	Destroy(ctx context.Context, args []string) error
+	DestroySnapshotsCommaSyntaxSupported(context.Context) (bool, error)
 }
 
 func doDestroy(ctx context.Context, reqs []*DestroySnapOp, e destroyer) {
@@ -69,7 +70,7 @@ func doDestroy(ctx context.Context, reqs []*DestroySnapOp, e destroyer) {
 	}
 	reqs = validated
 
-	commaSupported, err := e.DestroySnapshotsCommaSyntaxSupported()
+	commaSupported, err := e.DestroySnapshotsCommaSyntaxSupported(ctx)
 	if err != nil {
 		debug("destroy: comma syntax support detection failed: %s", err)
 		setDestroySnapOpErr(reqs, err)
@@ -85,7 +86,7 @@ func doDestroy(ctx context.Context, reqs []*DestroySnapOp, e destroyer) {
 
 func doDestroySeq(ctx context.Context, reqs []*DestroySnapOp, e destroyer) {
 	for _, r := range reqs {
-		*r.ErrOut = e.Destroy([]string{fmt.Sprintf("%s@%s", r.Filesystem, r.Name)})
+		*r.ErrOut = e.Destroy(ctx, []string{fmt.Sprintf("%s@%s", r.Filesystem, r.Name)})
 	}
 }
 
@@ -139,7 +140,7 @@ func tryBatch(ctx context.Context, batch []*DestroySnapOp, d destroyer) error {
 		}
 	}
 	batchArg := fmt.Sprintf("%s@%s", batchFS, strings.Join(batchNames, ","))
-	return d.Destroy([]string{batchArg})
+	return d.Destroy(ctx, []string{batchArg})
 }
 
 // fsbatch must be on same filesystem
@@ -203,7 +204,7 @@ func doDestroyBatchedRec(ctx context.Context, fsbatch []*DestroySnapOp, d destro
 
 type destroyerImpl struct{}
 
-func (d destroyerImpl) Destroy(args []string) error {
+func (d destroyerImpl) Destroy(ctx context.Context, args []string) error {
 	if len(args) != 1 {
 		// we have no use case for this at the moment, so let's crash (safer than destroying something unexpectedly)
 		panic(fmt.Sprintf("unexpected number of arguments: %v", args))
@@ -212,7 +213,7 @@ func (d destroyerImpl) Destroy(args []string) error {
 	if !strings.ContainsAny(args[0], "@") {
 		panic(fmt.Sprintf("sanity check: expecting '@' in call to Destroy, got %q", args[0]))
 	}
-	return ZFSDestroy(args[0])
+	return ZFSDestroy(ctx, args[0])
 }
 
 var batchDestroyFeatureCheck struct {
@@ -221,10 +222,10 @@ var batchDestroyFeatureCheck struct {
 	err    error
 }
 
-func (d destroyerImpl) DestroySnapshotsCommaSyntaxSupported() (bool, error) {
+func (d destroyerImpl) DestroySnapshotsCommaSyntaxSupported(ctx context.Context) (bool, error) {
 	batchDestroyFeatureCheck.once.Do(func() {
 		// "feature discovery"
-		cmd := exec.Command(ZFS_BINARY, "destroy")
+		cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, "destroy")
 		output, err := cmd.CombinedOutput()
 		if _, ok := err.(*exec.ExitError); !ok {
 			debug("destroy feature check failed: %T %s", err, err)

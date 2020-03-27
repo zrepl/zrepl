@@ -23,7 +23,7 @@ func SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden(ctx *platformt
 	`)
 
 	fs := fmt.Sprintf("%s/send er", ctx.RootDataset)
-	props := mustGetFilesystemVersion(fs + "@a snap")
+	props := mustGetFilesystemVersion(ctx, fs+"@a snap")
 
 	sendArgs, err := zfs.ZFSSendArgsUnvalidated{
 		FS: fs,
@@ -63,7 +63,7 @@ func SendArgsValidationResumeTokenEncryptionMismatchForbidden(ctx *platformtest.
 	if !supported {
 		ctx.SkipNow()
 	}
-	supported, err = zfs.ResumeSendSupported()
+	supported, err = zfs.ResumeSendSupported(ctx)
 	check(err)
 	if !supported {
 		ctx.SkipNow()
@@ -144,7 +144,7 @@ func SendArgsValidationResumeTokenDifferentFilesystemForbidden(ctx *platformtest
 	if !supported {
 		ctx.SkipNow()
 	}
-	supported, err = zfs.ResumeSendSupported()
+	supported, err = zfs.ResumeSendSupported(ctx)
 	check(err)
 	if !supported {
 		ctx.SkipNow()

@@ -1,11 +1,12 @@
 package zfs
 
 import (
-	"bytes"
+	"context"
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
-	"os/exec"
+
+	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
 const (
@@ -61,10 +62,10 @@ type FilesystemPlaceholderState struct {
 // is a placeholder. Note that the property source must be `local` for the returned value to be valid.
 //
 // For nonexistent FS, err == nil and state.FSExists == false
-func ZFSGetFilesystemPlaceholderState(p *DatasetPath) (state *FilesystemPlaceholderState, err error) {
+func ZFSGetFilesystemPlaceholderState(ctx context.Context, p *DatasetPath) (state *FilesystemPlaceholderState, err error) {
 	state = &FilesystemPlaceholderState{FS: p.ToString()}
 	state.FS = p.ToString()
-	props, err := zfsGet(p.ToString(), []string{PlaceholderPropertyName}, sourceLocal)
+	props, err := zfsGet(ctx, p.ToString(), []string{PlaceholderPropertyName}, sourceLocal)
 	var _ error = (*DatasetDoesNotExist)(nil) // weak assertion on zfsGet's interface
 	if _, ok := err.(*DatasetDoesNotExist); ok {
 		return state, nil
@@ -77,25 +78,19 @@ func ZFSGetFilesystemPlaceholderState(p *DatasetPath) (state *FilesystemPlacehol
 	return state, nil
 }
 
-func ZFSCreatePlaceholderFilesystem(p *DatasetPath) (err error) {
+func ZFSCreatePlaceholderFilesystem(ctx context.Context, p *DatasetPath) (err error) {
 	if p.Length() == 1 {
 		return fmt.Errorf("cannot create %q: pools cannot be created with zfs create", p.ToString())
 	}
-	cmd := exec.Command(ZFS_BINARY, "create",
+	cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, "create",
 		"-o", fmt.Sprintf("%s=%s", PlaceholderPropertyName, placeholderPropertyOn),
 		"-o", "mountpoint=none",
 		p.ToString())
 
-	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
-	cmd.Stderr = stderr
-
-	if err = cmd.Start(); err != nil {
-		return err
-	}
-
-	if err = cmd.Wait(); err != nil {
+	stdio, err := cmd.CombinedOutput()
+	if err != nil {
 		err = &ZFSError{
-			Stderr:  stderr.Bytes(),
+			Stderr:  stdio,
 			WaitErr: err,
 		}
 	}
@@ -103,14 +98,14 @@ func ZFSCreatePlaceholderFilesystem(p *DatasetPath) (err error) {
 	return
 }
 
-func ZFSSetPlaceholder(p *DatasetPath, isPlaceholder bool) error {
+func ZFSSetPlaceholder(ctx context.Context, p *DatasetPath, isPlaceholder bool) error {
 	props := NewZFSProperties()
 	prop := placeholderPropertyOff
 	if isPlaceholder {
 		prop = placeholderPropertyOn
 	}
 	props.Set(PlaceholderPropertyName, prop)
-	return zfsSet(p.ToString(), props)
+	return zfsSet(ctx, p.ToString(), props)
 }
 
 type MigrateHashBasedPlaceholderReport struct {
@@ -119,8 +114,8 @@ type MigrateHashBasedPlaceholderReport struct {
 }
 
 // fs must exist, will panic otherwise
-func ZFSMigrateHashBasedPlaceholderToCurrent(fs *DatasetPath, dryRun bool) (*MigrateHashBasedPlaceholderReport, error) {
-	st, err := ZFSGetFilesystemPlaceholderState(fs)
+func ZFSMigrateHashBasedPlaceholderToCurrent(ctx context.Context, fs *DatasetPath, dryRun bool) (*MigrateHashBasedPlaceholderReport, error) {
+	st, err := ZFSGetFilesystemPlaceholderState(ctx, fs)
 	if err != nil {
 		return nil, fmt.Errorf("error getting placeholder state: %s", err)
 	}
@@ -137,7 +132,7 @@ func ZFSMigrateHashBasedPlaceholderToCurrent(fs *DatasetPath, dryRun bool) (*Mig
 		return &report, nil
 	}
 
-	err = ZFSSetPlaceholder(fs, st.IsPlaceholder)
+	err = ZFSSetPlaceholder(ctx, fs, st.IsPlaceholder)
 	if err != nil {
 		return nil, fmt.Errorf("error re-writing placeholder property: %s", err)
 	}

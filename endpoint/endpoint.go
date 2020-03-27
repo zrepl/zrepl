@@ -537,7 +537,7 @@ func (s *Receiver) ListFilesystems(ctx context.Context, req *pdu.ListFilesystemR
 	fss := make([]*pdu.Filesystem, 0, len(filtered))
 	for _, a := range filtered {
 		l := getLogger(ctx).WithField("fs", a)
-		ph, err := zfs.ZFSGetFilesystemPlaceholderState(a)
+		ph, err := zfs.ZFSGetFilesystemPlaceholderState(ctx, a)
 		if err != nil {
 			l.WithError(err).Error("error getting placeholder state")
 			return nil, errors.Wrapf(err, "cannot get placeholder state for fs %q", a)
@@ -660,7 +660,7 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs
 			if v.Path.Equal(lp) {
 				return false
 			}
-			ph, err := zfs.ZFSGetFilesystemPlaceholderState(v.Path)
+			ph, err := zfs.ZFSGetFilesystemPlaceholderState(ctx, v.Path)
 			getLogger(ctx).
 				WithField("fs", v.Path.ToString()).
 				WithField("placeholder_state", fmt.Sprintf("%#v", ph)).
@@ -684,7 +684,7 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs
 				}
 				l := getLogger(ctx).WithField("placeholder_fs", v.Path)
 				l.Debug("create placeholder filesystem")
-				err := zfs.ZFSCreatePlaceholderFilesystem(v.Path)
+				err := zfs.ZFSCreatePlaceholderFilesystem(ctx, v.Path)
 				if err != nil {
 					l.WithError(err).Error("cannot create placeholder filesystem")
 					visitErr = err
@@ -704,19 +704,19 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs
 	// determine whether we need to rollback the filesystem / change its placeholder state
 	var clearPlaceholderProperty bool
 	var recvOpts zfs.RecvOptions
-	ph, err := zfs.ZFSGetFilesystemPlaceholderState(lp)
+	ph, err := zfs.ZFSGetFilesystemPlaceholderState(ctx, lp)
 	if err == nil && ph.FSExists && ph.IsPlaceholder {
 		recvOpts.RollbackAndForceRecv = true
 		clearPlaceholderProperty = true
 	}
 	if clearPlaceholderProperty {
-		if err := zfs.ZFSSetPlaceholder(lp, false); err != nil {
+		if err := zfs.ZFSSetPlaceholder(ctx, lp, false); err != nil {
 			return nil, fmt.Errorf("cannot clear placeholder property for forced receive: %s", err)
 		}
 	}
 
 	if req.ClearResumeToken && ph.FSExists {
-		if err := zfs.ZFSRecvClearResumeToken(lp.ToString()); err != nil {
+		if err := zfs.ZFSRecvClearResumeToken(ctx, lp.ToString()); err != nil {
 			return nil, errors.Wrap(err, "cannot clear resume token")
 		}
 	}

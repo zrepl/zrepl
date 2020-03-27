@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/platformtest"
 	"github.com/zrepl/zrepl/zfs"
@@ -31,7 +32,7 @@ func ReplicationCursor(ctx *platformtest.Context) {
 	}
 
 	fs := ds.ToString()
-	snap := fsversion(fs, "@1 with space")
+	snap := fsversion(ctx, fs, "@1 with space")
 
 	destroyed, err := endpoint.MoveReplicationCursor(ctx, fs, &snap, jobid)
 	if err != nil {
@@ -39,7 +40,7 @@ func ReplicationCursor(ctx *platformtest.Context) {
 	}
 	assert.Empty(ctx, destroyed)
 
-	snapProps, err := zfs.ZFSGetFilesystemVersion(snap.FullPath(fs))
+	snapProps, err := zfs.ZFSGetFilesystemVersion(ctx, snap.FullPath(fs))
 	if err != nil {
 		panic(err)
 	}
@@ -59,7 +60,7 @@ func ReplicationCursor(ctx *platformtest.Context) {
 	cursor1BookmarkName, err := endpoint.ReplicationCursorBookmarkName(fs, snap.Guid, jobid)
 	require.NoError(ctx, err)
 
-	snap2 := fsversion(fs, "@2 with space")
+	snap2 := fsversion(ctx, fs, "@2 with space")
 	destroyed, err = endpoint.MoveReplicationCursor(ctx, fs, &snap2, jobid)
 	require.NoError(ctx, err)
 	require.Equal(ctx, 1, len(destroyed))

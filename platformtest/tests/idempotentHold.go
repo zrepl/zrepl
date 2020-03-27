@@ -22,7 +22,7 @@ func IdempotentHold(ctx *platformtest.Context) {
 	`)
 
 	fs := fmt.Sprintf("%s/foo bar", ctx.RootDataset)
-	v1 := fsversion(fs, "@1")
+	v1 := fsversion(ctx, fs, "@1")
 
 	tag := "zrepl_platformtest"
 	err := zfs.ZFSHold(ctx, fs, v1, tag)

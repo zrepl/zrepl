@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/util/errorarray"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -86,7 +87,7 @@ func HoldStep(ctx context.Context, fs string, v zfs.FilesystemVersion, jobID Job
 		return errors.Wrap(err, "create step bookmark: determine bookmark name")
 	}
 	// idempotently create bookmark
-	err = zfs.ZFSBookmark(fs, v.ToSendArgVersion(), bmname)
+	err = zfs.ZFSBookmark(ctx, fs, v.ToSendArgVersion(), bmname)
 	if err != nil {
 		if err == zfs.ErrBookmarkCloningNotSupported {
 			// TODO we could actually try to find a local snapshot that has the requested GUID
@@ -131,7 +132,7 @@ func ReleaseStep(ctx context.Context, fs string, v zfs.FilesystemVersion, jobID 
 	}
 	// idempotently destroy bookmark
 
-	if err := zfs.ZFSDestroyIdempotent(bmname); err != nil {
+	if err := zfs.ZFSDestroyIdempotent(ctx, bmname); err != nil {
 		return errors.Wrap(err, "step release: bookmark destroy: zfs")
 	}
 

@@ -17,14 +17,14 @@ func GetNonexistent(ctx *platformtest.Context) {
 	`)
 
 	// test raw
-	_, err := zfs.ZFSGetRawAnySource(fmt.Sprintf("%s/foo bar", ctx.RootDataset), []string{"name"})
+	_, err := zfs.ZFSGetRawAnySource(ctx, fmt.Sprintf("%s/foo bar", ctx.RootDataset), []string{"name"})
 	if err != nil {
 		panic(err)
 	}
 
 	// test nonexistent filesystem
 	nonexistent := fmt.Sprintf("%s/nonexistent filesystem", ctx.RootDataset)
-	props, err := zfs.ZFSGetRawAnySource(nonexistent, []string{"name"})
+	props, err := zfs.ZFSGetRawAnySource(ctx, nonexistent, []string{"name"})
 	if err == nil {
 		panic(props)
 	}
@@ -37,7 +37,7 @@ func GetNonexistent(ctx *platformtest.Context) {
 
 	// test nonexistent snapshot
 	nonexistent = fmt.Sprintf("%s/foo bar@non existent", ctx.RootDataset)
-	props, err = zfs.ZFSGetRawAnySource(nonexistent, []string{"name"})
+	props, err = zfs.ZFSGetRawAnySource(ctx, nonexistent, []string{"name"})
 	if err == nil {
 		panic(props)
 	}
@@ -50,7 +50,7 @@ func GetNonexistent(ctx *platformtest.Context) {
 
 	// test nonexistent bookmark
 	nonexistent = fmt.Sprintf("%s/foo bar#non existent", ctx.RootDataset)
-	props, err = zfs.ZFSGetRawAnySource(nonexistent, []string{"name"})
+	props, err = zfs.ZFSGetRawAnySource(ctx, nonexistent, []string{"name"})
 	if err == nil {
 		panic(props)
 	}

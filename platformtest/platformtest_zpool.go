@@ -45,7 +45,7 @@ func CreateOrReplaceZpool(ctx context.Context, e Execer, args ZpoolCreateArgs) (
 	}
 
 	// export pool if it already exists (idempotence)
-	if _, err := zfs.ZFSGetRawAnySource(args.PoolName, []string{"name"}); err != nil {
+	if _, err := zfs.ZFSGetRawAnySource(ctx, args.PoolName, []string{"name"}); err != nil {
 		if _, ok := err.(*zfs.DatasetDoesNotExist); ok {
 			// we'll create it shortly
 		} else {

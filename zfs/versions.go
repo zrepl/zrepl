@@ -204,8 +204,8 @@ func ZFSListFilesystemVersions(fs *DatasetPath, filter FilesystemVersionFilter) 
 	return
 }
 
-func ZFSGetFilesystemVersion(ds string) (v FilesystemVersion, _ error) {
-	props, err := zfsGet(ds, []string{"createtxg", "guid", "creation"}, sourceAny)
+func ZFSGetFilesystemVersion(ctx context.Context, ds string) (v FilesystemVersion, _ error) {
+	props, err := zfsGet(ctx, ds, []string{"createtxg", "guid", "creation"}, sourceAny)
 	if err != nil {
 		return v, err
 	}

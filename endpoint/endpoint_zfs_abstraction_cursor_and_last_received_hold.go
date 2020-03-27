@@ -9,6 +9,7 @@ import (
 
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/util/errorarray"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -141,7 +142,7 @@ func MoveReplicationCursor(ctx context.Context, fs string, target ReplicationCur
 	// idempotently create bookmark (guid is encoded in it, hence we'll most likely add a new one
 	// cleanup the old one afterwards
 
-	err = zfs.ZFSBookmark(fs, target.ToSendArgVersion(), bookmarkname)
+	err = zfs.ZFSBookmark(ctx, fs, target.ToSendArgVersion(), bookmarkname)
 	if err != nil {
 		if err == zfs.ErrBookmarkCloningNotSupported {
 			return nil, err // TODO go1.13 use wrapping
@@ -370,7 +371,7 @@ func (c ReplicationCursorV1) String() string {
 	return fmt.Sprintf("%s %s", c.Type, c.GetFullPath())
 }
 func (c ReplicationCursorV1) Destroy(ctx context.Context) error {
-	if err := zfs.ZFSDestroyIdempotent(c.GetFullPath()); err != nil {
+	if err := zfs.ZFSDestroyIdempotent(ctx, c.GetFullPath()); err != nil {
 		return errors.Wrapf(err, "destroy %s %s: zfs", c.Type, c.GetFullPath())
 	}
 	return nil

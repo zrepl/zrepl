@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/util/envconst"
+	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
 // NOTE: Update ZFSSendARgs.Validate when changing fields (potentially SECURITY SENSITIVE)
@@ -39,10 +40,10 @@ var resumeSendSupportedCheck struct {
 	err       error
 }
 
-func ResumeSendSupported() (bool, error) {
+func ResumeSendSupported(ctx context.Context) (bool, error) {
 	resumeSendSupportedCheck.once.Do(func() {
 		// "feature discovery"
-		cmd := exec.Command("zfs", "send")
+		cmd := zfscmd.CommandContext(ctx, "zfs", "send")
 		output, err := cmd.CombinedOutput()
 		if ee, ok := err.(*exec.ExitError); !ok || ok && !ee.Exited() {
 			resumeSendSupportedCheck.err = errors.Wrap(err, "resumable send cli support feature check failed")
@@ -86,7 +87,7 @@ func ResumeRecvSupported(ctx context.Context, fs *DatasetPath) (bool, error) {
 	}
 
 	if !sup.flagSupport.checked {
-		output, err := exec.CommandContext(ctx, "zfs", "receive").CombinedOutput()
+		output, err := zfscmd.CommandContext(ctx, ZFS_BINARY, "receive").CombinedOutput()
 		upgradeWhile(func() {
 			sup.flagSupport.checked = true
 			if ee, ok := err.(*exec.ExitError); err != nil && (!ok || ok && !ee.Exited()) {
@@ -124,7 +125,7 @@ func ResumeRecvSupported(ctx context.Context, fs *DatasetPath) (bool, error) {
 	if poolSup, ok = sup.poolSupported[pool]; !ok || // shadow
 		(!poolSup.supported && time.Since(poolSup.lastCheck) > resumeRecvPoolSupportRecheckTimeout) {
 
-		output, err := exec.CommandContext(ctx, "zpool", "get", "-H", "-p", "-o", "value", "feature@extensible_dataset", pool).CombinedOutput()
+		output, err := zfscmd.CommandContext(ctx, "zpool", "get", "-H", "-p", "-o", "value", "feature@extensible_dataset", pool).CombinedOutput()
 		if err != nil {
 			debug("resume recv pool support check result: %#v", sup.flagSupport)
 			poolSup.supported = false
@@ -155,7 +156,7 @@ func ResumeRecvSupported(ctx context.Context, fs *DatasetPath) (bool, error) {
 // FIXME: implement nvlist unpacking in Go and read through libzfs_sendrecv.c
 func ParseResumeToken(ctx context.Context, token string) (*ResumeToken, error) {
 
-	if supported, err := ResumeSendSupported(); err != nil {
+	if supported, err := ResumeSendSupported(ctx); err != nil {
 		return nil, err
 	} else if !supported {
 		return nil, ResumeTokenDecodingNotSupported
@@ -181,7 +182,7 @@ func ParseResumeToken(ctx context.Context, token string) (*ResumeToken, error) {
 	//	toname = pool1/test@b
 	//cannot resume send: 'pool1/test@b' used in the initial send no longer exists
 
-	cmd := exec.CommandContext(ctx, ZFS_BINARY, "send", "-nvt", string(token))
+	cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, "send", "-nvt", string(token))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
@@ -258,7 +259,7 @@ func ZFSGetReceiveResumeTokenOrEmptyStringIfNotSupported(ctx context.Context, fs
 		return "", nil
 	}
 	const prop_receive_resume_token = "receive_resume_token"
-	props, err := ZFSGet(fs, []string{prop_receive_resume_token})
+	props, err := ZFSGet(ctx, fs, []string{prop_receive_resume_token})
 	if err != nil {
 		return "", err
 	}

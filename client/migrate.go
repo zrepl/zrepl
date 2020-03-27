@@ -99,7 +99,7 @@ func doMigratePlaceholder0_1(sc *cli.Subcommand, args []string) error {
 		}
 		for _, fs := range wi.fss {
 			fmt.Printf("\t%q ... ", fs.ToString())
-			r, err := zfs.ZFSMigrateHashBasedPlaceholderToCurrent(fs, migratePlaceholder0_1Args.dryRun)
+			r, err := zfs.ZFSMigrateHashBasedPlaceholderToCurrent(ctx, fs, migratePlaceholder0_1Args.dryRun)
 			if err != nil {
 				fmt.Printf("error: %s\n", err)
 			} else if !r.NeedsModification {
@@ -264,7 +264,7 @@ func doMigrateReplicationCursorFS(ctx context.Context, v1CursorJobs []job.Job, f
 	if migrateReplicationCursorArgs.dryRun {
 		succ.Printf("DRY RUN\n")
 	} else {
-		if err := zfs.ZFSDestroyFilesystemVersion(fs, oldCursor); err != nil {
+		if err := zfs.ZFSDestroyFilesystemVersion(ctx, fs, oldCursor); err != nil {
 			return err
 		}
 	}

@@ -20,7 +20,7 @@ func UndestroyableSnapshotParsing(t *platformtest.Context) {
 		R  zfs hold zrepl_platformtest "${ROOTDS}/foo bar@4 5 6"
 	`)
 
-	err := zfs.ZFSDestroy(fmt.Sprintf("%s/foo bar@1 2 3,4 5 6,7 8 9", t.RootDataset))
+	err := zfs.ZFSDestroy(t, fmt.Sprintf("%s/foo bar@1 2 3,4 5 6,7 8 9", t.RootDataset))
 	if err == nil {
 		panic("expecting destroy error due to hold")
 	}

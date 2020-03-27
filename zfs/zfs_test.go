@@ -1,6 +1,7 @@
 package zfs
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,9 +12,11 @@ func TestZFSListHandlesProducesZFSErrorOnNonZeroExit(t *testing.T) {
 
 	var err error
 
+	ctx := context.Background()
+
 	ZFS_BINARY = "./test_helpers/zfs_failer.sh"
 
-	_, err = ZFSList([]string{"fictionalprop"}, "nonexistent/dataset")
+	_, err = ZFSList(ctx, []string{"fictionalprop"}, "nonexistent/dataset")
 
 	assert.Error(t, err)
 	zfsError, ok := err.(*ZFSError)

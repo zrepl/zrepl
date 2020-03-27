@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -34,7 +35,7 @@ func (b ListHoldsAndBookmarksOutputBookmark) GetFilesystemVersion() zfs.Filesyst
 }
 
 func (b ListHoldsAndBookmarksOutputBookmark) Destroy(ctx context.Context) error {
-	if err := zfs.ZFSDestroyIdempotent(b.GetFullPath()); err != nil {
+	if err := zfs.ZFSDestroyIdempotent(ctx, b.GetFullPath()); err != nil {
 		return errors.Wrapf(err, "destroy %s: zfs", b)
 	}
 	return nil

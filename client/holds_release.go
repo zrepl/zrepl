@@ -9,6 +9,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
+
 	"github.com/zrepl/zrepl/cli"
 	"github.com/zrepl/zrepl/endpoint"
 )

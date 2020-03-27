@@ -16,7 +16,7 @@ type resumeTokenTest struct {
 
 func (rtt *resumeTokenTest) Test(t *platformtest.Context) {
 
-	resumeSendSupported, err := zfs.ResumeSendSupported()
+	resumeSendSupported, err := zfs.ResumeSendSupported(t)
 	if err != nil {
 		t.Errorf("cannot determine whether resume supported: %T %s", err, err)
 		t.FailNow()

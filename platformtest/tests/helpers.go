@@ -14,8 +14,8 @@ import (
 	"github.com/zrepl/zrepl/zfs"
 )
 
-func sendArgVersion(fs, relName string) zfs.ZFSSendArgVersion {
-	guid, err := zfs.ZFSGetGUID(fs, relName)
+func sendArgVersion(ctx *platformtest.Context, fs, relName string) zfs.ZFSSendArgVersion {
+	guid, err := zfs.ZFSGetGUID(ctx, fs, relName)
 	if err != nil {
 		panic(err)
 	}
@@ -25,8 +25,8 @@ func sendArgVersion(fs, relName string) zfs.ZFSSendArgVersion {
 	}
 }
 
-func fsversion(fs, relname string) zfs.FilesystemVersion {
-	v, err := zfs.ZFSGetFilesystemVersion(fs + relname)
+func fsversion(ctx *platformtest.Context, fs, relname string) zfs.FilesystemVersion {
+	v, err := zfs.ZFSGetFilesystemVersion(ctx, fs+relname)
 	if err != nil {
 		panic(err)
 	}
@@ -41,7 +41,7 @@ func mustDatasetPath(fs string) *zfs.DatasetPath {
 	return p
 }
 
-func mustSnapshot(snap string) {
+func mustSnapshot(ctx *platformtest.Context, snap string) {
 	if err := zfs.EntityNamecheck(snap, zfs.EntityTypeSnapshot); err != nil {
 		panic(err)
 	}
@@ -49,16 +49,16 @@ func mustSnapshot(snap string) {
 	if len(comps) != 2 {
 		panic(comps)
 	}
-	err := zfs.ZFSSnapshot(mustDatasetPath(comps[0]), comps[1], false)
+	err := zfs.ZFSSnapshot(ctx, mustDatasetPath(comps[0]), comps[1], false)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func mustGetFilesystemVersion(snapOrBookmark string) zfs.FilesystemVersion {
-	props, err := zfs.ZFSGetFilesystemVersion(snapOrBookmark)
+func mustGetFilesystemVersion(ctx *platformtest.Context, snapOrBookmark string) zfs.FilesystemVersion {
+	v, err := zfs.ZFSGetFilesystemVersion(ctx, snapOrBookmark)
 	check(err)
-	return props
+	return v
 }
 
 func check(err error) {
@@ -95,7 +95,7 @@ type resumeSituation struct {
 func makeDummyDataSnapshots(ctx *platformtest.Context, sendFS string) (situation dummySnapshotSituation) {
 
 	situation.sendFS = sendFS
-	sendFSMount, err := zfs.ZFSGetMountpoint(sendFS)
+	sendFSMount, err := zfs.ZFSGetMountpoint(ctx, sendFS)
 	require.NoError(ctx, err)
 	require.True(ctx, sendFSMount.Mounted)
 
@@ -103,13 +103,13 @@ func makeDummyDataSnapshots(ctx *platformtest.Context, sendFS string) (situation
 	situation.dummyDataLen = dummyLen
 
 	writeDummyData(path.Join(sendFSMount.Mountpoint, "dummy_data"), dummyLen)
-	mustSnapshot(sendFS + "@a snapshot")
-	snapA := sendArgVersion(sendFS, "@a snapshot")
+	mustSnapshot(ctx, sendFS+"@a snapshot")
+	snapA := sendArgVersion(ctx, sendFS, "@a snapshot")
 	situation.snapA = &snapA
 
 	writeDummyData(path.Join(sendFSMount.Mountpoint, "dummy_data"), dummyLen)
-	mustSnapshot(sendFS + "@b snapshot")
-	snapB := sendArgVersion(sendFS, "@b snapshot")
+	mustSnapshot(ctx, sendFS+"@b snapshot")
+	snapB := sendArgVersion(ctx, sendFS, "@b snapshot")
 	situation.snapB = &snapB
 
 	return situation
