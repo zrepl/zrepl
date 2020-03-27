@@ -5,10 +5,12 @@ go 1.12
 require (
 	github.com/fatih/color v1.7.0
 	github.com/gdamore/tcell v1.2.0
+	github.com/gdamore/tcell/v2 v2.2.0
 	github.com/gitchander/permutation v0.0.0-20181107151852-9e56b92e9909
 	github.com/go-logfmt/logfmt v0.4.0
 	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/go-playground/validator v9.31.0+incompatible
+	github.com/go-playground/validator/v10 v10.4.1
 	github.com/go-sql-driver/mysql v1.4.1-0.20190907122137-b2c03bcae3d4
 	github.com/golang/protobuf v1.4.3
 	github.com/google/uuid v1.1.2
@@ -37,6 +39,7 @@ require (
 	github.com/yudai/gojsondiff v0.0.0-20170107030110-7b1b7adf999d
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // go1.12 thinks it needs this
 	github.com/zrepl/yaml-config v0.0.0-20191220194647-cbb6b0cf4bdd
+	gitlab.com/tslocum/cview v1.5.3
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c

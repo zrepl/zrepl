@@ -31,6 +31,12 @@ We use the following annotations for classifying changes:
 -----
 
 * |break| Change syntax to trigger a job replication, rename ``zrepl signal wakeup JOB`` to ``zrepl signal replication JOB``
+* |feature| New ``zrepl status`` UI:
+
+  * Interactive job selection.
+  * Interactively ``zrepl signal`` jobs.
+  * Filter filesystems in the job view by name.
+  * An approximation of the old UI is still included as `--mode legacy` but will be removed in a future release of zrepl.
 
 0.3.1
 -----
