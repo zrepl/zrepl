@@ -8,7 +8,8 @@ import (
 //
 // Pre-events logged with debug
 // Post-event without error logged with info
-// Post-events with error logged at error level
+// Post-events with error _also_ logged with info
+// (Not all errors we observe at this layer) are actual errors in higher-level layers)
 
 func startPreLogging(c *Cmd, now time.Time) {
 	c.log().Debug("starting command")
@@ -35,6 +36,6 @@ func waitPostLogging(c *Cmd, err error, now time.Time) {
 	if err == nil {
 		log.Info("command exited without error")
 	} else {
-		log.WithError(err).Error("command exited with error")
+		log.WithError(err).Info("command exited with error")
 	}
 }
