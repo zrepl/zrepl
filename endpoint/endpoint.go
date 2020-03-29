@@ -118,7 +118,6 @@ func (p *Sender) HintMostRecentCommonAncestor(ctx context.Context, r *pdu.HintMo
 	fs := fsp.ToString()
 
 	log := getLogger(ctx).WithField("fs", fs).WithField("hinted_most_recent", fmt.Sprintf("%#v", r.GetSenderVersion()))
-	// FIXME check if fs exists AND IS PERMITTED by p.filesystems
 
 	log.WithField("full_hint", r).Debug("full hint")
 
