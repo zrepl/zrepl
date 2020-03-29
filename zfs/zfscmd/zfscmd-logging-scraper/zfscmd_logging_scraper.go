@@ -59,6 +59,9 @@ func parseHumanFormatterNodate(line string) (l RuntimeLine, err error) {
 			default:
 				return l, errors.Errorf("unknown key %q", k)
 			}
+			if err != nil {
+				return l, err
+			}
 		}
 	}
 	if d.Err() != nil {
