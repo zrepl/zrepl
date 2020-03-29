@@ -31,13 +31,21 @@ func CommandContext(ctx context.Context, name string, arg ...string) *Cmd {
 
 // err.(*exec.ExitError).Stderr will NOT be set
 func (c *Cmd) CombinedOutput() (o []byte, err error) {
+	c.startPre()
+	c.startPost(nil)
+	c.waitPre()
 	o, err = c.cmd.CombinedOutput()
+	c.waitPost(err)
 	return
 }
 
 // err.(*exec.ExitError).Stderr will be set
 func (c *Cmd) Output() (o []byte, err error) {
+	c.startPre()
+	c.startPost(nil)
+	c.waitPre()
 	o, err = c.cmd.Output()
+	c.waitPost(err)
 	return
 }
 
@@ -70,17 +78,9 @@ func (c *Cmd) log() Logger {
 }
 
 func (c *Cmd) Start() (err error) {
-	startPreLogging(c, time.Now())
-
+	c.startPre()
 	err = c.cmd.Start()
-	now := time.Now()
-
-	c.mtx.Lock()
-	c.startedAt = now
-	c.mtx.Unlock()
-
-	startPostReport(c, err, now)
-	startPostLogging(c, err, now)
+	c.startPost(err)
 	return err
 }
 
@@ -93,15 +93,37 @@ func (c *Cmd) Process() *os.Process {
 }
 
 func (c *Cmd) Wait() (err error) {
-	waitPreLogging(c, time.Now())
-
+	c.waitPre()
 	err = c.cmd.Wait()
-	now := time.Now()
-
 	if !c.waitReturnedAt.IsZero() {
 		// ignore duplicate waits
-		return
+		return err
 	}
+	c.waitPost(err)
+	return err
+}
+
+func (c *Cmd) startPre() {
+	startPreLogging(c, time.Now())
+}
+
+func (c *Cmd) startPost(err error) {
+	now := time.Now()
+
+	c.mtx.Lock()
+	c.startedAt = now
+	c.mtx.Unlock()
+
+	startPostReport(c, err, now)
+	startPostLogging(c, err, now)
+}
+
+func (c *Cmd) waitPre() {
+	waitPreLogging(c, time.Now())
+}
+
+func (c *Cmd) waitPost(err error) {
+	now := time.Now()
 
 	c.mtx.Lock()
 	c.waitReturnedAt = now
@@ -110,7 +132,6 @@ func (c *Cmd) Wait() (err error) {
 	waitPostReport(c, now)
 	waitPostLogging(c, err, now)
 	waitPostPrometheus(c, err, now)
-	return err
 }
 
 // returns 0 if the command did not yet finish
