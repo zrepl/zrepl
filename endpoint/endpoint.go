@@ -160,7 +160,7 @@ func (p *Sender) HintMostRecentCommonAncestor(ctx context.Context, r *pdu.HintMo
 	return &pdu.HintMostRecentCommonAncestorRes{}, nil
 }
 
-var hintMostRecentCommonAncestorDoNotCleanupStepHolds = envconst.Bool("ZREPL_ENDPOINT_HINT_MOST_RECENT_DO_NOT_CLEANUP_STEPH_HOLDS", false)
+var hintMostRecentCommonAncestorDoNotCleanupStepHolds = envconst.Bool("ZREPL_ENDPOINT_HINT_MOST_RECENT_DO_NOT_CLEANUP_STEP_HOLDS", false)
 
 var maxConcurrentZFSSendSemaphore = semaphore.New(envconst.Int64("ZREPL_ENDPOINT_MAX_CONCURRENT_SEND", 10))
 
