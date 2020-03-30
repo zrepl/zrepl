@@ -149,12 +149,18 @@ func (p *Sender) HintMostRecentCommonAncestor(ctx context.Context, r *pdu.HintMo
 	}
 
 	// cleanup previous steps
-	if err := ReleaseStepCummulativeInclusive(ctx, fs, mostRecentVersion, p.jobId); err != nil {
-		return nil, errors.Wrap(err, "cannot cleanup prior invocation's step holds and bookmarks")
+	if !hintMostRecentCommonAncestorDoNotCleanupStepHolds {
+		if err := ReleaseStepCummulativeInclusive(ctx, fs, mostRecentVersion, p.jobId); err != nil {
+			return nil, errors.Wrap(err, "cannot cleanup prior invocation's step holds and bookmarks")
+		}
+	} else {
+		log.Info("skipping cleanup of prior invocations' step holds due to environment variable setting")
 	}
 
 	return &pdu.HintMostRecentCommonAncestorRes{}, nil
 }
+
+var hintMostRecentCommonAncestorDoNotCleanupStepHolds = envconst.Bool("ZREPL_ENDPOINT_HINT_MOST_RECENT_DO_NOT_CLEANUP_STEPH_HOLDS", false)
 
 var maxConcurrentZFSSendSemaphore = semaphore.New(envconst.Int64("ZREPL_ENDPOINT_MAX_CONCURRENT_SEND", 10))
 
