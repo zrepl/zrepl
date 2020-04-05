@@ -12,6 +12,7 @@ import (
 	"github.com/go-logfmt/logfmt"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
+
 	"github.com/zrepl/zrepl/daemon/logging"
 )
 
@@ -75,9 +76,10 @@ func parseLogLine(line string) (l RuntimeLine, err error) {
 	if len(m) != 3 {
 		return l, errors.Errorf("invalid date regex match %v", m)
 	}
-	date, err := time.Parse(dateFormat, strings.TrimSpace(m[1]))
+	dateTrimmed := strings.TrimSpace(m[1])
+	date, err := time.Parse(dateFormat, dateTrimmed)
 	if err != nil {
-		panic(fmt.Sprintf("cannot parse date %q: %s", m[1], err))
+		panic(fmt.Sprintf("cannot parse date %q: %s", dateTrimmed, err))
 	}
 	logLine := m[2]
 
@@ -88,17 +90,19 @@ func parseLogLine(line string) (l RuntimeLine, err error) {
 
 var verbose bool
 var dateRegexArg string
-var dateRegex *regexp.Regexp
-var dateFormat string
+var dateRegex = regexp.MustCompile(`^([^\[]+)(.*)`)
+var dateFormat = logging.HumanFormatterDateFormat
 
 func main() {
 
-	pflag.StringVarP(&dateRegexArg, "dateRE", "d", `^([^\[]+)(.*)`, "date regex")
+	pflag.StringVarP(&dateRegexArg, "dateRE", "d", "", "date regex")
 	pflag.StringVar(&dateFormat, "dateFormat", logging.HumanFormatterDateFormat, "go date format")
 	pflag.BoolVarP(&verbose, "verbose", "v", false, "verbose")
 	pflag.Parse()
 
-	dateRegex = regexp.MustCompile(dateRegexArg)
+	if dateRegexArg != "" {
+		dateRegex = regexp.MustCompile(dateRegexArg)
+	}
 
 	input := bufio.NewScanner(os.Stdin)
 	input.Split(bufio.ScanLines)
