@@ -314,7 +314,7 @@ func ReplicationCursorV2Extractor(fs *zfs.DatasetPath, v zfs.FilesystemVersion) 
 			// TODO log this possibly tinkered-with bookmark
 			return nil
 		}
-		return &ListHoldsAndBookmarksOutputBookmark{
+		return &bookmarkBasedAbstraction{
 			Type:              AbstractionReplicationCursorBookmarkV2,
 			FS:                fs.ToString(),
 			FilesystemVersion: v,
@@ -351,7 +351,7 @@ func LastReceivedHoldExtractor(fs *zfs.DatasetPath, v zfs.FilesystemVersion, hol
 
 	jobID, err := ParseLastReceivedHoldTag(holdTag)
 	if err == nil {
-		return &ListHoldsAndBookmarksOutputHold{
+		return &holdBasedAbstraction{
 			Type:              AbstractionLastReceivedHold,
 			FS:                fs.ToString(),
 			FilesystemVersion: v,

@@ -75,7 +75,7 @@ func HoldStep(ctx context.Context, fs string, v zfs.FilesystemVersion, jobID Job
 			return nil, errors.Wrap(err, "step hold: zfs")
 		}
 
-		return &ListHoldsAndBookmarksOutputHold{
+		return &holdBasedAbstraction{
 			Type:              AbstractionStepHold,
 			FS:                fs,
 			Tag:               tag,
@@ -105,7 +105,7 @@ func HoldStep(ctx context.Context, fs string, v zfs.FilesystemVersion, jobID Job
 		}
 		return nil, errors.Wrap(err, "create step bookmark: zfs")
 	}
-	return &ListHoldsAndBookmarksOutputBookmark{
+	return &bookmarkBasedAbstraction{
 		Type:              AbstractionStepBookmark,
 		FS:                fs,
 		FilesystemVersion: v,
@@ -251,7 +251,7 @@ func StepBookmarkExtractor(fs *zfs.DatasetPath, v zfs.FilesystemVersion) (_ Abst
 		return nil
 	}
 	if err == nil {
-		bm := &ListHoldsAndBookmarksOutputBookmark{
+		bm := &bookmarkBasedAbstraction{
 			Type:              AbstractionStepBookmark,
 			FS:                fs.ToString(),
 			FilesystemVersion: v,
@@ -271,7 +271,7 @@ func StepHoldExtractor(fs *zfs.DatasetPath, v zfs.FilesystemVersion, holdTag str
 
 	jobID, err := ParseStepHoldTag(holdTag)
 	if err == nil {
-		return &ListHoldsAndBookmarksOutputHold{
+		return &holdBasedAbstraction{
 			Type:              AbstractionStepHold,
 			FS:                fs.ToString(),
 			Tag:               holdTag,
