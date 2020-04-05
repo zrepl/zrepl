@@ -595,7 +595,7 @@ func listAbstractionsImplFS(ctx context.Context, fs string, query *ListZFSHoldsA
 			if v.Type == zfs.Bookmark && bmE != nil {
 				a = bmE(fsp, v)
 			}
-			if v.Type == zfs.Snapshot && holdE != nil && query.CreateTXG.Contains(v.GetCreateTXG()) {
+			if v.Type == zfs.Snapshot && holdE != nil && query.CreateTXG.Contains(v.GetCreateTXG()) && (!v.UserRefs.Valid || v.UserRefs.Value > 0) {
 				holds, err := zfs.ZFSHolds(ctx, fsp.ToString(), v.Name)
 				if err != nil {
 					errCb(err, v.ToAbsPath(fsp), "get hold on snap")
