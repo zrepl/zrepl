@@ -141,7 +141,7 @@ func (p *Sender) HintMostRecentCommonAncestor(ctx context.Context, r *pdu.HintMo
 	}
 
 	// move replication cursor to this position
-	_, err = MoveReplicationCursor(ctx, fs, mostRecentVersion, p.jobId)
+	destroyedCursors, err := MoveReplicationCursor(ctx, fs, mostRecentVersion, p.jobId)
 	if err == zfs.ErrBookmarkCloningNotSupported {
 		log.Debug("not creating replication cursor from bookmark because ZFS does not support it")
 		// fallthrough
@@ -149,19 +149,76 @@ func (p *Sender) HintMostRecentCommonAncestor(ctx context.Context, r *pdu.HintMo
 		return nil, errors.Wrap(err, "cannot set replication cursor to hinted version")
 	}
 
-	// cleanup previous steps
-	if !hintMostRecentCommonAncestorDoNotCleanupStepHolds {
-		if err := ReleaseStepCummulativeInclusive(ctx, fs, mostRecentVersion, p.jobId); err != nil {
-			return nil, errors.Wrap(err, "cannot cleanup prior invocation's step holds and bookmarks")
+	// take care of stale step holds
+	log.WithField("step-holds-cleanup-mode", hintMostRecentCommonAncestorStepCleanupMode).
+		Debug("taking care of possibly stale step holds")
+	doStepCleanup := false
+	var stepCleanupSince *CreateTXGRangeBound
+	switch hintMostRecentCommonAncestorStepCleanupMode {
+	case StepCleanupNoCleanup:
+		doStepCleanup = false
+	case StepCleanupRangeSinceUnbounded:
+		doStepCleanup = true
+		stepCleanupSince = nil
+	case StepCleanupRangeSinceReplicationCursor:
+		doStepCleanup = true
+		// Use the destroyed replication cursors as indicator how far the previous replication got.
+		// To be precise: We limit the amount of visisted snapshots to exactly those snapshots
+		// created since the last successful replication cursor movement (i.e. last successful replication step)
+		//
+		// If we crash now, we'll leak the step we are about to release, but the performance gain
+		// of limiting the amount of snapshots we visit makes up for that.
+		// Users have the `zrepl holds release-stale` command to cleanup leaked step holds.
+		for _, destroyed := range destroyedCursors {
+			if stepCleanupSince == nil {
+				stepCleanupSince = &CreateTXGRangeBound{
+					CreateTXG: destroyed.GetCreateTXG(),
+					Inclusive: &zfs.NilBool{B: true},
+				}
+			} else if destroyed.GetCreateTXG() < stepCleanupSince.CreateTXG {
+				stepCleanupSince.CreateTXG = destroyed.GetCreateTXG()
+			}
 		}
-	} else {
+	default:
+		panic(hintMostRecentCommonAncestorStepCleanupMode)
+	}
+	if !doStepCleanup {
 		log.Info("skipping cleanup of prior invocations' step holds due to environment variable setting")
+	} else {
+		if err := ReleaseStepCummulativeInclusive(ctx, fs, stepCleanupSince, mostRecentVersion, p.jobId); err != nil {
+			return nil, errors.Wrap(err, "cannot cleanup prior invocation's step holds and bookmarks")
+		} else {
+			log.Info("step hold cleanup done")
+		}
 	}
 
 	return &pdu.HintMostRecentCommonAncestorRes{}, nil
 }
 
-var hintMostRecentCommonAncestorDoNotCleanupStepHolds = envconst.Bool("ZREPL_ENDPOINT_HINT_MOST_RECENT_DO_NOT_CLEANUP_STEP_HOLDS", false)
+type HintMostRecentCommonAncestorStepCleanupMode struct{ string }
+
+var (
+	StepCleanupRangeSinceReplicationCursor = HintMostRecentCommonAncestorStepCleanupMode{"range-since-replication-cursor"}
+	StepCleanupRangeSinceUnbounded         = HintMostRecentCommonAncestorStepCleanupMode{"range-since-unbounded"}
+	StepCleanupNoCleanup                   = HintMostRecentCommonAncestorStepCleanupMode{"no-cleanup"}
+)
+
+func (m HintMostRecentCommonAncestorStepCleanupMode) String() string { return string(m.string) }
+func (m *HintMostRecentCommonAncestorStepCleanupMode) Set(s string) error {
+	switch s {
+	case StepCleanupRangeSinceReplicationCursor.String():
+		*m = StepCleanupRangeSinceReplicationCursor
+	case StepCleanupRangeSinceUnbounded.String():
+		*m = StepCleanupRangeSinceUnbounded
+	case StepCleanupNoCleanup.String():
+		*m = StepCleanupNoCleanup
+	default:
+		return fmt.Errorf("unknown step cleanup mode %q", s)
+	}
+	return nil
+}
+
+var hintMostRecentCommonAncestorStepCleanupMode = *envconst.Var("ZREPL_ENDPOINT_HINT_MOST_RECENT_STEP_HOLD_CLEANUP_MODE", &StepCleanupRangeSinceReplicationCursor).(*HintMostRecentCommonAncestorStepCleanupMode)
 
 var maxConcurrentZFSSendSemaphore = semaphore.New(envconst.Int64("ZREPL_ENDPOINT_MAX_CONCURRENT_SEND", 10))
 

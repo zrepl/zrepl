@@ -140,7 +140,7 @@ func ReleaseStep(ctx context.Context, fs string, v zfs.FilesystemVersion, jobID 
 }
 
 // release {step holds, step bookmarks} earlier and including `mostRecent`
-func ReleaseStepCummulativeInclusive(ctx context.Context, fs string, mostRecent zfs.FilesystemVersion, jobID JobID) error {
+func ReleaseStepCummulativeInclusive(ctx context.Context, fs string, since *CreateTXGRangeBound, mostRecent zfs.FilesystemVersion, jobID JobID) error {
 	q := ListZFSHoldsAndBookmarksQuery{
 		What: AbstractionTypeSet{
 			AbstractionStepHold:     true,
@@ -151,7 +151,7 @@ func ReleaseStepCummulativeInclusive(ctx context.Context, fs string, mostRecent 
 		},
 		JobID: &jobID,
 		CreateTXG: CreateTXGRange{
-			Since: nil,
+			Since: since,
 			Until: &CreateTXGRangeBound{
 				CreateTXG: mostRecent.CreateTXG,
 				Inclusive: &zfs.NilBool{B: true},
