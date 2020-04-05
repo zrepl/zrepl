@@ -96,7 +96,7 @@ func (s *Sender) ListFilesystemVersions(ctx context.Context, r *pdu.ListFilesyst
 	if err != nil {
 		return nil, err
 	}
-	fsvs, err := zfs.ZFSListFilesystemVersions(lp, nil)
+	fsvs, err := zfs.ZFSListFilesystemVersions(lp, zfs.ListFilesystemVersionsOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -130,6 +130,7 @@ func (p *Sender) HintMostRecentCommonAncestor(ctx context.Context, r *pdu.HintMo
 		TryReleaseStepStaleFS(ctx, fs, p.jobId)
 		return &pdu.HintMostRecentCommonAncestorRes{}, nil
 	}
+
 	// we were hinted a specific common ancestor
 
 	mostRecentVersion, err := sendArgsFromPDUAndValidateExistsAndGetVersion(ctx, fs, r.GetSenderVersion())
@@ -588,8 +589,9 @@ func (s *Receiver) ListFilesystemVersions(ctx context.Context, req *pdu.ListFile
 	if err != nil {
 		return nil, err
 	}
+	// TODO share following code with sender
 
-	fsvs, err := zfs.ZFSListFilesystemVersions(lp, nil)
+	fsvs, err := zfs.ZFSListFilesystemVersions(lp, zfs.ListFilesystemVersionsOptions{})
 	if err != nil {
 		return nil, err
 	}

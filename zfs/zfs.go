@@ -221,9 +221,12 @@ type ZFSListResult struct {
 // If no error occurs, it is just closed.
 // If the operation is cancelled via context, the channel is just closed.
 //
+// If notExistHint is not nil and zfs exits with an error,
+// the stderr is attempted to be interpreted as a *DatasetDoesNotExist error.
+//
 // However, if callers do not drain `out` or cancel via `ctx`, the process will leak either running because
 // IO is pending or as a zombie.
-func ZFSListChan(ctx context.Context, out chan ZFSListResult, properties []string, zfsArgs ...string) {
+func ZFSListChan(ctx context.Context, out chan ZFSListResult, properties []string, notExistHint *DatasetPath, zfsArgs ...string) {
 	defer close(out)
 
 	args := make([]string, 0, 4+len(zfsArgs))
@@ -272,11 +275,21 @@ func ZFSListChan(ctx context.Context, out chan ZFSListResult, properties []strin
 		}
 	}
 	if err := cmd.Wait(); err != nil {
-		if err, ok := err.(*exec.ExitError); ok {
-			sendResult(nil, &ZFSError{
-				Stderr:  stderrBuf.Bytes(),
-				WaitErr: err,
-			})
+		if _, ok := err.(*exec.ExitError); ok {
+			enotexist := func() error {
+				if notExistHint == nil {
+					return nil
+				}
+				return tryDatasetDoesNotExist(notExistHint.ToString(), stderrBuf.Bytes())
+			}
+			if err := enotexist(); err != nil {
+				sendResult(nil, err)
+			} else {
+				sendResult(nil, &ZFSError{
+					Stderr:  stderrBuf.Bytes(),
+					WaitErr: err,
+				})
+			}
 		} else {
 			sendResult(nil, &ZFSError{WaitErr: err})
 		}
@@ -1075,14 +1088,11 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, streamCopier 
 		// does not perform a rollback unless `send -R` was used (which we assume hasn't been the case)
 		var snaps []FilesystemVersion
 		{
-			vs, err := ZFSListFilesystemVersions(fsdp, nil)
+			snaps, err := ZFSListFilesystemVersions(fsdp, ListFilesystemVersionsOptions{
+				Types: Snapshots,
+			})
 			if err != nil {
 				return fmt.Errorf("cannot list versions for rollback for forced receive: %s", err)
-			}
-			for _, v := range vs {
-				if v.Type == Snapshot {
-					snaps = append(snaps, v)
-				}
 			}
 			sort.Slice(snaps, func(i, j int) bool {
 				return snaps[i].CreateTXG < snaps[j].CreateTXG

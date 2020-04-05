@@ -211,17 +211,15 @@ func doMigrateReplicationCursorFS(ctx context.Context, v1CursorJobs []job.Job, f
 	}
 	fmt.Printf("identified owning job %q\n", owningJob.Name())
 
-	versions, err := zfs.ZFSListFilesystemVersions(fs, nil)
+	bookmarks, err := zfs.ZFSListFilesystemVersions(fs, zfs.ListFilesystemVersionsOptions{
+		Types: zfs.Bookmarks,
+	})
 	if err != nil {
 		return errors.Wrapf(err, "list filesystem versions of %q", fs.ToString())
 	}
 
 	var oldCursor *zfs.FilesystemVersion
-	for i, fsv := range versions {
-		if fsv.Type != zfs.Bookmark {
-			continue
-		}
-
+	for i, fsv := range bookmarks {
 		_, _, err := endpoint.ParseReplicationCursorBookmarkName(fsv.ToAbsPath(fs))
 		if err != endpoint.ErrV1ReplicationCursor {
 			continue
@@ -232,7 +230,7 @@ func doMigrateReplicationCursorFS(ctx context.Context, v1CursorJobs []job.Job, f
 			return errors.Wrap(err, "multiple filesystem versions identified as v1 replication cursors")
 		}
 
-		oldCursor = &versions[i]
+		oldCursor = &bookmarks[i]
 
 	}
 

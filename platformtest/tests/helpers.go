@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"os"
 	"path"
+	"sort"
 	"strings"
 
 	"github.com/stretchr/testify/require"
@@ -149,4 +150,27 @@ func makeResumeSituation(ctx *platformtest.Context, src dummySnapshotSituation, 
 	situation.recvErrDecoded = resumeErr
 
 	return situation
+}
+
+func versionRelnamesSorted(versions []zfs.FilesystemVersion) []string {
+	var vstrs []string
+	for _, v := range versions {
+		vstrs = append(vstrs, v.RelName())
+	}
+	sort.Sort(sort.StringSlice(vstrs))
+	return vstrs
+}
+
+func datasetToStringSortedTrimPrefix(prefix *zfs.DatasetPath, paths []*zfs.DatasetPath) []string {
+	var pstrs []string
+	for _, p := range paths {
+		trimmed := p.Copy()
+		trimmed.TrimPrefix(prefix)
+		if trimmed.Length() == 0 {
+			continue
+		}
+		pstrs = append(pstrs, trimmed.ToString())
+	}
+	sort.Sort(sort.StringSlice(pstrs))
+	return pstrs
 }

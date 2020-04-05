@@ -26,4 +26,9 @@ var Cases = []Case{
 	SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden,
 	SendArgsValidationResumeTokenEncryptionMismatchForbidden,
 	SendArgsValidationResumeTokenDifferentFilesystemForbidden,
+	ListFilesystemVersionsTypeFilteringAndPrefix,
+	ListFilesystemVersionsFilesystemNotExist,
+	ListFilesystemVersionsFilesystemNotExist,
+	ListFilesystemVersionsUserrefs,
+	ListFilesystemsNoFilter,
 }

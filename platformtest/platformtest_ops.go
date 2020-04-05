@@ -24,6 +24,7 @@ type Stmt interface {
 type Op string
 
 const (
+	Comment         Op = "#"
 	AssertExists    Op = "!E"
 	AssertNotExists Op = "!N"
 	Add             Op = "+"
@@ -97,6 +98,26 @@ func (o *SnapOp) Run(ctx context.Context, e Execer) error {
 		return e.RunExpectSuccessNoOutput(ctx, "zfs", "snapshot", o.Path)
 	case Del:
 		return e.RunExpectSuccessNoOutput(ctx, "zfs", "destroy", o.Path)
+	default:
+		panic(o.Op)
+	}
+}
+
+type BookmarkOp struct {
+	Op       Op
+	Existing string
+	Bookmark string
+}
+
+func (o *BookmarkOp) Run(ctx context.Context, e Execer) error {
+	switch o.Op {
+	case Add:
+		return e.RunExpectSuccessNoOutput(ctx, "zfs", "bookmark", o.Existing, o.Bookmark)
+	case Del:
+		if o.Existing != "" {
+			panic("existing must be empty for destroy, got " + o.Existing)
+		}
+		return e.RunExpectSuccessNoOutput(ctx, "zfs", "destroy", o.Bookmark)
 	default:
 		panic(o.Op)
 	}
@@ -255,16 +276,26 @@ nextLine:
 			op = AssertExists
 		case string(AssertNotExists):
 			op = AssertNotExists
+		case string(Comment):
+			op = Comment
+			continue
 		default:
 			return nil, &LineError{scan.Text(), fmt.Sprintf("invalid op %q", comps.Text())}
 		}
 
-		// FS / SNAP
+		// FS / SNAP / BOOKMARK
 		if err := expectMoreTokens(); err != nil {
 			return nil, err
 		}
 		if strings.ContainsAny(comps.Text(), "@") {
 			stmts = append(stmts, &SnapOp{Op: op, Path: fmt.Sprintf("%s/%s", rootds, comps.Text())})
+		} else if strings.ContainsAny(comps.Text(), "#") {
+			bookmark := fmt.Sprintf("%s/%s", rootds, comps.Text())
+			if err := expectMoreTokens(); err != nil {
+				return nil, err
+			}
+			existing := fmt.Sprintf("%s/%s", rootds, comps.Text())
+			stmts = append(stmts, &BookmarkOp{Op: op, Existing: existing, Bookmark: bookmark})
 		} else {
 			// FS
 			fs := comps.Text()
