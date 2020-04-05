@@ -77,25 +77,6 @@ func (t AbstractionType) MustValidate() error {
 	return nil
 }
 
-// Number of instances of this abstraction type that are live (not stale)
-// per (FS,JobID). -1 for infinity.
-func (t AbstractionType) NumLivePerFsAndJob() int {
-	switch t {
-	case AbstractionStepBookmark:
-		return 2
-	case AbstractionStepHold:
-		return 2
-	case AbstractionLastReceivedHold:
-		return 1
-	case AbstractionReplicationCursorBookmarkV1:
-		return -1
-	case AbstractionReplicationCursorBookmarkV2:
-		return 1
-	default:
-		panic(t)
-	}
-}
-
 type AbstractionJSON struct{ Abstraction }
 
 var _ json.Marshaler = (*AbstractionJSON)(nil)
@@ -136,6 +117,15 @@ func AbstractionTypeSetFromStrings(sts []string) (AbstractionTypeSet, error) {
 		ats[at] = true
 	}
 	return ats, nil
+}
+
+func (s AbstractionTypeSet) Contains(q AbstractionTypeSet) bool {
+	for k := range q {
+		if _, ok := s[k]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func (s AbstractionTypeSet) String() string {
@@ -652,9 +642,13 @@ func BatchDestroy(ctx context.Context, abs []Abstraction) <-chan BatchDestroyRes
 
 type StalenessInfo struct {
 	ConstructedWithQuery ListZFSHoldsAndBookmarksQuery
-	All                  []Abstraction
 	Live                 []Abstraction
 	Stale                []Abstraction
+}
+
+type fsAndJobId struct {
+	fs    string
+	jobId JobID
 }
 
 func ListStale(ctx context.Context, q ListZFSHoldsAndBookmarksQuery) (*StalenessInfo, error) {
@@ -663,7 +657,7 @@ func ListStale(ctx context.Context, q ListZFSHoldsAndBookmarksQuery) (*Staleness
 		return nil, errors.New("ListStale cannot have Until != nil set on query")
 	}
 
-	abs, absErr, err := ListAbstractions(ctx, q)
+	qAbs, absErr, err := ListAbstractions(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -671,22 +665,53 @@ func ListStale(ctx context.Context, q ListZFSHoldsAndBookmarksQuery) (*Staleness
 		// can't go on here because we can't determine the most recent step
 		return nil, ListAbstractionsErrors(absErr)
 	}
-	si := listStaleFiltering(abs)
+
+	buildMostRecentFrom := qAbs
+	if !q.What[AbstractionReplicationCursorBookmarkV2] {
+		cq := q
+		cq.What = AbstractionTypeSet{AbstractionReplicationCursorBookmarkV2: true}
+		buildMostRecentFrom, absErr, err = ListAbstractions(ctx, cq) // no shadow
+		if err != nil {
+			return nil, err
+		}
+		if len(absErr) > 0 {
+			// can't go on here because we can't determine the most recent step
+			return nil, ListAbstractionsErrors(absErr)
+		}
+	}
+	mostRecentCursorByFS := make(map[fsAndJobId]*Abstraction) // empty map => will always return nil
+	for _, a := range buildMostRecentFrom {
+		if a.GetType() != AbstractionReplicationCursorBookmarkV2 {
+			continue
+		}
+		key := fsAndJobId{a.GetFS(), *a.GetJobID()}
+		mra := mostRecentCursorByFS[key]
+		if mra == nil || (*mra).GetCreateTXG() < a.GetCreateTXG() {
+			a := a
+			mra = &a
+		}
+		mostRecentCursorByFS[key] = mra
+	}
+
+	si := listStaleFiltering(qAbs, mostRecentCursorByFS)
 	si.ConstructedWithQuery = q
 	return si, nil
 }
 
-// The last AbstractionType.NumLive() step holds per (FS,Job,AbstractionType) are live
-// others are stale.
+type fsAjobAtype struct {
+	fsAndJobId
+	Type AbstractionType
+}
+
+// For step holds and bookmarks, only those older than the most recent replication cursor
+// of their (filesystem,job) is considered because younger ones cannot be stale by definition
+// (if we destroy them, we might actually lose the hold on the `To` for an ongoing incremental replication)
+//
+// For replication cursors and last-received-holds, only the most recent one is kept.
 //
 // the returned StalenessInfo.ConstructedWithQuery is not set
-func listStaleFiltering(abs []Abstraction) *StalenessInfo {
+func listStaleFiltering(abs []Abstraction, mostRecentCursorByFS map[fsAndJobId]*Abstraction) *StalenessInfo {
 
-	type fsAjobAtype struct {
-		FS   string
-		Job  JobID
-		Type AbstractionType
-	}
 	var noJobId []Abstraction
 	by := make(map[fsAjobAtype][]Abstraction)
 	for _, a := range abs {
@@ -694,31 +719,46 @@ func listStaleFiltering(abs []Abstraction) *StalenessInfo {
 			noJobId = append(noJobId, a)
 			continue
 		}
-		faj := fsAjobAtype{a.GetFS(), *a.GetJobID(), a.GetType()}
+		faj := fsAjobAtype{fsAndJobId{a.GetFS(), *a.GetJobID()}, a.GetType()}
 		l := by[faj]
 		l = append(l, a)
 		by[faj] = l
 	}
 
 	ret := &StalenessInfo{
-		All:   abs,
 		Live:  noJobId,
 		Stale: []Abstraction{},
 	}
 
-	// sort descending (highest createtxg first), then cut off
 	for k := range by {
 		l := by[k]
+		// sort descending (highest createtxg first), then cut off
 		sort.Slice(l, func(i, j int) bool {
 			return l[i].GetCreateTXG() > l[j].GetCreateTXG()
 		})
 
-		cutoff := k.Type.NumLivePerFsAndJob()
-		if cutoff == -1 || len(l) <= cutoff {
-			ret.Live = append(ret.Live, l...)
+		if k.Type == AbstractionStepHold || k.Type == AbstractionStepBookmark {
+			// all older than the most recent cursor are stale, others are always live
+			mostRecent := mostRecentCursorByFS[k.fsAndJobId]
+			if mostRecent == nil {
+				ret.Live = append(ret.Live, l...)
+			} else {
+				for _, a := range l {
+					if a.GetCreateTXG() > (*mostRecent).GetCreateTXG() {
+						ret.Live = append(ret.Live, a)
+					} else {
+						ret.Stale = append(ret.Stale, a)
+					}
+				}
+			}
+		} else if k.Type == AbstractionReplicationCursorBookmarkV2 || k.Type == AbstractionLastReceivedHold {
+			// all but the most recent are stale by definition (we always _move_ them)
+			if len(l) > 0 {
+				ret.Live = append(ret.Live, l[0])
+				ret.Stale = append(ret.Stale, l[1:]...)
+			}
 		} else {
-			ret.Live = append(ret.Live, l[0:cutoff]...)
-			ret.Stale = append(ret.Stale, l[cutoff:]...)
+			ret.Live = append(ret.Live, l...)
 		}
 	}
 

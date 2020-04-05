@@ -323,7 +323,7 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.St
 
 	// make sure `From` doesn't go away in order to make this step resumable
 	if sendArgs.From != nil {
-		err := HoldStep(ctx, sendArgs.FS, *sendArgs.FromVersion, s.jobId)
+		_, err := HoldStep(ctx, sendArgs.FS, *sendArgs.FromVersion, s.jobId)
 		if err == zfs.ErrBookmarkCloningNotSupported {
 			getLogger(ctx).Debug("not creating step bookmark because ZFS does not support it")
 			// fallthrough
@@ -332,7 +332,7 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.St
 		}
 	}
 	// make sure `To` doesn't go away in order to make this step resumable
-	err = HoldStep(ctx, sendArgs.FS, sendArgs.ToVersion, s.jobId)
+	_, err = HoldStep(ctx, sendArgs.FS, sendArgs.ToVersion, s.jobId)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot hold `to` version %q before starting send", sendArgs.ToVersion)
 	}

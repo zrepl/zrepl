@@ -22,6 +22,7 @@ var (
 				holdsCmdList,
 				holdsCmdReleaseAll,
 				holdsCmdReleaseStale,
+				holdsCmdCreate,
 			}
 		},
 	}

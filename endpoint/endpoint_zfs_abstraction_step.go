@@ -63,19 +63,25 @@ func ParseStepBookmarkName(fullname string) (guid uint64, jobID JobID, err error
 // idempotently hold / step-bookmark `version`
 //
 // returns ErrBookmarkCloningNotSupported if version is a bookmark and bookmarking bookmarks is not supported by ZFS
-func HoldStep(ctx context.Context, fs string, v zfs.FilesystemVersion, jobID JobID) error {
+func HoldStep(ctx context.Context, fs string, v zfs.FilesystemVersion, jobID JobID) (Abstraction, error) {
 	if v.IsSnapshot() {
 
 		tag, err := StepHoldTag(jobID)
 		if err != nil {
-			return errors.Wrap(err, "step hold tag")
+			return nil, errors.Wrap(err, "step hold tag")
 		}
 
 		if err := zfs.ZFSHold(ctx, fs, v, tag); err != nil {
-			return errors.Wrap(err, "step hold: zfs")
+			return nil, errors.Wrap(err, "step hold: zfs")
 		}
 
-		return nil
+		return &ListHoldsAndBookmarksOutputHold{
+			Type:              AbstractionStepHold,
+			FS:                fs,
+			Tag:               tag,
+			JobID:             jobID,
+			FilesystemVersion: v,
+		}, nil
 	}
 
 	if !v.IsBookmark() {
@@ -84,7 +90,7 @@ func HoldStep(ctx context.Context, fs string, v zfs.FilesystemVersion, jobID Job
 
 	bmname, err := StepBookmarkName(fs, v.Guid, jobID)
 	if err != nil {
-		return errors.Wrap(err, "create step bookmark: determine bookmark name")
+		return nil, errors.Wrap(err, "create step bookmark: determine bookmark name")
 	}
 	// idempotently create bookmark
 	err = zfs.ZFSBookmark(ctx, fs, v.ToSendArgVersion(), bmname)
@@ -95,11 +101,16 @@ func HoldStep(ctx context.Context, fs string, v zfs.FilesystemVersion, jobID Job
 			// 		is most likely not going to be successful. Also, there's the possibility that
 			//      the caller might want to filter what snapshots are eligibile, and this would
 			//      complicate things even further.
-			return err // TODO go1.13 use wrapping
+			return nil, err // TODO go1.13 use wrapping
 		}
-		return errors.Wrap(err, "create step bookmark: zfs")
+		return nil, errors.Wrap(err, "create step bookmark: zfs")
 	}
-	return nil
+	return &ListHoldsAndBookmarksOutputBookmark{
+		Type:              AbstractionStepBookmark,
+		FS:                fs,
+		FilesystemVersion: v,
+		JobID:             jobID,
+	}, nil
 }
 
 // idempotently release the step-hold on v if v is a snapshot
