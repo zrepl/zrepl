@@ -150,9 +150,12 @@ func ReleaseStepCummulativeInclusive(ctx context.Context, fs string, mostRecent 
 			FS: &fs,
 		},
 		JobID: &jobID,
-		Until: &InclusiveExclusiveCreateTXG{
-			CreateTXG: mostRecent.CreateTXG,
-			Inclusive: &zfs.NilBool{B: true},
+		CreateTXG: CreateTXGRange{
+			Since: nil,
+			Until: &CreateTXGRangeBound{
+				CreateTXG: mostRecent.CreateTXG,
+				Inclusive: &zfs.NilBool{B: true},
+			},
 		},
 		Concurrency: 1,
 	}

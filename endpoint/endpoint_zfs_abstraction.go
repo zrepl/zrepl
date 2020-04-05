@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -205,17 +206,29 @@ type ListZFSHoldsAndBookmarksQuery struct {
 	// if not nil: JobID of the hold or bookmark in question must be equal
 	// else: JobID of the hold or bookmark can be any value
 	JobID *JobID
-	// if not nil: The hold's snapshot or the bookmark's createtxg must be less than (or equal) Until
-	// else: CreateTXG of the hold or bookmark can be any value
-	Until *InclusiveExclusiveCreateTXG
+
+	// zero-value means any CreateTXG is acceptable
+	CreateTXG CreateTXGRange
 
 	// Number of concurrently queried filesystems. Must be >= 1
 	Concurrency int64
 }
 
-type InclusiveExclusiveCreateTXG struct {
+type CreateTXGRangeBound struct {
 	CreateTXG uint64
 	Inclusive *zfs.NilBool // must not be nil
+}
+
+// A non-empty range of CreateTXGs
+//
+// If both Since and Until are nil, any CreateTXG is acceptable
+type CreateTXGRange struct {
+	// if not nil: The hold's snapshot or the bookmark's createtxg must be greater than (or equal) Since
+	// else: CreateTXG of the hold or bookmark can be any value accepted by Until
+	Since *CreateTXGRangeBound
+	// if not nil: The hold's snapshot or the bookmark's createtxg must be less than (or equal) Until
+	// else: CreateTXG of the hold or bookmark can be any value accepted by Since
+	Until *CreateTXGRangeBound
 }
 
 // FS == nil XOR Filter == nil
@@ -231,10 +244,8 @@ func (q *ListZFSHoldsAndBookmarksQuery) Validate() error {
 	if q.JobID != nil {
 		q.JobID.MustValidate() // FIXME
 	}
-	if q.Until != nil {
-		if err := q.Until.Validate(); err != nil {
-			return errors.Wrap(err, "Until")
-		}
+	if err := q.CreateTXG.Validate(); err != nil {
+		return errors.Wrap(err, "CreateTXGRange")
 	}
 	if err := q.What.Validate(); err != nil {
 		return err
@@ -245,13 +256,13 @@ func (q *ListZFSHoldsAndBookmarksQuery) Validate() error {
 	return nil
 }
 
-var zreplEndpointListAbstractionsQueryCreatetxg0Allowed = envconst.Bool("ZREPL_ENDPOINT_LIST_ABSTRACTIONS_QUERY_CREATETXG_0_ALLOWED", false)
+var createTXGRangeBoundAllowCreateTXG0 = envconst.Bool("ZREPL_ENDPOINT_LIST_ABSTRACTIONS_QUERY_CREATETXG_RANGE_BOUND_ALLOW_0", false)
 
-func (i *InclusiveExclusiveCreateTXG) Validate() error {
+func (i *CreateTXGRangeBound) Validate() error {
 	if err := i.Inclusive.Validate(); err != nil {
 		return errors.Wrap(err, "Inclusive")
 	}
-	if i.CreateTXG == 0 && !zreplEndpointListAbstractionsQueryCreatetxg0Allowed {
+	if i.CreateTXG == 0 && !createTXGRangeBoundAllowCreateTXG0 {
 		return errors.New("CreateTXG must be non-zero")
 	}
 	return nil
@@ -294,6 +305,136 @@ func (f *ListZFSHoldsAndBookmarksQueryFilesystemFilter) Filesystems(ctx context.
 		return fss, nil
 	}
 	panic("unreachable")
+}
+
+func (r *CreateTXGRange) Validate() error {
+	if r.Since != nil {
+		if err := r.Since.Validate(); err != nil {
+			return errors.Wrap(err, "Since")
+		}
+	}
+	if r.Until != nil {
+		if err := r.Until.Validate(); err != nil {
+			return errors.Wrap(err, "Until")
+		}
+	}
+	if _, err := r.effectiveBounds(); err != nil {
+		return errors.Wrapf(err, "specified range %s is semantically invalid", r)
+	}
+	return nil
+}
+
+// inclusive-inclusive bounds
+type effectiveBounds struct {
+	sinceInclusive uint64
+	sinceUnbounded bool
+	untilInclusive uint64
+	untilUnbounded bool
+}
+
+// callers must have validated r.Since and r.Until before calling this method
+func (r *CreateTXGRange) effectiveBounds() (bounds effectiveBounds, err error) {
+
+	bounds.sinceUnbounded = r.Since == nil
+	bounds.untilUnbounded = r.Until == nil
+
+	if r.Since == nil && r.Until == nil {
+		return bounds, nil
+	}
+
+	if r.Since != nil {
+		bounds.sinceInclusive = r.Since.CreateTXG
+		if !r.Since.Inclusive.B {
+			if r.Since.CreateTXG == math.MaxUint64 {
+				return bounds, errors.Errorf("Since-exclusive (%v) must be less than math.MaxUint64 (%v)",
+					r.Since.CreateTXG, uint64(math.MaxUint64))
+			}
+			bounds.sinceInclusive++
+		}
+	}
+
+	if r.Until != nil {
+		bounds.untilInclusive = r.Until.CreateTXG
+		if !r.Until.Inclusive.B {
+			if r.Until.CreateTXG == 0 {
+				return bounds, errors.Errorf("Until-exclusive (%v) must be greater than 0", r.Until.CreateTXG)
+			}
+			bounds.untilInclusive--
+		}
+	}
+
+	if !bounds.sinceUnbounded && !bounds.untilUnbounded {
+		if bounds.sinceInclusive >= bounds.untilInclusive {
+			return bounds, errors.Errorf("effective range bounds are [%v,%v] which is empty or invalid", bounds.sinceInclusive, bounds.untilInclusive)
+		} else {
+			// OK, not empty, fallthrough
+		}
+		// fallthrough
+	}
+
+	return bounds, nil
+}
+
+func (r *CreateTXGRange) String() string {
+	var buf strings.Builder
+	if r.Since == nil {
+		fmt.Fprintf(&buf, "~")
+	} else {
+		if err := r.Since.Inclusive.Validate(); err != nil {
+			fmt.Fprintf(&buf, "?")
+		} else if r.Since.Inclusive.B {
+			fmt.Fprintf(&buf, "[")
+		} else {
+			fmt.Fprintf(&buf, "(")
+		}
+		fmt.Fprintf(&buf, "%d", r.Since.CreateTXG)
+	}
+
+	fmt.Fprintf(&buf, ",")
+
+	if r.Until == nil {
+		fmt.Fprintf(&buf, "~")
+	} else {
+		fmt.Fprintf(&buf, "%d", r.Until.CreateTXG)
+		if err := r.Until.Inclusive.Validate(); err != nil {
+			fmt.Fprintf(&buf, "?")
+		} else if r.Until.Inclusive.B {
+			fmt.Fprintf(&buf, "]")
+		} else {
+			fmt.Fprintf(&buf, ")")
+		}
+	}
+
+	return buf.String()
+}
+
+// panics if not .Validate()
+func (r *CreateTXGRange) IsUnbounded() bool {
+	if err := r.Validate(); err != nil {
+		panic(err)
+	}
+	bounds, err := r.effectiveBounds()
+	if err != nil {
+		panic(err)
+	}
+	return bounds.sinceUnbounded && bounds.untilUnbounded
+}
+
+// panics if not .Validate()
+func (r *CreateTXGRange) Contains(qCreateTxg uint64) bool {
+	if err := r.Validate(); err != nil {
+		panic(err)
+	}
+
+	bounds, err := r.effectiveBounds()
+	if err != nil {
+		panic(err)
+	}
+
+	sinceMatches := bounds.sinceUnbounded || bounds.sinceInclusive <= qCreateTxg
+	untilMatches := bounds.untilUnbounded || qCreateTxg <= bounds.untilInclusive
+
+	return sinceMatches && untilMatches
 }
 
 type ListAbstractionsError struct {
@@ -383,16 +524,9 @@ func ListAbstractionsStreamed(ctx context.Context, query ListZFSHoldsAndBookmark
 	emitAbstraction := func(a Abstraction) {
 		jobIdMatches := query.JobID == nil || a.GetJobID() == nil || *a.GetJobID() == *query.JobID
 
-		untilMatches := query.Until == nil
-		if query.Until != nil {
-			if query.Until.Inclusive.B {
-				untilMatches = a.GetCreateTXG() <= query.Until.CreateTXG
-			} else {
-				untilMatches = a.GetCreateTXG() < query.Until.CreateTXG
-			}
-		}
+		createTXGMatches := query.CreateTXG.Contains(a.GetCreateTXG())
 
-		if jobIdMatches && untilMatches {
+		if jobIdMatches && createTXGMatches {
 			out <- a
 		}
 	}
@@ -451,7 +585,7 @@ func listAbstractionsImplFS(ctx context.Context, fs string, query *ListZFSHoldsA
 			if v.Type == zfs.Bookmark && bmE != nil {
 				a = bmE(fsp, v)
 			}
-			if v.Type == zfs.Snapshot && holdE != nil {
+			if v.Type == zfs.Snapshot && holdE != nil && query.CreateTXG.Contains(v.GetCreateTXG()) {
 				holds, err := zfs.ZFSHolds(ctx, fsp.ToString(), v.Name)
 				if err != nil {
 					errCb(err, v.ToAbsPath(fsp), "get hold on snap")
@@ -516,7 +650,7 @@ type StalenessInfo struct {
 }
 
 func ListStale(ctx context.Context, q ListZFSHoldsAndBookmarksQuery) (*StalenessInfo, error) {
-	if q.Until != nil {
+	if !q.CreateTXG.IsUnbounded() {
 		// we must determine the most recent step per FS, can't allow that
 		return nil, errors.New("ListStale cannot have Until != nil set on query")
 	}

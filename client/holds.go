@@ -42,7 +42,6 @@ func (f holdsFilterFlags) Query() (endpoint.ListZFSHoldsAndBookmarksQuery, error
 		FS:          f.Filesystems.FlagValue(),
 		What:        f.Types.FlagValue(),
 		JobID:       f.Job.FlagValue(),
-		Until:       nil, // TODO support this as a flag
 		Concurrency: f.Concurrency,
 	}
 	return q, q.Validate()

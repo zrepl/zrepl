@@ -83,7 +83,7 @@ func GetReplicationCursors(ctx context.Context, dp *zfs.DatasetPath, jobID JobID
 			AbstractionReplicationCursorBookmarkV2: true,
 		},
 		JobID:       &jobID,
-		Until:       nil,
+		CreateTXG:   CreateTXGRange{},
 		Concurrency: 1,
 	}
 	abs, absErr, err := ListAbstractions(ctx, q)
@@ -173,9 +173,12 @@ func DestroyObsoleteReplicationCursors(ctx context.Context, fs string, current R
 			AbstractionReplicationCursorBookmarkV2: true,
 		},
 		JobID: &jobID,
-		Until: &InclusiveExclusiveCreateTXG{
-			CreateTXG: current.GetCreateTXG(),
-			Inclusive: &zfs.NilBool{B: false},
+		CreateTXG: CreateTXGRange{
+			Since: nil,
+			Until: &CreateTXGRangeBound{
+				CreateTXG: current.GetCreateTXG(),
+				Inclusive: &zfs.NilBool{B: false},
+			},
 		},
 		Concurrency: 1,
 	}
@@ -262,9 +265,12 @@ func MoveLastReceivedHold(ctx context.Context, fs string, to zfs.FilesystemVersi
 			FS: &fs,
 		},
 		JobID: &jobID,
-		Until: &InclusiveExclusiveCreateTXG{
-			CreateTXG: to.GetCreateTXG(),
-			Inclusive: &zfs.NilBool{B: false},
+		CreateTXG: CreateTXGRange{
+			Since: nil,
+			Until: &CreateTXGRangeBound{
+				CreateTXG: to.GetCreateTXG(),
+				Inclusive: &zfs.NilBool{B: false},
+			},
 		},
 		Concurrency: 1,
 	}
