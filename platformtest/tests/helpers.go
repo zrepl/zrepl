@@ -157,7 +157,7 @@ func versionRelnamesSorted(versions []zfs.FilesystemVersion) []string {
 	for _, v := range versions {
 		vstrs = append(vstrs, v.RelName())
 	}
-	sort.Sort(sort.StringSlice(vstrs))
+	sort.Strings(vstrs)
 	return vstrs
 }
 
@@ -171,6 +171,6 @@ func datasetToStringSortedTrimPrefix(prefix *zfs.DatasetPath, paths []*zfs.Datas
 		}
 		pstrs = append(pstrs, trimmed.ToString())
 	}
-	sort.Sort(sort.StringSlice(pstrs))
+	sort.Strings(pstrs)
 	return pstrs
 }

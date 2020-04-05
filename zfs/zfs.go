@@ -1086,18 +1086,15 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, streamCopier 
 	if opts.RollbackAndForceRecv {
 		// destroy all snapshots before `recv -F` because `recv -F`
 		// does not perform a rollback unless `send -R` was used (which we assume hasn't been the case)
-		var snaps []FilesystemVersion
-		{
-			snaps, err := ZFSListFilesystemVersions(fsdp, ListFilesystemVersionsOptions{
-				Types: Snapshots,
-			})
-			if err != nil {
-				return fmt.Errorf("cannot list versions for rollback for forced receive: %s", err)
-			}
-			sort.Slice(snaps, func(i, j int) bool {
-				return snaps[i].CreateTXG < snaps[j].CreateTXG
-			})
+		snaps, err := ZFSListFilesystemVersions(fsdp, ListFilesystemVersionsOptions{
+			Types: Snapshots,
+		})
+		if err != nil {
+			return fmt.Errorf("cannot list versions for rollback for forced receive: %s", err)
 		}
+		sort.Slice(snaps, func(i, j int) bool {
+			return snaps[i].CreateTXG < snaps[j].CreateTXG
+		})
 		// bookmarks are rolled back automatically
 		if len(snaps) > 0 {
 			// use rollback to efficiently destroy all but the earliest snapshot
