@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/zrepl/zrepl/platformtest"
 	"github.com/zrepl/zrepl/zfs"
 )
