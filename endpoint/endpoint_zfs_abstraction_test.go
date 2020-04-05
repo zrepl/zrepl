@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -180,7 +181,7 @@ func TestCreateTXGRange(t *testing.T) {
 				Until: &CreateTXGRangeBound{0, &zfs.NilBool{B: true}},
 			},
 			configAllowZeroCreateTXG: true,
-			expectString: "~,0]",
+			expectString:             "~,0]",
 			expect: []testCaseExpectation{
 				{0, true},
 				{math.MaxUint64, false},
@@ -188,8 +189,8 @@ func TestCreateTXGRange(t *testing.T) {
 			},
 		},
 		{
-			name:          "edgeUntilNegative",
-			expectInvalid: true,
+			name:                     "edgeUntilNegative",
+			expectInvalid:            true,
 			configAllowZeroCreateTXG: true,
 			config: &CreateTXGRange{
 				Until: &CreateTXGRangeBound{0, &zfs.NilBool{B: false}},
