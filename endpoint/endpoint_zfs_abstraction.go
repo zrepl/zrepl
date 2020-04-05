@@ -366,8 +366,6 @@ func (r *CreateTXGRange) effectiveBounds() (bounds effectiveBounds, err error) {
 	if !bounds.sinceUnbounded && !bounds.untilUnbounded {
 		if bounds.sinceInclusive >= bounds.untilInclusive {
 			return bounds, errors.Errorf("effective range bounds are [%v,%v] which is empty or invalid", bounds.sinceInclusive, bounds.untilInclusive)
-		} else {
-			// OK, not empty, fallthrough
 		}
 		// fallthrough
 	}
