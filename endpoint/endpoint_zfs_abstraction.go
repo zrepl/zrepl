@@ -567,8 +567,18 @@ func listAbstractionsImplFS(ctx context.Context, fs string, query *ListZFSHoldsA
 		return
 	}
 
-	// we need filesystem versions for any abstraction type
-	fsvs, err := zfs.ZFSListFilesystemVersions(fsp, nil)
+	whatTypes := zfs.VersionTypeSet{}
+	for what := range query.What {
+		if e := what.BookmarkExtractor(); e != nil {
+			whatTypes[zfs.Bookmark] = true
+		}
+		if e := what.HoldExtractor(); e != nil {
+			whatTypes[zfs.Snapshot] = true
+		}
+	}
+	fsvs, err := zfs.ZFSListFilesystemVersions(fsp, zfs.ListFilesystemVersionsOptions{
+		Types: whatTypes,
+	})
 	if err != nil {
 		errCb(err, fs, "list filesystem versions")
 		return
