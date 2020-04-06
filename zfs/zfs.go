@@ -276,14 +276,12 @@ func ZFSListChan(ctx context.Context, out chan ZFSListResult, properties []strin
 	}
 	if err := cmd.Wait(); err != nil {
 		if _, ok := err.(*exec.ExitError); ok {
-			enotexist := func() error {
-				if notExistHint == nil {
-					return nil
-				}
-				return tryDatasetDoesNotExist(notExistHint.ToString(), stderrBuf.Bytes())
+			var enotexist *DatasetDoesNotExist
+			if notExistHint != nil {
+				enotexist = tryDatasetDoesNotExist(notExistHint.ToString(), stderrBuf.Bytes())
 			}
-			if err := enotexist(); err != nil {
-				sendResult(nil, err)
+			if enotexist != nil {
+				sendResult(nil, enotexist)
 			} else {
 				sendResult(nil, &ZFSError{
 					Stderr:  stderrBuf.Bytes(),
@@ -1372,7 +1370,7 @@ type DatasetDoesNotExist struct {
 
 func (d *DatasetDoesNotExist) Error() string { return fmt.Sprintf("dataset %q does not exist", d.Path) }
 
-func tryDatasetDoesNotExist(expectPath string, stderr []byte) error {
+func tryDatasetDoesNotExist(expectPath string, stderr []byte) *DatasetDoesNotExist {
 	if sm := zfsGetDatasetDoesNotExistRegexp.FindSubmatch(stderr); sm != nil {
 		if string(sm[1]) == expectPath {
 			return &DatasetDoesNotExist{expectPath}
@@ -1650,7 +1648,7 @@ func ZFSBookmark(ctx context.Context, fs string, v ZFSSendArgVersion, bookmark s
 	cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, "bookmark", snapname, bookmarkname)
 	stdio, err := cmd.CombinedOutput()
 	if err != nil {
-		if ddne := tryDatasetDoesNotExist(snapname, stdio); err != nil {
+		if ddne := tryDatasetDoesNotExist(snapname, stdio); ddne != nil {
 			return ddne
 		} else if zfsBookmarkExistsRegex.Match(stdio) {
 
