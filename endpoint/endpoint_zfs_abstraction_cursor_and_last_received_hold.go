@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/util/errorarray"
@@ -107,7 +106,7 @@ func GetReplicationCursors(ctx context.Context, dp *zfs.DatasetPath, jobID JobID
 	}
 
 	if len(v1) > 0 {
-		getLogger(ctx).WithField("bookmark", pretty.Sprint(v1)).
+		getLogger(ctx).WithField("bookmark", v1).
 			Warn("found v1-replication cursor bookmarks, consider running migration 'replication-cursor:v1-v2' after successful replication with this zrepl version")
 	}
 
