@@ -207,13 +207,16 @@ func TryReleaseStepStaleFS(ctx context.Context, fs string, jobID JobID) {
 		},
 		JobID: &jobID,
 		What: AbstractionTypeSet{
-			AbstractionStepHold:     true,
-			AbstractionStepBookmark: true,
+			AbstractionStepHold:                    true,
+			AbstractionStepBookmark:                true,
+			AbstractionReplicationCursorBookmarkV2: true,
 		},
 		Concurrency: 1,
 	}
 	staleness, err := ListStale(ctx, q)
-	if err != nil {
+	if _, ok := err.(*ListStaleQueryError); ok {
+		panic(err)
+	} else if err != nil {
 		getLogger(ctx).WithError(err).Error("cannot list stale step holds and bookmarks")
 		return
 	}

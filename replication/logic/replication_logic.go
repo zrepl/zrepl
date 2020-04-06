@@ -234,6 +234,7 @@ func resolveConflict(conflict error) (path []*pdu.FilesystemVersion, msg string)
 	if noCommonAncestor, ok := conflict.(*ConflictNoCommonAncestor); ok {
 		if len(noCommonAncestor.SortedReceiverVersions) == 0 {
 			// TODO this is hard-coded replication policy: most recent snapshot as source
+			// NOTE: Keep in sync with listStaleFiltering, it depends on this hard-coded assumption
 			var mostRecentSnap *pdu.FilesystemVersion
 			for n := len(noCommonAncestor.SortedSenderVersions) - 1; n >= 0; n-- {
 				if noCommonAncestor.SortedSenderVersions[n].Type == pdu.FilesystemVersion_Snapshot {
