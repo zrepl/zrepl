@@ -370,6 +370,10 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 	a.finishedAt = time.Now()
 }
 
+func (f *fs) debug(format string, args ...interface{}) {
+	debugPrefix("fs=%s", f.fs.ReportInfo().Name)(format, args...)
+}
+
 func (f *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 
 	defer f.l.Lock().Unlock()
@@ -386,7 +390,6 @@ func (f *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 		psteps, err = f.fs.PlanFS(ctx) // no shadow
 		errTime = time.Now()           // no shadow
 	})
-	debug := debugPrefix("fs=%s", f.fs.ReportInfo().Name)
 	f.planning.done = true
 	if err != nil {
 		f.planning.err = newTimedError(err, errTime)
@@ -399,25 +402,25 @@ func (f *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 		}
 		f.planned.steps = append(f.planned.steps, step)
 	}
-	debug("initial len(fs.planned.steps) = %d", len(f.planned.steps))
+	f.debug("initial len(fs.planned.steps) = %d", len(f.planned.steps))
 
 	// for not-first attempts, only allow fs.planned.steps
 	// up to including the originally planned target snapshot
 	if prev != nil && prev.planning.done && prev.planning.err == nil {
 		prevUncompleted := prev.planned.steps[prev.planned.step:]
 		if len(prevUncompleted) == 0 {
-			debug("prevUncompleted is empty")
+			f.debug("prevUncompleted is empty")
 			return
 		}
 		if len(f.planned.steps) == 0 {
-			debug("fs.planned.steps is empty")
+			f.debug("fs.planned.steps is empty")
 			return
 		}
 		prevFailed := prevUncompleted[0]
 		curFirst := f.planned.steps[0]
 		// we assume that PlanFS retries prevFailed (using curFirst)
 		if !prevFailed.step.TargetEquals(curFirst.step) {
-			debug("Targets don't match")
+			f.debug("Targets don't match")
 			// Two options:
 			// A: planning algorithm is broken
 			// B: manual user intervention inbetween
@@ -443,15 +446,15 @@ func (f *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 		}
 		diverge := 0
 		for ; diverge < min; diverge++ {
-			debug("diverge compare iteration %d", diverge)
+			f.debug("diverge compare iteration %d", diverge)
 			if !f.planned.steps[diverge].step.TargetEquals(prevUncompleted[diverge].step) {
 				break
 			}
 		}
-		debug("diverge is %d", diverge)
+		f.debug("diverge is %d", diverge)
 		f.planned.steps = f.planned.steps[0:diverge]
 	}
-	debug("post-prev-merge len(fs.planned.steps) = %d", len(f.planned.steps))
+	f.debug("post-prev-merge len(fs.planned.steps) = %d", len(f.planned.steps))
 
 	for i, s := range f.planned.steps {
 		var (
