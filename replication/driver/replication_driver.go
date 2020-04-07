@@ -370,36 +370,36 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 	a.finishedAt = time.Now()
 }
 
-func (fs *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
+func (f *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 
-	defer fs.l.Lock().Unlock()
+	defer f.l.Lock().Unlock()
 
 	// get planned steps from replication logic
 	var psteps []Step
 	var errTime time.Time
 	var err error
-	fs.l.DropWhile(func() {
+	f.l.DropWhile(func() {
 		// TODO hacky
 		// choose target time that is earlier than any snapshot, so fs planning is always prioritized
 		targetDate := time.Unix(0, 0)
-		defer pq.WaitReady(fs, targetDate)()
-		psteps, err = fs.fs.PlanFS(ctx) // no shadow
-		errTime = time.Now()            // no shadow
+		defer pq.WaitReady(f, targetDate)()
+		psteps, err = f.fs.PlanFS(ctx) // no shadow
+		errTime = time.Now()           // no shadow
 	})
-	debug := debugPrefix("fs=%s", fs.fs.ReportInfo().Name)
-	fs.planning.done = true
+	debug := debugPrefix("fs=%s", f.fs.ReportInfo().Name)
+	f.planning.done = true
 	if err != nil {
-		fs.planning.err = newTimedError(err, errTime)
+		f.planning.err = newTimedError(err, errTime)
 		return
 	}
 	for _, pstep := range psteps {
 		step := &step{
-			l:    fs.l,
+			l:    f.l,
 			step: pstep,
 		}
-		fs.planned.steps = append(fs.planned.steps, step)
+		f.planned.steps = append(f.planned.steps, step)
 	}
-	debug("initial len(fs.planned.steps) = %d", len(fs.planned.steps))
+	debug("initial len(fs.planned.steps) = %d", len(f.planned.steps))
 
 	// for not-first attempts, only allow fs.planned.steps
 	// up to including the originally planned target snapshot
@@ -409,12 +409,12 @@ func (fs *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 			debug("prevUncompleted is empty")
 			return
 		}
-		if len(fs.planned.steps) == 0 {
+		if len(f.planned.steps) == 0 {
 			debug("fs.planned.steps is empty")
 			return
 		}
 		prevFailed := prevUncompleted[0]
-		curFirst := fs.planned.steps[0]
+		curFirst := f.planned.steps[0]
 		// we assume that PlanFS retries prevFailed (using curFirst)
 		if !prevFailed.step.TargetEquals(curFirst.step) {
 			debug("Targets don't match")
@@ -433,43 +433,43 @@ func (fs *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 			}
 			msg := fmt.Sprintf("last attempt's uncompleted step %s does not correspond to this attempt's first planned step %s",
 				stepFmt(prevFailed), stepFmt(curFirst))
-			fs.planned.stepErr = newTimedError(errors.New(msg), time.Now())
+			f.planned.stepErr = newTimedError(errors.New(msg), time.Now())
 			return
 		}
 		// only allow until step targets diverge
 		min := len(prevUncompleted)
-		if min > len(fs.planned.steps) {
-			min = len(fs.planned.steps)
+		if min > len(f.planned.steps) {
+			min = len(f.planned.steps)
 		}
 		diverge := 0
 		for ; diverge < min; diverge++ {
 			debug("diverge compare iteration %d", diverge)
-			if !fs.planned.steps[diverge].step.TargetEquals(prevUncompleted[diverge].step) {
+			if !f.planned.steps[diverge].step.TargetEquals(prevUncompleted[diverge].step) {
 				break
 			}
 		}
 		debug("diverge is %d", diverge)
-		fs.planned.steps = fs.planned.steps[0:diverge]
+		f.planned.steps = f.planned.steps[0:diverge]
 	}
-	debug("post-prev-merge len(fs.planned.steps) = %d", len(fs.planned.steps))
+	debug("post-prev-merge len(fs.planned.steps) = %d", len(f.planned.steps))
 
-	for i, s := range fs.planned.steps {
+	for i, s := range f.planned.steps {
 		var (
 			err     error
 			errTime time.Time
 		)
 		// lock must not be held while executing step in order for reporting to work
-		fs.l.DropWhile(func() {
+		f.l.DropWhile(func() {
 			targetDate := s.step.TargetDate()
-			defer pq.WaitReady(fs, targetDate)()
+			defer pq.WaitReady(f, targetDate)()
 			err = s.step.Step(ctx) // no shadow
 			errTime = time.Now()   // no shadow
 		})
 		if err != nil {
-			fs.planned.stepErr = newTimedError(err, errTime)
+			f.planned.stepErr = newTimedError(err, errTime)
 			break
 		}
-		fs.planned.step = i + 1 // fs.planned.step must be == len(fs.planned.steps) if all went OK
+		f.planned.step = i + 1 // fs.planned.step must be == len(fs.planned.steps) if all went OK
 	}
 }
 
