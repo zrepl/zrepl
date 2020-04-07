@@ -806,7 +806,7 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs
 	if err := zfs.ZFSRecv(ctx, lp.ToString(), to, receive, recvOpts); err != nil {
 		getLogger(ctx).
 			WithError(err).
-			WithField("opts", recvOpts).
+			WithField("opts", fmt.Sprintf("%#v", recvOpts)).
 			Error("zfs receive failed")
 		return nil, err
 	}
