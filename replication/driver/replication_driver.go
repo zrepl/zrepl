@@ -355,7 +355,7 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 	// invariant: prevs contains an entry for each unambiguous correspondence
 
 	stepQueue := newStepQueue()
-	defer stepQueue.Start(1)() // TODO parallel replication
+	defer stepQueue.Start(envconst.Int("ZREPL_REPLICATION_EXPERIMENTAL_REPLICATION_CONCURRENCY", 1))() // TODO parallel replication
 	var fssesDone sync.WaitGroup
 	for _, f := range a.fss {
 		fssesDone.Add(1)
