@@ -1,7 +1,9 @@
 package zfscmd
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"io"
 	"os/exec"
 	"testing"
@@ -57,4 +59,31 @@ func TestCmdStderrBehaviorStdoutPipe(t *testing.T) {
 	ee, ok := err.(*exec.ExitError)
 	require.True(t, ok)
 	require.Empty(t, ee.Stderr) // !!!!! probably not what one would expect if we only redirect stdout
+}
+
+func TestCmdProcessState(t *testing.T) {
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "bash", "-c", "echo running; sleep 3600")
+	stdout, err := cmd.StdoutPipe()
+	require.NoError(t, err)
+	err = cmd.Start()
+	require.NoError(t, err)
+
+	r := bufio.NewReader(stdout)
+	line, err := r.ReadString('\n')
+	require.NoError(t, err)
+	require.Equal(t, "running\n", line)
+
+	// we know it's running and sleeping
+	cancel()
+	err = cmd.Wait()
+	t.Logf("wait err %T\n%s", err, err)
+	require.Error(t, err)
+	ee, ok := err.(*exec.ExitError)
+	require.True(t, ok)
+	require.NotNil(t, ee.ProcessState)
+	require.Contains(t, ee.Error(), "killed")
+
 }

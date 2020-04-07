@@ -1,6 +1,7 @@
 package zfscmd
 
 import (
+	"os/exec"
 	"time"
 )
 
@@ -28,10 +29,22 @@ func waitPreLogging(c *Cmd, now time.Time) {
 }
 
 func waitPostLogging(c *Cmd, err error, now time.Time) {
+
+	var total, system, user float64
+
+	total = c.Runtime().Seconds()
+	if ee, ok := err.(*exec.ExitError); ok {
+		system = ee.ProcessState.SystemTime().Seconds()
+		user = ee.ProcessState.UserTime().Seconds()
+	} else {
+		system = -1
+		user = -1
+	}
+
 	log := c.log().
-		WithField("total_time_s", c.Runtime().Seconds()).
-		WithField("systemtime_s", c.cmd.ProcessState.SystemTime().Seconds()).
-		WithField("usertime_s", c.cmd.ProcessState.UserTime().Seconds())
+		WithField("total_time_s", total).
+		WithField("systemtime_s", system).
+		WithField("usertime_s", user)
 
 	if err == nil {
 		log.Info("command exited without error")
