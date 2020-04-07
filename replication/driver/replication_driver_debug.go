@@ -26,6 +26,6 @@ type debugFunc func(format string, args ...interface{})
 func debugPrefix(prefixFormat string, prefixFormatArgs ...interface{}) debugFunc {
 	prefix := fmt.Sprintf(prefixFormat, prefixFormatArgs...)
 	return func(format string, args ...interface{}) {
-		debug("%s: %s", prefix, fmt.Sprintf(format, args))
+		debug("%s: %s", prefix, fmt.Sprintf(format, args...))
 	}
 }
