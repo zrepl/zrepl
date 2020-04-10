@@ -136,7 +136,7 @@ func makeResumeSituation(ctx *platformtest.Context, src dummySnapshotSituation, 
 		return situation
 	}
 
-	limitedCopier := zfs.NewReadCloserCopier(limitio.ReadCloser(copier, src.dummyDataLen/2))
+	limitedCopier := limitio.ReadCloser(copier, src.dummyDataLen/2)
 	defer limitedCopier.Close()
 
 	require.NotNil(ctx, sendArgs.To)

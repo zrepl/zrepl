@@ -14,7 +14,6 @@ import (
 	"github.com/zrepl/zrepl/rpc/dataconn/base2bufpool"
 	"github.com/zrepl/zrepl/rpc/dataconn/frameconn"
 	"github.com/zrepl/zrepl/rpc/dataconn/heartbeatconn"
-	"github.com/zrepl/zrepl/zfs"
 )
 
 type Logger = logger.Logger
@@ -198,7 +197,7 @@ func (e ReadStreamError) Temporary() bool {
 	return false
 }
 
-var _ zfs.StreamCopierError = &ReadStreamError{}
+var _ net.Error = &ReadStreamError{}
 
 func (e ReadStreamError) IsReadError() bool {
 	return e.Kind != ReadStreamErrorKindWrite

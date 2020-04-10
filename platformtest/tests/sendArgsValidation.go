@@ -35,7 +35,7 @@ func SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden(ctx *platformt
 		ResumeToken: "",
 	}.Validate(ctx)
 
-	var stream *zfs.ReadCloserCopier
+	var stream *zfs.SendStream
 	if err == nil {
 		stream, err = zfs.ZFSSend(ctx, sendArgs) // no shadow
 		if err == nil {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
@@ -11,7 +12,6 @@ import (
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn/stream"
 	"github.com/zrepl/zrepl/transport"
-	"github.com/zrepl/zrepl/zfs"
 )
 
 type Client struct {
@@ -26,7 +26,7 @@ func NewClient(connecter transport.Connecter, log Logger) *Client {
 	}
 }
 
-func (c *Client) send(ctx context.Context, conn *stream.Conn, endpoint string, req proto.Message, streamCopier zfs.StreamCopier) error {
+func (c *Client) send(ctx context.Context, conn *stream.Conn, endpoint string, req proto.Message, stream io.ReadCloser) error {
 
 	var buf bytes.Buffer
 	_, memErr := buf.WriteString(endpoint)
@@ -46,8 +46,8 @@ func (c *Client) send(ctx context.Context, conn *stream.Conn, endpoint string, r
 		return err
 	}
 
-	if streamCopier != nil {
-		return conn.SendStream(ctx, streamCopier, ZFSStream)
+	if stream != nil {
+		return conn.SendStream(ctx, stream, ZFSStream)
 	} else {
 		return nil
 	}
@@ -109,7 +109,7 @@ func (c *Client) putWire(conn *stream.Conn) {
 	}
 }
 
-func (c *Client) ReqSend(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error) {
+func (c *Client) ReqSend(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
 	conn, err := c.getWire(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -130,16 +130,19 @@ func (c *Client) ReqSend(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, z
 		return nil, nil, err
 	}
 
-	var copier zfs.StreamCopier = nil
+	var stream io.ReadCloser
 	if !req.DryRun {
 		putWireOnReturn = false
-		copier = &streamCopier{streamConn: conn, closeStreamOnClose: true}
+		stream, err = conn.ReadStream(ZFSStream, true) // no shadow
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
-	return &res, copier, nil
+	return &res, stream, nil
 }
 
-func (c *Client) ReqRecv(ctx context.Context, req *pdu.ReceiveReq, streamCopier zfs.StreamCopier) (*pdu.ReceiveRes, error) {
+func (c *Client) ReqRecv(ctx context.Context, req *pdu.ReceiveReq, stream io.ReadCloser) (*pdu.ReceiveRes, error) {
 
 	defer c.log.Debug("ReqRecv returns")
 	conn, err := c.getWire(ctx)
@@ -166,7 +169,7 @@ func (c *Client) ReqRecv(ctx context.Context, req *pdu.ReceiveReq, streamCopier 
 
 	sendErrChan := make(chan error)
 	go func() {
-		if err := c.send(ctx, conn, EndpointRecv, req, streamCopier); err != nil {
+		if err := c.send(ctx, conn, EndpointRecv, req, stream); err != nil {
 			sendErrChan <- err
 		} else {
 			sendErrChan <- nil

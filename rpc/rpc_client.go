@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -20,7 +21,6 @@ import (
 	"github.com/zrepl/zrepl/rpc/versionhandshake"
 	"github.com/zrepl/zrepl/transport"
 	"github.com/zrepl/zrepl/util/envconst"
-	"github.com/zrepl/zrepl/zfs"
 )
 
 // Client implements the active side of a replication setup.
@@ -82,22 +82,22 @@ func (c *Client) Close() {
 
 // callers must ensure that the returned io.ReadCloser is closed
 // TODO expose dataClient interface to the outside world
-func (c *Client) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error) {
+func (c *Client) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
 	// TODO the returned sendStream may return a read error created by the remote side
-	res, streamCopier, err := c.dataClient.ReqSend(ctx, r)
+	res, stream, err := c.dataClient.ReqSend(ctx, r)
 	if err != nil {
 		return nil, nil, err
 	}
-	if streamCopier == nil {
+	if stream == nil {
 		return res, nil, nil
 	}
 
-	return res, streamCopier, nil
+	return res, stream, nil
 
 }
 
-func (c *Client) Receive(ctx context.Context, req *pdu.ReceiveReq, streamCopier zfs.StreamCopier) (*pdu.ReceiveRes, error) {
-	return c.dataClient.ReqRecv(ctx, req, streamCopier)
+func (c *Client) Receive(ctx context.Context, req *pdu.ReceiveReq, stream io.ReadCloser) (*pdu.ReceiveRes, error) {
+	return c.dataClient.ReqRecv(ctx, req, stream)
 }
 
 func (c *Client) ListFilesystems(ctx context.Context, in *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error) {

@@ -14,7 +14,6 @@ import (
 
 	"github.com/zrepl/zrepl/rpc/dataconn/heartbeatconn"
 	"github.com/zrepl/zrepl/rpc/dataconn/timeoutconn"
-	"github.com/zrepl/zrepl/zfs"
 )
 
 type Conn struct {
@@ -40,15 +39,7 @@ type Conn struct {
 
 var readMessageSentinel = fmt.Errorf("read stream complete")
 
-type writeStreamToErrorUnknownState struct{}
-
-func (e writeStreamToErrorUnknownState) Error() string {
-	return "dataconn read stream: connection is in unknown state"
-}
-
-func (e writeStreamToErrorUnknownState) IsReadError() bool { return true }
-
-func (e writeStreamToErrorUnknownState) IsWriteError() bool { return false }
+var errWriteStreamToErrorUnknownState = fmt.Errorf("dataconn read stream: connection is in unknown state")
 
 func Wrap(nc timeoutconn.Wire, sendHeartbeatInterval, peerTimeout time.Duration) *Conn {
 	hc := heartbeatconn.Wrap(nc, sendHeartbeatInterval, peerTimeout)
@@ -123,14 +114,28 @@ func (c *Conn) ReadStreamedMessage(ctx context.Context, maxSize uint32, frameTyp
 	}
 }
 
+type StreamReader struct {
+	*io.PipeReader
+	conn             *Conn
+	closeConnOnClose bool
+}
+
+func (r *StreamReader) Close() error {
+	err := r.PipeReader.Close()
+	if r.closeConnOnClose {
+		r.conn.Close() // TODO error logging
+	}
+	return err
+}
+
 // WriteStreamTo reads a stream from Conn and writes it to w.
-func (c *Conn) ReadStreamInto(w io.Writer, frameType uint32) (err zfs.StreamCopierError) {
+func (c *Conn) ReadStream(frameType uint32, closeConnOnClose bool) (_ *StreamReader, err error) {
 
 	// if we are closed while writing, return that as an error
 	if closeGuard, cse := c.closeState.RWEntry(); cse != nil {
-		return cse
+		return nil, cse
 	} else {
-		defer func(err *zfs.StreamCopierError) {
+		defer func(err *error) {
 			if closed := closeGuard.RWExit(); closed != nil {
 				*err = closed
 			}
@@ -138,18 +143,23 @@ func (c *Conn) ReadStreamInto(w io.Writer, frameType uint32) (err zfs.StreamCopi
 	}
 
 	c.readMtx.Lock()
-	defer c.readMtx.Unlock()
 	if !c.readClean {
-		return writeStreamToErrorUnknownState{}
+		return nil, errWriteStreamToErrorUnknownState
 	}
-	var rse *ReadStreamError = readStream(c.frameReads, c.hc, w, frameType)
-	c.readClean = isConnCleanAfterRead(rse)
 
-	// https://golang.org/doc/faq#nil_error
-	if rse == nil {
-		return nil
-	}
-	return rse
+	r, w := io.Pipe()
+	go func() {
+		defer c.readMtx.Unlock()
+		var err *ReadStreamError = readStream(c.frameReads, c.hc, w, frameType)
+		if err != nil {
+			_ = w.CloseWithError(err) // doc guarantees that error will always be nil
+		} else {
+			w.Close()
+		}
+		c.readClean = isConnCleanAfterRead(err)
+	}()
+
+	return &StreamReader{PipeReader: r, conn: c, closeConnOnClose: closeConnOnClose}, nil
 }
 
 func (c *Conn) WriteStreamedMessage(ctx context.Context, buf io.Reader, frameType uint32) (err error) {
@@ -178,7 +188,7 @@ func (c *Conn) WriteStreamedMessage(ctx context.Context, buf io.Reader, frameTyp
 	return errConn
 }
 
-func (c *Conn) SendStream(ctx context.Context, src zfs.StreamCopier, frameType uint32) (err error) {
+func (c *Conn) SendStream(ctx context.Context, stream io.ReadCloser, frameType uint32) (err error) {
 
 	// if we are closed while reading, return that as an error
 	if closeGuard, cse := c.closeState.RWEntry(); cse != nil {
@@ -197,49 +207,17 @@ func (c *Conn) SendStream(ctx context.Context, src zfs.StreamCopier, frameType u
 		return fmt.Errorf("dataconn send stream: connection is in unknown state")
 	}
 
-	// avoid io.Pipe if zfs.StreamCopier is an io.Reader
-	var r io.Reader
-	var w *io.PipeWriter
-	streamCopierErrChan := make(chan zfs.StreamCopierError, 1)
-	if reader, ok := src.(io.Reader); ok {
-		r = reader
-		streamCopierErrChan <- nil
-		close(streamCopierErrChan)
-	} else {
-		r, w = io.Pipe()
-		go func() {
-			streamCopierErrChan <- src.WriteStreamTo(w)
-			w.Close()
-		}()
-	}
+	errStream, errConn := writeStream(ctx, c.hc, stream, frameType)
 
-	type writeStreamRes struct {
-		errStream, errConn error
-	}
-	writeStreamErrChan := make(chan writeStreamRes, 1)
-	go func() {
-		var res writeStreamRes
-		res.errStream, res.errConn = writeStream(ctx, c.hc, r, frameType)
-		if w != nil {
-			_ = w.CloseWithError(res.errStream) // always returns nil
-		}
-		writeStreamErrChan <- res
-	}()
+	c.writeClean = isConnCleanAfterWrite(errConn) // TODO correct?
 
-	writeRes := <-writeStreamErrChan
-	streamCopierErr := <-streamCopierErrChan
-	c.writeClean = isConnCleanAfterWrite(writeRes.errConn) // TODO correct?
-	if streamCopierErr != nil && streamCopierErr.IsReadError() {
-		return streamCopierErr // something on our side is bad
-	} else {
-		if writeRes.errStream != nil {
-			return writeRes.errStream
-		} else if writeRes.errConn != nil {
-			return writeRes.errConn
-		}
-		// TODO combined error?
-		return streamCopierErr
+	if errStream != nil {
+		return errStream
+	} else if errConn != nil {
+		return errConn
 	}
+	// TODO combined error?
+	return nil
 }
 
 type closeState struct {
@@ -248,17 +226,13 @@ type closeState struct {
 
 type closeStateErrConnectionClosed struct{}
 
-var _ zfs.StreamCopierError = (*closeStateErrConnectionClosed)(nil)
-var _ error = (*closeStateErrConnectionClosed)(nil)
 var _ net.Error = (*closeStateErrConnectionClosed)(nil)
 
 func (e *closeStateErrConnectionClosed) Error() string {
 	return "connection closed"
 }
-func (e *closeStateErrConnectionClosed) IsReadError() bool  { return true }
-func (e *closeStateErrConnectionClosed) IsWriteError() bool { return true }
-func (e *closeStateErrConnectionClosed) Timeout() bool      { return false }
-func (e *closeStateErrConnectionClosed) Temporary() bool    { return false }
+func (e *closeStateErrConnectionClosed) Timeout() bool   { return false }
+func (e *closeStateErrConnectionClosed) Temporary() bool { return false }
 
 func (s *closeState) CloseEntry() error {
 	firstCloser := atomic.AddUint32(&s.closeCount, 1) == 1
@@ -273,7 +247,7 @@ type closeStateEntry struct {
 	entryCount uint32
 }
 
-func (s *closeState) RWEntry() (e *closeStateEntry, err zfs.StreamCopierError) {
+func (s *closeState) RWEntry() (e *closeStateEntry, err net.Error) {
 	entry := &closeStateEntry{s, atomic.LoadUint32(&s.closeCount)}
 	if entry.entryCount > 0 {
 		return nil, &closeStateErrConnectionClosed{}
@@ -281,7 +255,7 @@ func (s *closeState) RWEntry() (e *closeStateEntry, err zfs.StreamCopierError) {
 	return entry, nil
 }
 
-func (e *closeStateEntry) RWExit() zfs.StreamCopierError {
+func (e *closeStateEntry) RWExit() net.Error {
 	if atomic.LoadUint32(&e.entryCount) == e.entryCount {
 		// no calls to Close() while running rw operation
 		return nil

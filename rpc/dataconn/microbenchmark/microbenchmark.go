@@ -29,7 +29,6 @@ import (
 	"github.com/zrepl/zrepl/rpc/dataconn/timeoutconn"
 	"github.com/zrepl/zrepl/transport"
 	"github.com/zrepl/zrepl/util/devnoop"
-	"github.com/zrepl/zrepl/zfs"
 )
 
 func orDie(err error) {
@@ -42,23 +41,9 @@ type readerStreamCopier struct{ io.Reader }
 
 func (readerStreamCopier) Close() error { return nil }
 
-type readerStreamCopierErr struct {
-	error
-}
-
-func (readerStreamCopierErr) IsReadError() bool  { return false }
-func (readerStreamCopierErr) IsWriteError() bool { return true }
-
-func (c readerStreamCopier) WriteStreamTo(w io.Writer) zfs.StreamCopierError {
-	var buf [1 << 21]byte
-	_, err := io.CopyBuffer(w, c.Reader, buf[:])
-	// always assume write error
-	return readerStreamCopierErr{err}
-}
-
 type devNullHandler struct{}
 
-func (devNullHandler) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error) {
+func (devNullHandler) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
 	var res pdu.SendRes
 	if args.devnoopReader {
 		return &res, readerStreamCopier{devnoop.Get()}, nil
@@ -67,12 +52,12 @@ func (devNullHandler) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, z
 	}
 }
 
-func (devNullHandler) Receive(ctx context.Context, r *pdu.ReceiveReq, stream zfs.StreamCopier) (*pdu.ReceiveRes, error) {
+func (devNullHandler) Receive(ctx context.Context, r *pdu.ReceiveReq, stream io.ReadCloser) (*pdu.ReceiveRes, error) {
 	var out io.Writer = os.Stdout
 	if args.devnoopWriter {
 		out = devnoop.Get()
 	}
-	err := stream.WriteStreamTo(out)
+	_, err := io.Copy(out, stream)
 	var res pdu.ReceiveRes
 	return &res, err
 }
@@ -172,7 +157,7 @@ func client() {
 		req := pdu.SendReq{}
 		_, stream, err := client.ReqSend(ctx, &req)
 		orDie(err)
-		err = stream.WriteStreamTo(os.Stdout)
+		_, err = io.Copy(os.Stdout, stream)
 		orDie(err)
 	case "recv":
 		var r io.Reader = os.Stdin
