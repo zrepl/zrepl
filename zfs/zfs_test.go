@@ -2,9 +2,11 @@ package zfs
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestZFSListHandlesProducesZFSErrorOnNonZeroExit(t *testing.T) {
@@ -258,4 +260,13 @@ size	10518512
 
 		})
 	}
+}
+
+func TestTryRecvDestroyOrOverwriteEncryptedErr(t *testing.T) {
+	msg := "cannot receive new filesystem stream: zfs receive -F cannot be used to destroy an encrypted filesystem or overwrite an unencrypted one with an encrypted one\n"
+	assert.GreaterOrEqual(t, RecvStderrBufSiz, len(msg))
+
+	err := tryRecvDestroyOrOverwriteEncryptedErr([]byte(msg))
+	require.NotNil(t, err)
+	assert.EqualError(t, err, strings.TrimSpace(msg))
 }

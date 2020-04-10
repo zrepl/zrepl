@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -38,7 +39,7 @@ type Sender interface {
 	// If a non-nil io.ReadCloser is returned, it is guaranteed to be closed before
 	// any next call to the parent github.com/zrepl/zrepl/replication.Endpoint.
 	// If the send request is for dry run the io.ReadCloser will be nil
-	Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error)
+	Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error)
 	SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*pdu.SendCompletedRes, error)
 	ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error)
 }
@@ -47,7 +48,7 @@ type Receiver interface {
 	Endpoint
 	// Receive sends r and sendStream (the latter containing a ZFS send stream)
 	// to the parent github.com/zrepl/zrepl/replication.Endpoint.
-	Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs.StreamCopier) (*pdu.ReceiveRes, error)
+	Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.ReadCloser) (*pdu.ReceiveRes, error)
 }
 
 type PlannerPolicy struct {
@@ -162,7 +163,7 @@ type Step struct {
 
 	// byteCounter is nil initially, and set later in Step.doReplication
 	// => concurrent read of that pointer from Step.ReportInfo must be protected
-	byteCounter    bytecounter.StreamCopier
+	byteCounter    bytecounter.ReadCloser
 	byteCounterMtx chainlock.L
 }
 
@@ -606,19 +607,19 @@ func (s *Step) doReplication(ctx context.Context) error {
 	sr := s.buildSendRequest(false)
 
 	log.Debug("initiate send request")
-	sres, sstreamCopier, err := s.sender.Send(ctx, sr)
+	sres, stream, err := s.sender.Send(ctx, sr)
 	if err != nil {
 		log.WithError(err).Error("send request failed")
 		return err
 	}
-	if sstreamCopier == nil {
+	if stream == nil {
 		err := errors.New("send request did not return a stream, broken endpoint implementation")
 		return err
 	}
-	defer sstreamCopier.Close()
+	defer stream.Close()
 
 	// Install a byte counter to track progress + for status report
-	byteCountingStream := bytecounter.NewStreamCopier(sstreamCopier)
+	byteCountingStream := bytecounter.NewReadCloser(stream)
 	s.byteCounterMtx.Lock()
 	s.byteCounter = byteCountingStream
 	s.byteCounterMtx.Unlock()

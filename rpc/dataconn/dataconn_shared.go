@@ -1,12 +1,7 @@
 package dataconn
 
 import (
-	"io"
-	"sync"
 	"time"
-
-	"github.com/zrepl/zrepl/rpc/dataconn/stream"
-	"github.com/zrepl/zrepl/zfs"
 )
 
 const (
@@ -39,33 +34,3 @@ const (
 	responseHeaderHandlerOk          = "HANDLER OK\n"
 	responseHeaderHandlerErrorPrefix = "HANDLER ERROR:\n"
 )
-
-type streamCopier struct {
-	mtx                sync.Mutex
-	used               bool
-	streamConn         *stream.Conn
-	closeStreamOnClose bool
-}
-
-// WriteStreamTo implements zfs.StreamCopier
-func (s *streamCopier) WriteStreamTo(w io.Writer) zfs.StreamCopierError {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-	if s.used {
-		panic("streamCopier used multiple times")
-	}
-	s.used = true
-	return s.streamConn.ReadStreamInto(w, ZFSStream)
-}
-
-// Close implements zfs.StreamCopier
-func (s *streamCopier) Close() error {
-	// only record the close here, what we do actually depends on whether
-	// the streamCopier is instantiated server-side or client-side
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-	if s.closeStreamOnClose {
-		return s.streamConn.Close()
-	}
-	return nil
-}

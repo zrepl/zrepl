@@ -5,11 +5,14 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zrepl/zrepl/util/circlog"
 )
 
 const testBin = "./zfscmd_platform_test.bash"
@@ -85,5 +88,37 @@ func TestCmdProcessState(t *testing.T) {
 	require.True(t, ok)
 	require.NotNil(t, ee.ProcessState)
 	require.Contains(t, ee.Error(), "killed")
+}
+
+func TestSigpipe(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := CommandContext(ctx, "bash", "-c", "sleep 5; echo invalid input; exit 23")
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	output := circlog.MustNewCircularLog(1 << 20)
+	cmd.SetStdio(Stdio{
+		Stdin:  r,
+		Stdout: output,
+		Stderr: output,
+	})
+	err = cmd.Start()
+	require.NoError(t, err)
+	err = r.Close()
+	require.NoError(t, err)
+
+	// the script doesn't read stdin, but this input is almost certainly smaller than the pipe buffer
+	const LargerThanPipeBuffer = 1 << 21
+	_, err = io.Copy(w, bytes.NewBuffer(bytes.Repeat([]byte("i"), LargerThanPipeBuffer)))
+	// => io.Copy is going to block because the pipe buffer is full and the
+	//    script is not reading from it
+	// => the script is going to exit after 5s
+	// => we should expect a broken pipe error from the copier's perspective
+	t.Logf("copy err = %T: %s", err, err)
+	require.NotNil(t, err)
+	require.True(t, strings.Contains(err.Error(), "broken pipe"))
+
+	err = cmd.Wait()
+	require.EqualError(t, err, "exit status 23")
 
 }

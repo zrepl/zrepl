@@ -4,6 +4,7 @@ package endpoint
 import (
 	"context"
 	"fmt"
+	"io"
 	"path"
 	"sync"
 
@@ -241,7 +242,7 @@ func sendArgsFromPDUAndValidateExistsAndGetVersion(ctx context.Context, fs strin
 	return version, nil
 }
 
-func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error) {
+func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
 
 	_, err := s.filterCheckFS(r.Filesystem)
 	if err != nil {
@@ -339,11 +340,11 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.St
 
 	// step holds & replication cursor released / moved forward in s.SendCompleted => s.moveCursorAndReleaseSendHolds
 
-	streamCopier, err := zfs.ZFSSend(ctx, sendArgs)
+	sendStream, err := zfs.ZFSSend(ctx, sendArgs)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "zfs send failed")
 	}
-	return res, streamCopier, nil
+	return res, sendStream, nil
 }
 
 func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*pdu.SendCompletedRes, error) {
@@ -476,7 +477,7 @@ func (p *Sender) ReplicationCursor(ctx context.Context, req *pdu.ReplicationCurs
 	return &pdu.ReplicationCursorRes{Result: &pdu.ReplicationCursorRes_Guid{Guid: cursor.Guid}}, nil
 }
 
-func (p *Sender) Receive(ctx context.Context, r *pdu.ReceiveReq, receive zfs.StreamCopier) (*pdu.ReceiveRes, error) {
+func (p *Sender) Receive(ctx context.Context, r *pdu.ReceiveReq, _ io.ReadCloser) (*pdu.ReceiveRes, error) {
 	return nil, fmt.Errorf("sender does not implement Receive()")
 }
 
@@ -680,13 +681,13 @@ func (s *Receiver) ReplicationCursor(context.Context, *pdu.ReplicationCursorReq)
 	return nil, fmt.Errorf("ReplicationCursor not implemented for Receiver")
 }
 
-func (s *Receiver) Send(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error) {
+func (s *Receiver) Send(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
 	return nil, nil, fmt.Errorf("receiver does not implement Send()")
 }
 
 var maxConcurrentZFSRecvSemaphore = semaphore.New(envconst.Int64("ZREPL_ENDPOINT_MAX_CONCURRENT_RECV", 10))
 
-func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive zfs.StreamCopier) (*pdu.ReceiveRes, error) {
+func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.ReadCloser) (*pdu.ReceiveRes, error) {
 	getLogger(ctx).Debug("incoming Receive")
 	defer receive.Close()
 

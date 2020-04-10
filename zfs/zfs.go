@@ -354,63 +354,6 @@ func (a ZFSSendArgsUnvalidated) buildCommonSendArgs() ([]string, error) {
 	return args, nil
 }
 
-type ReadCloserCopier struct {
-	recorder readErrRecorder
-}
-
-type readErrRecorder struct {
-	io.ReadCloser
-	readErr error
-}
-
-type sendStreamCopierError struct {
-	isReadErr bool // if false, it's a write error
-	err       error
-}
-
-func (e sendStreamCopierError) Error() string {
-	if e.isReadErr {
-		return fmt.Sprintf("stream: read error: %s", e.err)
-	} else {
-		return fmt.Sprintf("stream: writer error: %s", e.err)
-	}
-}
-
-func (e sendStreamCopierError) IsReadError() bool  { return e.isReadErr }
-func (e sendStreamCopierError) IsWriteError() bool { return !e.isReadErr }
-
-func (r *readErrRecorder) Read(p []byte) (n int, err error) {
-	n, err = r.ReadCloser.Read(p)
-	r.readErr = err
-	return n, err
-}
-
-func NewReadCloserCopier(stream io.ReadCloser) *ReadCloserCopier {
-	return &ReadCloserCopier{recorder: readErrRecorder{stream, nil}}
-}
-
-func (c *ReadCloserCopier) WriteStreamTo(w io.Writer) StreamCopierError {
-	debug("sendStreamCopier.WriteStreamTo: begin")
-	_, err := io.Copy(w, &c.recorder)
-	debug("sendStreamCopier.WriteStreamTo: copy done")
-	if err != nil {
-		if c.recorder.readErr != nil {
-			return sendStreamCopierError{isReadErr: true, err: c.recorder.readErr}
-		} else {
-			return sendStreamCopierError{isReadErr: false, err: err}
-		}
-	}
-	return nil
-}
-
-func (c *ReadCloserCopier) Read(p []byte) (n int, err error) {
-	return c.recorder.Read(p)
-}
-
-func (c *ReadCloserCopier) Close() error {
-	return c.recorder.ReadCloser.Close()
-}
-
 func pipeWithCapacityHint(capacity int) (r, w *os.File, err error) {
 	if capacity <= 0 {
 		panic(fmt.Sprintf("capacity must be positive %v", capacity))
@@ -423,7 +366,7 @@ func pipeWithCapacityHint(capacity int) (r, w *os.File, err error) {
 	return stdoutReader, stdoutWriter, nil
 }
 
-type sendStream struct {
+type SendStream struct {
 	cmd  *zfscmd.Cmd
 	kill context.CancelFunc
 
@@ -433,7 +376,7 @@ type sendStream struct {
 	opErr        error
 }
 
-func (s *sendStream) Read(p []byte) (n int, err error) {
+func (s *SendStream) Read(p []byte) (n int, err error) {
 	s.closeMtx.Lock()
 	opErr := s.opErr
 	s.closeMtx.Unlock()
@@ -454,12 +397,12 @@ func (s *sendStream) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
-func (s *sendStream) Close() error {
+func (s *SendStream) Close() error {
 	debug("sendStream: close called")
 	return s.killAndWait(nil)
 }
 
-func (s *sendStream) killAndWait(precedingReadErr error) error {
+func (s *SendStream) killAndWait(precedingReadErr error) error {
 
 	debug("sendStream: killAndWait enter")
 	defer debug("sendStream: killAndWait leave")
@@ -830,7 +773,7 @@ var ErrEncryptedSendNotSupported = fmt.Errorf("raw sends which are required for 
 // (if from is "" a full ZFS send is done)
 //
 // Returns ErrEncryptedSendNotSupported if encrypted send is requested but not supported by CLI
-func ZFSSend(ctx context.Context, sendArgs ZFSSendArgsValidated) (*ReadCloserCopier, error) {
+func ZFSSend(ctx context.Context, sendArgs ZFSSendArgsValidated) (*SendStream, error) {
 
 	args := make([]string, 0)
 	args = append(args, "send")
@@ -879,14 +822,14 @@ func ZFSSend(ctx context.Context, sendArgs ZFSSendArgsValidated) (*ReadCloserCop
 	// close our writing-end of the pipe so that we don't wait for ourselves when reading from the reading  end
 	stdoutWriter.Close()
 
-	stream := &sendStream{
+	stream := &SendStream{
 		cmd:          cmd,
 		kill:         cancel,
 		stdoutReader: stdoutReader,
 		stderrBuf:    stderrBuf,
 	}
 
-	return NewReadCloserCopier(stream), nil
+	return stream, nil
 }
 
 type DrySendType string
@@ -1025,24 +968,6 @@ func ZFSSendDry(ctx context.Context, sendArgs ZFSSendArgsValidated) (_ *DrySendI
 	return &si, nil
 }
 
-type StreamCopierError interface {
-	error
-	IsReadError() bool
-	IsWriteError() bool
-}
-
-type StreamCopier interface {
-	// WriteStreamTo writes the stream represented by this StreamCopier
-	// to the given io.Writer.
-	WriteStreamTo(w io.Writer) StreamCopierError
-	// Close must be called as soon as it is clear that no more data will
-	// be read from the StreamCopier.
-	// If StreamCopier gets its data from a connection, it might hold
-	// a lock on the connection until Close is called. Only closing ensures
-	// that the connection can be used afterwards.
-	Close() error
-}
-
 type RecvOptions struct {
 	// Rollback to the oldest snapshot, destroy it, then perform `recv -F`.
 	// Note that this doesn't change property values, i.e. an existing local property value will be kept.
@@ -1067,7 +992,9 @@ func (e *ErrRecvResumeNotSupported) Error() string {
 	return buf.String()
 }
 
-func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, streamCopier StreamCopier, opts RecvOptions) (err error) {
+const RecvStderrBufSiz = 1 << 15
+
+func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, stream io.ReadCloser, opts RecvOptions) (err error) {
 
 	if err := v.ValidateInMemory(fs); err != nil {
 		return errors.Wrap(err, "invalid version")
@@ -1134,7 +1061,7 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, streamCopier 
 	//   cannot receive new filesystem stream: invalid backup stream
 	stdout := bytes.NewBuffer(make([]byte, 0, 1024))
 
-	stderr := bytes.NewBuffer(make([]byte, 0, 1024))
+	stderr := bytes.NewBuffer(make([]byte, 0, RecvStderrBufSiz))
 
 	stdin, stdinWriter, err := pipeWithCapacityHint(ZFSRecvPipeCapacityHint)
 	if err != nil {
@@ -1162,9 +1089,10 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, streamCopier 
 
 	debug("started")
 
-	copierErrChan := make(chan StreamCopierError)
+	copierErrChan := make(chan error)
 	go func() {
-		copierErrChan <- streamCopier.WriteStreamTo(stdinWriter)
+		_, err := io.Copy(stdinWriter, stream)
+		copierErrChan <- err
 		stdinWriter.Close()
 	}()
 	waitErrChan := make(chan error)
@@ -1173,6 +1101,10 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, streamCopier 
 		if err = cmd.Wait(); err != nil {
 			if rtErr := tryRecvErrorWithResumeToken(ctx, stderr.String()); rtErr != nil {
 				waitErrChan <- rtErr
+			} else if owErr := tryRecvDestroyOrOverwriteEncryptedErr(stderr.Bytes()); owErr != nil {
+				waitErrChan <- owErr
+			} else if readErr := tryRecvCannotReadFromStreamErr(stderr.Bytes()); readErr != nil {
+				waitErrChan <- readErr
 			} else {
 				waitErrChan <- &ZFSError{
 					Stderr:  stderr.Bytes(),
@@ -1183,22 +1115,23 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, streamCopier 
 		}
 	}()
 
-	// streamCopier always fails before or simultaneously with Wait
-	// thus receive from it first
 	copierErr := <-copierErrChan
 	debug("copierErr: %T %s", copierErr, copierErr)
 	if copierErr != nil {
+		debug("killing zfs recv command after copierErr")
 		cancelCmd()
 	}
 
 	waitErr := <-waitErrChan
 	debug("waitErr: %T %s", waitErr, waitErr)
+
 	if copierErr == nil && waitErr == nil {
 		return nil
-	} else if waitErr != nil && (copierErr == nil || copierErr.IsWriteError()) {
-		return waitErr // has more interesting info in that case
+	} else if _, isReadErr := waitErr.(*RecvCannotReadFromStreamErr); isReadErr {
+		return copierErr // likely network error reading from stream
+	} else {
+		return waitErr // almost always more interesting info. NOTE: do not wrap!
 	}
-	return copierErr // if it's not a write error, the copier error is more interesting
 }
 
 type RecvFailedWithResumeTokenErr struct {
@@ -1226,6 +1159,43 @@ func tryRecvErrorWithResumeToken(ctx context.Context, stderr string) *RecvFailed
 
 func (e *RecvFailedWithResumeTokenErr) Error() string {
 	return fmt.Sprintf("receive failed, resume token available: %s\n%#v", e.ResumeTokenRaw, e.ResumeTokenParsed)
+}
+
+type RecvDestroyOrOverwriteEncryptedErr struct {
+	Msg string
+}
+
+func (e *RecvDestroyOrOverwriteEncryptedErr) Error() string {
+	return e.Msg
+}
+
+var recvDestroyOrOverwriteEncryptedErrRe = regexp.MustCompile(`^(cannot receive new filesystem stream: zfs receive -F cannot be used to destroy an encrypted filesystem or overwrite an unencrypted one with an encrypted one)`)
+
+func tryRecvDestroyOrOverwriteEncryptedErr(stderr []byte) *RecvDestroyOrOverwriteEncryptedErr {
+	debug("tryRecvDestroyOrOverwriteEncryptedErr: %v", stderr)
+	m := recvDestroyOrOverwriteEncryptedErrRe.FindSubmatch(stderr)
+	if m == nil {
+		return nil
+	}
+	return &RecvDestroyOrOverwriteEncryptedErr{Msg: string(m[1])}
+}
+
+type RecvCannotReadFromStreamErr struct {
+	Msg string
+}
+
+func (e *RecvCannotReadFromStreamErr) Error() string {
+	return e.Msg
+}
+
+var reRecvCannotReadFromStreamErr = regexp.MustCompile(`^(cannot receive: failed to read from stream)$`)
+
+func tryRecvCannotReadFromStreamErr(stderr []byte) *RecvCannotReadFromStreamErr {
+	m := reRecvCannotReadFromStreamErr.FindSubmatch(stderr)
+	if m == nil {
+		return nil
+	}
+	return &RecvCannotReadFromStreamErr{Msg: string(m[1])}
 }
 
 type ClearResumeTokenError struct {

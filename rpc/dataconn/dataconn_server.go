@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/golang/protobuf/proto"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn/stream"
 	"github.com/zrepl/zrepl/transport"
-	"github.com/zrepl/zrepl/zfs"
 )
 
 // WireInterceptor has a chance to exchange the context and connection on each client connection.
@@ -21,11 +21,11 @@ type WireInterceptor func(ctx context.Context, rawConn *transport.AuthConn) (con
 type Handler interface {
 	// Send handles a SendRequest.
 	// The returned io.ReadCloser is allowed to be nil, for example if the requested Send is a dry-run.
-	Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, zfs.StreamCopier, error)
+	Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error)
 	// Receive handles a ReceiveRequest.
 	// It is guaranteed that Server calls Receive with a stream that holds the IdleConnTimeout
 	// configured in ServerConfig.Shared.IdleConnTimeout.
-	Receive(ctx context.Context, r *pdu.ReceiveReq, receive zfs.StreamCopier) (*pdu.ReceiveRes, error)
+	Receive(ctx context.Context, r *pdu.ReceiveReq, receive io.ReadCloser) (*pdu.ReceiveRes, error)
 	// PingDataconn handles a PingReq
 	PingDataconn(ctx context.Context, r *pdu.PingReq) (*pdu.PingRes, error)
 }
@@ -111,7 +111,7 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 	s.log.WithField("endpoint", endpoint).Debug("calling handler")
 
 	var res proto.Message
-	var sendStream zfs.StreamCopier
+	var sendStream io.ReadCloser
 	var handlerErr error
 	switch endpoint {
 	case EndpointSend:
@@ -127,7 +127,12 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 			s.log.WithError(err).Error("cannot unmarshal receive request")
 			return
 		}
-		res, handlerErr = s.h.Receive(ctx, &req, &streamCopier{streamConn: c, closeStreamOnClose: false}) // SHADOWING
+		stream, err := c.ReadStream(ZFSStream, false)
+		if err != nil {
+			s.log.WithError(err).Error("cannot open stream in receive request")
+			return
+		}
+		res, handlerErr = s.h.Receive(ctx, &req, stream) // SHADOWING
 	case EndpointPing:
 		var req pdu.PingReq
 		if err := proto.Unmarshal(reqStructured, &req); err != nil {
