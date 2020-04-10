@@ -2,10 +2,12 @@
 package endpoint
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"path"
+	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -822,13 +824,33 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.
 		// best-effort rollback of placeholder state if the recv didn't start
 		_, resumableStatePresent := err.(*zfs.RecvFailedWithResumeTokenErr)
 		disablePlaceholderRestoration := envconst.Bool("ZREPL_ENDPOINT_DISABLE_PLACEHOLDER_RESTORATION", false)
+		placeholderRestored := !ph.IsPlaceholder
 		if !disablePlaceholderRestoration && !resumableStatePresent && recvOpts.RollbackAndForceRecv && ph.FSExists && ph.IsPlaceholder && clearPlaceholderProperty {
 			log.Info("restoring placeholder property")
 			if phErr := zfs.ZFSSetPlaceholder(ctx, lp, true); phErr != nil {
 				log.WithError(phErr).Error("cannot restore placeholder property after failed receive, subsequent replications will likely fail with a different error")
 				// fallthrough
+			} else {
+				placeholderRestored = true
 			}
 			// fallthrough
+		}
+
+		// deal with failing initial encrypted send & recv
+		if _, ok := err.(*zfs.RecvDestroyOrOverwriteEncryptedErr); ok && ph.IsPlaceholder && placeholderRestored {
+			msg := `cannot replace placeholder filesystem with incoming send stream: OpenZFS does not support replacing encrypted filesystems using zfs receive -F`
+			long := `
+			It is very likely that you are encountering this error because you changed the sending job's list of filesystems.
+			Replication should start working again once you change those settings back to what they were before.
+			You can learn more about zrepl's placeholder filesystems at https://zrepl.github.io/configuration/overview.html#replication-placeholder-property
+			If you would like to see improvements to this situation, please open an issue at https://github.com/zrepl/zrepl/issues , citing the previous error messages
+			`
+			log.Error(msg)
+			s := bufio.NewScanner(strings.NewReader(long))
+			for s.Scan() {
+				log.Error(strings.TrimSpace(s.Text()))
+			}
+			return nil, errors.New(msg)
 		}
 
 		return nil, err
