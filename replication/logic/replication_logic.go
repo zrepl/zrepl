@@ -602,7 +602,7 @@ func (s *Step) doReplication(ctx context.Context) error {
 
 	fs := s.parent.Path
 
-	log := getLogger(ctx)
+	log := getLogger(ctx).WithField("filesystem", fs)
 	sr := s.buildSendRequest(false)
 
 	log.Debug("initiate send request")
