@@ -143,7 +143,6 @@ func (c *Client) ReqSend(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, i
 }
 
 func (c *Client) ReqRecv(ctx context.Context, req *pdu.ReceiveReq, stream io.ReadCloser) (*pdu.ReceiveRes, error) {
-
 	defer c.log.Debug("ReqRecv returns")
 	conn, err := c.getWire(ctx)
 	if err != nil {

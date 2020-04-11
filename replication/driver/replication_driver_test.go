@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/replication/report"
 
 	"github.com/stretchr/testify/assert"
@@ -149,6 +150,7 @@ func (f *mockStep) ReportInfo() *report.StepInfo {
 func TestReplication(t *testing.T) {
 
 	ctx := context.Background()
+	defer logging.WithTaskFromStackUpdateCtx(&ctx)()
 
 	mp := &mockPlanner{}
 	getReport, wait := Do(ctx, mp)

@@ -2,6 +2,7 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -89,15 +90,18 @@ func (j *SnapJob) OwnedDatasetSubtreeRoot() (rfs *zfs.DatasetPath, ok bool) {
 func (j *SnapJob) SenderConfig() *endpoint.SenderConfig { return nil }
 
 func (j *SnapJob) Run(ctx context.Context) {
+	ctx, endTask := logging.WithTaskAndSpan(ctx, "snap-job", j.Name())
+	defer endTask()
 	log := GetLogger(ctx)
-	ctx = logging.WithSubsystemLoggers(ctx, log)
 
 	defer log.Info("job exiting")
 
 	periodicDone := make(chan struct{})
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go j.snapper.Run(ctx, periodicDone)
+	periodicCtx, endTask := logging.WithTask(ctx, "snapshotting")
+	defer endTask()
+	go j.snapper.Run(periodicCtx, periodicDone)
 
 	invocationCount := 0
 outer:
@@ -112,8 +116,10 @@ outer:
 		case <-periodicDone:
 		}
 		invocationCount++
-		invLog := log.WithField("invocation", invocationCount)
-		j.doPrune(WithLogger(ctx, invLog))
+
+		invocationCtx, endSpan := logging.WithSpan(ctx, fmt.Sprintf("invocation-%d", invocationCount))
+		j.doPrune(invocationCtx)
+		endSpan()
 	}
 }
 
@@ -161,8 +167,9 @@ func (h alwaysUpToDateReplicationCursorHistory) ListFilesystems(ctx context.Cont
 }
 
 func (j *SnapJob) doPrune(ctx context.Context) {
+	ctx, endSpan := logging.WithSpan(ctx, "snap-job-do-prune")
+	defer endSpan()
 	log := GetLogger(ctx)
-	ctx = logging.WithSubsystemLoggers(ctx, log)
 	sender := endpoint.NewSender(endpoint.SenderConfig{
 		JobID: j.name,
 		FSF:   j.fsfilter,

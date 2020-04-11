@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/replication/logic"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn"
@@ -83,6 +84,9 @@ func (c *Client) Close() {
 // callers must ensure that the returned io.ReadCloser is closed
 // TODO expose dataClient interface to the outside world
 func (c *Client) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
+	ctx, endSpan := logging.WithSpan(ctx, "rpc.client.Send")
+	defer endSpan()
+
 	// TODO the returned sendStream may return a read error created by the remote side
 	res, stream, err := c.dataClient.ReqSend(ctx, r)
 	if err != nil {
@@ -97,34 +101,58 @@ func (c *Client) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 }
 
 func (c *Client) Receive(ctx context.Context, req *pdu.ReceiveReq, stream io.ReadCloser) (*pdu.ReceiveRes, error) {
+	ctx, endSpan := logging.WithSpan(ctx, "rpc.client.Receive")
+	defer endSpan()
+
 	return c.dataClient.ReqRecv(ctx, req, stream)
 }
 
 func (c *Client) ListFilesystems(ctx context.Context, in *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error) {
+	ctx, endSpan := logging.WithSpan(ctx, "rpc.client.ListFilesystems")
+	defer endSpan()
+
 	return c.controlClient.ListFilesystems(ctx, in)
 }
 
 func (c *Client) ListFilesystemVersions(ctx context.Context, in *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error) {
+	ctx, endSpan := logging.WithSpan(ctx, "rpc.client.ListFilesystemVersions")
+	defer endSpan()
+
 	return c.controlClient.ListFilesystemVersions(ctx, in)
 }
 
 func (c *Client) DestroySnapshots(ctx context.Context, in *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error) {
+	ctx, endSpan := logging.WithSpan(ctx, "rpc.client.DestroySnapshots")
+	defer endSpan()
+
 	return c.controlClient.DestroySnapshots(ctx, in)
 }
 
 func (c *Client) ReplicationCursor(ctx context.Context, in *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
+	ctx, endSpan := logging.WithSpan(ctx, "rpc.client.ReplicationCursor")
+	defer endSpan()
+
 	return c.controlClient.ReplicationCursor(ctx, in)
 }
 
 func (c *Client) SendCompleted(ctx context.Context, in *pdu.SendCompletedReq) (*pdu.SendCompletedRes, error) {
+	ctx, endSpan := logging.WithSpan(ctx, "rpc.client.SendCompleted")
+	defer endSpan()
+
 	return c.controlClient.SendCompleted(ctx, in)
 }
 
 func (c *Client) HintMostRecentCommonAncestor(ctx context.Context, in *pdu.HintMostRecentCommonAncestorReq) (*pdu.HintMostRecentCommonAncestorRes, error) {
+	ctx, endSpan := logging.WithSpan(ctx, "rpc.client.HintMostRecentCommonAncestor")
+	defer endSpan()
+
 	return c.controlClient.HintMostRecentCommonAncestor(ctx, in)
 }
 
 func (c *Client) WaitForConnectivity(ctx context.Context) error {
+	ctx, endSpan := logging.WithSpan(ctx, "rpc.client.WaitForConnectivity")
+	defer endSpan()
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	msg := uuid.New().String()

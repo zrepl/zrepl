@@ -11,18 +11,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/hooks"
-	"github.com/zrepl/zrepl/daemon/pruner"
-	"github.com/zrepl/zrepl/daemon/snapper"
-	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/logger"
-	"github.com/zrepl/zrepl/replication/driver"
-	"github.com/zrepl/zrepl/replication/logic"
-	"github.com/zrepl/zrepl/rpc"
-	"github.com/zrepl/zrepl/rpc/transportmux"
 	"github.com/zrepl/zrepl/tlsconf"
-	"github.com/zrepl/zrepl/transport"
-	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
 func OutletsFromConfig(in config.LoggingOutletEnumList) (*logger.Outlets, error) {
@@ -70,6 +60,8 @@ func OutletsFromConfig(in config.LoggingOutletEnumList) (*logger.Outlets, error)
 type Subsystem string
 
 const (
+	SubsysMeta         Subsystem = "meta"
+	SubsysJob          Subsystem = "job"
 	SubsysReplication  Subsystem = "repl"
 	SubsysEndpoint     Subsystem = "endpoint"
 	SubsysPruning      Subsystem = "pruning"
@@ -83,28 +75,103 @@ const (
 	SubsysZFSCmd       Subsystem = "zfs.cmd"
 )
 
-func WithSubsystemLoggers(ctx context.Context, log logger.Logger) context.Context {
-	ctx = logic.WithLogger(ctx, log.WithField(SubsysField, SubsysReplication))
-	ctx = driver.WithLogger(ctx, log.WithField(SubsysField, SubsysReplication))
-	ctx = endpoint.WithLogger(ctx, log.WithField(SubsysField, SubsysEndpoint))
-	ctx = pruner.WithLogger(ctx, log.WithField(SubsysField, SubsysPruning))
-	ctx = snapper.WithLogger(ctx, log.WithField(SubsysField, SubsysSnapshot))
-	ctx = hooks.WithLogger(ctx, log.WithField(SubsysField, SubsysHooks))
-	ctx = transport.WithLogger(ctx, log.WithField(SubsysField, SubsysTransport))
-	ctx = transportmux.WithLogger(ctx, log.WithField(SubsysField, SubsysTransportMux))
-	ctx = zfscmd.WithLogger(ctx, log.WithField(SubsysField, SubsysZFSCmd))
-	ctx = rpc.WithLoggers(ctx,
-		rpc.Loggers{
-			General: log.WithField(SubsysField, SubsysRPC),
-			Control: log.WithField(SubsysField, SubsysRPCControl),
-			Data:    log.WithField(SubsysField, SubsysRPCData),
-		},
-	)
-	return ctx
+var AllSubsystems = []Subsystem{
+	SubsysMeta,
+	SubsysJob,
+	SubsysReplication,
+	SubsysEndpoint,
+	SubsysPruning,
+	SubsysSnapshot,
+	SubsysHooks,
+	SubsysTransport,
+	SubsysTransportMux,
+	SubsysRPC,
+	SubsysRPCControl,
+	SubsysRPCData,
+	SubsysZFSCmd,
 }
 
-func LogSubsystem(log logger.Logger, subsys Subsystem) logger.Logger {
-	return log.ReplaceField(SubsysField, subsys)
+type injectedField struct {
+	field  string
+	value  interface{}
+	parent *injectedField
+}
+
+func WithInjectedField(ctx context.Context, field string, value interface{}) context.Context {
+	var parent *injectedField
+	parentI := ctx.Value(contextKeyInjectedField)
+	if parentI != nil {
+		parent = parentI.(*injectedField)
+	}
+	// TODO sanity-check `field` now
+	this := &injectedField{field, value, parent}
+	return context.WithValue(ctx, contextKeyInjectedField, this)
+}
+
+func iterInjectedFields(ctx context.Context, cb func(field string, value interface{})) {
+	injI := ctx.Value(contextKeyInjectedField)
+	if injI == nil {
+		return
+	}
+	inj := injI.(*injectedField)
+	for ; inj != nil; inj = inj.parent {
+		cb(inj.field, inj.value)
+	}
+}
+
+type SubsystemLoggers map[Subsystem]logger.Logger
+
+func SubsystemLoggersWithUniversalLogger(l logger.Logger) SubsystemLoggers {
+	loggers := make(SubsystemLoggers)
+	for _, s := range AllSubsystems {
+		loggers[s] = l
+	}
+	return loggers
+}
+
+func WithLoggers(ctx context.Context, loggers SubsystemLoggers) context.Context {
+	return context.WithValue(ctx, contextKeyLoggers, loggers)
+}
+
+func GetLoggers(ctx context.Context) SubsystemLoggers {
+	loggers, ok := ctx.Value(contextKeyLoggers).(SubsystemLoggers)
+	if !ok {
+		return nil
+	}
+	return loggers
+}
+
+func GetLogger(ctx context.Context, subsys Subsystem) logger.Logger {
+	return getLoggerImpl(ctx, subsys, true)
+}
+
+func getLoggerImpl(ctx context.Context, subsys Subsystem, panicIfEnded bool) logger.Logger {
+	loggers, ok := ctx.Value(contextKeyLoggers).(SubsystemLoggers)
+	if !ok || loggers == nil {
+		return logger.NewNullLogger()
+	}
+	l, ok := loggers[subsys]
+	if !ok {
+		return logger.NewNullLogger()
+	}
+
+	l = l.WithField(SubsysField, subsys)
+
+	if nI := ctx.Value(contextKeyTraceNode); nI != nil {
+		n := nI.(*traceNode)
+		_, spanStack := currentTaskNameAndSpanStack(n)
+		l = l.WithField(SpanField, spanStack)
+	} else {
+		l = l.WithField(SpanField, "NOSPAN")
+	}
+
+	fields := make(logger.Fields)
+	iterInjectedFields(ctx, func(field string, value interface{}) {
+		fields[field] = value
+	})
+	l = l.WithFields(fields)
+
+	return l
 }
 
 func parseLogFormat(i interface{}) (f EntryFormatter, err error) {

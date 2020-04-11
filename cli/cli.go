@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/logging"
 )
 
 var rootArgs struct {
@@ -75,7 +77,7 @@ type Subcommand struct {
 	Short            string
 	Example          string
 	NoRequireConfig  bool
-	Run              func(subcommand *Subcommand, args []string) error
+	Run              func(ctx context.Context, subcommand *Subcommand, args []string) error
 	SetupFlags       func(f *pflag.FlagSet)
 	SetupSubcommands func() []*Subcommand
 
@@ -96,7 +98,11 @@ func (s *Subcommand) Config() *config.Config {
 
 func (s *Subcommand) run(cmd *cobra.Command, args []string) {
 	s.tryParseConfig()
-	err := s.Run(s, args)
+	ctx := context.Background()
+	endTask := logging.WithTaskFromStackUpdateCtx(&ctx)
+	defer endTask()
+	err := s.Run(ctx, s, args)
+	endTask()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)

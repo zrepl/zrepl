@@ -32,9 +32,8 @@ var zabsCmdList = &cli.Subcommand{
 	},
 }
 
-func doZabsList(sc *cli.Subcommand, args []string) error {
+func doZabsList(ctx context.Context, sc *cli.Subcommand, args []string) error {
 	var err error
-	ctx := context.Background()
 
 	if len(args) > 0 {
 		return errors.New("this subcommand takes no positional arguments")

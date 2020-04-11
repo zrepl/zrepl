@@ -3,14 +3,14 @@ package zfscmd
 import (
 	"context"
 
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 )
 
 type contextKey int
 
 const (
-	contextKeyLogger contextKey = iota
-	contextKeyJobID
+	contextKeyJobID contextKey = 1 + iota
 )
 
 type Logger = logger.Logger
@@ -27,13 +27,6 @@ func getJobIDOrDefault(ctx context.Context, def string) string {
 	return ret
 }
 
-func WithLogger(ctx context.Context, log Logger) context.Context {
-	return context.WithValue(ctx, contextKeyLogger, log)
-}
-
 func getLogger(ctx context.Context) Logger {
-	if l, ok := ctx.Value(contextKeyLogger).(Logger); ok {
-		return l
-	}
-	return logger.NewNullLogger()
+	return logging.GetLogger(ctx, logging.SubsysZFSCmd)
 }

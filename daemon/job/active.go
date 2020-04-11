@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/log"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
@@ -79,7 +80,7 @@ func (a *ActiveSide) updateTasks(u func(*activeSideTasks)) activeSideTasks {
 }
 
 type activeMode interface {
-	ConnectEndpoints(rpcLoggers rpc.Loggers, connecter transport.Connecter)
+	ConnectEndpoints(ctx context.Context, connecter transport.Connecter)
 	DisconnectEndpoints()
 	SenderReceiver() (logic.Sender, logic.Receiver)
 	Type() Type
@@ -98,14 +99,14 @@ type modePush struct {
 	snapper       *snapper.PeriodicOrManual
 }
 
-func (m *modePush) ConnectEndpoints(loggers rpc.Loggers, connecter transport.Connecter) {
+func (m *modePush) ConnectEndpoints(ctx context.Context, connecter transport.Connecter) {
 	m.setupMtx.Lock()
 	defer m.setupMtx.Unlock()
 	if m.receiver != nil || m.sender != nil {
 		panic("inconsistent use of ConnectEndpoints and DisconnectEndpoints")
 	}
 	m.sender = endpoint.NewSender(*m.senderConfig)
-	m.receiver = rpc.NewClient(connecter, loggers)
+	m.receiver = rpc.NewClient(connecter, rpc.GetLoggersOrPanic(ctx))
 }
 
 func (m *modePush) DisconnectEndpoints() {
@@ -176,14 +177,14 @@ type modePull struct {
 	interval       config.PositiveDurationOrManual
 }
 
-func (m *modePull) ConnectEndpoints(loggers rpc.Loggers, connecter transport.Connecter) {
+func (m *modePull) ConnectEndpoints(ctx context.Context, connecter transport.Connecter) {
 	m.setupMtx.Lock()
 	defer m.setupMtx.Unlock()
 	if m.receiver != nil || m.sender != nil {
 		panic("inconsistent use of ConnectEndpoints and DisconnectEndpoints")
 	}
 	m.receiver = endpoint.NewReceiver(m.receiverConfig)
-	m.sender = rpc.NewClient(connecter, loggers)
+	m.sender = rpc.NewClient(connecter, rpc.GetLoggersOrPanic(ctx))
 }
 
 func (m *modePull) DisconnectEndpoints() {
@@ -376,15 +377,18 @@ func (j *ActiveSide) SenderConfig() *endpoint.SenderConfig {
 }
 
 func (j *ActiveSide) Run(ctx context.Context) {
+	ctx, endTask := logging.WithTaskAndSpan(ctx, "active-side-job", j.Name())
+	defer endTask()
 	log := GetLogger(ctx)
-	ctx = logging.WithSubsystemLoggers(ctx, log)
 
 	defer log.Info("job exiting")
 
 	periodicDone := make(chan struct{})
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go j.mode.RunPeriodic(ctx, periodicDone)
+	periodicCtx, endTask := logging.WithTask(ctx, "periodic")
+	defer endTask()
+	go j.mode.RunPeriodic(periodicCtx, periodicDone)
 
 	invocationCount := 0
 outer:
@@ -400,17 +404,15 @@ outer:
 		case <-periodicDone:
 		}
 		invocationCount++
-		invLog := log.WithField("invocation", invocationCount)
-		j.do(WithLogger(ctx, invLog))
+		invocationCtx, endSpan := logging.WithSpan(ctx, fmt.Sprintf("invocation-%d", invocationCount))
+		j.do(invocationCtx)
+		endSpan()
 	}
 }
 
 func (j *ActiveSide) do(ctx context.Context) {
 
-	log := GetLogger(ctx)
-	ctx = logging.WithSubsystemLoggers(ctx, log)
-	loggers := rpc.GetLoggersOrPanic(ctx) // filled by WithSubsystemLoggers
-	j.mode.ConnectEndpoints(loggers, j.connecter)
+	j.mode.ConnectEndpoints(ctx, j.connecter)
 	defer j.mode.DisconnectEndpoints()
 
 	// allow cancellation of an invocation (this function)
@@ -433,20 +435,22 @@ func (j *ActiveSide) do(ctx context.Context) {
 			return
 		default:
 		}
+		ctx, endSpan := logging.WithSpan(ctx, "replication")
 		ctx, repCancel := context.WithCancel(ctx)
 		var repWait driver.WaitFunc
 		j.updateTasks(func(tasks *activeSideTasks) {
 			// reset it
 			*tasks = activeSideTasks{}
-			tasks.replicationCancel = repCancel
+			tasks.replicationCancel = func() { repCancel(); endSpan() }
 			tasks.replicationReport, repWait = replication.Do(
 				ctx, logic.NewPlanner(j.promRepStateSecs, j.promBytesReplicated, sender, receiver, j.mode.PlannerPolicy()),
 			)
 			tasks.state = ActiveSideReplicating
 		})
-		log.Info("start replication")
+		GetLogger(ctx).Info("start replication")
 		repWait(true) // wait blocking
 		repCancel()   // always cancel to free up context resources
+		endSpan()
 	}
 
 	{
@@ -455,16 +459,18 @@ func (j *ActiveSide) do(ctx context.Context) {
 			return
 		default:
 		}
+		ctx, endSpan := logging.WithSpan(ctx, "prune_sender")
 		ctx, senderCancel := context.WithCancel(ctx)
 		tasks := j.updateTasks(func(tasks *activeSideTasks) {
 			tasks.prunerSender = j.prunerFactory.BuildSenderPruner(ctx, sender, sender)
-			tasks.prunerSenderCancel = senderCancel
+			tasks.prunerSenderCancel = func() { senderCancel(); endSpan() }
 			tasks.state = ActiveSidePruneSender
 		})
-		log.Info("start pruning sender")
+		GetLogger(ctx).Info("start pruning sender")
 		tasks.prunerSender.Prune()
-		log.Info("finished pruning sender")
+		GetLogger(ctx).Info("finished pruning sender")
 		senderCancel()
+		endSpan()
 	}
 	{
 		select {
@@ -472,16 +478,18 @@ func (j *ActiveSide) do(ctx context.Context) {
 			return
 		default:
 		}
+		ctx, endSpan := logging.WithSpan(ctx, "prune_recever")
 		ctx, receiverCancel := context.WithCancel(ctx)
 		tasks := j.updateTasks(func(tasks *activeSideTasks) {
 			tasks.prunerReceiver = j.prunerFactory.BuildReceiverPruner(ctx, receiver, sender)
-			tasks.prunerReceiverCancel = receiverCancel
+			tasks.prunerReceiverCancel = func() { receiverCancel(); endSpan() }
 			tasks.state = ActiveSidePruneReceiver
 		})
-		log.Info("start pruning receiver")
+		GetLogger(ctx).Info("start pruning receiver")
 		tasks.prunerReceiver.Prune()
-		log.Info("finished pruning receiver")
+		GetLogger(ctx).Info("finished pruning receiver")
 		receiverCancel()
+		endSpan()
 	}
 
 	j.updateTasks(func(tasks *activeSideTasks) {

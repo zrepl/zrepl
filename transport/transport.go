@@ -8,6 +8,7 @@ import (
 	"net"
 	"syscall"
 
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/rpc/dataconn/timeoutconn"
 	"github.com/zrepl/zrepl/zfs"
@@ -66,19 +67,8 @@ func ValidateClientIdentity(in string) (err error) {
 	return nil
 }
 
-type contextKey int
-
-const contextKeyLog contextKey = 0
-
 type Logger = logger.Logger
 
-func WithLogger(ctx context.Context, log Logger) context.Context {
-	return context.WithValue(ctx, contextKeyLog, log)
-}
-
 func GetLogger(ctx context.Context) Logger {
-	if log, ok := ctx.Value(contextKeyLog).(Logger); ok {
-		return log
-	}
-	return logger.NewNullLogger()
+	return logging.GetLogger(ctx, logging.SubsysTransport)
 }

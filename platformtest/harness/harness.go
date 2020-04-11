@@ -68,7 +68,9 @@ func doMain() error {
 		logger.Error(err.Error())
 		panic(err)
 	}
-	ctx := platformtest.WithLogger(context.Background(), logger)
+	ctx := context.Background()
+	defer logging.WithTaskFromStackUpdateCtx(&ctx)()
+	ctx = platformtest.WithLogger(ctx, logger)
 	ex := platformtest.NewEx(logger)
 
 	type invocation struct {

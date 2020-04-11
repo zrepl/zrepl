@@ -22,6 +22,7 @@ const (
 const (
 	JobField    string = "job"
 	SubsysField string = "subsystem"
+	SpanField   string = "span"
 )
 
 type MetadataFlags int64
@@ -85,7 +86,7 @@ func (f *HumanFormatter) Format(e *logger.Entry) (out []byte, err error) {
 		fmt.Fprintf(&line, "[%s]", col.Sprint(e.Level.Short()))
 	}
 
-	prefixFields := []string{JobField, SubsysField}
+	prefixFields := []string{JobField, SubsysField, SpanField}
 	prefixed := make(map[string]bool, len(prefixFields)+2)
 	for _, field := range prefixFields {
 		val, ok := e.Fields[field]
@@ -174,8 +175,8 @@ func (f *LogfmtFormatter) Format(e *logger.Entry) ([]byte, error) {
 	}
 
 	// at least try and put job and task in front
-	prefixed := make(map[string]bool, 2)
-	prefix := []string{JobField, SubsysField}
+	prefixed := make(map[string]bool, 3)
+	prefix := []string{JobField, SubsysField, SpanField}
 	for _, pf := range prefix {
 		v, ok := e.Fields[pf]
 		if !ok {

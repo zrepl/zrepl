@@ -38,8 +38,8 @@ func (o *DestroySnapOp) String() string {
 	return fmt.Sprintf("destroy operation %s@%s", o.Filesystem, o.Name)
 }
 
-func ZFSDestroyFilesystemVersions(reqs []*DestroySnapOp) {
-	doDestroy(context.TODO(), reqs, destroyerSingleton)
+func ZFSDestroyFilesystemVersions(ctx context.Context, reqs []*DestroySnapOp) {
+	doDestroy(ctx, reqs, destroyerSingleton)
 }
 
 func setDestroySnapOpErr(b []*DestroySnapOp, err error) {

@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/zrepl/zrepl/daemon/logging"
 )
 
 func TestSemaphore(t *testing.T) {
@@ -24,12 +26,17 @@ func TestSemaphore(t *testing.T) {
 		beforeT, afterT uint32
 	}
 
+	ctx := context.Background()
+	defer logging.WithTaskFromStackUpdateCtx(&ctx)()
+
 	var wg sync.WaitGroup
 	wg.Add(numGoroutines)
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
+			ctx, end := logging.WithTaskFromStack(ctx)
+			defer end()
 			defer wg.Done()
-			res, err := sem.Acquire(context.Background())
+			res, err := sem.Acquire(ctx)
 			require.NoError(t, err)
 			defer res.Release()
 			if time.Since(begin) > sleepTime {

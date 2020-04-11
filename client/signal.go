@@ -1,6 +1,8 @@
 package client
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/cli"
@@ -11,7 +13,7 @@ import (
 var SignalCmd = &cli.Subcommand{
 	Use:   "signal [wakeup|reset] JOB",
 	Short: "wake up a job from wait state or abort its current invocation",
-	Run: func(subcommand *cli.Subcommand, args []string) error {
+	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 		return runSignalCmd(subcommand.Config(), args)
 	},
 }

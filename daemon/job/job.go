@@ -7,6 +7,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/zfs"
@@ -14,21 +15,8 @@ import (
 
 type Logger = logger.Logger
 
-type contextKey int
-
-const (
-	contextKeyLog contextKey = iota
-)
-
 func GetLogger(ctx context.Context) Logger {
-	if l, ok := ctx.Value(contextKeyLog).(Logger); ok {
-		return l
-	}
-	return logger.NewNullLogger()
-}
-
-func WithLogger(ctx context.Context, l Logger) context.Context {
-	return context.WithValue(ctx, contextKeyLog, l)
+	return logging.GetLogger(ctx, logging.SubsysJob)
 }
 
 type Job interface {

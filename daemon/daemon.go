@@ -23,9 +23,8 @@ import (
 	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
-func Run(conf *config.Config) error {
-
-	ctx, cancel := context.WithCancel(context.Background())
+func Run(ctx context.Context, conf *config.Config) error {
+	ctx, cancel := context.WithCancel(ctx)
 
 	defer cancel()
 	sigChan := make(chan os.Signal, 1)
@@ -39,6 +38,7 @@ func Run(conf *config.Config) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot build logging from config")
 	}
+	outlets.Add(newPrometheusLogOutlet(), logger.Debug)
 
 	confJobs, err := job.JobsFromConfig(conf)
 	if err != nil {
@@ -48,13 +48,13 @@ func Run(conf *config.Config) error {
 	log := logger.NewLogger(outlets, 1*time.Second)
 	log.Info(version.NewZreplVersionInformation().String())
 
+	ctx = logging.WithLoggers(ctx, logging.SubsystemLoggersWithUniversalLogger(log))
+
 	for _, job := range confJobs {
 		if IsInternalJobName(job.Name()) {
 			panic(fmt.Sprintf("internal job name used for config job '%s'", job.Name())) //FIXME
 		}
 	}
-
-	ctx = job.WithLogger(ctx, log)
 
 	jobs := newJobs()
 
@@ -84,6 +84,7 @@ func Run(conf *config.Config) error {
 
 	// register global (=non job-local) metrics
 	zfscmd.RegisterMetrics(prometheus.DefaultRegisterer)
+	logging.RegisterMetrics(prometheus.DefaultRegisterer)
 
 	log.Info("starting daemon")
 
@@ -98,6 +99,8 @@ func Run(conf *config.Config) error {
 	case <-ctx.Done():
 		log.WithError(ctx.Err()).Info("context finished")
 	}
+	log.Info("waiting for jobs to finish")
+	<-jobs.wait()
 	log.Info("daemon exiting")
 	return nil
 }
@@ -120,14 +123,11 @@ func newJobs() *jobs {
 	}
 }
 
-const (
-	logJobField string = "job"
-)
-
 func (s *jobs) wait() <-chan struct{} {
 	ch := make(chan struct{})
 	go func() {
 		s.wg.Wait()
+		close(ch)
 	}()
 	return ch
 }
@@ -202,9 +202,8 @@ func (s *jobs) start(ctx context.Context, j job.Job, internal bool) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	jobLog := job.GetLogger(ctx).
-		WithField(logJobField, j.Name()).
-		WithOutlet(newPrometheusLogOutlet(j.Name()), logger.Debug)
+	ctx = logging.WithInjectedField(ctx, logging.JobField, j.Name())
+
 	jobName := j.Name()
 	if !internal && IsInternalJobName(jobName) {
 		panic(fmt.Sprintf("internal job name used for non-internal job %s", jobName))
@@ -219,7 +218,6 @@ func (s *jobs) start(ctx context.Context, j job.Job, internal bool) {
 	j.RegisterMetrics(prometheus.DefaultRegisterer)
 
 	s.jobs[jobName] = j
-	ctx = job.WithLogger(ctx, jobLog)
 	ctx = zfscmd.WithJobID(ctx, j.Name())
 	ctx, wakeup := wakeup.Context(ctx)
 	ctx, resetFunc := reset.Context(ctx)
@@ -229,8 +227,8 @@ func (s *jobs) start(ctx context.Context, j job.Job, internal bool) {
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		jobLog.Info("starting job")
-		defer jobLog.Info("job exited")
+		job.GetLogger(ctx).Info("starting job")
+		defer job.GetLogger(ctx).Info("job exited")
 		j.Run(ctx)
 	}()
 }

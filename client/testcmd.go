@@ -39,7 +39,7 @@ var testFilter = &cli.Subcommand{
 	Run: runTestFilterCmd,
 }
 
-func runTestFilterCmd(subcommand *cli.Subcommand, args []string) error {
+func runTestFilterCmd(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 
 	if testFilterArgs.job == "" {
 		return fmt.Errorf("must specify --job flag")
@@ -49,7 +49,6 @@ func runTestFilterCmd(subcommand *cli.Subcommand, args []string) error {
 	}
 
 	conf := subcommand.Config()
-	ctx := context.Background()
 
 	var confFilter config.FilesystemsFilter
 	job, err := conf.Job(testFilterArgs.job)
@@ -137,10 +136,9 @@ var testPlaceholder = &cli.Subcommand{
 	Run: runTestPlaceholder,
 }
 
-func runTestPlaceholder(subcommand *cli.Subcommand, args []string) error {
+func runTestPlaceholder(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 
 	var checkDPs []*zfs.DatasetPath
-	ctx := context.Background()
 
 	// all actions first
 	if testPlaceholderArgs.all {
@@ -197,11 +195,11 @@ var testDecodeResumeToken = &cli.Subcommand{
 	Run: runTestDecodeResumeTokenCmd,
 }
 
-func runTestDecodeResumeTokenCmd(subcommand *cli.Subcommand, args []string) error {
+func runTestDecodeResumeTokenCmd(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 	if testDecodeResumeTokenArgs.token == "" {
 		return fmt.Errorf("token argument must be specified")
 	}
-	token, err := zfs.ParseResumeToken(context.Background(), testDecodeResumeTokenArgs.token)
+	token, err := zfs.ParseResumeToken(ctx, testDecodeResumeTokenArgs.token)
 	if err != nil {
 		return err
 	}

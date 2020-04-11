@@ -2,8 +2,10 @@ package driver
 
 import (
 	"container/heap"
+	"context"
 	"time"
 
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/util/chainlock"
 )
 
@@ -155,7 +157,8 @@ func (q *stepQueue) sendAndWaitForWakeup(ident interface{}, targetDate time.Time
 }
 
 // Wait for the ident with targetDate to be selected to run.
-func (q *stepQueue) WaitReady(ident interface{}, targetDate time.Time) StepCompletedFunc {
+func (q *stepQueue) WaitReady(ctx context.Context, ident interface{}, targetDate time.Time) StepCompletedFunc {
+	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
 	if targetDate.IsZero() {
 		panic("targetDate of zero is reserved for marking Done")
 	}

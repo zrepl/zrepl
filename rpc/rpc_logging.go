@@ -3,16 +3,11 @@ package rpc
 import (
 	"context"
 
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 )
 
 type Logger = logger.Logger
-
-type contextKey int
-
-const (
-	contextKeyLoggers contextKey = iota
-)
 
 /// All fields must be non-nil
 type Loggers struct {
@@ -21,11 +16,10 @@ type Loggers struct {
 	Data    Logger
 }
 
-func WithLoggers(ctx context.Context, loggers Loggers) context.Context {
-	ctx = context.WithValue(ctx, contextKeyLoggers, loggers)
-	return ctx
-}
-
 func GetLoggersOrPanic(ctx context.Context) Loggers {
-	return ctx.Value(contextKeyLoggers).(Loggers)
+	return Loggers{
+		General: logging.GetLogger(ctx, logging.SubsysRPC),
+		Control: logging.GetLogger(ctx, logging.SubsysRPCControl),
+		Data:    logging.GetLogger(ctx, logging.SubsysRPCData),
+	}
 }
