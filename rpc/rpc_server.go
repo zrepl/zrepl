@@ -7,6 +7,7 @@ import (
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/rpc/dataconn"
+	"github.com/zrepl/zrepl/rpc/grpcclientidentity"
 	"github.com/zrepl/zrepl/rpc/grpcclientidentity/grpchelper"
 	"github.com/zrepl/zrepl/rpc/versionhandshake"
 	"github.com/zrepl/zrepl/transport"
@@ -30,7 +31,20 @@ type Server struct {
 	dataServerServe    serveFunc
 }
 
-type HandlerContextInterceptor func(ctx context.Context) context.Context
+type HandlerContextInterceptorData interface {
+	FullMethod() string
+	ClientIdentity() string
+}
+
+type interceptorData struct {
+	prefixMethod string
+	wrapped      HandlerContextInterceptorData
+}
+
+func (d interceptorData) ClientIdentity() string { return d.wrapped.ClientIdentity() }
+func (d interceptorData) FullMethod() string     { return d.prefixMethod + d.wrapped.FullMethod() }
+
+type HandlerContextInterceptor func(ctx context.Context, data HandlerContextInterceptorData, handler func(ctx context.Context))
 
 // config must be valid (use its Validate function).
 func NewServer(handler Handler, loggers Loggers, ctxInterceptor HandlerContextInterceptor) *Server {
@@ -38,7 +52,10 @@ func NewServer(handler Handler, loggers Loggers, ctxInterceptor HandlerContextIn
 	// setup control server
 	controlServerServe := func(ctx context.Context, controlListener transport.AuthenticatedListener, errOut chan<- error) {
 
-		controlServer, serve := grpchelper.NewServer(controlListener, endpoint.ClientIdentityKey, loggers.Control, ctxInterceptor)
+		var controlCtxInterceptor grpcclientidentity.Interceptor = func(ctx context.Context, data grpcclientidentity.ContextInterceptorData, handler func(ctx context.Context)) {
+			ctxInterceptor(ctx, interceptorData{"control://", data}, handler)
+		}
+		controlServer, serve := grpchelper.NewServer(controlListener, endpoint.ClientIdentityKey, loggers.Control, controlCtxInterceptor)
 		pdu.RegisterReplicationServer(controlServer, handler)
 
 		// give time for graceful stop until deadline expires, then hard stop
@@ -59,12 +76,12 @@ func NewServer(handler Handler, loggers Loggers, ctxInterceptor HandlerContextIn
 	dataServerClientIdentitySetter := func(ctx context.Context, wire *transport.AuthConn) (context.Context, *transport.AuthConn) {
 		ci := wire.ClientIdentity()
 		ctx = context.WithValue(ctx, endpoint.ClientIdentityKey, ci)
-		if ctxInterceptor != nil {
-			ctx = ctxInterceptor(ctx) // SHADOWING
-		}
 		return ctx, wire
 	}
-	dataServer := dataconn.NewServer(dataServerClientIdentitySetter, loggers.Data, handler)
+	var dataCtxInterceptor dataconn.ContextInterceptor = func(ctx context.Context, data dataconn.ContextInterceptorData, handler func(ctx context.Context)) {
+		ctxInterceptor(ctx, interceptorData{"data://", data}, handler)
+	}
+	dataServer := dataconn.NewServer(dataServerClientIdentitySetter, dataCtxInterceptor, loggers.Data, handler)
 	dataServerServe := func(ctx context.Context, dataListener transport.AuthenticatedListener, errOut chan<- error) {
 		dataServer.Serve(ctx, dataListener)
 		errOut <- nil // TODO bad design of dataServer?

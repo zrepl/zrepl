@@ -11,6 +11,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/logging"
@@ -68,7 +69,9 @@ func doMain() error {
 		logger.Error(err.Error())
 		panic(err)
 	}
-	ctx := platformtest.WithLogger(context.Background(), logger)
+	ctx := context.Background()
+	defer trace.WithTaskFromStackUpdateCtx(&ctx)()
+	ctx = logging.WithLoggers(ctx, logging.SubsystemLoggersWithUniversalLogger(logger))
 	ex := platformtest.NewEx(logger)
 
 	type invocation struct {

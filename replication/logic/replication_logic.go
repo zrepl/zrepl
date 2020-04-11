@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 
+	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/replication/driver"
 	. "github.com/zrepl/zrepl/replication/logic/diff"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
@@ -80,6 +82,8 @@ func (p *Planner) WaitForConnectivity(ctx context.Context) error {
 	var wg sync.WaitGroup
 	doPing := func(endpoint Endpoint, errOut *error) {
 		defer wg.Done()
+		ctx, endTask := trace.WithTaskFromStack(ctx)
+		defer endTask()
 		err := endpoint.WaitForConnectivity(ctx)
 		if err != nil {
 			*errOut = err
@@ -303,9 +307,11 @@ func (p *Planner) doPlanning(ctx context.Context) ([]*Filesystem, error) {
 
 func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 
-	log := getLogger(ctx).WithField("filesystem", fs.Path)
+	log := func(ctx context.Context) logger.Logger {
+		return getLogger(ctx).WithField("filesystem", fs.Path)
+	}
 
-	log.Debug("assessing filesystem")
+	log(ctx).Debug("assessing filesystem")
 
 	if fs.policy.EncryptedSend == True && !fs.senderFS.GetIsEncrypted() {
 		return nil, fmt.Errorf("sender filesystem is not encrypted but policy mandates encrypted send")
@@ -313,14 +319,14 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 
 	sfsvsres, err := fs.sender.ListFilesystemVersions(ctx, &pdu.ListFilesystemVersionsReq{Filesystem: fs.Path})
 	if err != nil {
-		log.WithError(err).Error("cannot get remote filesystem versions")
+		log(ctx).WithError(err).Error("cannot get remote filesystem versions")
 		return nil, err
 	}
 	sfsvs := sfsvsres.GetVersions()
 
 	if len(sfsvs) < 1 {
 		err := errors.New("sender does not have any versions")
-		log.Error(err.Error())
+		log(ctx).Error(err.Error())
 		return nil, err
 	}
 
@@ -328,7 +334,7 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 	if fs.receiverFS != nil && !fs.receiverFS.GetIsPlaceholder() {
 		rfsvsres, err := fs.receiver.ListFilesystemVersions(ctx, &pdu.ListFilesystemVersionsReq{Filesystem: fs.Path})
 		if err != nil {
-			log.WithError(err).Error("receiver error")
+			log(ctx).WithError(err).Error("receiver error")
 			return nil, err
 		}
 		rfsvs = rfsvsres.GetVersions()
@@ -340,17 +346,17 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 	var resumeTokenRaw string
 	if fs.receiverFS != nil && fs.receiverFS.ResumeToken != "" {
 		resumeTokenRaw = fs.receiverFS.ResumeToken // shadow
-		log.WithField("receiverFS.ResumeToken", resumeTokenRaw).Debug("decode receiver fs resume token")
+		log(ctx).WithField("receiverFS.ResumeToken", resumeTokenRaw).Debug("decode receiver fs resume token")
 		resumeToken, err = zfs.ParseResumeToken(ctx, resumeTokenRaw) // shadow
 		if err != nil {
 			// TODO in theory, we could do replication without resume token, but that would mean that
 			// we need to discard the resumable state on the receiver's side.
 			// Would be easy by setting UsedResumeToken=false in the RecvReq ...
 			// FIXME / CHECK semantics UsedResumeToken if SendReq.ResumeToken == ""
-			log.WithError(err).Error("cannot decode resume token, aborting")
+			log(ctx).WithError(err).Error("cannot decode resume token, aborting")
 			return nil, err
 		}
-		log.WithField("token", resumeToken).Debug("decode resume token")
+		log(ctx).WithField("token", resumeToken).Debug("decode resume token")
 	}
 
 	// give both sides a hint about how far prior replication attempts got
@@ -369,7 +375,10 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 		var wg sync.WaitGroup
 		doHint := func(ep Endpoint, name string) {
 			defer wg.Done()
-			log := log.WithField("to_side", name).
+			ctx, endTask := trace.WithTask(ctx, "hint-mrca-"+name)
+			defer endTask()
+
+			log := log(ctx).WithField("to_side", name).
 				WithField("sender_mrca", sender_mrca.String())
 			log.Debug("hint most recent common ancestor")
 			hint := &pdu.HintMostRecentCommonAncestorReq{
@@ -428,7 +437,7 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 			encryptionMatches = true
 		}
 
-		log.WithField("fromVersion", fromVersion).
+		log(ctx).WithField("fromVersion", fromVersion).
 			WithField("toVersion", toVersion).
 			WithField("encryptionMatches", encryptionMatches).
 			Debug("result of resume-token-matching to sender's versions")
@@ -484,11 +493,11 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 			var msg string
 			path, msg = resolveConflict(conflict) // no shadowing allowed!
 			if path != nil {
-				log.WithField("conflict", conflict).Info("conflict")
-				log.WithField("resolution", msg).Info("automatically resolved")
+				log(ctx).WithField("conflict", conflict).Info("conflict")
+				log(ctx).WithField("resolution", msg).Info("automatically resolved")
 			} else {
-				log.WithField("conflict", conflict).Error("conflict")
-				log.WithField("problem", msg).Error("cannot resolve conflict")
+				log(ctx).WithField("conflict", conflict).Error("conflict")
+				log(ctx).WithField("problem", msg).Error("cannot resolve conflict")
 			}
 		}
 		if len(path) == 0 {
@@ -522,37 +531,35 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 	}
 
 	if len(steps) == 0 {
-		log.Info("planning determined that no replication steps are required")
+		log(ctx).Info("planning determined that no replication steps are required")
 	}
 
-	log.Debug("compute send size estimate")
+	log(ctx).Debug("compute send size estimate")
 	errs := make(chan error, len(steps))
-	var wg sync.WaitGroup
 	fanOutCtx, fanOutCancel := context.WithCancel(ctx)
+	_, fanOutAdd, fanOutWait := trace.WithTaskGroup(fanOutCtx, "compute-size-estimate")
 	defer fanOutCancel()
 	for _, step := range steps {
-		wg.Add(1)
-		go func(step *Step) {
-			defer wg.Done()
-
+		step := step // local copy that is moved into the closure
+		fanOutAdd(func(ctx context.Context) {
 			// TODO instead of the semaphore, rely on resource-exhaustion signaled by the remote endpoint to limit size-estimate requests
 			// Send is handled over rpc/dataconn ATM, which doesn't support the resource exhaustion status codes that gRPC defines
-			guard, err := fs.sizeEstimateRequestSem.Acquire(fanOutCtx)
+			guard, err := fs.sizeEstimateRequestSem.Acquire(ctx)
 			if err != nil {
 				fanOutCancel()
 				return
 			}
 			defer guard.Release()
 
-			err = step.updateSizeEstimate(fanOutCtx)
+			err = step.updateSizeEstimate(ctx)
 			if err != nil {
-				log.WithError(err).WithField("step", step).Error("error computing size estimate")
+				log(ctx).WithError(err).WithField("step", step).Error("error computing size estimate")
 				fanOutCancel()
 			}
 			errs <- err
-		}(step)
+		})
 	}
-	wg.Wait()
+	fanOutWait()
 	close(errs)
 	var significantErr error = nil
 	for err := range errs {
@@ -566,7 +573,7 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 		return nil, significantErr
 	}
 
-	log.Debug("filesystem planning finished")
+	log(ctx).Debug("filesystem planning finished")
 	return steps, nil
 }
 

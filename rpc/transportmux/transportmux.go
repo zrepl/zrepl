@@ -15,27 +15,15 @@ import (
 	"net"
 	"time"
 
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/transport"
 )
 
-type contextKey int
-
-const (
-	contextKeyLog contextKey = 1 + iota
-)
-
 type Logger = logger.Logger
 
-func WithLogger(ctx context.Context, log Logger) context.Context {
-	return context.WithValue(ctx, contextKeyLog, log)
-}
-
 func getLog(ctx context.Context) Logger {
-	if l, ok := ctx.Value(contextKeyLog).(Logger); ok {
-		return l
-	}
-	return logger.NewNullLogger()
+	return logging.GetLogger(ctx, logging.SubsysTransportMux)
 }
 
 type acceptRes struct {

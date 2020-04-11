@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -25,7 +26,7 @@ var VersionCmd = &cli.Subcommand{
 	SetupFlags: func(f *pflag.FlagSet) {
 		f.StringVar(&versionArgs.Show, "show", "", "version info to show (client|daemon)")
 	},
-	Run: func(subcommand *cli.Subcommand, args []string) error {
+	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 		versionArgs.Config = subcommand.Config()
 		versionArgs.ConfigErr = subcommand.ConfigParsingError()
 		return runVersionCmd()

@@ -99,10 +99,23 @@ func (*transportCredentials) OverrideServerName(string) error {
 	panic("not implemented")
 }
 
-type ContextInterceptor = func(ctx context.Context) context.Context
+type ContextInterceptorData interface {
+	FullMethod() string
+	ClientIdentity() string
+}
 
-func NewInterceptors(logger Logger, clientIdentityKey interface{}, ctxInterceptor ContextInterceptor) (unary grpc.UnaryServerInterceptor, stream grpc.StreamServerInterceptor) {
-	unary = func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+type contextInterceptorData struct {
+	fullMethod     string
+	clientIdentity string
+}
+
+func (d contextInterceptorData) FullMethod() string     { return d.fullMethod }
+func (d contextInterceptorData) ClientIdentity() string { return d.clientIdentity }
+
+type Interceptor = func(ctx context.Context, data ContextInterceptorData, handler func(ctx context.Context))
+
+func NewInterceptors(logger Logger, clientIdentityKey interface{}, interceptor Interceptor) (unary grpc.UnaryServerInterceptor, stream grpc.StreamServerInterceptor) {
+	unary = func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		logger.WithField("fullMethod", info.FullMethod).Debug("request")
 		p, ok := peer.FromContext(ctx)
 		if !ok {
@@ -115,10 +128,18 @@ func NewInterceptors(logger Logger, clientIdentityKey interface{}, ctxIntercepto
 		}
 		logger.WithField("peer_client_identity", a.clientIdentity).Debug("peer client identity")
 		ctx = context.WithValue(ctx, clientIdentityKey, a.clientIdentity)
-		if ctxInterceptor != nil {
-			ctx = ctxInterceptor(ctx)
+		data := contextInterceptorData{
+			fullMethod:     info.FullMethod,
+			clientIdentity: a.clientIdentity,
 		}
-		return handler(ctx, req)
+		var (
+			resp interface{}
+			err  error
+		)
+		interceptor(ctx, data, func(ctx context.Context) {
+			resp, err = handler(ctx, req) // no-shadow
+		})
+		return resp, err
 	}
 	stream = func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		panic("unimplemented")

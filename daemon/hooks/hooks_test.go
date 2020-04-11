@@ -10,9 +10,11 @@ import (
 	"text/template"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/hooks"
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -69,6 +71,9 @@ func curry(f comparisonAssertionFunc, expected interface{}, right bool) (ret val
 }
 
 func TestHooks(t *testing.T) {
+	ctx, end := trace.WithTaskFromStack(context.Background())
+	defer end()
+
 	testFSName := "testpool/testdataset"
 	testSnapshotName := "testsnap"
 
@@ -418,9 +423,8 @@ jobs:
 
 			cbReached = false
 
-			ctx := context.Background()
 			if testing.Verbose() && !tt.SuppressOutput {
-				ctx = hooks.WithLogger(ctx, log)
+				ctx = logging.WithLoggers(ctx, logging.SubsystemLoggersWithUniversalLogger(log))
 			}
 			plan.Run(ctx, false)
 			report := plan.Report()

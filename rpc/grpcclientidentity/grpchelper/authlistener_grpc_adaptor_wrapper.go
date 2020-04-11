@@ -50,7 +50,7 @@ func ClientConn(cn transport.Connecter, log Logger) *grpc.ClientConn {
 }
 
 // NewServer is a convenience interface around the TransportCredentials and Interceptors interface.
-func NewServer(authListener transport.AuthenticatedListener, clientIdentityKey interface{}, logger grpcclientidentity.Logger, ctxInterceptor grpcclientidentity.ContextInterceptor) (srv *grpc.Server, serve func() error) {
+func NewServer(authListener transport.AuthenticatedListener, clientIdentityKey interface{}, logger grpcclientidentity.Logger, ctxInterceptor grpcclientidentity.Interceptor) (srv *grpc.Server, serve func() error) {
 	ka := grpc.KeepaliveParams(keepalive.ServerParameters{
 		Time:    StartKeepalivesAfterInactivityDuration,
 		Timeout: KeepalivePeerTimeout,

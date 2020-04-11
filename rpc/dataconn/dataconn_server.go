@@ -33,16 +33,33 @@ type Handler interface {
 
 type Logger = logger.Logger
 
+type ContextInterceptorData interface {
+	FullMethod() string
+	ClientIdentity() string
+}
+
+type ContextInterceptor = func(ctx context.Context, data ContextInterceptorData, handler func(ctx context.Context))
+
 type Server struct {
 	h   Handler
 	wi  WireInterceptor
+	ci  ContextInterceptor
 	log Logger
 }
 
-func NewServer(wi WireInterceptor, logger Logger, handler Handler) *Server {
+var noopContextInteceptor = func(ctx context.Context, _ ContextInterceptorData, handler func(context.Context)) {
+	handler(ctx)
+}
+
+// wi and ci may be nil
+func NewServer(wi WireInterceptor, ci ContextInterceptor, logger Logger, handler Handler) *Server {
+	if ci == nil {
+		ci = noopContextInteceptor
+	}
 	return &Server{
 		h:   handler,
 		wi:  wi,
+		ci:  ci,
 		log: logger,
 	}
 }
@@ -93,6 +110,14 @@ func (s *Server) Serve(ctx context.Context, l transport.AuthenticatedListener) {
 	}
 }
 
+type contextInterceptorData struct {
+	fullMethod     string
+	clientIdentity string
+}
+
+func (d contextInterceptorData) FullMethod() string     { return d.fullMethod }
+func (d contextInterceptorData) ClientIdentity() string { return d.clientIdentity }
+
 func (s *Server) serveConn(nc *transport.AuthConn) {
 	s.log.Debug("serveConn begin")
 	defer s.log.Debug("serveConn done")
@@ -116,6 +141,17 @@ func (s *Server) serveConn(nc *transport.AuthConn) {
 		return
 	}
 	endpoint := string(header)
+
+	data := contextInterceptorData{
+		fullMethod:     endpoint,
+		clientIdentity: nc.ClientIdentity(),
+	}
+	s.ci(ctx, data, func(ctx context.Context) {
+		s.serveConnRequest(ctx, endpoint, c)
+	})
+}
+
+func (s *Server) serveConnRequest(ctx context.Context, endpoint string, c *stream.Conn) {
 
 	reqStructured, err := c.ReadStreamedMessage(ctx, RequestStructuredMaxSize, ReqStructured)
 	if err != nil {

@@ -28,7 +28,7 @@ var zabsCmdCreateStepHold = &cli.Subcommand{
 	},
 }
 
-func doZabsCreateStep(sc *cli.Subcommand, args []string) error {
+func doZabsCreateStep(ctx context.Context, sc *cli.Subcommand, args []string) error {
 	if len(args) > 0 {
 		return errors.New("subcommand takes no arguments")
 	}
@@ -43,8 +43,6 @@ func doZabsCreateStep(sc *cli.Subcommand, args []string) error {
 	if f.jobid.FlagValue() == nil {
 		return errors.Errorf("jobid must be set")
 	}
-
-	ctx := context.Background()
 
 	v, err := zfs.ZFSGetFilesystemVersion(ctx, f.target)
 	if err != nil {

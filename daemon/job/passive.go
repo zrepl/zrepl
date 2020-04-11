@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
@@ -164,12 +165,14 @@ func (j *PassiveSide) SenderConfig() *endpoint.SenderConfig {
 func (*PassiveSide) RegisterMetrics(registerer prometheus.Registerer) {}
 
 func (j *PassiveSide) Run(ctx context.Context) {
-
+	ctx, endTask := trace.WithTaskAndSpan(ctx, "passive-side-job", j.Name())
+	defer endTask()
 	log := GetLogger(ctx)
 	defer log.Info("job exiting")
-	ctx = logging.WithSubsystemLoggers(ctx, log)
 	{
-		ctx, cancel := context.WithCancel(ctx) // shadowing
+		ctx, endTask := trace.WithTask(ctx, "periodic") // shadowing
+		defer endTask()
+		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		go j.mode.RunPeriodic(ctx)
 	}
@@ -179,8 +182,14 @@ func (j *PassiveSide) Run(ctx context.Context) {
 		panic(fmt.Sprintf("implementation error: j.mode.Handler() returned nil: %#v", j))
 	}
 
-	ctxInterceptor := func(handlerCtx context.Context) context.Context {
-		return logging.WithSubsystemLoggers(handlerCtx, log)
+	ctxInterceptor := func(handlerCtx context.Context, info rpc.HandlerContextInterceptorData, handler func(ctx context.Context)) {
+		// the handlerCtx is clean => need to inherit logging and tracing config from job context
+		handlerCtx = logging.WithInherit(handlerCtx, ctx)
+		handlerCtx = trace.WithInherit(handlerCtx, ctx)
+
+		handlerCtx, endTask := trace.WithTaskAndSpan(handlerCtx, "handler", fmt.Sprintf("job=%q client=%q method=%q", j.Name(), info.ClientIdentity(), info.FullMethod()))
+		defer endTask()
+		handler(handlerCtx)
 	}
 
 	rpcLoggers := rpc.GetLoggersOrPanic(ctx) // WithSubsystemLoggers above

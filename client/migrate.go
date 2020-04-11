@@ -48,14 +48,13 @@ var migratePlaceholder0_1Args struct {
 	dryRun bool
 }
 
-func doMigratePlaceholder0_1(sc *cli.Subcommand, args []string) error {
+func doMigratePlaceholder0_1(ctx context.Context, sc *cli.Subcommand, args []string) error {
 	if len(args) != 0 {
 		return fmt.Errorf("migration does not take arguments, got %v", args)
 	}
 
 	cfg := sc.Config()
 
-	ctx := context.Background()
 	allFSS, err := zfs.ZFSListMapping(ctx, zfs.NoFilter())
 	if err != nil {
 		return errors.Wrap(err, "cannot list filesystems")
@@ -124,7 +123,7 @@ var fail = color.New(color.FgRed)
 
 var migrateReplicationCursorSkipSentinel = fmt.Errorf("skipping this filesystem")
 
-func doMigrateReplicationCursor(sc *cli.Subcommand, args []string) error {
+func doMigrateReplicationCursor(ctx context.Context, sc *cli.Subcommand, args []string) error {
 	if len(args) != 0 {
 		return fmt.Errorf("migration does not take arguments, got %v", args)
 	}
@@ -136,8 +135,6 @@ func doMigrateReplicationCursor(sc *cli.Subcommand, args []string) error {
 		fmt.Printf("NOTE: this migration was released together with a change in job name requirements.\n")
 		return fmt.Errorf("exiting migration after error")
 	}
-
-	ctx := context.Background()
 
 	v1cursorJobs := make([]job.Job, 0, len(cfg.Jobs))
 	for i, j := range cfg.Jobs {

@@ -43,9 +43,8 @@ var zabsCmdReleaseStale = &cli.Subcommand{
 	SetupFlags:      registerZabsReleaseFlags,
 }
 
-func doZabsReleaseAll(sc *cli.Subcommand, args []string) error {
+func doZabsReleaseAll(ctx context.Context, sc *cli.Subcommand, args []string) error {
 	var err error
-	ctx := context.Background()
 
 	if len(args) > 0 {
 		return errors.New("this subcommand takes no positional arguments")
@@ -68,10 +67,9 @@ func doZabsReleaseAll(sc *cli.Subcommand, args []string) error {
 	return doZabsRelease_Common(ctx, abstractions)
 }
 
-func doZabsReleaseStale(sc *cli.Subcommand, args []string) error {
+func doZabsReleaseStale(ctx context.Context, sc *cli.Subcommand, args []string) error {
 
 	var err error
-	ctx := context.Background()
 
 	if len(args) > 0 {
 		return errors.New("this subcommand takes no positional arguments")

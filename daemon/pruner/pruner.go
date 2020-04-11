@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/pruning"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
@@ -35,17 +36,13 @@ type Logger = logger.Logger
 
 type contextKey int
 
-const contextKeyLogger contextKey = 0
-
-func WithLogger(ctx context.Context, log Logger) context.Context {
-	return context.WithValue(ctx, contextKeyLogger, log)
-}
+const (
+	contextKeyPruneSide contextKey = 1 + iota
+)
 
 func GetLogger(ctx context.Context) Logger {
-	if l, ok := ctx.Value(contextKeyLogger).(Logger); ok {
-		return l
-	}
-	return logger.NewNullLogger()
+	pruneSide := ctx.Value(contextKeyPruneSide).(string)
+	return logging.GetLogger(ctx, logging.SubsysPruning).WithField("prune_side", pruneSide)
 }
 
 type args struct {
@@ -138,7 +135,7 @@ func NewPrunerFactory(in config.PruningSenderReceiver, promPruneSecs *prometheus
 func (f *PrunerFactory) BuildSenderPruner(ctx context.Context, target Target, receiver History) *Pruner {
 	p := &Pruner{
 		args: args{
-			WithLogger(ctx, GetLogger(ctx).WithField("prune_side", "sender")),
+			context.WithValue(ctx, contextKeyPruneSide, "sender"),
 			target,
 			receiver,
 			f.senderRules,
@@ -154,7 +151,7 @@ func (f *PrunerFactory) BuildSenderPruner(ctx context.Context, target Target, re
 func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, target Target, receiver History) *Pruner {
 	p := &Pruner{
 		args: args{
-			WithLogger(ctx, GetLogger(ctx).WithField("prune_side", "receiver")),
+			context.WithValue(ctx, contextKeyPruneSide, "receiver"),
 			target,
 			receiver,
 			f.receiverRules,
@@ -170,7 +167,7 @@ func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, target Target, 
 func (f *LocalPrunerFactory) BuildLocalPruner(ctx context.Context, target Target, receiver History) *Pruner {
 	p := &Pruner{
 		args: args{
-			ctx,
+			context.WithValue(ctx, contextKeyPruneSide, "local"),
 			target,
 			receiver,
 			f.keepRules,

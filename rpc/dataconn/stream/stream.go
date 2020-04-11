@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"unicode/utf8"
 
@@ -80,9 +81,13 @@ func doWriteStream(ctx context.Context, c *heartbeatconn.Conn, stream io.Reader,
 		err error
 	}
 
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	reads := make(chan read, 5)
 	var stopReading uint32
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		defer close(reads)
 		for atomic.LoadUint32(&stopReading) == 0 {
 			buffer := bufpool.Get(1 << FramePayloadShift)

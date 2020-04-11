@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/replication/report"
 
@@ -149,6 +150,7 @@ func (f *mockStep) ReportInfo() *report.StepInfo {
 func TestReplication(t *testing.T) {
 
 	ctx := context.Background()
+	defer trace.WithTaskFromStackUpdateCtx(&ctx)()
 
 	mp := &mockPlanner{}
 	getReport, wait := Do(ctx, mp)

@@ -2,15 +2,16 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
-	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/endpoint"
@@ -89,15 +90,18 @@ func (j *SnapJob) OwnedDatasetSubtreeRoot() (rfs *zfs.DatasetPath, ok bool) {
 func (j *SnapJob) SenderConfig() *endpoint.SenderConfig { return nil }
 
 func (j *SnapJob) Run(ctx context.Context) {
+	ctx, endTask := trace.WithTaskAndSpan(ctx, "snap-job", j.Name())
+	defer endTask()
 	log := GetLogger(ctx)
-	ctx = logging.WithSubsystemLoggers(ctx, log)
 
 	defer log.Info("job exiting")
 
 	periodicDone := make(chan struct{})
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go j.snapper.Run(ctx, periodicDone)
+	periodicCtx, endTask := trace.WithTask(ctx, "snapshotting")
+	defer endTask()
+	go j.snapper.Run(periodicCtx, periodicDone)
 
 	invocationCount := 0
 outer:
@@ -112,8 +116,10 @@ outer:
 		case <-periodicDone:
 		}
 		invocationCount++
-		invLog := log.WithField("invocation", invocationCount)
-		j.doPrune(WithLogger(ctx, invLog))
+
+		invocationCtx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("invocation-%d", invocationCount))
+		j.doPrune(invocationCtx)
+		endSpan()
 	}
 }
 
@@ -161,8 +167,9 @@ func (h alwaysUpToDateReplicationCursorHistory) ListFilesystems(ctx context.Cont
 }
 
 func (j *SnapJob) doPrune(ctx context.Context) {
+	ctx, endSpan := trace.WithSpan(ctx, "snap-job-do-prune")
+	defer endSpan()
 	log := GetLogger(ctx)
-	ctx = logging.WithSubsystemLoggers(ctx, log)
 	sender := endpoint.NewSender(endpoint.SenderConfig{
 		JobID: j.name,
 		FSF:   j.fsfilter,

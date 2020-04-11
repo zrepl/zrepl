@@ -5,6 +5,7 @@ go 1.12
 require (
 	github.com/fatih/color v1.7.0
 	github.com/gdamore/tcell v1.2.0
+	github.com/gitchander/permutation v0.0.0-20181107151852-9e56b92e9909
 	github.com/go-logfmt/logfmt v0.4.0
 	github.com/go-sql-driver/mysql v1.4.1-0.20190907122137-b2c03bcae3d4
 	github.com/golang/protobuf v1.3.2
@@ -23,10 +24,12 @@ require (
 	github.com/pkg/profile v1.2.1
 	github.com/problame/go-netssh v0.0.0-20191209123953-18d8aa6923c7
 	github.com/prometheus/client_golang v1.2.1
+	github.com/prometheus/common v0.7.0
 	github.com/sergi/go-diff v1.0.1-0.20180205163309-da645544ed44 // go1.12 thinks it needs this
 	github.com/spf13/cobra v0.0.2
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
+	github.com/willf/bitset v1.1.10
 	github.com/yudai/gojsondiff v0.0.0-20170107030110-7b1b7adf999d
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // go1.12 thinks it needs this
 	github.com/zrepl/yaml-config v0.0.0-20191220194647-cbb6b0cf4bdd

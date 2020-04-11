@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 	"github.com/zrepl/zrepl/util/circlog"
 )
 
@@ -22,6 +23,7 @@ type Cmd struct {
 	ctx                                      context.Context
 	mtx                                      sync.RWMutex
 	startedAt, waitStartedAt, waitReturnedAt time.Time
+	waitReturnEndSpanCb                      trace.DoneFunc
 }
 
 func CommandContext(ctx context.Context, name string, arg ...string) *Cmd {
@@ -31,7 +33,7 @@ func CommandContext(ctx context.Context, name string, arg ...string) *Cmd {
 
 // err.(*exec.ExitError).Stderr will NOT be set
 func (c *Cmd) CombinedOutput() (o []byte, err error) {
-	c.startPre()
+	c.startPre(false)
 	c.startPost(nil)
 	c.waitPre()
 	o, err = c.cmd.CombinedOutput()
@@ -41,7 +43,7 @@ func (c *Cmd) CombinedOutput() (o []byte, err error) {
 
 // err.(*exec.ExitError).Stderr will be set
 func (c *Cmd) Output() (o []byte, err error) {
-	c.startPre()
+	c.startPre(false)
 	c.startPost(nil)
 	c.waitPre()
 	o, err = c.cmd.Output()
@@ -78,7 +80,7 @@ func (c *Cmd) log() Logger {
 }
 
 func (c *Cmd) Start() (err error) {
-	c.startPre()
+	c.startPre(true)
 	err = c.cmd.Start()
 	c.startPost(err)
 	return err
@@ -95,15 +97,17 @@ func (c *Cmd) Process() *os.Process {
 func (c *Cmd) Wait() (err error) {
 	c.waitPre()
 	err = c.cmd.Wait()
-	if !c.waitReturnedAt.IsZero() {
-		// ignore duplicate waits
-		return err
-	}
 	c.waitPost(err)
 	return err
 }
 
-func (c *Cmd) startPre() {
+func (c *Cmd) startPre(newTask bool) {
+	if newTask {
+		// avoid explosion of tasks with name c.String()
+		c.ctx, c.waitReturnEndSpanCb = trace.WithTaskAndSpan(c.ctx, "zfscmd", c.String())
+	} else {
+		c.ctx, c.waitReturnEndSpanCb = trace.WithSpan(c.ctx, c.String())
+	}
 	startPreLogging(c, time.Now())
 }
 
@@ -178,6 +182,9 @@ func (c *Cmd) waitPost(err error) {
 	waitPostReport(c, u, now)
 	waitPostLogging(c, u, err, now)
 	waitPostPrometheus(c, u, err, now)
+
+	// must be last because c.ctx might be used by other waitPost calls
+	c.waitReturnEndSpanCb()
 }
 
 // returns 0 if the command did not yet finish

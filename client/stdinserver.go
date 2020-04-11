@@ -17,7 +17,7 @@ import (
 var StdinserverCmd = &cli.Subcommand{
 	Use:   "stdinserver CLIENT_IDENTITY",
 	Short: "stdinserver transport mode (started from authorized_keys file as forced command)",
-	Run: func(subcommand *cli.Subcommand, args []string) error {
+	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 		return runStdinserver(subcommand.Config(), args)
 	},
 }

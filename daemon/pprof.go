@@ -9,7 +9,10 @@ import (
 	"net/http/pprof"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/net/websocket"
+
 	"github.com/zrepl/zrepl/daemon/job"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 )
 
 type pprofServer struct {
@@ -66,6 +69,7 @@ outer:
 			mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 			mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
 			mux.Handle("/metrics", promhttp.Handler())
+			mux.Handle("/debug/zrepl/activity-trace", websocket.Handler(trace.ChrometraceClientWebsocketHandler))
 			go func() {
 				err := http.Serve(s.listener, mux)
 				if ctx.Err() != nil {

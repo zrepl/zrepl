@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// FIXME make this a platformtest
 func TestZFSListHandlesProducesZFSErrorOnNonZeroExit(t *testing.T) {
 	t.SkipNow() // FIXME ZFS_BINARY does not work if tests run in parallel
 

@@ -23,7 +23,7 @@ type RuntimeLine struct {
 	Error                        string
 }
 
-var humanFormatterLineRE = regexp.MustCompile(`^(\[[^\]]+\]){2}\[zfs.cmd\]:\s+command\s+exited\s+(with|without)\s+error\s+(.+)`)
+var humanFormatterLineRE = regexp.MustCompile(`^(\[[^\]]+\]){2}\[zfs.cmd\]\[[^\]]+\]:\s+command\s+exited\s+(with|without)\s+error\s+(.+)`)
 
 func parseSecs(s string) (time.Duration, error) {
 	d, err := time.ParseDuration(s + "s")

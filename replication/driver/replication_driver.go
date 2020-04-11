@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -287,6 +288,17 @@ func Do(ctx context.Context, planner Planner) (ReportFunc, WaitFunc) {
 }
 
 func (a *attempt) do(ctx context.Context, prev *attempt) {
+	prevs := a.doGlobalPlanning(ctx, prev)
+	if prevs == nil {
+		return
+	}
+	a.doFilesystems(ctx, prevs)
+}
+
+// if no error occurs, returns a map that maps this attempt's a.fss to `prev`'s a.fss
+func (a *attempt) doGlobalPlanning(ctx context.Context, prev *attempt) map[*fs]*fs {
+	ctx, endSpan := trace.WithSpan(ctx, "plan")
+	defer endSpan()
 	pfss, err := a.planner.Plan(ctx)
 	errTime := time.Now()
 	defer a.l.Lock().Unlock()
@@ -294,7 +306,7 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 		a.planErr = newTimedError(err, errTime)
 		a.fss = nil
 		a.finishedAt = time.Now()
-		return
+		return nil
 	}
 
 	for _, pfs := range pfss {
@@ -351,7 +363,7 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 			a.planErr = newTimedError(errors.New(msg.String()), now)
 			a.fss = nil
 			a.finishedAt = now
-			return
+			return nil
 		}
 		for cur, fss := range prevFSs {
 			if len(fss) > 0 {
@@ -373,6 +385,15 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 		}
 	}
 
+	return prevs
+}
+
+func (a *attempt) doFilesystems(ctx context.Context, prevs map[*fs]*fs) {
+	ctx, endSpan := trace.WithSpan(ctx, "do-repl")
+	defer endSpan()
+
+	defer a.l.Lock().Unlock()
+
 	stepQueue := newStepQueue()
 	defer stepQueue.Start(envconst.Int("ZREPL_REPLICATION_EXPERIMENTAL_REPLICATION_CONCURRENCY", 1))() // TODO parallel replication
 	var fssesDone sync.WaitGroup
@@ -380,6 +401,9 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 		fssesDone.Add(1)
 		go func(f *fs) {
 			defer fssesDone.Done()
+			// avoid explosion of tasks with name f.report().Info.Name
+			ctx, endTask := trace.WithTaskAndSpan(ctx, "repl-fs", f.report().Info.Name)
+			defer endTask()
 			f.do(ctx, stepQueue, prevs[f])
 		}(f)
 	}
@@ -423,7 +447,7 @@ func (f *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 		// TODO hacky
 		// choose target time that is earlier than any snapshot, so fs planning is always prioritized
 		targetDate := time.Unix(0, 0)
-		defer pq.WaitReady(f, targetDate)()
+		defer pq.WaitReady(ctx, f, targetDate)()
 		psteps, err = f.fs.PlanFS(ctx) // no shadow
 		errTime = time.Now()           // no shadow
 	})
@@ -584,8 +608,10 @@ func (f *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 		f.l.DropWhile(func() {
 			// wait for parallel replication
 			targetDate := s.step.TargetDate()
-			defer pq.WaitReady(f, targetDate)()
+			defer pq.WaitReady(ctx, f, targetDate)()
 			// do the step
+			ctx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("%#v", s.step.ReportInfo()))
+			defer endSpan()
 			err, errTime = s.step.Step(ctx), time.Now() // no shadow
 		})
 

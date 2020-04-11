@@ -112,7 +112,7 @@ func server() {
 	orDie(err)
 	l := tcpListener{nl.(*net.TCPListener), "fakeclientidentity"}
 
-	srv := dataconn.NewServer(nil, logger.NewStderrDebugLogger(), devNullHandler{})
+	srv := dataconn.NewServer(nil, nil, logger.NewStderrDebugLogger(), devNullHandler{})
 
 	ctx := context.Background()
 

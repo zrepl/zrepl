@@ -10,6 +10,7 @@ import (
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/rpc/dataconn/frameconn"
@@ -86,16 +87,19 @@ func (j *prometheusJob) Run(ctx context.Context) {
 }
 
 type prometheusJobOutlet struct {
-	jobName string
 }
 
 var _ logger.Outlet = prometheusJobOutlet{}
 
-func newPrometheusLogOutlet(jobName string) prometheusJobOutlet {
-	return prometheusJobOutlet{jobName}
+func newPrometheusLogOutlet() prometheusJobOutlet {
+	return prometheusJobOutlet{}
 }
 
 func (o prometheusJobOutlet) WriteEntry(entry logger.Entry) error {
-	prom.taskLogEntries.WithLabelValues(o.jobName, entry.Level.String()).Inc()
+	jobFieldVal, ok := entry.Fields[logging.JobField].(string)
+	if !ok {
+		jobFieldVal = "_nojobid"
+	}
+	prom.taskLogEntries.WithLabelValues(jobFieldVal, entry.Level.String()).Inc()
 	return nil
 }

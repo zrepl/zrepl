@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/daemon/hooks"
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/zfs"
@@ -45,7 +47,6 @@ type snapProgress struct {
 
 type args struct {
 	ctx            context.Context
-	log            Logger
 	prefix         string
 	interval       time.Duration
 	fsf            *filters.DatasetMapFilter
@@ -102,23 +103,10 @@ func (s State) sf() state {
 type updater func(u func(*Snapper)) State
 type state func(a args, u updater) state
 
-type contextKey int
-
-const (
-	contextKeyLog contextKey = 0
-)
-
 type Logger = logger.Logger
 
-func WithLogger(ctx context.Context, log Logger) context.Context {
-	return context.WithValue(ctx, contextKeyLog, log)
-}
-
 func getLogger(ctx context.Context) Logger {
-	if log, ok := ctx.Value(contextKeyLog).(Logger); ok {
-		return log
-	}
-	return logger.NewNullLogger()
+	return logging.GetLogger(ctx, logging.SubsysSnapshot)
 }
 
 func PeriodicFromConfig(g *config.Global, fsf *filters.DatasetMapFilter, in *config.SnapshottingPeriodic) (*Snapper, error) {
@@ -146,13 +134,12 @@ func PeriodicFromConfig(g *config.Global, fsf *filters.DatasetMapFilter, in *con
 }
 
 func (s *Snapper) Run(ctx context.Context, snapshotsTaken chan<- struct{}) {
-
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 	getLogger(ctx).Debug("start")
 	defer getLogger(ctx).Debug("stop")
 
 	s.args.snapshotsTaken = snapshotsTaken
 	s.args.ctx = ctx
-	s.args.log = getLogger(ctx)
 	s.args.dryRun = false // for future expansion
 
 	u := func(u func(*Snapper)) State {
@@ -190,7 +177,7 @@ func onErr(err error, u updater) state {
 		case Snapshotting:
 			s.state = ErrorWait
 		}
-		s.args.log.WithError(err).WithField("pre_state", preState).WithField("post_state", s.state).Error("snapshotting error")
+		getLogger(s.args.ctx).WithError(err).WithField("pre_state", preState).WithField("post_state", s.state).Error("snapshotting error")
 	}).sf()
 }
 
@@ -209,7 +196,7 @@ func syncUp(a args, u updater) state {
 	if err != nil {
 		return onErr(err, u)
 	}
-	syncPoint, err := findSyncPoint(a.log, fss, a.prefix, a.interval)
+	syncPoint, err := findSyncPoint(a.ctx, fss, a.prefix, a.interval)
 	if err != nil {
 		return onErr(err, u)
 	}
@@ -266,18 +253,18 @@ func snapshot(a args, u updater) state {
 		suffix := time.Now().In(time.UTC).Format("20060102_150405_000")
 		snapname := fmt.Sprintf("%s%s", a.prefix, suffix)
 
-		l := a.log.
-			WithField("fs", fs.ToString()).
-			WithField("snap", snapname)
+		ctx := logging.WithInjectedField(a.ctx, "fs", fs.ToString())
+		ctx = logging.WithInjectedField(ctx, "snap", snapname)
 
 		hookEnvExtra := hooks.Env{
 			hooks.EnvFS:       fs.ToString(),
 			hooks.EnvSnapshot: snapname,
 		}
 
-		jobCallback := hooks.NewCallbackHookForFilesystem("snapshot", fs, func(_ context.Context) (err error) {
+		jobCallback := hooks.NewCallbackHookForFilesystem("snapshot", fs, func(ctx context.Context) (err error) {
+			l := getLogger(ctx)
 			l.Debug("create snapshot")
-			err = zfs.ZFSSnapshot(a.ctx, fs, snapname, false) // TODO propagate context to ZFSSnapshot
+			err = zfs.ZFSSnapshot(ctx, fs, snapname, false) // TODO propagate context to ZFSSnapshot
 			if err != nil {
 				l.WithError(err).Error("cannot create snapshot")
 			}
@@ -290,7 +277,7 @@ func snapshot(a args, u updater) state {
 		{
 			filteredHooks, err := a.hooks.CopyFilteredForFilesystem(fs)
 			if err != nil {
-				l.WithError(err).Error("unexpected filter error")
+				getLogger(ctx).WithError(err).Error("unexpected filter error")
 				fsHadErr = true
 				goto updateFSState
 			}
@@ -303,7 +290,7 @@ func snapshot(a args, u updater) state {
 			plan, planErr = hooks.NewPlan(&filteredHooks, hooks.PhaseSnapshot, jobCallback, hookEnvExtra)
 			if planErr != nil {
 				fsHadErr = true
-				l.WithError(planErr).Error("cannot create job hook plan")
+				getLogger(ctx).WithError(planErr).Error("cannot create job hook plan")
 				goto updateFSState
 			}
 		}
@@ -314,15 +301,14 @@ func snapshot(a args, u updater) state {
 			progress.state = SnapStarted
 		})
 		{
-			l := hooks.GetLogger(a.ctx).WithField("fs", fs.ToString()).WithField("snap", snapname)
-			l.WithField("report", plan.Report().String()).Debug("begin run job plan")
-			plan.Run(hooks.WithLogger(a.ctx, l), a.dryRun)
+			getLogger(ctx).WithField("report", plan.Report().String()).Debug("begin run job plan")
+			plan.Run(ctx, a.dryRun)
 			planReport = plan.Report()
 			fsHadErr = planReport.HadError() // not just fatal errors
 			if fsHadErr {
-				l.WithField("report", planReport.String()).Error("end run job plan with error")
+				getLogger(ctx).WithField("report", planReport.String()).Error("end run job plan with error")
 			} else {
-				l.WithField("report", planReport.String()).Info("end run job plan successful")
+				getLogger(ctx).WithField("report", planReport.String()).Info("end run job plan successful")
 			}
 		}
 
@@ -342,7 +328,7 @@ func snapshot(a args, u updater) state {
 	case a.snapshotsTaken <- struct{}{}:
 	default:
 		if a.snapshotsTaken != nil {
-			a.log.Warn("callback channel is full, discarding snapshot update event")
+			getLogger(a.ctx).Warn("callback channel is full, discarding snapshot update event")
 		}
 	}
 
@@ -355,7 +341,7 @@ func snapshot(a args, u updater) state {
 					break
 				}
 			}
-			a.log.WithField("hook", h.String()).WithField("hook_number", hookIdx+1).Warn("hook did not match any snapshotted filesystems")
+			getLogger(a.ctx).WithField("hook", h.String()).WithField("hook_number", hookIdx+1).Warn("hook did not match any snapshotted filesystems")
 		}
 	}
 
@@ -376,7 +362,7 @@ func wait(a args, u updater) state {
 		lastTick := snapper.lastInvocation
 		snapper.sleepUntil = lastTick.Add(a.interval)
 		sleepUntil = snapper.sleepUntil
-		log := a.log.WithField("sleep_until", sleepUntil).WithField("duration", a.interval)
+		log := getLogger(a.ctx).WithField("sleep_until", sleepUntil).WithField("duration", a.interval)
 		logFunc := log.Debug
 		if snapper.state == ErrorWait || snapper.state == SyncUpErrWait {
 			logFunc = log.Error
@@ -404,7 +390,7 @@ func listFSes(ctx context.Context, mf *filters.DatasetMapFilter) (fss []*zfs.Dat
 var syncUpWarnNoSnapshotUntilSyncupMinDuration = envconst.Duration("ZREPL_SNAPPER_SYNCUP_WARN_MIN_DURATION", 1*time.Second)
 
 // see docs/snapshotting.rst
-func findSyncPoint(log Logger, fss []*zfs.DatasetPath, prefix string, interval time.Duration) (syncPoint time.Time, err error) {
+func findSyncPoint(ctx context.Context, fss []*zfs.DatasetPath, prefix string, interval time.Duration) (syncPoint time.Time, err error) {
 
 	const (
 		prioHasVersions int = iota
@@ -426,10 +412,10 @@ func findSyncPoint(log Logger, fss []*zfs.DatasetPath, prefix string, interval t
 
 	now := time.Now()
 
-	log.Debug("examine filesystem state to find sync point")
+	getLogger(ctx).Debug("examine filesystem state to find sync point")
 	for _, d := range fss {
-		l := log.WithField("fs", d.ToString())
-		syncPoint, err := findSyncPointFSNextOptimalSnapshotTime(l, now, interval, prefix, d)
+		ctx := logging.WithInjectedField(ctx, "fs", d.ToString())
+		syncPoint, err := findSyncPointFSNextOptimalSnapshotTime(ctx, now, interval, prefix, d)
 		if err == findSyncPointFSNoFilesystemVersionsErr {
 			snaptimes = append(snaptimes, snapTime{
 				ds:   d,
@@ -438,9 +424,9 @@ func findSyncPoint(log Logger, fss []*zfs.DatasetPath, prefix string, interval t
 			})
 		} else if err != nil {
 			hardErrs++
-			l.WithError(err).Error("cannot determine optimal sync point for this filesystem")
+			getLogger(ctx).WithError(err).Error("cannot determine optimal sync point for this filesystem")
 		} else {
-			l.WithField("syncPoint", syncPoint).Debug("found optimal sync point for this filesystem")
+			getLogger(ctx).WithField("syncPoint", syncPoint).Debug("found optimal sync point for this filesystem")
 			snaptimes = append(snaptimes, snapTime{
 				ds:   d,
 				prio: prioHasVersions,
@@ -467,7 +453,7 @@ func findSyncPoint(log Logger, fss []*zfs.DatasetPath, prefix string, interval t
 	})
 
 	winnerSyncPoint := snaptimes[0].time
-	l := log.WithField("syncPoint", winnerSyncPoint.String())
+	l := getLogger(ctx).WithField("syncPoint", winnerSyncPoint.String())
 	l.Info("determined sync point")
 	if winnerSyncPoint.Sub(now) > syncUpWarnNoSnapshotUntilSyncupMinDuration {
 		for _, st := range snaptimes {
@@ -483,9 +469,9 @@ func findSyncPoint(log Logger, fss []*zfs.DatasetPath, prefix string, interval t
 
 var findSyncPointFSNoFilesystemVersionsErr = fmt.Errorf("no filesystem versions")
 
-func findSyncPointFSNextOptimalSnapshotTime(l Logger, now time.Time, interval time.Duration, prefix string, d *zfs.DatasetPath) (time.Time, error) {
+func findSyncPointFSNextOptimalSnapshotTime(ctx context.Context, now time.Time, interval time.Duration, prefix string, d *zfs.DatasetPath) (time.Time, error) {
 
-	fsvs, err := zfs.ZFSListFilesystemVersions(context.TODO(), d, zfs.ListFilesystemVersionsOptions{
+	fsvs, err := zfs.ZFSListFilesystemVersions(ctx, d, zfs.ListFilesystemVersionsOptions{
 		Types:           zfs.Snapshots,
 		ShortnamePrefix: prefix,
 	})
@@ -502,7 +488,7 @@ func findSyncPointFSNextOptimalSnapshotTime(l Logger, now time.Time, interval ti
 	})
 
 	latest := fsvs[len(fsvs)-1]
-	l.WithField("creation", latest.Creation).Debug("found latest snapshot")
+	getLogger(ctx).WithField("creation", latest.Creation).Debug("found latest snapshot")
 
 	since := now.Sub(latest.Creation)
 	if since < 0 {

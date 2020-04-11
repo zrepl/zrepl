@@ -32,7 +32,7 @@ func BatchDestroy(ctx *platformtest.Context) {
 			Name:       "2",
 		},
 	}
-	zfs.ZFSDestroyFilesystemVersions(reqs)
+	zfs.ZFSDestroyFilesystemVersions(ctx, reqs)
 	if *reqs[0].ErrOut != nil {
 		panic("expecting no error")
 	}

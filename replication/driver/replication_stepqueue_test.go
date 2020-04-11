@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sort"
@@ -11,18 +12,23 @@ import (
 
 	"github.com/montanaflynn/stats"
 	"github.com/stretchr/testify/assert"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 )
 
 // FIXME: this test relies on timing and is thus rather flaky
 // (relies on scheduler responsiveness of < 500ms)
 func TestPqNotconcurrent(t *testing.T) {
+	ctx, end := trace.WithTaskFromStack(context.Background())
+	defer end()
 	var ctr uint32
 	q := newStepQueue()
 	var wg sync.WaitGroup
 	wg.Add(4)
 	go func() {
+		ctx, end := trace.WithTaskFromStack(ctx)
+		defer end()
 		defer wg.Done()
-		defer q.WaitReady("1", time.Unix(9999, 0))()
+		defer q.WaitReady(ctx, "1", time.Unix(9999, 0))()
 		ret := atomic.AddUint32(&ctr, 1)
 		assert.Equal(t, uint32(1), ret)
 		time.Sleep(1 * time.Second)
@@ -34,20 +40,26 @@ func TestPqNotconcurrent(t *testing.T) {
 
 	// while "1" is still running, queue in "2", "3" and "4"
 	go func() {
+		ctx, end := trace.WithTaskFromStack(ctx)
+		defer end()
 		defer wg.Done()
-		defer q.WaitReady("2", time.Unix(2, 0))()
+		defer q.WaitReady(ctx, "2", time.Unix(2, 0))()
 		ret := atomic.AddUint32(&ctr, 1)
 		assert.Equal(t, uint32(2), ret)
 	}()
 	go func() {
+		ctx, end := trace.WithTaskFromStack(ctx)
+		defer end()
 		defer wg.Done()
-		defer q.WaitReady("3", time.Unix(3, 0))()
+		defer q.WaitReady(ctx, "3", time.Unix(3, 0))()
 		ret := atomic.AddUint32(&ctr, 1)
 		assert.Equal(t, uint32(3), ret)
 	}()
 	go func() {
+		ctx, end := trace.WithTaskFromStack(ctx)
+		defer end()
 		defer wg.Done()
-		defer q.WaitReady("4", time.Unix(4, 0))()
+		defer q.WaitReady(ctx, "4", time.Unix(4, 0))()
 		ret := atomic.AddUint32(&ctr, 1)
 		assert.Equal(t, uint32(4), ret)
 	}()
@@ -77,6 +89,8 @@ func (r record) String() string {
 // Hence, perform some statistics on the wakeup times and assert that the mean wakeup
 // times for each step are close together.
 func TestPqConcurrent(t *testing.T) {
+	ctx, end := trace.WithTaskFromStack(context.Background())
+	defer end()
 
 	q := newStepQueue()
 	var wg sync.WaitGroup
@@ -90,12 +104,14 @@ func TestPqConcurrent(t *testing.T) {
 	records := make(chan []record, filesystems)
 	for fs := 0; fs < filesystems; fs++ {
 		go func(fs int) {
+			ctx, end := trace.WithTaskFromStack(ctx)
+			defer end()
 			defer wg.Done()
 			recs := make([]record, 0)
 			for step := 0; step < stepsPerFS; step++ {
 				pos := atomic.AddUint32(&globalCtr, 1)
 				t := time.Unix(int64(step), 0)
-				done := q.WaitReady(fs, t)
+				done := q.WaitReady(ctx, fs, t)
 				wakeAt := time.Since(begin)
 				time.Sleep(sleepTimePerStep)
 				done()

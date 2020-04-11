@@ -6,29 +6,17 @@ import (
 	"context"
 	"sync"
 
+	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/util/envconst"
 )
 
-type contextKey int
-
-const (
-	contextKeyLog contextKey = 0
-)
-
 type Logger = logger.Logger
-
-func WithLogger(ctx context.Context, log Logger) context.Context {
-	return context.WithValue(ctx, contextKeyLog, log)
-}
 
 func GetLogger(ctx context.Context) Logger { return getLogger(ctx) }
 
 func getLogger(ctx context.Context) Logger {
-	if log, ok := ctx.Value(contextKeyLog).(Logger); ok {
-		return log
-	}
-	return logger.NewNullLogger()
+	return logging.GetLogger(ctx, logging.SubsysHooks)
 }
 
 const MAX_HOOK_LOG_SIZE_DEFAULT int = 1 << 20

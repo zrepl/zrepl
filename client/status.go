@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math"
@@ -180,7 +181,7 @@ var StatusCmd = &cli.Subcommand{
 	Run: runStatus,
 }
 
-func runStatus(s *cli.Subcommand, args []string) error {
+func runStatus(ctx context.Context, s *cli.Subcommand, args []string) error {
 	httpc, err := controlHttpClient(s.Config().Global.Control.SockPath)
 	if err != nil {
 		return err
