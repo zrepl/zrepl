@@ -211,7 +211,7 @@ func doMigrateReplicationCursorFS(ctx context.Context, v1CursorJobs []job.Job, f
 	}
 	fmt.Printf("identified owning job %q\n", owningJob.Name())
 
-	bookmarks, err := zfs.ZFSListFilesystemVersions(fs, zfs.ListFilesystemVersionsOptions{
+	bookmarks, err := zfs.ZFSListFilesystemVersions(ctx, fs, zfs.ListFilesystemVersionsOptions{
 		Types: zfs.Bookmarks,
 	})
 	if err != nil {

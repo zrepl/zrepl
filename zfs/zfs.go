@@ -1084,7 +1084,7 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, streamCopier 
 	if opts.RollbackAndForceRecv {
 		// destroy all snapshots before `recv -F` because `recv -F`
 		// does not perform a rollback unless `send -R` was used (which we assume hasn't been the case)
-		snaps, err := ZFSListFilesystemVersions(fsdp, ListFilesystemVersionsOptions{
+		snaps, err := ZFSListFilesystemVersions(ctx, fsdp, ListFilesystemVersionsOptions{
 			Types: Snapshots,
 		})
 		if err != nil {
