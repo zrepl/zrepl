@@ -92,8 +92,9 @@ jobs:
             REPO="zrepl/zrepl"
             COMMIT="${CIRCLE_SHA1}"
             JOB_NAME="${CIRCLE_JOB}"
-            curl "https://api.github.com/repos/$REPO/statuses/$COMMIT?access_token=$GITHUB_COMMIT_STATUS_TOKEN" \
+            curl "https://api.github.com/repos/$REPO/statuses/$COMMIT" \
               -H "Content-Type: application/json" \
+              -H "Authorization: token $GITHUB_COMMIT_STATUS_TOKEN" \
               -X POST \
               -d '{"context":"zrepl/publish-ci-artifacts", "state": "success", "description":"CI Build Artifacts for '"$JOB_NAME"'", "target_url":"https://minio.cschwarz.com/minio/zrepl-ci-artifacts/'"$COMMIT"'/"}'
 
