@@ -19,29 +19,55 @@ var rootCmd = &cobra.Command{
 	Short: "One-stop ZFS replication solution",
 }
 
-var bashcompCmd = &cobra.Command{
-	Use:   "bashcomp path/to/out/file",
-	Short: "generate bash completions",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "specify exactly one positional agument\n")
-			err := cmd.Usage()
-			if err != nil {
-				panic(err)
-			}
-			os.Exit(1)
-		}
-		if err := rootCmd.GenBashCompletionFile(args[0]); err != nil {
-			fmt.Fprintf(os.Stderr, "error generating bash completion: %s", err)
-			os.Exit(1)
-		}
+func init() {
+	rootCmd.PersistentFlags().StringVar(&rootArgs.configPath, "config", "", "config file path")
+}
+
+var genCompletionCmd = &cobra.Command{
+	Use:   "gencompletion",
+	Short: "generate shell auto-completions",
+}
+
+type completionCmdInfo struct {
+	genFunc func(outpath string) error
+	help    string
+}
+
+var completionCmdMap = map[string]completionCmdInfo{
+	"zsh": {
+		rootCmd.GenZshCompletionFile,
+		"  save to file `_zrepl` in your zsh's $fpath",
 	},
-	Hidden: true,
+	"bash": {
+		rootCmd.GenBashCompletionFile,
+		"  save to a path and source that path in your .bashrc",
+	},
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&rootArgs.configPath, "config", "", "config file path")
-	rootCmd.AddCommand(bashcompCmd)
+	for sh, info := range completionCmdMap {
+		sh, info := sh, info
+		genCompletionCmd.AddCommand(&cobra.Command{
+			Use:     fmt.Sprintf("%s path/to/out/file", sh),
+			Short:   fmt.Sprintf("generate %s completions", sh),
+			Example: info.help,
+			Run: func(cmd *cobra.Command, args []string) {
+				if len(args) != 1 {
+					fmt.Fprintf(os.Stderr, "specify exactly one positional agument\n")
+					err := cmd.Usage()
+					if err != nil {
+						panic(err)
+					}
+					os.Exit(1)
+				}
+				if err := info.genFunc(args[0]); err != nil {
+					fmt.Fprintf(os.Stderr, "error generating %s completion: %s", sh, err)
+					os.Exit(1)
+				}
+			},
+		})
+	}
+	rootCmd.AddCommand(genCompletionCmd)
 }
 
 type Subcommand struct {

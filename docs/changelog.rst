@@ -62,7 +62,9 @@ Actual changelog:
 * |bugfix| |docs| snapshotting: clarify sync-up behavior and warn about filesystems
   that will not be snapshotted until the sync-up phase is over
 * |docs| Document new replication features in the :ref:`config overview <overview-how-replication-works>` and :repomasterlink:`replication/design.md`.
+* |feature| documented subcommand to generate ``bash`` and ``zsh`` completions
 * **[MAINTAINER NOTICE]** New platform tests in this version, please make sure you run them for your distro!
+* **[MAINTAINER NOTICE]** Please add the shell completions to the zrepl packages.
 
 0.2.1
 -----

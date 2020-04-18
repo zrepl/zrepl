@@ -167,12 +167,16 @@ $(ARTIFACTDIR):
 $(ARTIFACTDIR)/docs: $(ARTIFACTDIR)
 	mkdir -p "$@"
 
-noarch: $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/go_env.txt docs
+noarch: $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/_zrepl.zsh_completion $(ARTIFACTDIR)/go_env.txt docs
 	# pass
 
 $(ARTIFACTDIR)/bash_completion:
 	$(MAKE) zrepl-bin GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH)
-	artifacts/zrepl-$(GOHOSTOS)-$(GOHOSTARCH) bashcomp "$@"
+	artifacts/zrepl-$(GOHOSTOS)-$(GOHOSTARCH) gencompletion bash "$@"
+
+$(ARTIFACTDIR)/_zrepl.zsh_completion:
+	$(MAKE) zrepl-bin GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH)
+	artifacts/zrepl-$(GOHOSTOS)-$(GOHOSTARCH) gencompletion zsh "$@"
 
 $(ARTIFACTDIR)/go_env.txt:
 	$(GO_ENV_VARS) $(GO) env > $@
