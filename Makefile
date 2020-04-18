@@ -65,6 +65,7 @@ wrapup-and-checksum:
 		-acf $(NOARCH_TARBALL) \
 		$(ARTIFACTDIR)/docs/html \
 		$(ARTIFACTDIR)/bash_completion \
+		$(ARTIFACTDIR)/_zrepl.zsh_completion \
 		$(ARTIFACTDIR)/go_env.txt \
 		dist \
 		config/samples
@@ -159,7 +160,7 @@ platformtest: # do not track dependency on platformtest-bin to allow build of pl
 		$(ZREPL_PLATFORMTEST_ARGS)
 
 ##################### NOARCH #####################
-.PHONY: noarch $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/go_env.txt docs docs-clean
+.PHONY: noarch $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/_zrepl.zsh_completion $(ARTIFACTDIR)/go_env.txt docs docs-clean
 
 
 $(ARTIFACTDIR):
