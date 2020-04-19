@@ -40,3 +40,8 @@ func (l *L) DropWhile(f func()) {
 	defer l.Unlock().Lock()
 	f()
 }
+
+func (l *L) HoldWhile(f func()) {
+	defer l.Lock().Unlock()
+	f()
+}
