@@ -134,6 +134,10 @@ func (c *Cmd) waitPre() {
 	waitPreLogging(c, now)
 }
 
+type usage struct {
+	total_secs, system_secs, user_secs float64
+}
+
 func (c *Cmd) waitPost(err error) {
 	now := time.Now()
 
@@ -146,9 +150,34 @@ func (c *Cmd) waitPost(err error) {
 	c.waitReturnedAt = now
 	c.mtx.Unlock()
 
-	waitPostReport(c, now)
-	waitPostLogging(c, err, now)
-	waitPostPrometheus(c, err, now)
+	// build usage
+	var u usage
+	{
+		var s *os.ProcessState
+		if err == nil {
+			s = c.cmd.ProcessState
+		} else if ee, ok := err.(*exec.ExitError); ok {
+			s = ee.ProcessState
+		}
+
+		if s == nil {
+			u = usage{
+				total_secs:  c.Runtime().Seconds(),
+				system_secs: -1,
+				user_secs:   -1,
+			}
+		} else {
+			u = usage{
+				total_secs:  c.Runtime().Seconds(),
+				system_secs: s.SystemTime().Seconds(),
+				user_secs:   s.UserTime().Seconds(),
+			}
+		}
+	}
+
+	waitPostReport(c, u, now)
+	waitPostLogging(c, u, err, now)
+	waitPostPrometheus(c, u, err, now)
 }
 
 // returns 0 if the command did not yet finish

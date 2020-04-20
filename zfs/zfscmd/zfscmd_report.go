@@ -57,7 +57,7 @@ func startPostReport(c *Cmd, err error, now time.Time) {
 	active.mtx.Unlock()
 }
 
-func waitPostReport(c *Cmd, now time.Time) {
+func waitPostReport(c *Cmd, _ usage, now time.Time) {
 	active.mtx.Lock()
 	defer active.mtx.Unlock()
 	prev := active.cmds[c]
