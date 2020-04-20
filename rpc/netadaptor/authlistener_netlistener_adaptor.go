@@ -33,8 +33,12 @@ import (
 
 type Logger = logger.Logger
 
+type acceptRes struct {
+	conn *transport.AuthConn
+	err  error
+}
 type acceptReq struct {
-	callback chan net.Conn
+	callback chan acceptRes
 }
 
 type Listener struct {
@@ -64,10 +68,19 @@ func New(authListener transport.AuthenticatedListener, l Logger) *Listener {
 // The returned net.Conn is guaranteed to be *transport.AuthConn, i.e., the type of connection
 // returned by the wrapped transport.AuthenticatedListener.
 func (a Listener) Accept() (net.Conn, error) {
-	req := acceptReq{make(chan net.Conn, 1)}
-	a.accepts <- req
-	conn := <-req.callback
-	return conn, nil
+	req := acceptReq{make(chan acceptRes, 1)}
+
+	select {
+	case a.accepts <- req:
+	case <-a.stop:
+		return nil, fmt.Errorf("already closed") // TODO net.Error
+	}
+
+	res, ok := <-req.callback
+	if !ok {
+		return nil, fmt.Errorf("already closed") // TODO net.Error
+	}
+	return res.conn, res.err
 }
 
 func (a Listener) handleAccept() {
@@ -77,18 +90,9 @@ func (a Listener) handleAccept() {
 			a.logger.Debug("handleAccept stop accepting")
 			return
 		case req := <-a.accepts:
-			for {
-				a.logger.Debug("accept authListener")
-				authConn, err := a.al.Accept(context.Background())
-				if err != nil {
-					a.logger.WithError(err).Error("accept error")
-					continue
-				}
-				a.logger.WithField("type", fmt.Sprintf("%T", authConn)).
-					Debug("accept complete")
-				req.callback <- authConn
-				break
-			}
+			a.logger.Debug("accept authListener")
+			authConn, err := a.al.Accept(context.Background())
+			req.callback <- acceptRes{authConn, err}
 		}
 	}
 }
