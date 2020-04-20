@@ -7,6 +7,8 @@ package transportmux
 
 import (
 	"context"
+	"sync/atomic"
+	"syscall"
 
 	"fmt"
 	"io"
@@ -42,12 +44,31 @@ type acceptRes struct {
 }
 
 type demuxListener struct {
-	conns chan acceptRes
+	closed int32
+	conns  chan acceptRes
+}
+
+var ErrClosed = &net.OpError{
+	Op:     "accept",
+	Net:    "demux",
+	Source: nil,
+	Addr:   nil,
+	Err:    syscall.EINVAL,
 }
 
 func (l *demuxListener) Accept(ctx context.Context) (*transport.AuthConn, error) {
-	res := <-l.conns
-	return res.conn, res.err
+	if atomic.LoadInt32(&l.closed) != 0 {
+		return nil, ErrClosed
+	}
+	select {
+	case r, ok := <-l.conns:
+		if !ok {
+			return nil, ErrClosed
+		}
+		return r.conn, r.err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 type demuxAddr struct{}
@@ -59,7 +80,10 @@ func (l *demuxListener) Addr() net.Addr {
 	return demuxAddr{}
 }
 
-func (l *demuxListener) Close() error { return nil } // TODO
+func (l *demuxListener) Close() error {
+	atomic.StoreInt32(&l.closed, 1)
+	return nil
+}
 
 // Exact length of a label in bytes (0-byte padded if it is shorter).
 // This is a protocol constant, changing it breaks the wire protocol.
@@ -90,7 +114,10 @@ func Demux(ctx context.Context, rawListener transport.AuthenticatedListener, lab
 		if _, ok := padded[labelPadded]; ok {
 			return nil, fmt.Errorf("duplicate label %q", label)
 		}
-		dl := &demuxListener{make(chan acceptRes)}
+		dl := &demuxListener{
+			closed: 0,
+			conns:  make(chan acceptRes, 1),
+		}
 		padded[labelPadded] = dl
 		ret[label] = dl
 	}
@@ -103,10 +130,37 @@ func Demux(ctx context.Context, rawListener transport.AuthenticatedListener, lab
 		if err := rawListener.Close(); err != nil {
 			getLog(ctx).WithError(err).Error("error closing listener")
 		}
+
+		drainConns := func(ch chan acceptRes) {
+			for c := range ch {
+				if c.conn != nil {
+					if err := c.conn.Close(); err != nil {
+						getLog(ctx).WithError(err).Error("error closing connection while draining after listener was closed")
+					}
+				}
+			}
+		}
+		for _, dl := range ret {
+			atomic.StoreInt32(&dl.(*demuxListener).closed, 1)
+			drainConns(dl.(*demuxListener).conns)
+		}
 	}()
 
 	go func() {
+		defer func() {
+			for _, dl := range ret {
+				close(dl.(*demuxListener).conns)
+			}
+		}()
+
 		for {
+			select {
+			case <-ctx.Done():
+				getLog(ctx).WithError(ctx.Err()).Info("stop accepting new connections after context done")
+				return
+			default:
+			}
+
 			rawConn, err := rawListener.Accept(ctx)
 			if err != nil {
 				if ctx.Err() != nil {
@@ -147,7 +201,6 @@ func Demux(ctx context.Context, rawListener transport.AuthenticatedListener, lab
 			if err != nil {
 				getLog(ctx).WithError(err).Error("cannot reset deadline")
 			}
-			// blocking is intentional
 			demuxListener.conns <- acceptRes{conn: rawConn, err: nil}
 		}
 	}()

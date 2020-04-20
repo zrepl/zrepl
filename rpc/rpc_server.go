@@ -47,8 +47,9 @@ func NewServer(handler Handler, loggers Loggers, ctxInterceptor HandlerContextIn
 			if dl, ok := ctx.Deadline(); ok {
 				go time.AfterFunc(dl.Sub(dl), controlServer.Stop)
 			}
-			loggers.Control.Debug("shutting down control server")
+			loggers.Control.Debug("gracefully shutting down control server")
 			controlServer.GracefulStop()
+			loggers.Control.Debug("gracdeful shut down of control server complete")
 		}()
 
 		errOut <- serve()
@@ -84,6 +85,8 @@ func NewServer(handler Handler, loggers Loggers, ctxInterceptor HandlerContextIn
 // Serve never returns an error, it logs them to the Server's logger.
 func (s *Server) Serve(ctx context.Context, l transport.AuthenticatedListener) {
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	defer s.logger.Debug("rpc.(*Server).Serve done")
 
 	l = versionhandshake.Listener(l, envconst.Duration("ZREPL_RPC_SERVER_VERSIONHANDSHAKE_TIMEOUT", 10*time.Second))
 
