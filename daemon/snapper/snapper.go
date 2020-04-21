@@ -485,7 +485,7 @@ var findSyncPointFSNoFilesystemVersionsErr = fmt.Errorf("no filesystem versions"
 
 func findSyncPointFSNextOptimalSnapshotTime(l Logger, now time.Time, interval time.Duration, prefix string, d *zfs.DatasetPath) (time.Time, error) {
 
-	fsvs, err := zfs.ZFSListFilesystemVersions(d, zfs.ListFilesystemVersionsOptions{
+	fsvs, err := zfs.ZFSListFilesystemVersions(context.TODO(), d, zfs.ListFilesystemVersionsOptions{
 		Types:           zfs.Snapshots,
 		ShortnamePrefix: prefix,
 	})

@@ -96,7 +96,7 @@ func (s *Sender) ListFilesystemVersions(ctx context.Context, r *pdu.ListFilesyst
 	if err != nil {
 		return nil, err
 	}
-	fsvs, err := zfs.ZFSListFilesystemVersions(lp, zfs.ListFilesystemVersionsOptions{})
+	fsvs, err := zfs.ZFSListFilesystemVersions(ctx, lp, zfs.ListFilesystemVersionsOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -648,7 +648,7 @@ func (s *Receiver) ListFilesystemVersions(ctx context.Context, req *pdu.ListFile
 	}
 	// TODO share following code with sender
 
-	fsvs, err := zfs.ZFSListFilesystemVersions(lp, zfs.ListFilesystemVersionsOptions{})
+	fsvs, err := zfs.ZFSListFilesystemVersions(ctx, lp, zfs.ListFilesystemVersionsOptions{})
 	if err != nil {
 		return nil, err
 	}

@@ -18,10 +18,10 @@ import (
 )
 
 type Cmd struct {
-	cmd                       *exec.Cmd
-	ctx                       context.Context
-	mtx                       sync.RWMutex
-	startedAt, waitReturnedAt time.Time
+	cmd                                      *exec.Cmd
+	ctx                                      context.Context
+	mtx                                      sync.RWMutex
+	startedAt, waitStartedAt, waitReturnedAt time.Time
 }
 
 func CommandContext(ctx context.Context, name string, arg ...string) *Cmd {
@@ -119,19 +119,65 @@ func (c *Cmd) startPost(err error) {
 }
 
 func (c *Cmd) waitPre() {
-	waitPreLogging(c, time.Now())
+	now := time.Now()
+
+	// ignore duplicate waits
+	c.mtx.Lock()
+	// ignore duplicate waits
+	if !c.waitStartedAt.IsZero() {
+		c.mtx.Unlock()
+		return
+	}
+	c.waitStartedAt = now
+	c.mtx.Unlock()
+
+	waitPreLogging(c, now)
+}
+
+type usage struct {
+	total_secs, system_secs, user_secs float64
 }
 
 func (c *Cmd) waitPost(err error) {
 	now := time.Now()
 
 	c.mtx.Lock()
+	// ignore duplicate waits
+	if !c.waitReturnedAt.IsZero() {
+		c.mtx.Unlock()
+		return
+	}
 	c.waitReturnedAt = now
 	c.mtx.Unlock()
 
-	waitPostReport(c, now)
-	waitPostLogging(c, err, now)
-	waitPostPrometheus(c, err, now)
+	// build usage
+	var u usage
+	{
+		var s *os.ProcessState
+		if err == nil {
+			s = c.cmd.ProcessState
+		} else if ee, ok := err.(*exec.ExitError); ok {
+			s = ee.ProcessState
+		}
+
+		if s == nil {
+			u = usage{
+				total_secs:  c.Runtime().Seconds(),
+				system_secs: -1,
+				user_secs:   -1,
+			}
+		} else {
+			u = usage{
+				total_secs:  c.Runtime().Seconds(),
+				system_secs: s.SystemTime().Seconds(),
+				user_secs:   s.UserTime().Seconds(),
+			}
+		}
+	}
+
+	waitPostReport(c, u, now)
+	waitPostLogging(c, u, err, now)
+	waitPostPrometheus(c, u, err, now)
 }
 
 // returns 0 if the command did not yet finish

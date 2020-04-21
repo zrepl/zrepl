@@ -46,7 +46,7 @@ func RegisterMetrics(r prometheus.Registerer) {
 	r.MustRegister(metrics.usertime)
 }
 
-func waitPostPrometheus(c *Cmd, err error, now time.Time) {
+func waitPostPrometheus(c *Cmd, u usage, err error, now time.Time) {
 
 	if len(c.cmd.Args) < 2 {
 		getLogger(c.ctx).WithField("args", c.cmd.Args).
@@ -64,10 +64,10 @@ func waitPostPrometheus(c *Cmd, err error, now time.Time) {
 
 	metrics.totaltime.
 		WithLabelValues(labelValues...).
-		Observe(c.Runtime().Seconds())
+		Observe(u.total_secs)
 	metrics.systemtime.WithLabelValues(labelValues...).
-		Observe(c.cmd.ProcessState.SystemTime().Seconds())
+		Observe(u.system_secs)
 	metrics.usertime.WithLabelValues(labelValues...).
-		Observe(c.cmd.ProcessState.UserTime().Seconds())
+		Observe(u.user_secs)
 
 }

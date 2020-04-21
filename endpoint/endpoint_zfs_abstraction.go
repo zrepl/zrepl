@@ -573,7 +573,7 @@ func listAbstractionsImplFS(ctx context.Context, fs string, query *ListZFSHoldsA
 			whatTypes[zfs.Snapshot] = true
 		}
 	}
-	fsvs, err := zfs.ZFSListFilesystemVersions(fsp, zfs.ListFilesystemVersionsOptions{
+	fsvs, err := zfs.ZFSListFilesystemVersions(ctx, fsp, zfs.ListFilesystemVersionsOptions{
 		Types: whatTypes,
 	})
 	if err != nil {

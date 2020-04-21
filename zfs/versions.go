@@ -206,13 +206,13 @@ func (o *ListFilesystemVersionsOptions) matches(v FilesystemVersion) bool {
 }
 
 // returned versions are sorted by createtxg FIXME drop sort by createtxg requirement
-func ZFSListFilesystemVersions(fs *DatasetPath, options ListFilesystemVersionsOptions) (res []FilesystemVersion, err error) {
+func ZFSListFilesystemVersions(ctx context.Context, fs *DatasetPath, options ListFilesystemVersionsOptions) (res []FilesystemVersion, err error) {
 	listResults := make(chan ZFSListResult)
 
 	promTimer := prometheus.NewTimer(prom.ZFSListFilesystemVersionDuration.WithLabelValues(fs.ToString()))
 	defer promTimer.ObserveDuration()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go ZFSListChan(ctx, listResults,
 		[]string{"name", "guid", "createtxg", "creation", "userrefs"},
