@@ -47,7 +47,7 @@ We can model this situation as two jobs:
 Install zrepl
 -------------
 
-Follow the :ref:`OS-specific installation instructions <installation>` and come back here.
+Follow the :ref:`OS-specific installation instructions <installation_toc>` and come back here.
 
 Generate TLS Certificates
 -------------------------
