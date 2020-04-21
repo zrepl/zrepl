@@ -18,10 +18,10 @@ import (
 )
 
 type Cmd struct {
-	cmd                       *exec.Cmd
-	ctx                       context.Context
-	mtx                       sync.RWMutex
-	startedAt, waitReturnedAt time.Time
+	cmd                                      *exec.Cmd
+	ctx                                      context.Context
+	mtx                                      sync.RWMutex
+	startedAt, waitStartedAt, waitReturnedAt time.Time
 }
 
 func CommandContext(ctx context.Context, name string, arg ...string) *Cmd {
@@ -119,13 +119,30 @@ func (c *Cmd) startPost(err error) {
 }
 
 func (c *Cmd) waitPre() {
-	waitPreLogging(c, time.Now())
+	now := time.Now()
+
+	// ignore duplicate waits
+	c.mtx.Lock()
+	// ignore duplicate waits
+	if !c.waitStartedAt.IsZero() {
+		c.mtx.Unlock()
+		return
+	}
+	c.waitStartedAt = now
+	c.mtx.Unlock()
+
+	waitPreLogging(c, now)
 }
 
 func (c *Cmd) waitPost(err error) {
 	now := time.Now()
 
 	c.mtx.Lock()
+	// ignore duplicate waits
+	if !c.waitReturnedAt.IsZero() {
+		c.mtx.Unlock()
+		return
+	}
 	c.waitReturnedAt = now
 	c.mtx.Unlock()
 
