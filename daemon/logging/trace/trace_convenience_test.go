@@ -1,4 +1,4 @@
-package logging
+package trace
 
 import (
 	"testing"
@@ -12,5 +12,5 @@ func TestGetCallerOrPanic(t *testing.T) {
 	}
 	ret := withStackFromCtxMock()
 	// zrepl prefix is stripped
-	assert.Equal(t, "daemon/logging.TestGetCallerOrPanic", ret)
+	assert.Equal(t, "daemon/logging/trace.TestGetCallerOrPanic", ret)
 }

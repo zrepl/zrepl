@@ -1,4 +1,4 @@
-package logging
+package trace
 
 // The functions in this file are concerned with the generation
 // of trace files based on the information from WithTask and WithSpan.
@@ -134,7 +134,7 @@ func init() {
 	chrometraceConsumers.write = make(chan []byte)
 	go func() {
 		kickConsumer := func(c chrometraceConsumerRegistration, err error) {
-			chrometraceDebug("chrometrace kicking consumer %#v after error %v", c, err)
+			debug("chrometrace kicking consumer %#v after error %v", c, err)
 			select {
 			case c.errored <- err:
 			default:
@@ -145,7 +145,7 @@ func init() {
 		for {
 			select {
 			case reg := <-chrometraceConsumers.register:
-				chrometraceDebug("registered chrometrace consumer %#v", reg)
+				debug("registered chrometrace consumer %#v", reg)
 				chrometraceConsumers.consumers[reg] = true
 				n, err := reg.w.Write([]byte("[\n"))
 				if err != nil {
@@ -156,12 +156,12 @@ func init() {
 				// successfully registered
 
 			case buf := <-chrometraceConsumers.write:
-				chrometraceDebug("chrometrace write request: %s", string(buf))
+				debug("chrometrace write request: %s", string(buf))
 				var r bytes.Reader
 				for c := range chrometraceConsumers.consumers {
 					r.Reset(buf)
 					n, err := io.Copy(c.w, &r)
-					chrometraceDebug("chrometrace wrote n=%v bytes to consumer %#v", n, c)
+					debug("chrometrace wrote n=%v bytes to consumer %#v", n, c)
 					if err != nil {
 						kickConsumer(c, err)
 					}

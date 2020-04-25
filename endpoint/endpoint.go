@@ -10,8 +10,8 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 
-	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/util/chainedio"
 	"github.com/zrepl/zrepl/util/chainlock"
@@ -74,7 +74,7 @@ func (s *Sender) filterCheckFS(fs string) (*zfs.DatasetPath, error) {
 }
 
 func (s *Sender) ListFilesystems(ctx context.Context, r *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	fss, err := zfs.ZFSListMapping(ctx, s.FSFilter)
 	if err != nil {
@@ -98,7 +98,7 @@ func (s *Sender) ListFilesystems(ctx context.Context, r *pdu.ListFilesystemReq) 
 }
 
 func (s *Sender) ListFilesystemVersions(ctx context.Context, r *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	lp, err := s.filterCheckFS(r.GetFilesystem())
 	if err != nil {
@@ -118,7 +118,7 @@ func (s *Sender) ListFilesystemVersions(ctx context.Context, r *pdu.ListFilesyst
 }
 
 func (p *Sender) HintMostRecentCommonAncestor(ctx context.Context, r *pdu.HintMostRecentCommonAncestorReq) (*pdu.HintMostRecentCommonAncestorRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	fsp, err := p.filterCheckFS(r.GetFilesystem())
 	if err != nil {
@@ -251,7 +251,7 @@ func sendArgsFromPDUAndValidateExistsAndGetVersion(ctx context.Context, fs strin
 }
 
 func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	_, err := s.filterCheckFS(r.Filesystem)
 	if err != nil {
@@ -357,7 +357,7 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 }
 
 func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*pdu.SendCompletedRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	orig := r.GetOriginalReq() // may be nil, always use proto getters
 	fsp, err := p.filterCheckFS(orig.GetFilesystem())
@@ -412,7 +412,7 @@ func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*p
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		ctx, endTask := logging.WithTask(ctx, "release-step-hold-to")
+		ctx, endTask := trace.WithTask(ctx, "release-step-hold-to")
 		defer endTask()
 
 		log(ctx).Debug("release step-hold of or step-bookmark on `to`")
@@ -426,7 +426,7 @@ func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*p
 	}()
 	go func() {
 		defer wg.Done()
-		ctx, endTask := logging.WithTask(ctx, "release-step-hold-from")
+		ctx, endTask := trace.WithTask(ctx, "release-step-hold-from")
 		defer endTask()
 
 		if from == nil {
@@ -458,7 +458,7 @@ func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*p
 }
 
 func (p *Sender) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	dp, err := p.filterCheckFS(req.Filesystem)
 	if err != nil {
@@ -468,7 +468,7 @@ func (p *Sender) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshots
 }
 
 func (p *Sender) Ping(ctx context.Context, req *pdu.PingReq) (*pdu.PingRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	res := pdu.PingRes{
 		Echo: req.GetMessage(),
@@ -477,19 +477,19 @@ func (p *Sender) Ping(ctx context.Context, req *pdu.PingReq) (*pdu.PingRes, erro
 }
 
 func (p *Sender) PingDataconn(ctx context.Context, req *pdu.PingReq) (*pdu.PingRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	return p.Ping(ctx, req)
 }
 
 func (p *Sender) WaitForConnectivity(ctx context.Context) error {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	return nil
 }
 
 func (p *Sender) ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	dp, err := p.filterCheckFS(req.Filesystem)
 	if err != nil {
@@ -621,7 +621,7 @@ func (f subroot) MapToLocal(fs string) (*zfs.DatasetPath, error) {
 }
 
 func (s *Receiver) ListFilesystems(ctx context.Context, req *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	root := s.clientRootFromCtx(ctx)
 	filtered, err := zfs.ZFSListMapping(ctx, subroot{root})
@@ -673,7 +673,7 @@ func (s *Receiver) ListFilesystems(ctx context.Context, req *pdu.ListFilesystemR
 }
 
 func (s *Receiver) ListFilesystemVersions(ctx context.Context, req *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	root := s.clientRootFromCtx(ctx)
 	lp, err := subroot{root}.MapToLocal(req.GetFilesystem())
@@ -696,7 +696,7 @@ func (s *Receiver) ListFilesystemVersions(ctx context.Context, req *pdu.ListFile
 }
 
 func (s *Receiver) Ping(ctx context.Context, req *pdu.PingReq) (*pdu.PingRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	res := pdu.PingRes{
 		Echo: req.GetMessage(),
@@ -705,29 +705,29 @@ func (s *Receiver) Ping(ctx context.Context, req *pdu.PingReq) (*pdu.PingRes, er
 }
 
 func (s *Receiver) PingDataconn(ctx context.Context, req *pdu.PingReq) (*pdu.PingRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 	return s.Ping(ctx, req)
 }
 
 func (s *Receiver) WaitForConnectivity(ctx context.Context) error {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 	return nil
 }
 
 func (s *Receiver) ReplicationCursor(ctx context.Context, _ *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 	return nil, fmt.Errorf("ReplicationCursor not implemented for Receiver")
 }
 
 func (s *Receiver) Send(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 	return nil, nil, fmt.Errorf("receiver does not implement Send()")
 }
 
 var maxConcurrentZFSRecvSemaphore = semaphore.New(envconst.Int64("ZREPL_ENDPOINT_MAX_CONCURRENT_RECV", 10))
 
 func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.ReadCloser) (*pdu.ReceiveRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	getLogger(ctx).Debug("incoming Receive")
 	defer receive.Close()
@@ -957,7 +957,7 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.
 }
 
 func (s *Receiver) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	root := s.clientRootFromCtx(ctx)
 	lp, err := subroot{root}.MapToLocal(req.Filesystem)
@@ -968,7 +968,7 @@ func (s *Receiver) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapsho
 }
 
 func (p *Receiver) HintMostRecentCommonAncestor(ctx context.Context, r *pdu.HintMostRecentCommonAncestorReq) (*pdu.HintMostRecentCommonAncestorRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 	// we don't move last-received-hold as part of this hint
 	// because that wouldn't give us any benefit wrt resumability.
 	//
@@ -978,7 +978,7 @@ func (p *Receiver) HintMostRecentCommonAncestor(ctx context.Context, r *pdu.Hint
 }
 
 func (p *Receiver) SendCompleted(ctx context.Context, _ *pdu.SendCompletedReq) (*pdu.SendCompletedRes, error) {
-	defer logging.WithSpanFromStackUpdateCtx(&ctx)()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	return &pdu.SendCompletedRes{}, nil
 }

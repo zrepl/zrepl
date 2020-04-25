@@ -9,12 +9,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/log"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/daemon/job/reset"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
-	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/endpoint"
@@ -377,7 +377,7 @@ func (j *ActiveSide) SenderConfig() *endpoint.SenderConfig {
 }
 
 func (j *ActiveSide) Run(ctx context.Context) {
-	ctx, endTask := logging.WithTaskAndSpan(ctx, "active-side-job", j.Name())
+	ctx, endTask := trace.WithTaskAndSpan(ctx, "active-side-job", j.Name())
 	defer endTask()
 	log := GetLogger(ctx)
 
@@ -386,7 +386,7 @@ func (j *ActiveSide) Run(ctx context.Context) {
 	periodicDone := make(chan struct{})
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	periodicCtx, endTask := logging.WithTask(ctx, "periodic")
+	periodicCtx, endTask := trace.WithTask(ctx, "periodic")
 	defer endTask()
 	go j.mode.RunPeriodic(periodicCtx, periodicDone)
 
@@ -404,7 +404,7 @@ outer:
 		case <-periodicDone:
 		}
 		invocationCount++
-		invocationCtx, endSpan := logging.WithSpan(ctx, fmt.Sprintf("invocation-%d", invocationCount))
+		invocationCtx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("invocation-%d", invocationCount))
 		j.do(invocationCtx)
 		endSpan()
 	}
@@ -435,7 +435,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 			return
 		default:
 		}
-		ctx, endSpan := logging.WithSpan(ctx, "replication")
+		ctx, endSpan := trace.WithSpan(ctx, "replication")
 		ctx, repCancel := context.WithCancel(ctx)
 		var repWait driver.WaitFunc
 		j.updateTasks(func(tasks *activeSideTasks) {
@@ -459,7 +459,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 			return
 		default:
 		}
-		ctx, endSpan := logging.WithSpan(ctx, "prune_sender")
+		ctx, endSpan := trace.WithSpan(ctx, "prune_sender")
 		ctx, senderCancel := context.WithCancel(ctx)
 		tasks := j.updateTasks(func(tasks *activeSideTasks) {
 			tasks.prunerSender = j.prunerFactory.BuildSenderPruner(ctx, sender, sender)
@@ -478,7 +478,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 			return
 		default:
 		}
-		ctx, endSpan := logging.WithSpan(ctx, "prune_recever")
+		ctx, endSpan := trace.WithSpan(ctx, "prune_recever")
 		ctx, receiverCancel := context.WithCancel(ctx)
 		tasks := j.updateTasks(func(tasks *activeSideTasks) {
 			tasks.prunerReceiver = j.prunerFactory.BuildReceiverPruner(ctx, receiver, sender)

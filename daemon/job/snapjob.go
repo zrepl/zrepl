@@ -7,11 +7,11 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
-	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/endpoint"
@@ -90,7 +90,7 @@ func (j *SnapJob) OwnedDatasetSubtreeRoot() (rfs *zfs.DatasetPath, ok bool) {
 func (j *SnapJob) SenderConfig() *endpoint.SenderConfig { return nil }
 
 func (j *SnapJob) Run(ctx context.Context) {
-	ctx, endTask := logging.WithTaskAndSpan(ctx, "snap-job", j.Name())
+	ctx, endTask := trace.WithTaskAndSpan(ctx, "snap-job", j.Name())
 	defer endTask()
 	log := GetLogger(ctx)
 
@@ -99,7 +99,7 @@ func (j *SnapJob) Run(ctx context.Context) {
 	periodicDone := make(chan struct{})
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	periodicCtx, endTask := logging.WithTask(ctx, "snapshotting")
+	periodicCtx, endTask := trace.WithTask(ctx, "snapshotting")
 	defer endTask()
 	go j.snapper.Run(periodicCtx, periodicDone)
 
@@ -117,7 +117,7 @@ outer:
 		}
 		invocationCount++
 
-		invocationCtx, endSpan := logging.WithSpan(ctx, fmt.Sprintf("invocation-%d", invocationCount))
+		invocationCtx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("invocation-%d", invocationCount))
 		j.doPrune(invocationCtx)
 		endSpan()
 	}
@@ -167,7 +167,7 @@ func (h alwaysUpToDateReplicationCursorHistory) ListFilesystems(ctx context.Cont
 }
 
 func (j *SnapJob) doPrune(ctx context.Context) {
-	ctx, endSpan := logging.WithSpan(ctx, "snap-job-do-prune")
+	ctx, endSpan := trace.WithSpan(ctx, "snap-job-do-prune")
 	defer endSpan()
 	log := GetLogger(ctx)
 	sender := endpoint.NewSender(endpoint.SenderConfig{

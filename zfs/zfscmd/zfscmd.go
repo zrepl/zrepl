@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zrepl/zrepl/daemon/logging"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 	"github.com/zrepl/zrepl/util/circlog"
 )
 
@@ -23,7 +23,7 @@ type Cmd struct {
 	ctx                                      context.Context
 	mtx                                      sync.RWMutex
 	startedAt, waitStartedAt, waitReturnedAt time.Time
-	waitReturnEndSpanCb                      logging.DoneFunc
+	waitReturnEndSpanCb                      trace.DoneFunc
 }
 
 func CommandContext(ctx context.Context, name string, arg ...string) *Cmd {
@@ -104,9 +104,9 @@ func (c *Cmd) Wait() (err error) {
 func (c *Cmd) startPre(newTask bool) {
 	if newTask {
 		// avoid explosion of tasks with name c.String()
-		c.ctx, c.waitReturnEndSpanCb = logging.WithTaskAndSpan(c.ctx, "zfscmd", c.String())
+		c.ctx, c.waitReturnEndSpanCb = trace.WithTaskAndSpan(c.ctx, "zfscmd", c.String())
 	} else {
-		c.ctx, c.waitReturnEndSpanCb = logging.WithSpan(c.ctx, c.String())
+		c.ctx, c.waitReturnEndSpanCb = trace.WithSpan(c.ctx, c.String())
 	}
 	startPreLogging(c, time.Now())
 }

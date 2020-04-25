@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/logging"
 )
 
 var rootArgs struct {
@@ -99,7 +99,7 @@ func (s *Subcommand) Config() *config.Config {
 func (s *Subcommand) run(cmd *cobra.Command, args []string) {
 	s.tryParseConfig()
 	ctx := context.Background()
-	endTask := logging.WithTaskFromStackUpdateCtx(&ctx)
+	endTask := trace.WithTaskFromStackUpdateCtx(&ctx)
 	defer endTask()
 	err := s.Run(ctx, s, args)
 	endTask()

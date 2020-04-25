@@ -9,8 +9,8 @@ import (
 
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
-
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/tlsconf"
 )
@@ -157,13 +157,7 @@ func getLoggerImpl(ctx context.Context, subsys Subsystem, panicIfEnded bool) log
 
 	l = l.WithField(SubsysField, subsys)
 
-	if nI := ctx.Value(contextKeyTraceNode); nI != nil {
-		n := nI.(*traceNode)
-		_, spanStack := currentTaskNameAndSpanStack(n)
-		l = l.WithField(SpanField, spanStack)
-	} else {
-		l = l.WithField(SpanField, "NOSPAN")
-	}
+	l = l.WithField(SpanField, trace.GetSpanStackOrDefault(ctx, "NOSPAN"))
 
 	fields := make(logger.Fields)
 	iterInjectedFields(ctx, func(field string, value interface{}) {

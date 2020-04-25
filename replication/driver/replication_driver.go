@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/replication/report"
 	"github.com/zrepl/zrepl/util/chainlock"
 	"github.com/zrepl/zrepl/util/envconst"
@@ -297,7 +297,7 @@ func (a *attempt) do(ctx context.Context, prev *attempt) {
 
 // if no error occurs, returns a map that maps this attempt's a.fss to `prev`'s a.fss
 func (a *attempt) doGlobalPlanning(ctx context.Context, prev *attempt) map[*fs]*fs {
-	ctx, endSpan := logging.WithSpan(ctx, "plan")
+	ctx, endSpan := trace.WithSpan(ctx, "plan")
 	defer endSpan()
 	pfss, err := a.planner.Plan(ctx)
 	errTime := time.Now()
@@ -389,7 +389,7 @@ func (a *attempt) doGlobalPlanning(ctx context.Context, prev *attempt) map[*fs]*
 }
 
 func (a *attempt) doFilesystems(ctx context.Context, prevs map[*fs]*fs) {
-	ctx, endSpan := logging.WithSpan(ctx, "do-repl")
+	ctx, endSpan := trace.WithSpan(ctx, "do-repl")
 	defer endSpan()
 
 	defer a.l.Lock().Unlock()
@@ -402,7 +402,7 @@ func (a *attempt) doFilesystems(ctx context.Context, prevs map[*fs]*fs) {
 		go func(f *fs) {
 			defer fssesDone.Done()
 			// avoid explosion of tasks with name f.report().Info.Name
-			ctx, endTask := logging.WithTaskAndSpan(ctx, "repl-fs", f.report().Info.Name)
+			ctx, endTask := trace.WithTaskAndSpan(ctx, "repl-fs", f.report().Info.Name)
 			defer endTask()
 			f.do(ctx, stepQueue, prevs[f])
 		}(f)
@@ -610,7 +610,7 @@ func (f *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 			targetDate := s.step.TargetDate()
 			defer pq.WaitReady(ctx, f, targetDate)()
 			// do the step
-			ctx, endSpan := logging.WithSpan(ctx, fmt.Sprintf("%#v", s.step.ReportInfo()))
+			ctx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("%#v", s.step.ReportInfo()))
 			defer endSpan()
 			err, errTime = s.step.Step(ctx), time.Now() // no shadow
 		})

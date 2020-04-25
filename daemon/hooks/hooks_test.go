@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/hooks"
@@ -70,7 +71,7 @@ func curry(f comparisonAssertionFunc, expected interface{}, right bool) (ret val
 }
 
 func TestHooks(t *testing.T) {
-	ctx, end := logging.WithTaskFromStack(context.Background())
+	ctx, end := trace.WithTaskFromStack(context.Background())
 	defer end()
 
 	testFSName := "testpool/testdataset"

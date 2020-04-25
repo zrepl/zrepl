@@ -5,13 +5,11 @@ import "context"
 type contextKey int
 
 const (
-	contextKeyTraceNode contextKey = 1 + iota
-	contextKeyLoggers
+	contextKeyLoggers contextKey = 1 + iota
 	contextKeyInjectedField
 )
 
 var contextKeys = []contextKey{
-	contextKeyTraceNode,
 	contextKeyLoggers,
 	contextKeyInjectedField,
 }

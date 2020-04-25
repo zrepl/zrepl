@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 
-	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/replication/driver"
 	. "github.com/zrepl/zrepl/replication/logic/diff"
@@ -82,7 +82,7 @@ func (p *Planner) WaitForConnectivity(ctx context.Context) error {
 	var wg sync.WaitGroup
 	doPing := func(endpoint Endpoint, errOut *error) {
 		defer wg.Done()
-		ctx, endTask := logging.WithTaskFromStack(ctx)
+		ctx, endTask := trace.WithTaskFromStack(ctx)
 		defer endTask()
 		err := endpoint.WaitForConnectivity(ctx)
 		if err != nil {
@@ -375,7 +375,7 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 		var wg sync.WaitGroup
 		doHint := func(ep Endpoint, name string) {
 			defer wg.Done()
-			ctx, endTask := logging.WithTask(ctx, "hint-mrca-"+name)
+			ctx, endTask := trace.WithTask(ctx, "hint-mrca-"+name)
 			defer endTask()
 
 			log := log(ctx).WithField("to_side", name).
@@ -537,7 +537,7 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 	log(ctx).Debug("compute send size estimate")
 	errs := make(chan error, len(steps))
 	fanOutCtx, fanOutCancel := context.WithCancel(ctx)
-	_, fanOutAdd, fanOutWait := logging.WithTaskGroup(fanOutCtx, "compute-size-estimate")
+	_, fanOutAdd, fanOutWait := trace.WithTaskGroup(fanOutCtx, "compute-size-estimate")
 	defer fanOutCancel()
 	for _, step := range steps {
 		step := step // local copy that is moved into the closure

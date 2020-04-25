@@ -12,21 +12,20 @@ import (
 
 	"github.com/montanaflynn/stats"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/zrepl/zrepl/daemon/logging"
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 )
 
 // FIXME: this test relies on timing and is thus rather flaky
 // (relies on scheduler responsiveness of < 500ms)
 func TestPqNotconcurrent(t *testing.T) {
-	ctx, end := logging.WithTaskFromStack(context.Background())
+	ctx, end := trace.WithTaskFromStack(context.Background())
 	defer end()
 	var ctr uint32
 	q := newStepQueue()
 	var wg sync.WaitGroup
 	wg.Add(4)
 	go func() {
-		ctx, end := logging.WithTaskFromStack(ctx)
+		ctx, end := trace.WithTaskFromStack(ctx)
 		defer end()
 		defer wg.Done()
 		defer q.WaitReady(ctx, "1", time.Unix(9999, 0))()
@@ -41,7 +40,7 @@ func TestPqNotconcurrent(t *testing.T) {
 
 	// while "1" is still running, queue in "2", "3" and "4"
 	go func() {
-		ctx, end := logging.WithTaskFromStack(ctx)
+		ctx, end := trace.WithTaskFromStack(ctx)
 		defer end()
 		defer wg.Done()
 		defer q.WaitReady(ctx, "2", time.Unix(2, 0))()
@@ -49,7 +48,7 @@ func TestPqNotconcurrent(t *testing.T) {
 		assert.Equal(t, uint32(2), ret)
 	}()
 	go func() {
-		ctx, end := logging.WithTaskFromStack(ctx)
+		ctx, end := trace.WithTaskFromStack(ctx)
 		defer end()
 		defer wg.Done()
 		defer q.WaitReady(ctx, "3", time.Unix(3, 0))()
@@ -57,7 +56,7 @@ func TestPqNotconcurrent(t *testing.T) {
 		assert.Equal(t, uint32(3), ret)
 	}()
 	go func() {
-		ctx, end := logging.WithTaskFromStack(ctx)
+		ctx, end := trace.WithTaskFromStack(ctx)
 		defer end()
 		defer wg.Done()
 		defer q.WaitReady(ctx, "4", time.Unix(4, 0))()
@@ -90,7 +89,7 @@ func (r record) String() string {
 // Hence, perform some statistics on the wakeup times and assert that the mean wakeup
 // times for each step are close together.
 func TestPqConcurrent(t *testing.T) {
-	ctx, end := logging.WithTaskFromStack(context.Background())
+	ctx, end := trace.WithTaskFromStack(context.Background())
 	defer end()
 
 	q := newStepQueue()
@@ -105,7 +104,7 @@ func TestPqConcurrent(t *testing.T) {
 	records := make(chan []record, filesystems)
 	for fs := 0; fs < filesystems; fs++ {
 		go func(fs int) {
-			ctx, end := logging.WithTaskFromStack(ctx)
+			ctx, end := trace.WithTaskFromStack(ctx)
 			defer end()
 			defer wg.Done()
 			recs := make([]record, 0)
