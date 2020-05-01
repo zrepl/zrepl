@@ -731,6 +731,9 @@ func listStaleFiltering(abs []Abstraction, sinceBound *CreateTXGRangeBound) *Sta
 	}
 	stepFirstNotStaleCandidates := make(map[fsAndJobId]stepFirstNotStaleCandidate) // empty map => will always return nil
 	for _, a := range abs {
+		if a.GetJobID() == nil {
+			continue // already put those into always-live list noJobId in above loop
+		}
 		key := fsAndJobId{a.GetFS(), *a.GetJobID()}
 		c := stepFirstNotStaleCandidates[key]
 
