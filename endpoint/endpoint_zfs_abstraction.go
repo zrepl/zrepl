@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/util/semaphore"
 	"github.com/zrepl/zrepl/zfs"
@@ -529,15 +530,16 @@ func ListAbstractionsStreamed(ctx context.Context, query ListZFSHoldsAndBookmark
 	}
 
 	sem := semaphore.New(int64(query.Concurrency))
+	ctx, endTask := trace.WithTask(ctx, "list-abstractions-streamed-producer")
 	go func() {
+		defer endTask()
 		defer close(out)
 		defer close(outErrs)
-		var wg sync.WaitGroup
-		defer wg.Wait()
+
+		_, add, wait := trace.WithTaskGroup(ctx, "list-abstractions-impl-fs")
+		defer wait()
 		for i := range fss {
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
+			add(func(ctx context.Context) {
 				g, err := sem.Acquire(ctx)
 				if err != nil {
 					errCb(err, fss[i], err.Error())
@@ -547,7 +549,7 @@ func ListAbstractionsStreamed(ctx context.Context, query ListZFSHoldsAndBookmark
 					defer g.Release()
 					listAbstractionsImplFS(ctx, fss[i], &query, emitAbstraction, errCb)
 				}()
-			}(i)
+			})
 		}
 	}()
 
