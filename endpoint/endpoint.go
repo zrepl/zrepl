@@ -623,6 +623,13 @@ func (f subroot) MapToLocal(fs string) (*zfs.DatasetPath, error) {
 func (s *Receiver) ListFilesystems(ctx context.Context, req *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error) {
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
+	// first make sure that root_fs is imported
+	if rphs, err := zfs.ZFSGetFilesystemPlaceholderState(ctx, s.conf.RootWithoutClientComponent); err != nil {
+		return nil, errors.Wrap(err, "cannot determine whether root_fs exists")
+	} else if !rphs.FSExists {
+		return nil, errors.New("root_fs does not exist")
+	}
+
 	root := s.clientRootFromCtx(ctx)
 	filtered, err := zfs.ZFSListMapping(ctx, subroot{root})
 	if err != nil {
