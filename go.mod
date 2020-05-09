@@ -5,6 +5,7 @@ go 1.12
 require (
 	github.com/fatih/color v1.7.0
 	github.com/gdamore/tcell v1.2.0
+	github.com/gitchander/permutation v0.0.0-20181107151852-9e56b92e9909
 	github.com/go-logfmt/logfmt v0.4.0
 	github.com/go-sql-driver/mysql v1.4.1-0.20190907122137-b2c03bcae3d4
 	github.com/golang/protobuf v1.3.2

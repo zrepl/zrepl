@@ -94,10 +94,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync/atomic"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/zrepl/zrepl/util/chainlock"
 )
 
 var metrics struct {
@@ -128,16 +129,18 @@ func RegisterMetrics(r prometheus.Registerer) {
 var taskNamer = newUniqueTaskNamer(metrics.uniqueConcurrentTaskNameBitvecLength)
 
 type traceNode struct {
-	id                 string
-	annotation         string
-	parentTask         *traceNode
-	activeChildTasks   int32 // only for task nodes, insignificant for span nodes
-	parentSpan         *traceNode
-	hasActiveChildSpan int32
+	id         string
+	annotation string
+	parentTask *traceNode
+
+	mtx chainlock.L
+
+	activeChildTasks int32 // only for task nodes, insignificant for span nodes
+	parentSpan       *traceNode
+	activeChildSpan  *traceNode // nil if task or span doesn't have an active child span
 
 	startedAt time.Time
 	endedAt   time.Time
-	ended     int32
 }
 
 // Returned from WithTask or WithSpan.
@@ -145,6 +148,9 @@ type traceNode struct {
 // See package-level docs for nesting rules.
 // Wrong call order / forgetting to call it will result in panics.
 type DoneFunc func()
+
+var ErrTaskStillHasActiveChildTasks = fmt.Errorf("end task: task still has active child tasks")
+var ErrParentTaskAlreadyEnded = fmt.Errorf("create task: parent task already ended")
 
 // Start a new root task or create a child task of an existing task.
 //
@@ -163,7 +169,7 @@ func WithTask(ctx context.Context, taskName string) (context.Context, DoneFunc) 
 	if nodeI != nil {
 		node := nodeI.(*traceNode)
 		if node.parentSpan != nil {
-			parentTask = node.parentSpan // FIXME review this
+			parentTask = node.parentTask
 		} else {
 			parentTask = node
 		}
@@ -172,20 +178,24 @@ func WithTask(ctx context.Context, taskName string) (context.Context, DoneFunc) 
 	taskName, taskNameDone := taskNamer.UniqueConcurrentTaskName(taskName)
 
 	this := &traceNode{
-		id:                 genID(),
-		annotation:         taskName,
-		parentTask:         parentTask,
-		activeChildTasks:   0,
-		hasActiveChildSpan: 0,
-		parentSpan:         nil,
+		id:               genID(),
+		annotation:       taskName,
+		parentTask:       parentTask,
+		activeChildTasks: 0,
+		parentSpan:       nil,
+		activeChildSpan:  nil,
 
 		startedAt: time.Now(),
-		ended:     0,
 		endedAt:   time.Time{},
 	}
 
 	if this.parentTask != nil {
-		atomic.AddInt32(&this.parentTask.activeChildTasks, 1)
+		this.parentTask.mtx.HoldWhile(func() {
+			if !this.parentTask.endedAt.IsZero() {
+				panic(ErrParentTaskAlreadyEnded)
+			}
+			this.parentTask.activeChildTasks++
+		})
 	}
 
 	ctx = context.WithValue(ctx, contextKeyTraceNode, this)
@@ -195,19 +205,35 @@ func WithTask(ctx context.Context, taskName string) (context.Context, DoneFunc) 
 	metrics.activeTasks.Inc()
 
 	endTaskFunc := func() {
-		if nc := atomic.LoadInt32(&this.activeChildTasks); nc != 0 {
-			panic(fmt.Sprintf("this task must have 0 active child tasks, got %v", nc))
-		}
 
-		if !atomic.CompareAndSwapInt32(&this.ended, 0, 1) {
-			return
-		}
-		this.endedAt = time.Now()
-
-		if this.parentTask != nil {
-			if atomic.AddInt32(&this.parentTask.activeChildTasks, -1) < 0 {
-				panic("parent task with negative activeChildTasks count")
+		// only hold locks while manipulating the tree
+		// (trace writer might block too long and unlike spans, tasks are updated concurrently)
+		alreadyEnded := func() (alreadyEnded bool) {
+			if this.parentTask != nil {
+				defer this.parentTask.mtx.Lock().Unlock()
 			}
+			defer this.mtx.Lock().Unlock()
+
+			if this.activeChildTasks != 0 {
+				panic(errors.Wrapf(ErrTaskStillHasActiveChildTasks, "end task: %v active child tasks", this.activeChildSpan))
+			}
+
+			// support idempotent task ends
+			if !this.endedAt.IsZero() {
+				return true
+			}
+			this.endedAt = time.Now()
+
+			if this.parentTask != nil {
+				this.parentTask.activeChildTasks--
+				if this.parentTask.activeChildTasks < 0 {
+					panic("impl error: parent task with negative activeChildTasks count")
+				}
+			}
+			return false
+		}()
+		if alreadyEnded {
+			return
 		}
 
 		chrometraceEndTask(this)
@@ -219,6 +245,9 @@ func WithTask(ctx context.Context, taskName string) (context.Context, DoneFunc) 
 
 	return ctx, endTaskFunc
 }
+
+var ErrAlreadyActiveChildSpan = fmt.Errorf("create child span: span already has an active child span")
+var ErrSpanStillHasActiveChildSpan = fmt.Errorf("end span: span still has active child spans")
 
 // Start a new span.
 // Important: ctx must have an active task (see WithTask)
@@ -237,28 +266,43 @@ func WithSpan(ctx context.Context, annotation string) (context.Context, DoneFunc
 	}
 
 	this := &traceNode{
-		id:                 genID(),
-		annotation:         annotation,
-		parentTask:         parentTask,
-		parentSpan:         parentSpan,
-		hasActiveChildSpan: 0,
+		id:              genID(),
+		annotation:      annotation,
+		parentTask:      parentTask,
+		parentSpan:      parentSpan,
+		activeChildSpan: nil,
 
 		startedAt: time.Now(),
-		ended:     0,
 		endedAt:   time.Time{},
 	}
 
-	if !atomic.CompareAndSwapInt32(&parentSpan.hasActiveChildSpan, 0, 1) {
-		panic("already has active child span")
-	}
+	parentSpan.mtx.HoldWhile(func() {
+		if parentSpan.activeChildSpan != nil {
+			panic(ErrAlreadyActiveChildSpan)
+		}
+		parentSpan.activeChildSpan = this
+	})
 
 	ctx = context.WithValue(ctx, contextKeyTraceNode, this)
 	chrometraceBeginSpan(this)
 
 	endTaskFunc := func() {
-		if !atomic.CompareAndSwapInt32(&parentSpan.hasActiveChildSpan, 1, 0) {
-			panic("impl error: hasActiveChildSpan should not change to 0 while we hold it")
+
+		defer parentSpan.mtx.Lock().Unlock()
+		if parentSpan.activeChildSpan != this && this.endedAt.IsZero() {
+			panic("impl error: activeChildSpan should not change while != nil because there can only be one")
 		}
+
+		defer this.mtx.Lock().Unlock()
+		if this.activeChildSpan != nil {
+			panic(ErrSpanStillHasActiveChildSpan)
+		}
+
+		if !this.endedAt.IsZero() {
+			return // support idempotent span ends
+		}
+
+		parentSpan.activeChildSpan = nil
 		this.endedAt = time.Now()
 
 		chrometraceEndSpan(this)
