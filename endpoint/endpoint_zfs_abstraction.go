@@ -468,7 +468,7 @@ func (e ListAbstractionsErrors) Error() string {
 	}
 	msgs := make([]string, len(e))
 	for i := range e {
-		msgs[i] = e.Error()
+		msgs[i] = e[i].Error()
 	}
 	return fmt.Sprintf("list endpoint abstractions: multiple errors:\n%s", strings.Join(msgs, "\n"))
 }
