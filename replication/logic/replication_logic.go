@@ -33,7 +33,6 @@ type Endpoint interface {
 	ListFilesystemVersions(ctx context.Context, req *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error)
 	DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error)
 	WaitForConnectivity(ctx context.Context) error
-	HintMostRecentCommonAncestor(context.Context, *pdu.HintMostRecentCommonAncestorReq) (*pdu.HintMostRecentCommonAncestorRes, error)
 }
 
 type Sender interface {
@@ -357,43 +356,6 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 			return nil, err
 		}
 		log(ctx).WithField("token", resumeToken).Debug("decode resume token")
-	}
-
-	// give both sides a hint about how far prior replication attempts got
-	// This serves as a cummulative variant of SendCompleted and can be useful
-	// for example to release stale holds from an earlier (interrupted) replication.
-	// TODO FIXME: enqueue this as a replication step instead of doing it here during planning
-	//             then again, the step should run regardless of planning success
-	//             so maybe a separate phase before PLANNING, then?
-	path, conflict := IncrementalPath(rfsvs, sfsvs)
-	var sender_mrca *pdu.FilesystemVersion
-	if conflict == nil && len(path) > 0 {
-		sender_mrca = path[0] // shadow
-	}
-	// yes, sender_mrca may be nil, indicating that we do not have an mrca
-	{
-		var wg sync.WaitGroup
-		doHint := func(ep Endpoint, name string) {
-			defer wg.Done()
-			ctx, endTask := trace.WithTask(ctx, "hint-mrca-"+name)
-			defer endTask()
-
-			log := log(ctx).WithField("to_side", name).
-				WithField("sender_mrca", sender_mrca.String())
-			log.Debug("hint most recent common ancestor")
-			hint := &pdu.HintMostRecentCommonAncestorReq{
-				Filesystem:    fs.Path,
-				SenderVersion: sender_mrca,
-			}
-			_, err := ep.HintMostRecentCommonAncestor(ctx, hint)
-			if err != nil {
-				log.WithError(err).Error("error hinting most recent common ancestor")
-			}
-		}
-		wg.Add(2)
-		go doHint(fs.sender, "sender")
-		go doHint(fs.receiver, "receiver")
-		wg.Wait()
 	}
 
 	var steps []*Step

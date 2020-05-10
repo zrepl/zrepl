@@ -3,6 +3,7 @@ package tests
 import (
 	"fmt"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/zrepl/zrepl/platformtest"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -19,22 +20,23 @@ func IdempotentBookmark(ctx *platformtest.Context) {
 
 	fs := fmt.Sprintf("%s/foo bar", ctx.RootDataset)
 
-	asnap := sendArgVersion(ctx, fs, "@a snap")
-	anotherSnap := sendArgVersion(ctx, fs, "@another snap")
+	asnap := fsversion(ctx, fs, "@a snap")
+	anotherSnap := fsversion(ctx, fs, "@another snap")
 
-	err := zfs.ZFSBookmark(ctx, fs, asnap, "a bookmark")
+	aBookmark, err := zfs.ZFSBookmark(ctx, fs, asnap, "a bookmark")
 	if err != nil {
 		panic(err)
 	}
 
 	// do it again, should be idempotent
-	err = zfs.ZFSBookmark(ctx, fs, asnap, "a bookmark")
+	aBookmarkIdemp, err := zfs.ZFSBookmark(ctx, fs, asnap, "a bookmark")
 	if err != nil {
 		panic(err)
 	}
+	assert.Equal(ctx, aBookmark, aBookmarkIdemp)
 
 	// should fail for another snapshot
-	err = zfs.ZFSBookmark(ctx, fs, anotherSnap, "a bookmark")
+	_, err = zfs.ZFSBookmark(ctx, fs, anotherSnap, "a bookmark")
 	if err == nil {
 		panic(err)
 	}
@@ -48,7 +50,7 @@ func IdempotentBookmark(ctx *platformtest.Context) {
 	}
 
 	// do it again, should fail with special error type
-	err = zfs.ZFSBookmark(ctx, fs, asnap, "a bookmark")
+	_, err = zfs.ZFSBookmark(ctx, fs, asnap, "a bookmark")
 	if err == nil {
 		panic(err)
 	}

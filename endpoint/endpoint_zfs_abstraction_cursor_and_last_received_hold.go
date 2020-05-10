@@ -118,31 +118,33 @@ func GetReplicationCursors(ctx context.Context, dp *zfs.DatasetPath, jobID JobID
 	return candidates, nil
 }
 
-type ReplicationCursorTarget interface {
-	IsSnapshot() bool
-	GetGuid() uint64
-	GetCreateTXG() uint64
-	ToSendArgVersion() zfs.ZFSSendArgVersion
-}
-
-// `target` is validated before replication cursor is set. if validation fails, the cursor is not moved.
+// idempotently create a replication cursor targeting `target`
 //
 // returns ErrBookmarkCloningNotSupported if version is a bookmark and bookmarking bookmarks is not supported by ZFS
-func MoveReplicationCursor(ctx context.Context, fs string, target ReplicationCursorTarget, jobID JobID) (destroyedCursors []Abstraction, err error) {
-
-	if !target.IsSnapshot() {
-		return nil, zfs.ErrBookmarkCloningNotSupported
-	}
+func CreateReplicationCursor(ctx context.Context, fs string, target zfs.FilesystemVersion, jobID JobID) (a Abstraction, err error) {
 
 	bookmarkname, err := ReplicationCursorBookmarkName(fs, target.GetGuid(), jobID)
 	if err != nil {
 		return nil, errors.Wrap(err, "determine replication cursor name")
 	}
 
+	if target.IsBookmark() && target.GetName() == bookmarkname {
+		return &bookmarkBasedAbstraction{
+			Type:              AbstractionReplicationCursorBookmarkV2,
+			FS:                fs,
+			FilesystemVersion: target,
+			JobID:             jobID,
+		}, nil
+	}
+
+	if !target.IsSnapshot() {
+		return nil, zfs.ErrBookmarkCloningNotSupported
+	}
+
 	// idempotently create bookmark (guid is encoded in it, hence we'll most likely add a new one
 	// cleanup the old one afterwards
 
-	err = zfs.ZFSBookmark(ctx, fs, target.ToSendArgVersion(), bookmarkname)
+	cursorBookmark, err := zfs.ZFSBookmark(ctx, fs, target, bookmarkname)
 	if err != nil {
 		if err == zfs.ErrBookmarkCloningNotSupported {
 			return nil, err // TODO go1.13 use wrapping
@@ -150,12 +152,12 @@ func MoveReplicationCursor(ctx context.Context, fs string, target ReplicationCur
 		return nil, errors.Wrapf(err, "cannot create bookmark")
 	}
 
-	destroyedCursors, err = DestroyObsoleteReplicationCursors(ctx, fs, target, jobID)
-	if err != nil {
-		return nil, errors.Wrap(err, "destroy obsolete replication cursors")
-	}
-
-	return destroyedCursors, nil
+	return &bookmarkBasedAbstraction{
+		Type:              AbstractionReplicationCursorBookmarkV2,
+		FS:                fs,
+		FilesystemVersion: cursorBookmark,
+		JobID:             jobID,
+	}, nil
 }
 
 type ReplicationCursor interface {

@@ -19,9 +19,9 @@ func ReplicationCursor(ctx *platformtest.Context) {
 		+  "foo bar@1 with space"
 		R  zfs bookmark "${ROOTDS}/foo bar@1 with space" "${ROOTDS}/foo bar#1 with space"
 		+  "foo bar@2 with space"
-		R  zfs bookmark "${ROOTDS}/foo bar@1 with space" "${ROOTDS}/foo bar#2 with space"
+		R  zfs bookmark "${ROOTDS}/foo bar@2 with space" "${ROOTDS}/foo bar#2 with space"
 		+  "foo bar@3 with space"
-		R  zfs bookmark "${ROOTDS}/foo bar@1 with space" "${ROOTDS}/foo bar#3 with space"
+		R  zfs bookmark "${ROOTDS}/foo bar@3 with space" "${ROOTDS}/foo bar#3 with space"
 	`)
 
 	jobid := endpoint.MustMakeJobID("zreplplatformtest")
@@ -32,9 +32,31 @@ func ReplicationCursor(ctx *platformtest.Context) {
 	}
 
 	fs := ds.ToString()
-	snap := fsversion(ctx, fs, "@1 with space")
 
-	destroyed, err := endpoint.MoveReplicationCursor(ctx, fs, &snap, jobid)
+	checkCreateCursor := func(createErr error, c endpoint.Abstraction, references zfs.FilesystemVersion) {
+		assert.NoError(ctx, createErr)
+		expectName, err := endpoint.ReplicationCursorBookmarkName(fs, references.Guid, jobid)
+		assert.NoError(ctx, err)
+		require.Equal(ctx, expectName, c.GetFilesystemVersion().Name)
+	}
+
+	snap := fsversion(ctx, fs, "@1 with space")
+	book := fsversion(ctx, fs, "#1 with space")
+
+	// create first cursor
+	cursorOfSnap, err := endpoint.CreateReplicationCursor(ctx, fs, snap, jobid)
+	checkCreateCursor(err, cursorOfSnap, snap)
+	// check CreateReplicationCursor is idempotent (for snapshot target)
+	cursorOfSnapIdemp, err := endpoint.CreateReplicationCursor(ctx, fs, snap, jobid)
+	checkCreateCursor(err, cursorOfSnap, snap)
+	// ... for target = non-cursor bookmark
+	_, err = endpoint.CreateReplicationCursor(ctx, fs, book, jobid)
+	assert.Equal(ctx, zfs.ErrBookmarkCloningNotSupported, err)
+	// ... for target = replication cursor bookmark to be created
+	cursorOfCursor, err := endpoint.CreateReplicationCursor(ctx, fs, cursorOfSnapIdemp.GetFilesystemVersion(), jobid)
+	checkCreateCursor(err, cursorOfCursor, cursorOfCursor.GetFilesystemVersion())
+
+	destroyed, err := endpoint.DestroyObsoleteReplicationCursors(ctx, fs, &snap, jobid)
 	if err != nil {
 		panic(err)
 	}
@@ -61,7 +83,11 @@ func ReplicationCursor(ctx *platformtest.Context) {
 	require.NoError(ctx, err)
 
 	snap2 := fsversion(ctx, fs, "@2 with space")
-	destroyed, err = endpoint.MoveReplicationCursor(ctx, fs, &snap2, jobid)
+
+	_, err = endpoint.CreateReplicationCursor(ctx, fs, snap, jobid)
+	assert.NoError(ctx, err)
+	destroyed, err = endpoint.DestroyObsoleteReplicationCursors(ctx, fs, &snap2, jobid)
+
 	require.NoError(ctx, err)
 	require.Equal(ctx, 1, len(destroyed))
 	require.Equal(ctx, endpoint.AbstractionReplicationCursorBookmarkV2, destroyed[0].GetType())

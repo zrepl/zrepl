@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 	"path"
-	"sync"
 
+	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 
@@ -117,119 +117,8 @@ func (s *Sender) ListFilesystemVersions(ctx context.Context, r *pdu.ListFilesyst
 
 }
 
-func (p *Sender) HintMostRecentCommonAncestor(ctx context.Context, r *pdu.HintMostRecentCommonAncestorReq) (*pdu.HintMostRecentCommonAncestorRes, error) {
-	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
-
-	fsp, err := p.filterCheckFS(r.GetFilesystem())
-	if err != nil {
-		return nil, err
-	}
-	fs := fsp.ToString()
-
-	log := getLogger(ctx).WithField("fs", fs).WithField("hinted_most_recent", fmt.Sprintf("%#v", r.GetSenderVersion()))
-
-	log.WithField("full_hint", r).Debug("full hint")
-
-	if r.GetSenderVersion() == nil {
-		// no common ancestor found, likely due to failed prior replication attempt
-		// => release stale step holds to prevent them from accumulating
-		//    (they can accumulate on initial replication because each inital replication step might hold a different `to`)
-		// => replication cursors cannot accumulate because we always _move_ the replication cursor
-		log.Debug("releasing all step holds on the filesystem")
-		TryReleaseStepStaleFS(ctx, fs, p.jobId)
-		return &pdu.HintMostRecentCommonAncestorRes{}, nil
-	}
-
-	// we were hinted a specific common ancestor
-
-	mostRecentVersion, err := sendArgsFromPDUAndValidateExistsAndGetVersion(ctx, fs, r.GetSenderVersion())
-	if err != nil {
-		msg := "HintMostRecentCommonAncestor rpc with nonexistent most recent version"
-		log.Warn(msg)
-		return nil, errors.Wrap(err, msg)
-	}
-
-	// move replication cursor to this position
-	destroyedCursors, err := MoveReplicationCursor(ctx, fs, mostRecentVersion, p.jobId)
-	if err == zfs.ErrBookmarkCloningNotSupported {
-		log.Debug("not creating replication cursor from bookmark because ZFS does not support it")
-		// fallthrough
-	} else if err != nil {
-		return nil, errors.Wrap(err, "cannot set replication cursor to hinted version")
-	}
-
-	// take care of stale step holds
-	log.WithField("step-holds-cleanup-mode", senderHintMostRecentCommonAncestorStepCleanupMode).
-		Debug("taking care of possibly stale step holds")
-	doStepCleanup := false
-	var stepCleanupSince *CreateTXGRangeBound
-	switch senderHintMostRecentCommonAncestorStepCleanupMode {
-	case StepCleanupNoCleanup:
-		doStepCleanup = false
-	case StepCleanupRangeSinceUnbounded:
-		doStepCleanup = true
-		stepCleanupSince = nil
-	case StepCleanupRangeSinceReplicationCursor:
-		doStepCleanup = true
-		// Use the destroyed replication cursors as indicator how far the previous replication got.
-		// To be precise: We limit the amount of visisted snapshots to exactly those snapshots
-		// created since the last successful replication cursor movement (i.e. last successful replication step)
-		//
-		// If we crash now, we'll leak the step we are about to release, but the performance gain
-		// of limiting the amount of snapshots we visit makes up for that.
-		// Users have the `zrepl holds release-stale` command to cleanup leaked step holds.
-		for _, destroyed := range destroyedCursors {
-			if stepCleanupSince == nil {
-				stepCleanupSince = &CreateTXGRangeBound{
-					CreateTXG: destroyed.GetCreateTXG(),
-					Inclusive: &zfs.NilBool{B: true},
-				}
-			} else if destroyed.GetCreateTXG() < stepCleanupSince.CreateTXG {
-				stepCleanupSince.CreateTXG = destroyed.GetCreateTXG()
-			}
-		}
-	default:
-		panic(senderHintMostRecentCommonAncestorStepCleanupMode)
-	}
-	if !doStepCleanup {
-		log.Info("skipping cleanup of prior invocations' step holds due to environment variable setting")
-	} else {
-		if err := ReleaseStepCummulativeInclusive(ctx, fs, stepCleanupSince, mostRecentVersion, p.jobId); err != nil {
-			return nil, errors.Wrap(err, "cannot cleanup prior invocation's step holds and bookmarks")
-		} else {
-			log.Info("step hold cleanup done")
-		}
-	}
-
-	return &pdu.HintMostRecentCommonAncestorRes{}, nil
-}
-
-type HintMostRecentCommonAncestorStepCleanupMode struct{ string }
-
-var (
-	StepCleanupRangeSinceReplicationCursor = HintMostRecentCommonAncestorStepCleanupMode{"range-since-replication-cursor"}
-	StepCleanupRangeSinceUnbounded         = HintMostRecentCommonAncestorStepCleanupMode{"range-since-unbounded"}
-	StepCleanupNoCleanup                   = HintMostRecentCommonAncestorStepCleanupMode{"no-cleanup"}
-)
-
-func (m HintMostRecentCommonAncestorStepCleanupMode) String() string { return string(m.string) }
-func (m *HintMostRecentCommonAncestorStepCleanupMode) Set(s string) error {
-	switch s {
-	case StepCleanupRangeSinceReplicationCursor.String():
-		*m = StepCleanupRangeSinceReplicationCursor
-	case StepCleanupRangeSinceUnbounded.String():
-		*m = StepCleanupRangeSinceUnbounded
-	case StepCleanupNoCleanup.String():
-		*m = StepCleanupNoCleanup
-	default:
-		return fmt.Errorf("unknown step cleanup mode %q", s)
-	}
-	return nil
-}
-
-var senderHintMostRecentCommonAncestorStepCleanupMode = *envconst.Var("ZREPL_ENDPOINT_SENDER_HINT_MOST_RECENT_STEP_HOLD_CLEANUP_MODE", &StepCleanupRangeSinceReplicationCursor).(*HintMostRecentCommonAncestorStepCleanupMode)
-
-var maxConcurrentZFSSendSemaphore = semaphore.New(envconst.Int64("ZREPL_ENDPOINT_MAX_CONCURRENT_SEND", 10))
+var maxConcurrentZFSSend = envconst.Int64("ZREPL_ENDPOINT_MAX_CONCURRENT_SEND", 10)
+var maxConcurrentZFSSendSemaphore = semaphore.New(maxConcurrentZFSSend)
 
 func uncheckedSendArgsFromPDU(fsv *pdu.FilesystemVersion) *zfs.ZFSSendArgVersion {
 	if fsv == nil {
@@ -319,10 +208,11 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 		return res, nil, nil
 	}
 
-	// update replication cursor
+	// create a replication cursor for `From` (usually an idempotent no-op because SendCompleted already created it before)
+	var fromReplicationCursor Abstraction
 	if sendArgs.From != nil {
 		// For all but the first replication, this should always be a no-op because SendCompleted already moved the cursor
-		_, err = MoveReplicationCursor(ctx, sendArgs.FS, sendArgs.FromVersion, s.jobId)
+		fromReplicationCursor, err = CreateReplicationCursor(ctx, sendArgs.FS, *sendArgs.FromVersion, s.jobId) // no shadow
 		if err == zfs.ErrBookmarkCloningNotSupported {
 			getLogger(ctx).Debug("not creating replication cursor from bookmark because ZFS does not support it")
 			// fallthrough
@@ -331,9 +221,10 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 		}
 	}
 
+	var fromHold, toHold Abstraction
 	// make sure `From` doesn't go away in order to make this step resumable
 	if sendArgs.From != nil {
-		_, err := HoldStep(ctx, sendArgs.FS, *sendArgs.FromVersion, s.jobId)
+		fromHold, err = HoldStep(ctx, sendArgs.FS, *sendArgs.FromVersion, s.jobId) // no shadow
 		if err == zfs.ErrBookmarkCloningNotSupported {
 			getLogger(ctx).Debug("not creating step bookmark because ZFS does not support it")
 			// fallthrough
@@ -342,17 +233,71 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 		}
 	}
 	// make sure `To` doesn't go away in order to make this step resumable
-	_, err = HoldStep(ctx, sendArgs.FS, sendArgs.ToVersion, s.jobId)
+	toHold, err = HoldStep(ctx, sendArgs.FS, sendArgs.ToVersion, s.jobId)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot hold `to` version %q before starting send", sendArgs.ToVersion)
 	}
 
-	// step holds & replication cursor released / moved forward in s.SendCompleted => s.moveCursorAndReleaseSendHolds
+	// cleanup the mess that _this function_ might have created in prior failed attempts:
+	//
+	// In summary, we delete every endpoint ZFS abstraction created on this filesystem for this job id,
+	// except for the ones we just created above.
+	//
+	// This is the most robust approach to avoid leaking (= forgetting to clean up) endpoint ZFS abstractions,
+	// all under the assumption that there will only ever be one send for a (jobId,fs) combination at any given time.
+	//
+	// Note that the SendCompleted rpc can't be relied upon for this purpose:
+	// - it might be lost due to network errors,
+	// - or never be sent by a potentially malicious or buggy client,
+	// - or never be send because the replication step failed at some point
+	//   (potentially leaving a resumable state on the receiver, which is the case where we really do not want to blow away the step holds too soon.)
+	//
+	// Note further that a resuming send, due to the idempotent nature of func CreateReplicationCursor and HoldStep,
+	// will never lose its step holds because we just (idempotently re-)created them above, before attempting the cleanup.
+	func() {
+		ctx, endSpan := trace.WithSpan(ctx, "cleanup-stale-abstractions")
+		defer endSpan()
+
+		liveAbs := []Abstraction{fromHold, toHold, fromReplicationCursor}
+		keep := func(a Abstraction) (keep bool) {
+			keep = false
+			for _, k := range liveAbs {
+				keep = keep || AbstractionEquals(a, k)
+			}
+			return keep
+		}
+		check := func(obsoleteAbs []Abstraction) {
+			// last line of defense: check that we don't destroy the incremental `from` and `to`
+			// if we did that, we might be about to blow away the last common filesystem version between sender and receiver
+			mustLiveVersions := []zfs.FilesystemVersion{sendArgs.ToVersion}
+			if sendArgs.FromVersion != nil {
+				mustLiveVersions = append(mustLiveVersions, *sendArgs.FromVersion)
+			}
+			for _, staleVersion := range obsoleteAbs {
+				for _, mustLiveVersion := range mustLiveVersions {
+					if zfs.FilesystemVersionEqualIdentity(mustLiveVersion, staleVersion.GetFilesystemVersion()) {
+						panic(fmt.Sprintf("impl error: %q would be destroyed because it is considered stale but it is part of of sendArgs=%s", mustLiveVersion.String(), pretty.Sprint(sendArgs)))
+					}
+				}
+			}
+		}
+		sendAbstractionsCacheSingleton.TryBatchDestroy(ctx, s.jobId, sendArgs.FS, keep, check)
+	}()
+
+	if fromHold != nil {
+		sendAbstractionsCacheSingleton.Put(fromHold)
+	}
+	sendAbstractionsCacheSingleton.Put(toHold)
+	if fromReplicationCursor != nil {
+		sendAbstractionsCacheSingleton.Put(fromReplicationCursor)
+	}
 
 	sendStream, err := zfs.ZFSSend(ctx, sendArgs)
 	if err != nil {
+		// it's ok to not destroy the abstractions we just created here, a new send attempt will take care of it
 		return nil, nil, errors.Wrap(err, "zfs send failed")
 	}
+
 	return res, sendStream, nil
 }
 
@@ -389,8 +334,7 @@ func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*p
 		return log
 	}
 
-	log(ctx).Debug("move replication cursor to most recent common version")
-	destroyedCursors, err := MoveReplicationCursor(ctx, fs, to, p.jobId)
+	toReplicationCursor, err := CreateReplicationCursor(ctx, fs, to, p.jobId)
 	if err != nil {
 		if err == zfs.ErrBookmarkCloningNotSupported {
 			log(ctx).Debug("not setting replication cursor, bookmark cloning not supported")
@@ -402,59 +346,17 @@ func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*p
 			return &pdu.SendCompletedRes{}, err
 		}
 	} else {
-		log(ctx).Info("successfully moved replication cursor")
+		sendAbstractionsCacheSingleton.Put(toReplicationCursor)
+		log(ctx).WithField("to_cursor", toReplicationCursor.String()).Info("successfully created `to` replication cursor")
 	}
 
-	// kick off releasing of step holds / bookmarks
-	// if we fail to release them, don't bother the caller:
-	// they are merely an implementation detail on the sender for better resumability
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		ctx, endTask := trace.WithTask(ctx, "release-step-hold-to")
-		defer endTask()
-
-		log(ctx).Debug("release step-hold of or step-bookmark on `to`")
-		err = ReleaseStep(ctx, fs, to, p.jobId)
-		if err != nil {
-			log(ctx).WithError(err).Error("cannot release step-holds on or destroy step-bookmark of `to`")
-		} else {
-			log(ctx).Info("successfully released step-holds on or destroyed step-bookmark of `to`")
-		}
-
-	}()
-	go func() {
-		defer wg.Done()
-		ctx, endTask := trace.WithTask(ctx, "release-step-hold-from")
-		defer endTask()
-
-		if from == nil {
-			return
-		}
-		log(ctx).Debug("release step-hold of or step-bookmark on `from`")
-		err := ReleaseStep(ctx, fs, *from, p.jobId)
-		if err != nil {
-			if dne, ok := err.(*zfs.DatasetDoesNotExist); ok {
-				// If bookmark cloning is not supported, `from` might be the old replication cursor
-				// and thus have already been destroyed by MoveReplicationCursor above
-				// In that case, nonexistence of `from` is not an error, otherwise it is.
-				for _, c := range destroyedCursors {
-					if c.GetFullPath() == dne.Path {
-						log(ctx).Info("`from` was a replication cursor and has already been destroyed")
-						return
-					}
-				}
-				// fallthrough
-			}
-			log(ctx).WithError(err).Error("cannot release step-holds on or destroy step-bookmark of `from`")
-		} else {
-			log(ctx).Info("successfully released step-holds on or destroyed step-bookmark of `from`")
-		}
-	}()
-	wg.Wait()
+	keep := func(a Abstraction) bool {
+		return AbstractionEquals(a, toReplicationCursor)
+	}
+	sendAbstractionsCacheSingleton.TryBatchDestroy(ctx, p.jobId, fs, keep, nil)
 
 	return &pdu.SendCompletedRes{}, nil
+
 }
 
 func (p *Sender) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error) {
@@ -972,16 +874,6 @@ func (s *Receiver) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapsho
 		return nil, err
 	}
 	return doDestroySnapshots(ctx, lp, req.Snapshots)
-}
-
-func (p *Receiver) HintMostRecentCommonAncestor(ctx context.Context, r *pdu.HintMostRecentCommonAncestorReq) (*pdu.HintMostRecentCommonAncestorRes, error) {
-	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
-	// we don't move last-received-hold as part of this hint
-	// because that wouldn't give us any benefit wrt resumability.
-	//
-	// Other reason: the replication logic that issues this RPC would require refactoring
-	// to include the receiver's FilesystemVersion in the request)
-	return &pdu.HintMostRecentCommonAncestorRes{}, nil
 }
 
 func (p *Receiver) SendCompleted(ctx context.Context, _ *pdu.SendCompletedReq) (*pdu.SendCompletedRes, error) {

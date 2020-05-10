@@ -1595,22 +1595,32 @@ var ErrBookmarkCloningNotSupported = fmt.Errorf("bookmark cloning feature is not
 //
 // does not destroy an existing bookmark, returns
 //
-func ZFSBookmark(ctx context.Context, fs string, v ZFSSendArgVersion, bookmark string) (err error) {
+func ZFSBookmark(ctx context.Context, fs string, v FilesystemVersion, bookmark string) (bm FilesystemVersion, err error) {
+
+	bm = FilesystemVersion{
+		Type:     Bookmark,
+		Name:     bookmark,
+		UserRefs: OptionUint64{Valid: false},
+		// bookmarks have the same createtxg, guid and creation as their origin
+		CreateTXG: v.CreateTXG,
+		Guid:      v.Guid,
+		Creation:  v.Creation,
+	}
 
 	promTimer := prometheus.NewTimer(prom.ZFSBookmarkDuration.WithLabelValues(fs))
 	defer promTimer.ObserveDuration()
 
 	if !v.IsSnapshot() {
-		return ErrBookmarkCloningNotSupported // TODO This is work in progress: https://github.com/zfsonlinux/zfs/pull/9571
+		return bm, ErrBookmarkCloningNotSupported // TODO This is work in progress: https://github.com/zfsonlinux/zfs/pull/9571
 	}
 
 	snapname := v.FullPath(fs)
 	if err := EntityNamecheck(snapname, EntityTypeSnapshot); err != nil {
-		return err
+		return bm, err
 	}
 	bookmarkname := fmt.Sprintf("%s#%s", fs, bookmark)
 	if err := EntityNamecheck(bookmarkname, EntityTypeBookmark); err != nil {
-		return err
+		return bm, err
 	}
 
 	debug("bookmark: %q %q", snapname, bookmarkname)
@@ -1619,27 +1629,27 @@ func ZFSBookmark(ctx context.Context, fs string, v ZFSSendArgVersion, bookmark s
 	stdio, err := cmd.CombinedOutput()
 	if err != nil {
 		if ddne := tryDatasetDoesNotExist(snapname, stdio); ddne != nil {
-			return ddne
+			return bm, ddne
 		} else if zfsBookmarkExistsRegex.Match(stdio) {
 
 			// check if this was idempotent
 			bookGuid, err := ZFSGetGUID(ctx, fs, "#"+bookmark)
 			if err != nil {
-				return errors.Wrap(err, "bookmark idempotency check") // guid error expressive enough
+				return bm, errors.Wrap(err, "bookmark idempotency check") // guid error expressive enough
 			}
 
-			if v.GUID == bookGuid {
-				debug("bookmark: %q %q was idempotent: {snap,book}guid %d == %d", snapname, bookmarkname, v.GUID, bookGuid)
-				return nil
+			if v.Guid == bookGuid {
+				debug("bookmark: %q %q was idempotent: {snap,book}guid %d == %d", snapname, bookmarkname, v.Guid, bookGuid)
+				return bm, nil
 			}
-			return &BookmarkExists{
-				fs: fs, bookmarkOrigin: v, bookmark: bookmark,
+			return bm, &BookmarkExists{
+				fs: fs, bookmarkOrigin: v.ToSendArgVersion(), bookmark: bookmark,
 				zfsMsg:   string(stdio),
 				bookGuid: bookGuid,
 			}
 
 		} else {
-			return &ZFSError{
+			return bm, &ZFSError{
 				Stderr:  stdio,
 				WaitErr: err,
 			}
@@ -1647,8 +1657,7 @@ func ZFSBookmark(ctx context.Context, fs string, v ZFSSendArgVersion, bookmark s
 
 	}
 
-	return nil
-
+	return bm, nil
 }
 
 func ZFSRollback(ctx context.Context, fs *DatasetPath, snapshot FilesystemVersion, rollbackArgs ...string) (err error) {
