@@ -93,7 +93,7 @@ func HoldStep(ctx context.Context, fs string, v zfs.FilesystemVersion, jobID Job
 		return nil, errors.Wrap(err, "create step bookmark: determine bookmark name")
 	}
 	// idempotently create bookmark
-	err = zfs.ZFSBookmark(ctx, fs, v.ToSendArgVersion(), bmname)
+	stepBookmark, err := zfs.ZFSBookmark(ctx, fs, v, bmname)
 	if err != nil {
 		if err == zfs.ErrBookmarkCloningNotSupported {
 			// TODO we could actually try to find a local snapshot that has the requested GUID
@@ -108,7 +108,7 @@ func HoldStep(ctx context.Context, fs string, v zfs.FilesystemVersion, jobID Job
 	return &bookmarkBasedAbstraction{
 		Type:              AbstractionStepBookmark,
 		FS:                fs,
-		FilesystemVersion: v,
+		FilesystemVersion: stepBookmark,
 		JobID:             jobID,
 	}, nil
 }
@@ -236,7 +236,6 @@ func TryReleaseStepStaleFS(ctx context.Context, fs string, jobID JobID) {
 				Info("destroyed stale step-hold or bookmark")
 		}
 	}
-
 }
 
 var _ BookmarkExtractor = StepBookmarkExtractor

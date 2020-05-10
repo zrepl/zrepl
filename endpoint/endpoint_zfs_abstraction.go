@@ -54,6 +54,30 @@ type Abstraction interface {
 	json.Marshaler
 }
 
+func AbstractionEquals(a, b Abstraction) bool {
+	if (a != nil) != (b != nil) {
+		return false
+	}
+	if a == nil && b == nil {
+		return true
+	}
+	var aJobId, bJobId JobID
+	if aJid := a.GetJobID(); aJid != nil {
+		aJobId = *aJid
+	}
+	if bJid := b.GetJobID(); bJid != nil {
+		bJobId = *bJid
+	}
+	return a.GetType() == b.GetType() &&
+		a.GetFS() == b.GetFS() &&
+		a.GetName() == b.GetName() &&
+		a.GetFullPath() == b.GetFullPath() &&
+		aJobId == bJobId &&
+		a.GetCreateTXG() == b.GetCreateTXG() &&
+		zfs.FilesystemVersionEqualIdentity(a.GetFilesystemVersion(), b.GetFilesystemVersion()) &&
+		a.String() == b.String()
+}
+
 func (t AbstractionType) Validate() error {
 	switch t {
 	case AbstractionStepBookmark:

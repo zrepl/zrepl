@@ -9,7 +9,6 @@ service Replication {
   rpc DestroySnapshots(DestroySnapshotsReq) returns (DestroySnapshotsRes);
   rpc ReplicationCursor(ReplicationCursorReq) returns (ReplicationCursorRes);
   rpc SendCompleted(SendCompletedReq) returns (SendCompletedRes);
-  rpc HintMostRecentCommonAncestor(HintMostRecentCommonAncestorReq) returns (HintMostRecentCommonAncestorRes);
   // for Send and Recv, see package rpc
 }
 
@@ -126,19 +125,3 @@ message PingRes {
   // Echo must be PingReq.Message
   string Echo = 1;
 }
-
-message HintMostRecentCommonAncestorReq {
-  string Filesystem = 1;
-
-  // A copy of the FilesystemVersion on the sending side that the replication
-  // algorithm identified as a shared most recent common version between sending
-  // and receiving side.
-  //
-  // If nil, this is an indication that the replication algorithm could not
-  // find a common ancestor between the two sides.
-  // NOTE: nilness does not mean that replication never happened - there could
-  // as well be a replication conflict. thus, dont' jump to conclusions too
-  // rapidly here.
-  FilesystemVersion SenderVersion = 2;
-}
-message HintMostRecentCommonAncestorRes {}

@@ -18,8 +18,8 @@ func IdempotentDestroy(ctx *platformtest.Context) {
 	`)
 
 	fs := fmt.Sprintf("%s/foo bar", ctx.RootDataset)
-	asnap := sendArgVersion(ctx, fs, "@a snap")
-	err := zfs.ZFSBookmark(ctx, fs, asnap, "a bookmark")
+	asnap := fsversion(ctx, fs, "@a snap")
+	_, err := zfs.ZFSBookmark(ctx, fs, asnap, "a bookmark")
 	if err != nil {
 		panic(err)
 	}

@@ -142,13 +142,6 @@ func (c *Client) SendCompleted(ctx context.Context, in *pdu.SendCompletedReq) (*
 	return c.controlClient.SendCompleted(ctx, in)
 }
 
-func (c *Client) HintMostRecentCommonAncestor(ctx context.Context, in *pdu.HintMostRecentCommonAncestorReq) (*pdu.HintMostRecentCommonAncestorRes, error) {
-	ctx, endSpan := trace.WithSpan(ctx, "rpc.client.HintMostRecentCommonAncestor")
-	defer endSpan()
-
-	return c.controlClient.HintMostRecentCommonAncestor(ctx, in)
-}
-
 func (c *Client) WaitForConnectivity(ctx context.Context) error {
 	ctx, endSpan := trace.WithSpan(ctx, "rpc.client.WaitForConnectivity")
 	defer endSpan()

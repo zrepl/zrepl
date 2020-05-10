@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/daemon/logging/trace"
+	"github.com/zrepl/zrepl/endpoint"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
@@ -95,6 +96,7 @@ func Run(ctx context.Context, conf *config.Config) error {
 	// register global (=non job-local) metrics
 	zfscmd.RegisterMetrics(prometheus.DefaultRegisterer)
 	trace.RegisterMetrics(prometheus.DefaultRegisterer)
+	endpoint.RegisterMetrics(prometheus.DefaultRegisterer)
 
 	log.Info("starting daemon")
 

@@ -376,9 +376,21 @@ func (j *ActiveSide) SenderConfig() *endpoint.SenderConfig {
 	return push.senderConfig
 }
 
+// The active side of a replication uses one end (sender or receiver)
+// directly by method invocation, without going through a transport that
+// provides a client identity.
+// However, in order to avoid the need to distinguish between direct-method-invocating
+// clients and RPC client, we use an invalid client identity as a sentinel value.
+func FakeActiveSideDirectMethodInvocationClientIdentity(jobId endpoint.JobID) string {
+	return fmt.Sprintf("<local><active><job><client><identity><job=%q>", jobId.String())
+}
+
 func (j *ActiveSide) Run(ctx context.Context) {
 	ctx, endTask := trace.WithTaskAndSpan(ctx, "active-side-job", j.Name())
 	defer endTask()
+
+	ctx = context.WithValue(ctx, endpoint.ClientIdentityKey, FakeActiveSideDirectMethodInvocationClientIdentity(j.name))
+
 	log := GetLogger(ctx)
 
 	defer log.Info("job exiting")
