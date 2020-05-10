@@ -27,6 +27,7 @@ func (c *Context) Logf(format string, args ...interface{}) {
 
 func (c *Context) Errorf(format string, args ...interface{}) {
 	GetLog(c).Printf(format, args...)
+	c.FailNow()
 }
 
 func (c *Context) FailNow() {
