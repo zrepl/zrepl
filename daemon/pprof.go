@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http/pprof"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/zrepl/zrepl/daemon/job"
 )
 
@@ -64,6 +65,7 @@ outer:
 			mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 			mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 			mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+			mux.Handle("/metrics", promhttp.Handler())
 			go func() {
 				err := http.Serve(s.listener, mux)
 				if ctx.Err() != nil {
