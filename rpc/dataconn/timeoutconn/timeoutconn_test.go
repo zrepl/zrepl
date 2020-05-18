@@ -117,7 +117,7 @@ func TestNoPartialReadsDueToDeadline(t *testing.T) {
 		// 50ms for the second read, 100ms after that one for the deadline
 		// allow for some jitter
 		assert.True(t, readDuration > 140*time.Millisecond)
-		assert.True(t, readDuration < 160*time.Millisecond)
+		assert.True(t, readDuration < 200*time.Millisecond)
 	}()
 
 	wg.Wait()
