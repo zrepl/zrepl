@@ -727,13 +727,13 @@ func (a ZFSSendArgsUnvalidated) validateCorrespondsToResumeToken(ctx context.Con
 
 	if (a.From != nil) != t.HasFromGUID { // existence must be same
 		if t.HasFromGUID {
-			return gen.fmt("resume token not expected to be incremental, but `fromguid` = %q", t.FromGUID)
+			return gen.fmt("resume token not expected to be incremental, but `fromguid` = %v", t.FromGUID)
 		} else {
 			return gen.fmt("resume token expected to be incremental, but `fromguid` not present")
 		}
 	} else if t.HasFromGUID { // if exists (which is same, we checked above), they must match
 		if t.FromGUID != a.From.GUID {
-			return gen.fmt("resume token `fromguid` != expected: %q != %q", t.FromGUID, a.From.GUID)
+			return gen.fmt("resume token `fromguid` != expected: %v != %v", t.FromGUID, a.From.GUID)
 		}
 	} else {
 		_ = struct{}{} // both empty, ok
@@ -744,7 +744,7 @@ func (a ZFSSendArgsUnvalidated) validateCorrespondsToResumeToken(ctx context.Con
 		return gen.fmt("resume token does not have `toguid`")
 	}
 	if t.ToGUID != a.To.GUID { // a.To != nil because Validate checks for that
-		return gen.fmt("resume token `toguid` != expected: %q != %q", t.ToGUID, a.To.GUID)
+		return gen.fmt("resume token `toguid` != expected: %v != %v", t.ToGUID, a.To.GUID)
 	}
 
 	if a.Encrypted.B {
