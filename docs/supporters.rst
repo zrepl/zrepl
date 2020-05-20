@@ -32,6 +32,9 @@ We would like to thank the following people and organizations for supporting zre
 
    <div class="fa fa-code" style="width: 1em;"></div>
 
+* |supporter-std| Henning Kessler
+* |supporter-std| `John Ramsden <https://github.com/johnramsden>`_
+* |supporter-std| `DrLuke <https://github.com/drluke>`_
 * |supporter-gold| `Mateusz Kwiatkowski (runhyve.app) <https://runhyve.app>`_
 * |supporter-std| `Gaelan D'costa <https://www.robot-disco.net>`_
 * |supporter-std| `Tenzin Lhakhang <https://confluence.tenzin.io>`_
