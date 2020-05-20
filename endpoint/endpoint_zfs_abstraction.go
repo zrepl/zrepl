@@ -614,22 +614,22 @@ func listAbstractionsImplFS(ctx context.Context, fs string, query *ListZFSHoldsA
 			panic("implementation error: extractors misconfigured for " + at)
 		}
 		for _, v := range fsvs {
-			var a Abstraction
 			if v.Type == zfs.Bookmark && bmE != nil {
-				a = bmE(fsp, v)
+				if a := bmE(fsp, v); a != nil {
+					emitCandidate(a)
+				}
 			}
-			if v.Type == zfs.Snapshot && holdE != nil && query.CreateTXG.Contains(v.GetCreateTXG()) && (!v.UserRefs.Valid || v.UserRefs.Value > 0) {
+			if v.Type == zfs.Snapshot && holdE != nil && query.CreateTXG.Contains(v.GetCreateTXG()) && (!v.UserRefs.Valid || v.UserRefs.Value > 0) { // FIXME review v.UserRefsValid
 				holds, err := zfs.ZFSHolds(ctx, fsp.ToString(), v.Name)
 				if err != nil {
 					errCb(err, v.ToAbsPath(fsp), "get hold on snap")
 					continue
 				}
 				for _, tag := range holds {
-					a = holdE(fsp, v, tag)
+					if a := holdE(fsp, v, tag); a != nil {
+						emitCandidate(a)
+					}
 				}
-			}
-			if a != nil {
-				emitCandidate(a)
 			}
 		}
 	}
