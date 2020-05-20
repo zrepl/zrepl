@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -231,10 +230,6 @@ func ZFSListFilesystemVersions(ctx context.Context, fs *DatasetPath, options Lis
 	res = make([]FilesystemVersion, 0)
 	for listResult := range listResults {
 		if listResult.Err != nil {
-			if listResult.Err == io.ErrUnexpectedEOF {
-				// Since we specified the fs on the command line, we'll treat this like the filesystem doesn't exist
-				return []FilesystemVersion{}, nil
-			}
 			return nil, listResult.Err
 		}
 
