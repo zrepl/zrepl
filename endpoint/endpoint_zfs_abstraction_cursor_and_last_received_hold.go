@@ -183,22 +183,22 @@ func LastReceivedHoldTag(jobID JobID) (string, error) {
 }
 
 func lastReceivedHoldImpl(jobid string) (string, error) {
-	tag := fmt.Sprintf("zrepl_last_received_J_%s", jobid)
+	tag := fmt.Sprintf("%s%s", ReplicationCursorBookmarkNamePrefix, jobid)
 	if err := zfs.ValidHoldTag(tag); err != nil {
 		return "", err
 	}
 	return tag, nil
 }
 
-func MoveLastReceivedHold(ctx context.Context, fs string, to zfs.FilesystemVersion, jobID JobID) error {
+func CreateLastReceivedHold(ctx context.Context, fs string, to zfs.FilesystemVersion, jobID JobID) (Abstraction, error) {
 
 	if !to.IsSnapshot() {
-		return errors.Errorf("last-received-hold: target must be a snapshot: %s", to.FullPath(fs))
+		return nil, errors.Errorf("last-received-hold: target must be a snapshot: %s", to.FullPath(fs))
 	}
 
 	tag, err := LastReceivedHoldTag(jobID)
 	if err != nil {
-		return errors.Wrap(err, "last-received-hold: hold tag")
+		return nil, errors.Wrap(err, "last-received-hold: hold tag")
 	}
 
 	// we never want to be without a hold
@@ -206,7 +206,23 @@ func MoveLastReceivedHold(ctx context.Context, fs string, to zfs.FilesystemVersi
 
 	err = zfs.ZFSHold(ctx, fs, to, tag)
 	if err != nil {
-		return errors.Wrap(err, "last-received-hold: hold newly received")
+		return nil, errors.Wrap(err, "last-received-hold: hold newly received")
+	}
+
+	return &holdBasedAbstraction{
+		Type:              AbstractionLastReceivedHold,
+		FS:                fs,
+		FilesystemVersion: to,
+		JobID:             jobID,
+		Tag:               tag,
+	}, nil
+}
+
+func MoveLastReceivedHold(ctx context.Context, fs string, to zfs.FilesystemVersion, jobID JobID) error {
+
+	_, err := CreateLastReceivedHold(ctx, fs, to, jobID)
+	if err != nil {
+		return err
 	}
 
 	q := ListZFSHoldsAndBookmarksQuery{

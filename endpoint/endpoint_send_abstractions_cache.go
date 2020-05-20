@@ -25,6 +25,10 @@ func init() {
 
 var sendAbstractionsCacheSingleton = newSendAbstractionsCache()
 
+func SendAbstractionsCacheInvalidate(fs string) {
+	sendAbstractionsCacheSingleton.InvalidateFSCache(fs)
+}
+
 type sendAbstractionsCacheDidLoadFSState int
 
 const (
