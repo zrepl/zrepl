@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/util/errorarray"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -111,131 +110,6 @@ func HoldStep(ctx context.Context, fs string, v zfs.FilesystemVersion, jobID Job
 		FilesystemVersion: stepBookmark,
 		JobID:             jobID,
 	}, nil
-}
-
-// idempotently release the step-hold on v if v is a snapshot
-// or idempotently destroy the step-bookmark  of v if v is a bookmark
-//
-// note that this operation leaves v itself untouched, unless v is the step-bookmark itself, in which case v is destroyed
-//
-// returns an instance of *zfs.DatasetDoesNotExist if `v` does not exist
-func ReleaseStep(ctx context.Context, fs string, v zfs.FilesystemVersion, jobID JobID) error {
-
-	if v.IsSnapshot() {
-		tag, err := StepHoldTag(jobID)
-		if err != nil {
-			return errors.Wrap(err, "step release tag")
-		}
-
-		if err := zfs.ZFSRelease(ctx, tag, v.FullPath(fs)); err != nil {
-			return errors.Wrap(err, "step release: zfs")
-		}
-
-		return nil
-	}
-	if !v.IsBookmark() {
-		panic(fmt.Sprintf("impl error: expecting version to be a bookmark, got %#v", v))
-	}
-
-	bmname, err := StepBookmarkName(fs, v.Guid, jobID)
-	if err != nil {
-		return errors.Wrap(err, "step release: determine bookmark name")
-	}
-	// idempotently destroy bookmark
-
-	if err := zfs.ZFSDestroyIdempotent(ctx, bmname); err != nil {
-		return errors.Wrap(err, "step release: bookmark destroy: zfs")
-	}
-
-	return nil
-}
-
-// release {step holds, step bookmarks} earlier and including `mostRecent`
-func ReleaseStepCummulativeInclusive(ctx context.Context, fs string, since *CreateTXGRangeBound, mostRecent zfs.FilesystemVersion, jobID JobID) error {
-	q := ListZFSHoldsAndBookmarksQuery{
-		What: AbstractionTypeSet{
-			AbstractionStepHold:     true,
-			AbstractionStepBookmark: true,
-		},
-		FS: ListZFSHoldsAndBookmarksQueryFilesystemFilter{
-			FS: &fs,
-		},
-		JobID: &jobID,
-		CreateTXG: CreateTXGRange{
-			Since: since,
-			Until: &CreateTXGRangeBound{
-				CreateTXG: mostRecent.CreateTXG,
-				Inclusive: &zfs.NilBool{B: true},
-			},
-		},
-		Concurrency: 1,
-	}
-	abs, absErrs, err := ListAbstractions(ctx, q)
-	if err != nil {
-		return errors.Wrap(err, "step release cummulative: list")
-	}
-	if len(absErrs) > 0 {
-		return errors.Wrap(ListAbstractionsErrors(absErrs), "step release cummulative: list")
-	}
-
-	getLogger(ctx).WithField("step_holds_and_bookmarks", fmt.Sprintf("%s", abs)).Debug("releasing step holds and bookmarks")
-
-	var errs []error
-	for res := range BatchDestroy(ctx, abs) {
-		log := getLogger(ctx).
-			WithField("step_hold_or_bookmark", res.Abstraction)
-		if res.DestroyErr != nil {
-			errs = append(errs, res.DestroyErr)
-			log.WithError(err).
-				Error("cannot release step hold or bookmark")
-		} else {
-			log.Info("released step hold or bookmark")
-		}
-	}
-	if len(errs) == 0 {
-		return nil
-	} else {
-		return errorarray.Wrap(errs, "step release cummulative: release")
-	}
-}
-
-func TryReleaseStepStaleFS(ctx context.Context, fs string, jobID JobID) {
-
-	q := ListZFSHoldsAndBookmarksQuery{
-		FS: ListZFSHoldsAndBookmarksQueryFilesystemFilter{
-			FS: &fs,
-		},
-		JobID: &jobID,
-		What: AbstractionTypeSet{
-			AbstractionStepHold:                    true,
-			AbstractionStepBookmark:                true,
-			AbstractionReplicationCursorBookmarkV2: true,
-		},
-		Concurrency: 1,
-	}
-	staleness, err := ListStale(ctx, q)
-	if _, ok := err.(*ListStaleQueryError); ok {
-		panic(err)
-	} else if err != nil {
-		getLogger(ctx).WithError(err).Error("cannot list stale step holds and bookmarks")
-		return
-	}
-	for _, s := range staleness.Stale {
-		getLogger(ctx).WithField("stale_step_hold_or_bookmark", s).Info("batch-destroying stale step hold or bookmark")
-	}
-	for res := range BatchDestroy(ctx, staleness.Stale) {
-		if res.DestroyErr != nil {
-			getLogger(ctx).
-				WithField("stale_step_hold_or_bookmark", res.Abstraction).
-				WithError(res.DestroyErr).
-				Error("cannot destroy stale step-hold or bookmark")
-		} else {
-			getLogger(ctx).
-				WithField("stale_step_hold_or_bookmark", res.Abstraction).
-				WithError(res.DestroyErr).
-				Info("destroyed stale step-hold or bookmark")
-		}
-	}
 }
 
 var _ BookmarkExtractor = StepBookmarkExtractor

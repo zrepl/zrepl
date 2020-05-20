@@ -141,8 +141,7 @@ func CreateReplicationCursor(ctx context.Context, fs string, target zfs.Filesyst
 		return nil, zfs.ErrBookmarkCloningNotSupported
 	}
 
-	// idempotently create bookmark (guid is encoded in it, hence we'll most likely add a new one
-	// cleanup the old one afterwards
+	// idempotently create bookmark (guid is encoded in it)
 
 	cursorBookmark, err := zfs.ZFSBookmark(ctx, fs, target, bookmarkname)
 	if err != nil {
@@ -160,57 +159,9 @@ func CreateReplicationCursor(ctx context.Context, fs string, target zfs.Filesyst
 	}, nil
 }
 
-type ReplicationCursor interface {
-	GetCreateTXG() uint64
-}
-
-func DestroyObsoleteReplicationCursors(ctx context.Context, fs string, current ReplicationCursor, jobID JobID) (_ []Abstraction, err error) {
-
-	q := ListZFSHoldsAndBookmarksQuery{
-		FS: ListZFSHoldsAndBookmarksQueryFilesystemFilter{
-			FS: &fs,
-		},
-		What: AbstractionTypeSet{
-			AbstractionReplicationCursorBookmarkV2: true,
-		},
-		JobID: &jobID,
-		CreateTXG: CreateTXGRange{
-			Since: nil,
-			Until: &CreateTXGRangeBound{
-				CreateTXG: current.GetCreateTXG(),
-				Inclusive: &zfs.NilBool{B: false},
-			},
-		},
-		Concurrency: 1,
-	}
-	abs, absErr, err := ListAbstractions(ctx, q)
-	if err != nil {
-		return nil, errors.Wrap(err, "list abstractions")
-	}
-	if len(absErr) > 0 {
-		return nil, errors.Wrap(ListAbstractionsErrors(absErr), "list abstractions")
-	}
-
-	var destroyed []Abstraction
-	var errs []error
-	for res := range BatchDestroy(ctx, abs) {
-		log := getLogger(ctx).
-			WithField("replication_cursor_bookmark", res.Abstraction)
-		if res.DestroyErr != nil {
-			errs = append(errs, res.DestroyErr)
-			log.WithError(err).
-				Error("cannot destroy obsolete replication cursor bookmark")
-		} else {
-			destroyed = append(destroyed, res.Abstraction)
-			log.Info("destroyed obsolete replication cursor bookmark")
-		}
-	}
-	if len(errs) == 0 {
-		return destroyed, nil
-	} else {
-		return destroyed, errorarray.Wrap(errs, "destroy obsolete replication cursor")
-	}
-}
+const (
+	ReplicationCursorBookmarkNamePrefix = "zrepl_last_received_J_"
+)
 
 var lastReceivedHoldTagRE = regexp.MustCompile("^zrepl_last_received_J_(.+)$")
 

@@ -342,7 +342,7 @@ func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*p
 			msg := "cannot move replication cursor, keeping hold on `to` until successful"
 			log(ctx).WithError(err).Error(msg)
 			err = errors.Wrap(err, msg)
-			// it is correct to not release the hold if we can't move the cursor!
+			// it is correct to not destroy from and to step holds if we can't move the cursor!
 			return &pdu.SendCompletedRes{}, err
 		}
 	} else {

@@ -11,7 +11,7 @@ import (
 	"github.com/zrepl/zrepl/zfs"
 )
 
-func ReplicationCursor(ctx *platformtest.Context) {
+func CreateReplicationCursor(ctx *platformtest.Context) {
 
 	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
 		CREATEROOT
@@ -54,13 +54,7 @@ func ReplicationCursor(ctx *platformtest.Context) {
 	assert.Equal(ctx, zfs.ErrBookmarkCloningNotSupported, err)
 	// ... for target = replication cursor bookmark to be created
 	cursorOfCursor, err := endpoint.CreateReplicationCursor(ctx, fs, cursorOfSnapIdemp.GetFilesystemVersion(), jobid)
-	checkCreateCursor(err, cursorOfCursor, cursorOfCursor.GetFilesystemVersion())
-
-	destroyed, err := endpoint.DestroyObsoleteReplicationCursors(ctx, fs, &snap, jobid)
-	if err != nil {
-		panic(err)
-	}
-	assert.Empty(ctx, destroyed)
+	checkCreateCursor(err, cursorOfCursor, cursorOfSnap.GetFilesystemVersion())
 
 	snapProps, err := zfs.ZFSGetFilesystemVersion(ctx, snap.FullPath(fs))
 	if err != nil {
@@ -78,18 +72,4 @@ func ReplicationCursor(ctx *platformtest.Context) {
 		panic(fmt.Sprintf("guids do not match: %v != %v", bm.Guid, snapProps.Guid))
 	}
 
-	// try moving
-	cursor1BookmarkName, err := endpoint.ReplicationCursorBookmarkName(fs, snap.Guid, jobid)
-	require.NoError(ctx, err)
-
-	snap2 := fsversion(ctx, fs, "@2 with space")
-
-	_, err = endpoint.CreateReplicationCursor(ctx, fs, snap, jobid)
-	assert.NoError(ctx, err)
-	destroyed, err = endpoint.DestroyObsoleteReplicationCursors(ctx, fs, &snap2, jobid)
-
-	require.NoError(ctx, err)
-	require.Equal(ctx, 1, len(destroyed))
-	require.Equal(ctx, endpoint.AbstractionReplicationCursorBookmarkV2, destroyed[0].GetType())
-	require.Equal(ctx, cursor1BookmarkName, destroyed[0].GetName())
 }
