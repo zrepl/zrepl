@@ -39,7 +39,7 @@ Check out the *Coding Workflow* section below for details.
 * Ship other material provided in `./dist`, e.g. in `/usr/share/zrepl/`.
 * Use `make release ZREPL_VERSION='mydistro-1.2.3_1'`
     * Your distro's name and any versioning supplemental to zrepl's (e.g. package revision) should be in this string
-* Use `make platformtest` **on a test system** to validate that zrepl's abstractions on top of ZFS work with the system ZFS.
+* Use `sudo make test-platform` **on a test system** to validate that zrepl's abstractions on top of ZFS work with the system ZFS.
 * Make sure you are informed about new zrepl versions, e.g. by subscribing to GitHub's release RSS feed.
 
 ## Developer Documentation
@@ -47,9 +47,17 @@ Check out the *Coding Workflow* section below for details.
 zrepl is written in [Go](https://golang.org) and uses [Go modules](https://github.com/golang/go/wiki/Modules) to manage dependencies.
 The documentation is written in [ReStructured Text](http://docutils.sourceforge.net/rst.html) using the [Sphinx](https://www.sphinx-doc.org) framework.
 
-To get started, run `./lazy.sh devsetup` to easily install build dependencies and read `docs/installation.rst -> Compiling from Source`.
+Install **build dependencies** using  `./lazy.sh devsetup`.
 `lazy.sh` uses `python3-pip` to fetch the build dependencies for the docs - you might want to use a [venv](https://docs.python.org/3/library/venv.html).
 If you just want to install the Go dependencies, run `./lazy.sh godep`.
+
+The **test suite** is split into pure **Go tests** (`make test-go`) and **platform tests** that interact with ZFS and thus generally **require root privileges** (`sudo make test-platform`).
+Platform tests run on their own pool with the name `zreplplatformtest`, which is created using the file vdev in `/tmp`.
+
+For a full **code coverage** profile, run `make test-go COVER=1 && sudo make test-platform && make cover-merge`.
+An HTML report can be generated using `make cover-html`.
+
+**Code generation** is triggered by `make generate`. Generated code is committed to the source tree.
 
 ### Project Structure
 

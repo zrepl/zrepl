@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -21,22 +22,29 @@ import (
 //  https://github.com/wadey/gocovmerge
 
 func TestMain(t *testing.T) {
+	fmt.Println("incoming args: ", os.Args)
+
 	var (
-		args []string
-		run  bool
+		args             []string
+		run              bool
+		startCaptureArgs bool
 	)
 
-	for _, arg := range os.Args {
+	for i, arg := range os.Args {
 		switch {
 		case arg == "__DEVEL--i-heard-you-like-tests":
 			run = true
+			startCaptureArgs = true
 		case strings.HasPrefix(arg, "-test"):
 		case strings.HasPrefix(arg, "__DEVEL"):
-		default:
+		case i == 0:
+			args = append(args, arg)
+		case startCaptureArgs:
 			args = append(args, arg)
 		}
 	}
 	os.Args = args
+	fmt.Println("using args: ", os.Args)
 
 	if run {
 		main()

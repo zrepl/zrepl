@@ -36,9 +36,10 @@ godep() {
     go build -v -mod=readonly -o "$GOPATH/bin/enumer"        github.com/alvaroloes/enumer
     go build -v -mod=readonly -o "$GOPATH/bin/goimports"     golang.org/x/tools/cmd/goimports
     go build -v -mod=readonly -o "$GOPATH/bin/golangci-lint" github.com/golangci/golangci-lint/cmd/golangci-lint
+    go build -v -mod=readonly -o "$GOPATH/bin/gocovmerge"    github.com/wadey/gocovmerge
     set +x
     popd
-    if ! type stringer || ! type protoc-gen-go || ! type enumer || ! type goimports || ! type golangci-lint; then
+    if ! type stringer || ! type protoc-gen-go || ! type enumer || ! type goimports || ! type golangci-lint || ! type gocovmerge; then
         echo "Installed dependencies but can't find them in \$PATH, adjust it to contain \$GOPATH/bin" 1>&2
         exit 1
     fi

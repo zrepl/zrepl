@@ -13,22 +13,4 @@ func (c Case) String() string {
 	return runtime.FuncForPC(reflect.ValueOf(c).Pointer()).Name()
 }
 
-var Cases = []Case{
-	BatchDestroy,
-	UndestroyableSnapshotParsing,
-	GetNonexistent,
-	CreateReplicationCursor,
-	IdempotentHold,
-	IdempotentBookmark,
-	IdempotentDestroy,
-	ResumeTokenParsing,
-	ResumableRecvAndTokenHandling,
-	SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden,
-	SendArgsValidationResumeTokenEncryptionMismatchForbidden,
-	SendArgsValidationResumeTokenDifferentFilesystemForbidden,
-	ListFilesystemVersionsTypeFilteringAndPrefix,
-	ListFilesystemVersionsFilesystemNotExist,
-	ListFilesystemVersionsFilesystemNotExist,
-	ListFilesystemVersionsUserrefs,
-	ListFilesystemsNoFilter,
-}
+//go:generate ../../artifacts/generate-platform-test-list github.com/zrepl/zrepl/platformtest/tests
