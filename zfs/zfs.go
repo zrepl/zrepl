@@ -454,7 +454,7 @@ func (s *SendStream) killAndWait(precedingReadErr error) error {
 			WaitErr: exitErr,
 		}
 	} else {
-		s.opErr = fmt.Errorf("zfs send exited with status code 0")
+		s.opErr = precedingReadErr
 	}
 
 	// detect the edge where we're called from s.Read
@@ -1014,7 +1014,9 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, stream io.Rea
 		snaps, err := ZFSListFilesystemVersions(ctx, fsdp, ListFilesystemVersionsOptions{
 			Types: Snapshots,
 		})
-		if err != nil {
+		if _, ok := err.(*DatasetDoesNotExist); ok {
+			snaps = []FilesystemVersion{}
+		} else if err != nil {
 			return fmt.Errorf("cannot list versions for rollback for forced receive: %s", err)
 		}
 		sort.Slice(snaps, func(i, j int) bool {
