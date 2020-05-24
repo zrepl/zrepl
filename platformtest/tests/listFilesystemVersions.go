@@ -85,9 +85,6 @@ func ListFilesystemVersionsZeroExistIsNotAnError(t *platformtest.Context) {
 	vs, err := zfs.ZFSListFilesystemVersions(t, mustDatasetPath(fs), zfs.ListFilesystemVersionsOptions{})
 	require.Empty(t, vs)
 	require.NoError(t, err)
-	dsne, ok := err.(*zfs.DatasetDoesNotExist)
-	require.True(t, ok)
-	require.Equal(t, fs, dsne.Path)
 }
 
 func ListFilesystemVersionsFilesystemNotExist(t *platformtest.Context) {
