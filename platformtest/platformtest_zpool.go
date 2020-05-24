@@ -58,6 +58,14 @@ func CreateOrReplaceZpool(ctx context.Context, e Execer, args ZpoolCreateArgs) (
 		}
 	}
 
+	// clear the mountpoint dir
+	if err := os.RemoveAll(args.Mountpoint); err != nil {
+		return nil, errors.Wrapf(err, "remove mountpoint dir %q", args.Mountpoint)
+	}
+	if err := os.Mkdir(args.Mountpoint, 0700); err != nil {
+		return nil, errors.Wrapf(err, "create mountpoint dir %q", args.Mountpoint)
+	}
+
 	// idempotently (re)create the pool image
 	image, err := os.OpenFile(args.ImagePath, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
@@ -91,6 +99,10 @@ func (p *Zpool) Destroy(ctx context.Context, e Execer) error {
 
 	if err := os.Remove(p.args.ImagePath); err != nil {
 		return errors.Wrapf(err, "remove pool image")
+	}
+
+	if err := os.RemoveAll(p.args.Mountpoint); err != nil {
+		return errors.Wrapf(err, "remove mountpoint dir %q", p.args.Mountpoint)
 	}
 
 	return nil

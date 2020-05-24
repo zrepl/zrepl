@@ -27,6 +27,8 @@ GO_EXTRA_BUILDFLAGS :=
 GO_BUILDFLAGS := $(GO_MOD_READONLY) $(GO_EXTRA_BUILDFLAGS)
 GO_BUILD := $(GO_ENV_VARS) $(GO) build $(GO_BUILDFLAGS) -ldflags $(GO_LDFLAGS)
 GOLANGCI_LINT := golangci-lint
+GOCOVMERGE := gocovmerge
+
 ifneq ($(GOARM),)
 	ZREPL_TARGET_TUPLE := $(GOOS)-$(GOARCH)v$(GOARM)
 else
@@ -45,7 +47,7 @@ printvars:
 
 release: clean
 	# no cross-platform support for target test
-	$(MAKE) test
+	$(MAKE) test-go
 	$(MAKE) bins-all
 	$(MAKE) noarch
 	$(MAKE) wrapup-and-checksum
@@ -99,9 +101,9 @@ clean: docs-clean
 	rm -rf "$(ARTIFACTDIR)"
 
 ##################### BINARIES #####################
-.PHONY: bins-all lint test vet zrepl-bin platformtest-bin
+.PHONY: bins-all lint test-go test-platform cover-merge cover-html vet zrepl-bin test-platform-bin generate-platform-test-list
 
-BINS_ALL_TARGETS := zrepl-bin platformtest-bin vet lint
+BINS_ALL_TARGETS := zrepl-bin test-platform-bin vet lint
 GO_SUPPORTS_ILLUMOS := $(shell $(GO) version | gawk -F '.' '/^go version /{split($$0, comps, " "); split(comps[3], v, "."); if (v[1] == "go1" && v[2] >= 13) { print "illumos"; } else { print "noillumos"; }}')
 bins-all:
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=freebsd   GOARCH=amd64
@@ -122,27 +124,34 @@ endif
 
 lint:
 	$(GO_ENV_VARS) $(GOLANGCI_LINT) run ./...
-test:
-	$(GO_ENV_VARS) $(GO) test $(GO_BUILDFLAGS) ./...
+
 vet:
 	$(GO_ENV_VARS) $(GO) vet $(GO_BUILDFLAGS) ./...
+
+test-go: $(ARTIFACTDIR)
+	rm -f "$(ARTIFACTDIR)/gotest.cover"
+ifeq ($(COVER),1)
+	$(GO_ENV_VARS) $(GO) test $(GO_BUILDFLAGS) \
+		-coverpkg github.com/zrepl/zrepl/... \
+		-covermode atomic \
+		-coverprofile "$(ARTIFACTDIR)/gotest.cover" \
+		./...
+else
+	$(GO_ENV_VARS) $(GO) test $(GO_BUILDFLAGS) \
+		./...
+endif
 
 zrepl-bin:
 	$(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-$(ZREPL_TARGET_TUPLE)"
 
-platformtest-bin:
-	$(GO_BUILD) -o "$(ARTIFACTDIR)/platformtest-$(ZREPL_TARGET_TUPLE)" ./platformtest/harness
+generate-platform-test-list:
+	$(GO_BUILD) -o $(ARTIFACTDIR)/generate-platform-test-list ./platformtest/tests/gen
 
-##################### DEV TARGETS #####################
-# not part of the build, must do that manually
-.PHONY: generate format platformtest
-
-generate:
-	protoc -I=replication/logic/pdu --go_out=plugins=grpc:replication/logic/pdu replication/logic/pdu/pdu.proto
-	$(GO_ENV_VARS) $(GO) generate $(GO_BUILDFLAGS) -x ./...
-
-format:
-	goimports -srcdir . -local 'github.com/zrepl/zrepl' -w $(shell find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go')
+test-platform-bin:
+	$(GO_ENV_VARS) $(GO) test $(GO_BUILDFLAGS) \
+		-c -o "$(ARTIFACTDIR)/platformtest-$(ZREPL_TARGET_TUPLE)" \
+		-covermode=atomic -cover -coverpkg github.com/zrepl/zrepl/... \
+		./platformtest/harness
 
 ZREPL_PLATFORMTEST_POOLNAME := zreplplatformtest
 ZREPL_PLATFORMTEST_IMAGEPATH := /tmp/zreplplatformtest.pool.img
@@ -150,15 +159,41 @@ ZREPL_PLATFORMTEST_MOUNTPOINT := /tmp/zreplplatformtest.pool
 ZREPL_PLATFORMTEST_ZFS_LOG := /tmp/zreplplatformtest.zfs.log
 # ZREPL_PLATFORMTEST_STOP_AND_KEEP := -failure.stop-and-keep-pool
 ZREPL_PLATFORMTEST_ARGS := 
-platformtest: # do not track dependency on platformtest-bin to allow build of platformtest outside of test VM
+test-platform: $(ARTIFACTDIR) # do not track dependency on test-platform-bin to allow build of platformtest outside of test VM
 	rm -f "$(ZREPL_PLATFORMTEST_ZFS_LOG)"
+	rm -f "$(ARTIFACTDIR)/platformtest.cover"
 	platformtest/logmockzfs/logzfsenv "$(ZREPL_PLATFORMTEST_ZFS_LOG)" `which zfs` \
 	"$(ARTIFACTDIR)/platformtest-$(ZREPL_TARGET_TUPLE)" \
+		-test.coverprofile "$(ARTIFACTDIR)/platformtest.cover" \
+		-test.v \
+		__DEVEL--i-heard-you-like-tests \
 		-poolname "$(ZREPL_PLATFORMTEST_POOLNAME)" \
 		-imagepath "$(ZREPL_PLATFORMTEST_IMAGEPATH)" \
 		-mountpoint "$(ZREPL_PLATFORMTEST_MOUNTPOINT)" \
 		$(ZREPL_PLATFORMTEST_STOP_AND_KEEP) \
 		$(ZREPL_PLATFORMTEST_ARGS)
+
+cover-merge: $(ARTIFACTDIR)
+	$(GOCOVMERGE) $(ARTIFACTDIR)/platformtest.cover $(ARTIFACTDIR)/gotest.cover > $(ARTIFACTDIR)/merged.cover
+cover-html: cover-merge
+	$(GO) tool cover -html "$(ARTIFACTDIR)/merged.cover" -o "$(ARTIFACTDIR)/merged.cover.html"
+
+test-full:
+	test "$$(id -u)" = "0" || echo "MUST RUN AS ROOT" 1>&2
+	$(MAKE) test-go COVER=1
+	$(MAKE) test-platform
+	$(MAKE) cover-html
+
+##################### DEV TARGETS #####################
+# not part of the build, must do that manually
+.PHONY: generate format
+
+generate: generate-platform-test-list
+	protoc -I=replication/logic/pdu --go_out=plugins=grpc:replication/logic/pdu replication/logic/pdu/pdu.proto
+	$(GO_ENV_VARS) $(GO) generate $(GO_BUILDFLAGS) -x ./...
+
+format:
+	goimports -srcdir . -local 'github.com/zrepl/zrepl' -w $(shell find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go')
 
 ##################### NOARCH #####################
 .PHONY: noarch $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/_zrepl.zsh_completion $(ARTIFACTDIR)/go_env.txt docs docs-clean

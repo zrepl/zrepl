@@ -24,33 +24,36 @@ var bold = color.New(color.Bold)
 var boldRed = color.New(color.Bold, color.FgHiRed)
 var boldGreen = color.New(color.Bold, color.FgHiGreen)
 
-var args struct {
-	createArgs            platformtest.ZpoolCreateArgs
-	stopAndKeepPoolOnFail bool
-
-	run   string
-	runRE *regexp.Regexp
-}
+const DefaultPoolImageSize = 200 * (1 << 20)
 
 func main() {
-	if err := doMain(); err != nil {
+
+	var args HarnessArgs
+
+	flag.StringVar(&args.CreateArgs.PoolName, "poolname", "", "")
+	flag.StringVar(&args.CreateArgs.ImagePath, "imagepath", "", "")
+	flag.Int64Var(&args.CreateArgs.ImageSize, "imagesize", DefaultPoolImageSize, "")
+	flag.StringVar(&args.CreateArgs.Mountpoint, "mountpoint", "", "")
+	flag.BoolVar(&args.StopAndKeepPoolOnFail, "failure.stop-and-keep-pool", false, "if a test case fails, stop test execution and keep pool as it was when the test failed")
+	flag.StringVar(&args.Run, "run", "", "")
+	flag.Parse()
+
+	if err := HarnessRun(args); err != nil {
 		os.Exit(1)
 	}
 }
 
 var exitWithErr = fmt.Errorf("exit with error")
 
-func doMain() error {
+type HarnessArgs struct {
+	CreateArgs            platformtest.ZpoolCreateArgs
+	StopAndKeepPoolOnFail bool
+	Run                   string
+}
 
-	flag.StringVar(&args.createArgs.PoolName, "poolname", "", "")
-	flag.StringVar(&args.createArgs.ImagePath, "imagepath", "", "")
-	flag.Int64Var(&args.createArgs.ImageSize, "imagesize", 200*(1<<20), "")
-	flag.StringVar(&args.createArgs.Mountpoint, "mountpoint", "", "")
-	flag.BoolVar(&args.stopAndKeepPoolOnFail, "failure.stop-and-keep-pool", false, "if a test case fails, stop test execution and keep pool as it was when the test failed")
-	flag.StringVar(&args.run, "run", "", "")
-	flag.Parse()
+func HarnessRun(args HarnessArgs) error {
 
-	args.runRE = regexp.MustCompile(args.run)
+	runRE := regexp.MustCompile(args.Run)
 
 	outlets := logger.NewOutlets()
 	outlet, level, err := logging.ParseOutlet(config.LoggingOutletEnum{Ret: &config.StdoutLoggingOutlet{
@@ -65,7 +68,7 @@ func doMain() error {
 	outlets.Add(outlet, level)
 	logger := logger.NewLogger(outlets, 1*time.Second)
 
-	if err := args.createArgs.Validate(); err != nil {
+	if err := args.CreateArgs.Validate(); err != nil {
 		logger.Error(err.Error())
 		panic(err)
 	}
@@ -81,7 +84,7 @@ func doMain() error {
 
 	invocations := make([]*invocation, 0, len(tests.Cases))
 	for _, c := range tests.Cases {
-		if args.runRE.MatchString(c.String()) {
+		if runRE.MatchString(c.String()) {
 			invocations = append(invocations, &invocation{runFunc: c})
 		}
 	}
@@ -90,7 +93,7 @@ func doMain() error {
 
 		bold.Printf("BEGIN TEST CASE %s\n", inv.runFunc.String())
 
-		pool, err := platformtest.CreateOrReplaceZpool(ctx, ex, args.createArgs)
+		pool, err := platformtest.CreateOrReplaceZpool(ctx, ex, args.CreateArgs)
 		if err != nil {
 			panic(errors.Wrap(err, "create test pool"))
 		}
@@ -106,7 +109,7 @@ func doMain() error {
 			fmt.Printf("%+v\n", res.failedStack) // print with stack trace
 		}
 
-		if res.failed && args.stopAndKeepPoolOnFail {
+		if res.failed && args.StopAndKeepPoolOnFail {
 			boldRed.Printf("STOPPING TEST RUN AT FAILING TEST PER USER REQUEST\n")
 			return exitWithErr
 		}
