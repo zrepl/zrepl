@@ -287,7 +287,10 @@ func (p *Planner) doPlanning(ctx context.Context) ([]*Filesystem, error) {
 			}
 		}
 
-		ctr := p.promBytesReplicated.WithLabelValues(fs.Path)
+		var ctr prometheus.Counter
+		if p.promBytesReplicated != nil {
+			ctr = p.promBytesReplicated.WithLabelValues(fs.Path)
+		}
 
 		q = append(q, &Filesystem{
 			sender:                 p.sender,
@@ -594,7 +597,9 @@ func (s *Step) doReplication(ctx context.Context) error {
 	s.byteCounterMtx.Unlock()
 	defer func() {
 		defer s.byteCounterMtx.Lock().Unlock()
-		s.parent.promBytesReplicated.Add(float64(s.byteCounter.Count()))
+		if s.parent.promBytesReplicated != nil {
+			s.parent.promBytesReplicated.Add(float64(s.byteCounter.Count()))
+		}
 	}()
 
 	rr := &pdu.ReceiveReq{
