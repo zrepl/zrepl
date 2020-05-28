@@ -7,47 +7,93 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/endpoint"
 )
 
 type KeepRule interface {
-	KeepRule(snaps []Snapshot) (destroyList []Snapshot)
+	KeepRule(snaps []Snapshot) PruneSnapshotsResult
 }
 
 type Snapshot interface {
-	Name() string
+	GetName() string
 	Replicated() bool
-	Date() time.Time
+	GetCreation() time.Time
+	GetCreateTXG() uint64
+	StepHolds() []StepHold
 }
 
-// The returned snapshot list is guaranteed to only contains elements of input parameter snaps
-func PruneSnapshots(snaps []Snapshot, keepRules []KeepRule) []Snapshot {
+type StepHold interface {
+	GetJobID() endpoint.JobID
+}
+
+type PruneSnapshotsResult struct {
+	Remove, Keep []Snapshot
+}
+
+// The returned snapshot results are a partition of the snaps argument.
+// That means than len(Remove) + len(Keep) == len(snaps)
+func PruneSnapshots(snapsI []Snapshot, keepRules []KeepRule) PruneSnapshotsResult {
 
 	if len(keepRules) == 0 {
-		return []Snapshot{}
+		return PruneSnapshotsResult{Remove: nil, Keep: snapsI}
 	}
 
-	remCount := make(map[Snapshot]int, len(snaps))
+	type snapshot struct {
+		Snapshot
+		keepCount, removeCount int
+	}
+
+	// project down to snapshot
+	snaps := make([]Snapshot, len(snapsI))
+	for i := range snaps {
+		snaps[i] = &snapshot{snapsI[i], 0, 0}
+	}
+
 	for _, r := range keepRules {
-		ruleRems := r.KeepRule(snaps)
-		for _, ruleRem := range ruleRems {
-			remCount[ruleRem]++
+
+		ruleImplCheckSet := make(map[Snapshot]int, len(snaps))
+		for _, s := range snaps {
+			ruleImplCheckSet[s] = ruleImplCheckSet[s] + 1
+		}
+
+		ruleResults := r.KeepRule(snaps)
+
+		for _, s := range snaps {
+			ruleImplCheckSet[s] = ruleImplCheckSet[s] - 1
+		}
+		for _, n := range ruleImplCheckSet {
+			if n != 0 {
+				panic(fmt.Sprintf("incorrect rule implementation: %T", r))
+			}
+		}
+
+		for _, s := range ruleResults.Remove {
+			s.(*snapshot).removeCount++
+		}
+		for _, s := range ruleResults.Keep {
+			s.(*snapshot).keepCount++
 		}
 	}
 
 	remove := make([]Snapshot, 0, len(snaps))
-	for snap, rc := range remCount {
-		if rc == len(keepRules) {
-			remove = append(remove, snap)
+	keep := make([]Snapshot, 0, len(snaps))
+	for _, sI := range snaps {
+		s := sI.(*snapshot)
+		if s.removeCount == len(keepRules) {
+			// all keep rules agree to remove the snap
+			remove = append(remove, s.Snapshot)
+		} else {
+			keep = append(keep, s.Snapshot)
 		}
 	}
 
-	return remove
+	return PruneSnapshotsResult{Remove: remove, Keep: keep}
 }
 
-func RulesFromConfig(in []config.PruningEnum) (rules []KeepRule, err error) {
+func RulesFromConfig(mainJobId endpoint.JobID, in []config.PruningEnum) (rules []KeepRule, err error) {
 	rules = make([]KeepRule, len(in))
 	for i := range in {
-		rules[i], err = RuleFromConfig(in[i])
+		rules[i], err = RuleFromConfig(mainJobId, in[i])
 		if err != nil {
 			return nil, errors.Wrapf(err, "cannot build rule #%d", i)
 		}
@@ -55,7 +101,7 @@ func RulesFromConfig(in []config.PruningEnum) (rules []KeepRule, err error) {
 	return rules, nil
 }
 
-func RuleFromConfig(in config.PruningEnum) (KeepRule, error) {
+func RuleFromConfig(mainJobId endpoint.JobID, in config.PruningEnum) (KeepRule, error) {
 	switch v := in.Ret.(type) {
 	case *config.PruneKeepNotReplicated:
 		return NewKeepNotReplicated(), nil
@@ -65,6 +111,8 @@ func RuleFromConfig(in config.PruningEnum) (KeepRule, error) {
 		return NewKeepRegex(v.Regex, v.Negate)
 	case *config.PruneGrid:
 		return NewKeepGrid(v)
+	case *config.PruneKeepStepHolds:
+		return NewKeepStepHolds(mainJobId, v.AdditionalJobIds)
 	default:
 		return nil, fmt.Errorf("unknown keep rule type %T", v)
 	}

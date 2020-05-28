@@ -112,6 +112,13 @@ func (s *Sender) ListFilesystemVersions(ctx context.Context, r *pdu.ListFilesyst
 	for i := range fsvs {
 		rfsvs[i] = pdu.FilesystemVersionFromZFS(&fsvs[i])
 	}
+
+	sendAbstractions := sendAbstractionsCacheSingleton.GetByFS(ctx, lp.ToString())
+	rSabsInfo := make([]*pdu.SendAbstraction, len(sendAbstractions))
+	for i := range rSabsInfo {
+		rSabsInfo[i] = SendAbstractionToPDU(sendAbstractions[i])
+	}
+
 	res := &pdu.ListFilesystemVersionsRes{Versions: rfsvs}
 	return res, nil
 

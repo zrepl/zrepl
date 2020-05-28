@@ -66,24 +66,26 @@ type retentionGridAdaptor struct {
 	Snapshot
 }
 
+func (a retentionGridAdaptor) Date() time.Time { return a.Snapshot.GetCreation() }
+
 func (a retentionGridAdaptor) LessThan(b retentiongrid.Entry) bool {
 	return a.Date().Before(b.Date())
 }
 
 // Prune filters snapshots with the retention grid.
-func (p *KeepGrid) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
+func (p *KeepGrid) KeepRule(snaps []Snapshot) PruneSnapshotsResult {
 
-	snaps = filterSnapList(snaps, func(snapshot Snapshot) bool {
-		return p.re.MatchString(snapshot.Name())
+	reCandidates := partitionSnapList(snaps, func(snapshot Snapshot) bool {
+		return p.re.MatchString(snapshot.GetName())
 	})
-	if len(snaps) == 0 {
-		return nil
+	if len(reCandidates.Remove) == 0 {
+		return reCandidates
 	}
 
 	// Build adaptors for retention grid
 	adaptors := make([]retentiongrid.Entry, 0)
 	for i := range snaps {
-		adaptors = append(adaptors, retentionGridAdaptor{snaps[i]})
+		adaptors = append(adaptors, retentionGridAdaptor{reCandidates.Remove[i]})
 	}
 
 	// determine 'now' edge
@@ -93,12 +95,17 @@ func (p *KeepGrid) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 	now := adaptors[len(adaptors)-1].Date()
 
 	// Evaluate retention grid
-	_, removea := p.retentionGrid.FitEntries(now, adaptors)
+	keepa, removea := p.retentionGrid.FitEntries(now, adaptors)
 
 	// Revert adaptors
-	destroyList = make([]Snapshot, len(removea))
+	destroyList := make([]Snapshot, len(removea))
 	for i := range removea {
 		destroyList[i] = removea[i].(retentionGridAdaptor).Snapshot
 	}
-	return destroyList
+	for _, a := range keepa {
+		reCandidates.Keep = append(reCandidates.Keep, a.(retentionGridAdaptor))
+	}
+	reCandidates.Remove = destroyList
+
+	return reCandidates
 }

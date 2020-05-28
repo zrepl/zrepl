@@ -27,12 +27,12 @@ func MustKeepRegex(expr string, negate bool) *KeepRegex {
 	return k
 }
 
-func (k *KeepRegex) KeepRule(snaps []Snapshot) []Snapshot {
-	return filterSnapList(snaps, func(s Snapshot) bool {
+func (k *KeepRegex) KeepRule(snaps []Snapshot) PruneSnapshotsResult {
+	return partitionSnapList(snaps, func(s Snapshot) bool {
 		if k.negate {
-			return k.expr.FindStringIndex(s.Name()) != nil
+			return k.expr.FindStringIndex(s.GetName()) != nil
 		} else {
-			return k.expr.FindStringIndex(s.Name()) == nil
+			return k.expr.FindStringIndex(s.GetName()) == nil
 		}
 	})
 }

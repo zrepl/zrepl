@@ -1500,6 +1500,30 @@ func tryParseDestroySnapshotsError(arg string, stderr []byte) *DestroySnapshotsE
 	}
 }
 
+type ErrDestroySnapshotDatasetIsBusy struct {
+	*DestroySnapshotsError
+	Name string
+}
+
+var _ error = (*ErrDestroySnapshotDatasetIsBusy)(nil)
+
+func tryErrDestroySnapshotDatasetIsBusy(arg string, stderr []byte) *ErrDestroySnapshotDatasetIsBusy {
+	dsne := tryParseDestroySnapshotsError(arg, stderr)
+	if dsne == nil {
+		return nil
+	}
+	if len(dsne.Reason) != 1 {
+		return nil
+	}
+	if dsne.Reason[0] == "dataset is busy" {
+		return &ErrDestroySnapshotDatasetIsBusy{
+			DestroySnapshotsError: dsne,
+			Name:                  dsne.Undestroyable[0],
+		}
+	}
+	return nil
+}
+
 func ZFSDestroy(ctx context.Context, arg string) (err error) {
 
 	var dstype, filesystem string
@@ -1533,6 +1557,8 @@ func ZFSDestroy(ctx context.Context, arg string) (err error) {
 			err = &DatasetDoesNotExist{arg}
 		} else if dsNotExistErr := tryDatasetDoesNotExist(filesystem, stdio); dsNotExistErr != nil {
 			err = dsNotExistErr
+		} else if dsBusy := tryErrDestroySnapshotDatasetIsBusy(arg, stdio); dsBusy != nil {
+			err = dsBusy
 		} else if dserr := tryParseDestroySnapshotsError(arg, stdio); dserr != nil {
 			err = dserr
 		}

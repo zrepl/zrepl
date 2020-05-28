@@ -1,10 +1,13 @@
 package pruning
 
-func filterSnapList(snaps []Snapshot, predicate func(Snapshot) bool) []Snapshot {
-	r := make([]Snapshot, 0, len(snaps))
+func partitionSnapList(snaps []Snapshot, remove func(Snapshot) bool) (r PruneSnapshotsResult) {
+	r.Keep = make([]Snapshot, 0, len(snaps))
+	r.Remove = make([]Snapshot, 0, len(snaps))
 	for i := range snaps {
-		if predicate(snaps[i]) {
-			r = append(r, snaps[i])
+		if remove(snaps[i]) {
+			r.Remove = append(r.Remove, snaps[i])
+		} else {
+			r.Keep = append(r.Keep, snaps[i])
 		}
 	}
 	return r

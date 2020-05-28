@@ -309,6 +309,11 @@ type PruneKeepNotReplicated struct {
 	KeepSnapshotAtCursor bool   `yaml:"keep_snapshot_at_cursor,optional,default=true"`
 }
 
+type PruneKeepStepHolds struct {
+	Type             string   `yaml:"type"`
+	AdditionalJobIds []string `yaml:"additional_job_ids,optional"`
+}
+
 type PruneKeepLastN struct {
 	Type  string `yaml:"type"`
 	Count int    `yaml:"count"`
@@ -480,6 +485,7 @@ func (t *ServeEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 
 func (t *PruningEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
+		"step_holds":     &PruneKeepStepHolds{},
 		"not_replicated": &PruneKeepNotReplicated{},
 		"last_n":         &PruneKeepLastN{},
 		"grid":           &PruneGrid{},

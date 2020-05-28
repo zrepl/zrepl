@@ -17,17 +17,17 @@ func NewKeepLastN(n int) (*KeepLastN, error) {
 	return &KeepLastN{n}, nil
 }
 
-func (k KeepLastN) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
+func (k KeepLastN) KeepRule(snaps []Snapshot) PruneSnapshotsResult {
 
 	if k.n > len(snaps) {
-		return []Snapshot{}
+		return PruneSnapshotsResult{Keep: snaps}
 	}
 
 	res := shallowCopySnapList(snaps)
 
 	sort.Slice(res, func(i, j int) bool {
-		return res[i].Date().After(res[j].Date())
+		return res[i].GetCreateTXG() > res[j].GetCreateTXG()
 	})
 
-	return res[k.n:]
+	return PruneSnapshotsResult{Remove: res[k.n:], Keep: res[:k.n]}
 }

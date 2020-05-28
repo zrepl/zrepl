@@ -115,6 +115,8 @@ func (v FilesystemVersion) RelName() string {
 }
 func (v FilesystemVersion) String() string { return v.RelName() }
 
+func (v FilesystemVersion) GetCreation() time.Time { return v.Creation }
+
 // Only takes into account those attributes of FilesystemVersion that
 // are immutable over time in ZFS.
 func FilesystemVersionEqualIdentity(a, b FilesystemVersion) bool {

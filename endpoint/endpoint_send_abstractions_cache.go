@@ -82,6 +82,24 @@ func (s *sendAbstractionsCache) InvalidateFSCache(fs string) {
 
 }
 
+func (s *sendAbstractionsCache) GetByFS(ctx context.Context, fs string) (ret []Abstraction) {
+	defer s.mtx.Lock().Unlock()
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
+	if fs == "" {
+		panic("must not pass zero-value fs")
+	}
+
+	s.tryLoadOnDiskSendAbstractions(ctx, fs)
+
+	for _, a := range s.abstractions {
+		if a.GetFS() == fs {
+			ret = append(ret, a)
+		}
+	}
+
+	return ret
+}
+
 // - logs errors in getting on-disk abstractions
 // - only fetches on-disk abstractions once, but every time from the in-memory store
 //

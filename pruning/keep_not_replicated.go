@@ -2,8 +2,8 @@ package pruning
 
 type KeepNotReplicated struct{}
 
-func (*KeepNotReplicated) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
-	return filterSnapList(snaps, func(snapshot Snapshot) bool {
+func (*KeepNotReplicated) KeepRule(snaps []Snapshot) PruneSnapshotsResult {
+	return partitionSnapList(snaps, func(snapshot Snapshot) bool {
 		return snapshot.Replicated()
 	})
 }

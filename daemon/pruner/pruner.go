@@ -20,15 +20,14 @@ import (
 )
 
 // Try to keep it compatible with github.com/zrepl/zrepl/endpoint.Endpoint
-type History interface {
-	ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error)
+type Endpoint interface {
 	ListFilesystems(ctx context.Context, req *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error)
+	ListFilesystemVersions(ctx context.Context, req *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error)
 }
 
 // Try to keep it compatible with github.com/zrepl/zrepl/endpoint.Endpoint
 type Target interface {
-	ListFilesystems(ctx context.Context, req *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error)
-	ListFilesystemVersions(ctx context.Context, req *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error)
+	Endpoint
 	DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error)
 }
 
@@ -46,13 +45,14 @@ func GetLogger(ctx context.Context) Logger {
 }
 
 type args struct {
-	ctx                            context.Context
-	target                         Target
-	receiver                       History
-	rules                          []pruning.KeepRule
-	retryWait                      time.Duration
-	considerSnapAtCursorReplicated bool
-	promPruneSecs                  prometheus.Observer
+	ctx                              context.Context
+	target                           Target
+	sender, receiver                 Endpoint
+	rules                            []pruning.KeepRule
+	retryWait                        time.Duration
+	considerSnapAtCursorReplicated   bool
+	convertAnyStepHoldToStepBookmark bool
+	promPruneSecs                    prometheus.Observer
 }
 
 type Pruner struct {
@@ -70,11 +70,12 @@ type Pruner struct {
 }
 
 type PrunerFactory struct {
-	senderRules                    []pruning.KeepRule
-	receiverRules                  []pruning.KeepRule
-	retryWait                      time.Duration
-	considerSnapAtCursorReplicated bool
-	promPruneSecs                  *prometheus.HistogramVec
+	senderRules                      []pruning.KeepRule
+	receiverRules                    []pruning.KeepRule
+	retryWait                        time.Duration
+	considerSnapAtCursorReplicated   bool
+	convertAnyStepHoldToStepBookmark bool
+	promPruneSecs                    *prometheus.HistogramVec
 }
 
 type LocalPrunerFactory struct {
@@ -122,25 +123,35 @@ func NewPrunerFactory(in config.PruningSenderReceiver, promPruneSecs *prometheus
 		}
 		considerSnapAtCursorReplicated = considerSnapAtCursorReplicated || !knr.KeepSnapshotAtCursor
 	}
+
+	convertAnyStepHoldToStepBookmark := false
+	for _, r := range in.KeepSender {
+		_, ok := r.Ret.(*config.PruneKeepStepHolds)
+		convertAnyStepHoldToStepBookmark = convertAnyStepHoldToStepBookmark || ok
+	}
+
 	f := &PrunerFactory{
-		senderRules:                    keepRulesSender,
-		receiverRules:                  keepRulesReceiver,
-		retryWait:                      envconst.Duration("ZREPL_PRUNER_RETRY_INTERVAL", 10*time.Second),
-		considerSnapAtCursorReplicated: considerSnapAtCursorReplicated,
-		promPruneSecs:                  promPruneSecs,
+		senderRules:                      keepRulesSender,
+		receiverRules:                    keepRulesReceiver,
+		retryWait:                        envconst.Duration("ZREPL_PRUNER_RETRY_INTERVAL", 10*time.Second),
+		considerSnapAtCursorReplicated:   considerSnapAtCursorReplicated,
+		convertAnyStepHoldToStepBookmark: convertAnyStepHoldToStepBookmark,
+		promPruneSecs:                    promPruneSecs,
 	}
 	return f, nil
 }
 
-func (f *PrunerFactory) BuildSenderPruner(ctx context.Context, target Target, receiver History) *Pruner {
+func (f *PrunerFactory) BuildSenderPruner(ctx context.Context, sender Target, receiver Endpoint) *Pruner {
 	p := &Pruner{
 		args: args{
 			context.WithValue(ctx, contextKeyPruneSide, "sender"),
-			target,
+			sender,
+			sender,
 			receiver,
 			f.senderRules,
 			f.retryWait,
 			f.considerSnapAtCursorReplicated,
+			f.convertAnyStepHoldToStepBookmark,
 			f.promPruneSecs.WithLabelValues("sender"),
 		},
 		state: Plan,
@@ -148,14 +159,16 @@ func (f *PrunerFactory) BuildSenderPruner(ctx context.Context, target Target, re
 	return p
 }
 
-func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, target Target, receiver History) *Pruner {
+func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, receiver Target, sender Endpoint) *Pruner {
 	p := &Pruner{
 		args: args{
 			context.WithValue(ctx, contextKeyPruneSide, "receiver"),
-			target,
+			receiver,
+			sender,
 			receiver,
 			f.receiverRules,
 			f.retryWait,
+			false, // senseless here anyways
 			false, // senseless here anyways
 			f.promPruneSecs.WithLabelValues("receiver"),
 		},
@@ -164,15 +177,17 @@ func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, target Target, 
 	return p
 }
 
-func (f *LocalPrunerFactory) BuildLocalPruner(ctx context.Context, target Target, receiver History) *Pruner {
+func (f *LocalPrunerFactory) BuildLocalPruner(ctx context.Context, target Target) *Pruner {
 	p := &Pruner{
 		args: args{
 			context.WithValue(ctx, contextKeyPruneSide, "local"),
 			target,
-			receiver,
+			target,
+			target,
 			f.keepRules,
 			f.retryWait,
 			false, // considerSnapAtCursorReplicated is not relevant for local pruning
+			false, // convertAnyStepHoldToStepBookmark is not relevant for local pruning
 			f.promPruneSecs.WithLabelValues("local"),
 		},
 		state: Plan,
@@ -341,11 +356,13 @@ func (s snapshot) Replicated() bool { return s.replicated }
 
 func (s snapshot) Date() time.Time { return s.date }
 
+func (s snapshot) CreateTXG() uint64 { return s.fsv.GetCreateTXG() }
+
 func doOneAttempt(a *args, u updater) {
 
-	ctx, target, receiver := a.ctx, a.target, a.receiver
+	ctx, sender, receiver, target := a.ctx, a.sender, a.receiver, a.target
 
-	sfssres, err := receiver.ListFilesystems(ctx, &pdu.ListFilesystemReq{})
+	sfssres, err := sender.ListFilesystems(ctx, &pdu.ListFilesystemReq{})
 	if err != nil {
 		u(func(p *Pruner) {
 			p.state = PlanErr
@@ -407,6 +424,10 @@ tfss_loop:
 
 		pfs.snaps = make([]pruning.Snapshot, 0, len(tfsvs))
 
+		receiver.ListFilesystemVersions(ctx, &pdu.ListFilesystemVersionsReq{
+			Filesystem: tfs.Path,
+		})
+
 		rcReq := &pdu.ReplicationCursorReq{
 			Filesystem: tfs.Path,
 		}
@@ -415,6 +436,7 @@ tfss_loop:
 			pfsPlanErrAndLog(err, "cannot get replication cursor bookmark")
 			continue tfss_loop
 		}
+
 		if rc.GetNotexist() {
 			err := errors.New("replication cursor bookmark does not exist (one successful replication is required before pruning works)")
 			pfsPlanErrAndLog(err, "")

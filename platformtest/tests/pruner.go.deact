@@ -1,0 +1,331 @@
+package tests
+
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/require"
+	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/filters"
+	"github.com/zrepl/zrepl/daemon/pruner"
+	"github.com/zrepl/zrepl/endpoint"
+	"github.com/zrepl/zrepl/platformtest"
+	"github.com/zrepl/zrepl/zfs"
+)
+
+func PrunerNotReplicated(ctx *platformtest.Context) {
+
+	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
+        DESTROYROOT
+        CREATEROOT
+        +  "foo bar"
+        +  "foo bar@1"
+        +  "foo bar@2"
+        +  "foo bar@3"
+        +  "foo bar@4"
+        +  "foo bar@5"
+    `)
+
+	c, err := config.ParseConfigBytes([]byte(fmt.Sprintf(`
+jobs:
+- name: prunetest
+  type: push
+  filesystems: {
+      "%s/foo bar<": true
+  }
+  connect:
+    type: tcp
+    address: 255.255.255.255:255
+  snapshotting:
+    type: manual
+  pruning:
+    keep_sender:
+    - type: not_replicated
+    - type: last_n
+      count: 1
+    keep_receiver:
+    - type: last_n
+      count: 2
+    `, ctx.RootDataset)))
+	require.NoError(ctx, err)
+
+	pushJob := c.Jobs[0].Ret.(*config.PushJob)
+
+	dummyHistVec := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "foo",
+		Subsystem: "foo",
+		Name:      "foo",
+		Help:      "foo",
+	}, []string{"foo"})
+
+	prunerFactory, err := pruner.NewPrunerFactory(pushJob.Pruning, dummyHistVec)
+	require.NoError(ctx, err)
+
+	senderJid := endpoint.MustMakeJobID("sender-job")
+
+	fsfilter, err := filters.DatasetMapFilterFromConfig(pushJob.Filesystems)
+	require.NoError(ctx, err)
+
+	sender := endpoint.NewSender(endpoint.SenderConfig{
+		FSF: fsfilter,
+		Encrypt: &zfs.NilBool{
+			B: false,
+		},
+		JobID: senderJid,
+	})
+
+	fs := ctx.RootDataset + "/foo bar"
+
+	// create a replication cursor to make pruning work at all
+	_, err = endpoint.CreateReplicationCursor(ctx, fs, fsversion(ctx, fs, "@2"), senderJid)
+	require.NoError(ctx, err)
+
+	p := prunerFactory.BuildSenderPruner(ctx, sender, sender)
+
+	p.Prune()
+
+	report := p.Report()
+
+	reportJSON, err := json.MarshalIndent(report, "", "  ")
+	require.NoError(ctx, err)
+	ctx.Logf("%s\n", string(reportJSON))
+
+	require.Equal(ctx, pruner.Done.String(), report.State)
+	require.Len(ctx, report.Completed, 1)
+	fsReport := report.Completed[0]
+	require.Equal(ctx, fs, fsReport.Filesystem)
+	require.Empty(ctx, fsReport.SkipReason)
+	require.Empty(ctx, fsReport.LastError)
+	require.Len(ctx, fsReport.DestroyList, 1)
+	require.Equal(ctx, fsReport.DestroyList[0], pruner.SnapshotReport{
+		Name:       "1",
+		Replicated: true,
+		Date:       fsReport.DestroyList[0].Date,
+	})
+
+}
+
+func PrunerNoKeepNotReplicatedNoKeepStepHoldConvertsAnyStepHoldToBookmark(ctx *platformtest.Context) {
+
+	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
+        DESTROYROOT
+        CREATEROOT
+        +  "foo bar"
+        +  "foo bar@1"
+        +  "foo bar@2"
+        +  "foo bar@3"
+        +  "foo bar@4"
+        +  "foo bar@5"
+    `)
+
+	c, err := config.ParseConfigBytes([]byte(fmt.Sprintf(`
+jobs:
+- name: prunetest
+  type: push
+  filesystems: {
+      "%s/foo bar<": true
+  }
+  connect:
+    type: tcp
+    address: 255.255.255.255:255
+  snapshotting:
+    type: manual
+  pruning:
+    keep_sender:
+    - type: last_n
+      count: 1
+    keep_receiver:
+    - type: last_n
+      count: 2
+    `, ctx.RootDataset)))
+	require.NoError(ctx, err)
+
+	pushJob := c.Jobs[0].Ret.(*config.PushJob)
+
+	dummyHistVec := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "foo",
+		Subsystem: "foo",
+		Name:      "foo",
+		Help:      "foo",
+	}, []string{"foo"})
+
+	prunerFactory, err := pruner.NewPrunerFactory(pushJob.Pruning, dummyHistVec)
+	require.NoError(ctx, err)
+
+	senderJid := endpoint.MustMakeJobID("sender-job")
+
+	fsfilter, err := filters.DatasetMapFilterFromConfig(pushJob.Filesystems)
+	require.NoError(ctx, err)
+
+	sender := endpoint.NewSender(endpoint.SenderConfig{
+		FSF: fsfilter,
+		Encrypt: &zfs.NilBool{
+			B: false,
+		},
+        JobID: senderJid,
+	})
+
+	fs := ctx.RootDataset + "/foo bar"
+
+	// create a replication cursor to make pruning work at all
+	_, err = endpoint.CreateReplicationCursor(ctx, fs, fsversion(ctx, fs, "@2"), senderJid)
+	require.NoError(ctx, err)
+
+	// create step holds for the incremental @2->@3
+	endpoint.HoldStep(ctx, fs, fsversion(ctx, fs, "@2"), senderJid)
+	endpoint.HoldStep(ctx, fs, fsversion(ctx, fs, "@3"), senderJid)
+	// create step holds for another job
+	otherJid := endpoint.MustMakeJobID("other-job")
+	endpoint.HoldStep(ctx, fs, fsversion(ctx, fs, "@2"), otherJid)
+	endpoint.HoldStep(ctx, fs, fsversion(ctx, fs, "@3"), otherJid)
+
+	p := prunerFactory.BuildSenderPruner(ctx, sender, sender)
+
+	p.Prune()
+
+	report := p.Report()
+
+	reportJSON, err := json.MarshalIndent(report, "", "  ")
+	require.NoError(ctx, err)
+	ctx.Logf("%s\n", string(reportJSON))
+
+	require.Equal(ctx, pruner.Done.String(), report.State)
+	require.Len(ctx, report.Completed, 1)
+	fsReport := report.Completed[0]
+	require.Equal(ctx, fs, fsReport.Filesystem)
+	require.Empty(ctx, fsReport.SkipReason)
+	require.Empty(ctx, fsReport.LastError)
+	expectDestroyList := []pruner.SnapshotReport{
+		{
+			Name:       "1",
+			Replicated: true,
+		},
+		{
+			Name:       "2",
+			Replicated: true,
+		},
+		{
+			Name:       "3",
+			Replicated: true,
+		},
+		{
+			Name:       "4",
+			Replicated: true,
+		},
+	}
+	for _, d := range fsReport.DestroyList {
+		d.Date = time.Time{}
+	}
+	require.Subset(ctx, fsReport.DestroyList, expectDestroyList)
+}
+
+
+
+func PrunerNoKeepNotReplicatedButKeepStepHold(ctx *platformtest.Context) {
+
+	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
+        DESTROYROOT
+        CREATEROOT
+        +  "foo bar"
+        +  "foo bar@1"
+        +  "foo bar@2"
+        +  "foo bar@3"
+        +  "foo bar@4"
+        +  "foo bar@5"
+    `)
+
+	c, err := config.ParseConfigBytes([]byte(fmt.Sprintf(`
+jobs:
+- name: prunetest
+  type: push
+  filesystems: {
+      "%s/foo bar<": true
+  }
+  connect:
+    type: tcp
+    address: 255.255.255.255:255
+  snapshotting:
+    type: manual
+  pruning:
+    keep_sender:
+    - type: step_holds
+    - type: last_n
+      count: 1
+    keep_receiver:
+    - type: last_n
+      count: 2
+    `, ctx.RootDataset)))
+	require.NoError(ctx, err)
+
+	pushJob := c.Jobs[0].Ret.(*config.PushJob)
+
+	dummyHistVec := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "foo",
+		Subsystem: "foo",
+		Name:      "foo",
+		Help:      "foo",
+	}, []string{"foo"})
+
+	prunerFactory, err := pruner.NewPrunerFactory(pushJob.Pruning, dummyHistVec)
+	require.NoError(ctx, err)
+
+	senderJid := endpoint.MustMakeJobID("sender-job")
+
+	fsfilter, err := filters.DatasetMapFilterFromConfig(pushJob.Filesystems)
+	require.NoError(ctx, err)
+
+	sender := endpoint.NewSender(endpoint.SenderConfig{
+		FSF: fsfilter,
+		Encrypt: &zfs.NilBool{
+			B: false,
+		},
+        JobID: senderJid,
+	})
+
+	fs := ctx.RootDataset + "/foo bar"
+
+	// create a replication cursor to make pruning work at all
+	_, err = endpoint.CreateReplicationCursor(ctx, fs, fsversion(ctx, fs, "@2"), senderJid)
+	require.NoError(ctx, err)
+
+	// create step holds for the incremental @2->@3
+	endpoint.HoldStep(ctx, fs, fsversion(ctx, fs, "@2"), senderJid)
+	endpoint.HoldStep(ctx, fs, fsversion(ctx, fs, "@3"), senderJid)
+	// create step holds for another job
+	otherJid := endpoint.MustMakeJobID("other-job")
+	endpoint.HoldStep(ctx, fs, fsversion(ctx, fs, "@2"), otherJid)
+	endpoint.HoldStep(ctx, fs, fsversion(ctx, fs, "@3"), otherJid)
+
+	p := prunerFactory.BuildSenderPruner(ctx, sender, sender)
+
+	p.Prune()
+
+	report := p.Report()
+
+	reportJSON, err := json.MarshalIndent(report, "", "  ")
+	require.NoError(ctx, err)
+	ctx.Logf("%s\n", string(reportJSON))
+
+	require.Equal(ctx, pruner.Done.String(), report.State)
+	require.Len(ctx, report.Completed, 1)
+	fsReport := report.Completed[0]
+	require.Equal(ctx, fs, fsReport.Filesystem)
+	require.Empty(ctx, fsReport.SkipReason)
+	require.Empty(ctx, fsReport.LastError)
+	expectDestroyList := []pruner.SnapshotReport{
+		{
+			Name:       "1",
+			Replicated: true,
+		},
+		{
+			Name:       "4",
+			Replicated: true,
+		},
+	}
+	for _, d := range fsReport.DestroyList {
+		d.Date = time.Time{}
+	}
+	require.Subset(ctx, fsReport.DestroyList, expectDestroyList)
+}

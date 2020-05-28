@@ -25,7 +25,22 @@ message Filesystem {
 
 message ListFilesystemVersionsReq { string Filesystem = 1; }
 
-message ListFilesystemVersionsRes { repeated FilesystemVersion Versions = 1; }
+message ListFilesystemVersionsRes {
+  repeated FilesystemVersion Versions = 1;
+  repeated SendAbstraction SendAbstractions = 2;
+}
+
+message SendAbstraction {
+  enum SendAbstractionType {
+    Undefined = 0;
+    ReplicationCursorV2 = 1;
+    StepHold = 2;
+    StepBookmark = 3;
+  };
+  SendAbstractionType Type = 1;
+  string JobID = 2;
+  FilesystemVersion Version = 3;
+}
 
 message FilesystemVersion {
   enum VersionType {
@@ -80,9 +95,7 @@ message SendRes {
   repeated Property Properties = 4;
 }
 
-message SendCompletedReq {
-  SendReq OriginalReq = 2;
-}
+message SendCompletedReq { SendReq OriginalReq = 2; }
 
 message SendCompletedRes {}
 
@@ -98,7 +111,7 @@ message ReceiveReq {
 message ReceiveRes {}
 
 message DestroySnapshotsReq {
-  string Filesystem = 1;
+string Filesystem = 1;
   // Path to filesystem, snapshot or bookmark to be destroyed
   repeated FilesystemVersion Snapshots = 2;
 }

@@ -17,10 +17,12 @@ func UndestroyableSnapshotParsing(t *platformtest.Context) {
 		+  "foo bar@1 2 3"
 		+  "foo bar@4 5 6"
 		+  "foo bar@7 8 9"
+		+  "foo bar@10 11 12"
 		R  zfs hold zrepl_platformtest "${ROOTDS}/foo bar@4 5 6"
+		R  zfs hold zrepl_platformtest "${ROOTDS}/foo bar@7 8 9"
 	`)
 
-	err := zfs.ZFSDestroy(t, fmt.Sprintf("%s/foo bar@1 2 3,4 5 6,7 8 9", t.RootDataset))
+	err := zfs.ZFSDestroy(t, fmt.Sprintf("%s/foo bar@1 2 3,4 5 6,7 8 9,10 11 12", t.RootDataset))
 	if err == nil {
 		panic("expecting destroy error due to hold")
 	}
@@ -30,8 +32,9 @@ func UndestroyableSnapshotParsing(t *platformtest.Context) {
 		if dse.Filesystem != fmt.Sprintf("%s/foo bar", t.RootDataset) {
 			panic(dse.Filesystem)
 		}
-		require.Equal(t, []string{"4 5 6"}, dse.Undestroyable)
-		require.Equal(t, []string{"dataset is busy"}, dse.Reason)
+		expectUndestroyable := []string{"4 5 6", "7 8 9"}
+		require.Len(t, dse.Undestroyable, len(expectUndestroyable))
+		require.Subset(t, dse.Undestroyable, expectUndestroyable)
 	}
 
 }
