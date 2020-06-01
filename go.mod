@@ -21,11 +21,11 @@ require (
 	github.com/onsi/gomega v1.7.0 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/pkg/profile v1.2.1
-	github.com/problame/go-netssh v0.0.0-20191026123024-f34099f4f6b1
+	github.com/problame/go-netssh v0.0.0-20200601114649-26439f9f0dc5
 	github.com/prometheus/client_golang v1.2.1
 	github.com/sergi/go-diff v1.0.1-0.20180205163309-da645544ed44 // go1.12 thinks it needs this
 	github.com/spf13/cobra v0.0.2
-	github.com/spf13/pflag v1.0.3
+	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
 	github.com/yudai/gojsondiff v0.0.0-20170107030110-7b1b7adf999d
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // go1.12 thinks it needs this
