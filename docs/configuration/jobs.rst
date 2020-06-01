@@ -19,7 +19,7 @@ Job Type ``push``
     * - ``type``
       - = ``push``
     * - ``name``
-      - unique name of the job
+      - unique name of the job :issue:`(must not change)<327>`
     * - ``connect``
       - |connect-transport|
     * - ``filesystems``
@@ -47,7 +47,7 @@ Job Type ``sink``
     * - ``type``
       - = ``sink``
     * - ``name``
-      - unique name of the job
+      - unique name of the job :issue:`(must not change)<327>`
     * - ``serve``
       - |serve-transport|
     * - ``root_fs``
@@ -70,7 +70,7 @@ Job Type ``pull``
     * - ``type``
       - = ``pull``
     * - ``name``
-      - unique name of the job
+      - unique name of the job :issue:`(must not change)<327>`
     * - ``connect``
       - |connect-transport|
     * - ``root_fs``
@@ -98,7 +98,7 @@ Job Type ``source``
     * - ``type``
       - = ``source``
     * - ``name``
-      - unique name of the job
+      - unique name of the job :issue:`(must not change)<327>`
     * - ``serve``
       - |serve-transport|
     * - ``filesystems``
@@ -137,7 +137,7 @@ Job type that only takes snapshots and performs pruning on the local machine.
     * - ``type``
       - = ``snap``
     * - ``name``
-      - unique name of the job
+      - unique name of the job :issue:`(must not change)<327>`
     * - ``filesystems``
       - |filter-spec| for filesystems to be snapshotted
     * - ``snapshotting``
