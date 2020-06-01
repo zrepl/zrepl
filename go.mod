@@ -22,7 +22,7 @@ require (
 	github.com/onsi/gomega v1.7.0 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/pkg/profile v1.2.1
-	github.com/problame/go-netssh v0.0.0-20191209123953-18d8aa6923c7
+	github.com/problame/go-netssh v0.0.0-20200601114649-26439f9f0dc5
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/common v0.7.0
 	github.com/sergi/go-diff v1.0.1-0.20180205163309-da645544ed44 // go1.12 thinks it needs this
