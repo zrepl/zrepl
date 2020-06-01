@@ -61,15 +61,28 @@ Additional changelog:
   * Run ``zrepl migrate replication-cursor:v1-v2`` to safely destroy old-format cursors.
     The migration will ensure that only those old-format cursors are destroyed that have been superseeded by new-format cursors.
 
+* |feature| New option ``listen_freebind`` (tcp, tls, prometheus listener)
+* |feature| :issue:`<265>` transport/tcp: support for CIDR masks in client IP whitelist
+* |feature| documented subcommand to generate ``bash`` and ``zsh`` completions
+* |feature| :issue:`<307>` ``chrome://trace`` -compatible activity tracing of zrepl daemon activity
+* |feature| logging: trace IDs for better log entry correlation with concurrent replication jobs
+* |feature| experimental environment variable for parallel replication (see :issue:`<306>` )
 * |bugfix| missing logger context vars in control connection handlers
 * |bugfix| improved error messages on ``zfs send`` errors
-* |feature| New option ``listen_freebind`` (tcp, tls, prometheus listener)
 * |bugfix| |docs| snapshotting: clarify sync-up behavior and warn about filesystems
+* |bugfix| transport/ssh: do not leak zombie ssh process on connection failures
   that will not be snapshotted until the sync-up phase is over
+* |docs| Installation: :ref:`FreeBSD jail with iocage <installation-freebsd-jail-with-iocage>`
 * |docs| Document new replication features in the :ref:`config overview <overview-how-replication-works>` and :repomasterlink:`replication/design.md`.
-* |feature| documented subcommand to generate ``bash`` and ``zsh`` completions
 * **[MAINTAINER NOTICE]** New platform tests in this version, please make sure you run them for your distro!
 * **[MAINTAINER NOTICE]** Please add the shell completions to the zrepl packages.
+
+.. NOTE::
+   |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
+   |  You can support maintenance and feature development through one of the following services:
+   |  |Donate via Patreon| |Donate via Liberapay| |Donate via PayPal|
+   |  Note that PayPal processing fees are relatively high for small donations.
+   |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
 
 0.2.1
 -----
@@ -106,14 +119,6 @@ Additional changelog:
   These tests only work on a system with ZFS installed, and must be run as root because they create a file-backed pool for each test case.
   The pool name ``zreplplatformtest`` is reserved for this use case.
   Only run ``make platformtest`` on test systems, e.g. a FreeBSD VM image.
-
-.. NOTE::
-   |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
-   |  You can support maintenance and feature development through one of the following services:
-   |  |Donate via Patreon| |Donate via Liberapay| |Donate via PayPal|
-   |  Note that PayPal processing fees are relatively high for small donations.
-   |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
-
 
 0.1.1
 -----
