@@ -177,7 +177,7 @@ Multiple Jobs & More than 2 Machines
 If you would like to see improvements to multi-job setups, please `open an issue on GitHub <https://github.com/zrepl/zrepl/issues/new>`_.
 
 No Overlapping
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 Jobs run independently of each other.
 If two jobs match the same filesystem with their ``filesystems`` filter, they will operate on that filesystem independently and potentially in parallel.
@@ -185,14 +185,14 @@ For example, if job A prunes snapshots that job B is planning to replicate, the 
 However, the next replication attempt will re-examine the situation from scratch and should work.
 
 N push jobs to 1 sink
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 The :ref:`sink job <job-sink>` namespaces by client identity.
 It is thus safe to push to one sink job with different client identities.
 If the push jobs have the same client identity, the filesystems matched by the push jobs must be disjoint to avoid races.
 
 N pull jobs from 1 source
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Multiple pull jobs pulling from the same source have potential for race conditions during pruning:
 each pull job prunes the source side independently, causing replication-prune and prune-prune races.
