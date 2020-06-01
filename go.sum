@@ -208,6 +208,8 @@ github.com/problame/go-netssh v0.0.0-20191026123024-f34099f4f6b1 h1:HH8yzlaZq/A8
 github.com/problame/go-netssh v0.0.0-20191026123024-f34099f4f6b1/go.mod h1:JRs3nyBjvOv/9YHC+Vlw9z1Jfzl5s5t0BNnTzmclj1c=
 github.com/problame/go-netssh v0.0.0-20191209123953-18d8aa6923c7 h1:Oik8tLrLhoMq4fduDRuNNOAQ+q0M0dXkjAYLUf4+mAc=
 github.com/problame/go-netssh v0.0.0-20191209123953-18d8aa6923c7/go.mod h1:Ba6RaFpK1+IHWs1wLZ6sCBuXkt4iAVLeOG5GinXHusM=
+github.com/problame/go-netssh v0.0.0-20200601114649-26439f9f0dc5 h1:1eSrO2WAeSXjMol8WRKW9LekL1252VIMaKQwWkmEdvs=
+github.com/problame/go-netssh v0.0.0-20200601114649-26439f9f0dc5/go.mod h1:Ba6RaFpK1+IHWs1wLZ6sCBuXkt4iAVLeOG5GinXHusM=
 github.com/prometheus/client_golang v0.0.0-20180410130117-e11c6ff8170b/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v0.9.1/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v1.0.0/go.mod h1:db9x61etRT2tGnBNRi70OPL5FsnadC4Ky3P0J6CfImo=
