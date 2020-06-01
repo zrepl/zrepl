@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"sort"
 
 	"github.com/kr/pretty"
 	"github.com/stretchr/testify/require"
@@ -26,10 +27,11 @@ import (
 // of a new sender and receiver instance and one blocking invocation
 // of the replication engine without encryption
 type replicationInvocation struct {
-	sjid, rjid      endpoint.JobID
-	sfs             string
-	rfsRoot         string
-	interceptSender func(e *endpoint.Sender) logic.Sender
+	sjid, rjid                  endpoint.JobID
+	sfs                         string
+	rfsRoot                     string
+	interceptSender             func(e *endpoint.Sender) logic.Sender
+	disableIncrementalStepHolds bool
 }
 
 func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
@@ -42,9 +44,10 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 	err := sfilter.Add(i.sfs, "ok")
 	require.NoError(ctx, err)
 	sender := i.interceptSender(endpoint.NewSender(endpoint.SenderConfig{
-		FSF:     sfilter.AsFilter(),
-		Encrypt: &zfs.NilBool{B: false},
-		JobID:   i.sjid,
+		FSF:                         sfilter.AsFilter(),
+		Encrypt:                     &zfs.NilBool{B: false},
+		DisableIncrementalStepHolds: i.disableIncrementalStepHolds,
+		JobID:                       i.sjid,
 	}))
 	receiver := endpoint.NewReceiver(endpoint.ReceiverConfig{
 		JobID:                      i.rjid,
@@ -86,10 +89,11 @@ func ReplicationIncrementalIsPossibleIfCommonSnapshotIsDestroyed(ctx *platformte
 	snap1 := fsversion(ctx, sfs, "@1")
 
 	rep := replicationInvocation{
-		sjid:    sjid,
-		rjid:    rjid,
-		sfs:     sfs,
-		rfsRoot: rfsRoot,
+		sjid:                        sjid,
+		rjid:                        rjid,
+		sfs:                         sfs,
+		rfsRoot:                     rfsRoot,
+		disableIncrementalStepHolds: false,
 	}
 	rfs := rep.ReceiveSideFilesystem()
 
@@ -149,10 +153,11 @@ func implReplicationIncrementalCleansUpStaleAbstractions(ctx *platformtest.Conte
 	rfsRoot := ctx.RootDataset + "/receiver"
 
 	rep := replicationInvocation{
-		sjid:    sjid,
-		rjid:    rjid,
-		sfs:     sfs,
-		rfsRoot: rfsRoot,
+		sjid:                        sjid,
+		rjid:                        rjid,
+		sfs:                         sfs,
+		rfsRoot:                     rfsRoot,
+		disableIncrementalStepHolds: false,
 	}
 	rfs := rep.ReceiveSideFilesystem()
 
@@ -178,7 +183,7 @@ func implReplicationIncrementalCleansUpStaleAbstractions(ctx *platformtest.Conte
 	require.NoError(ctx, err)
 	require.Contains(ctx, holds, expectRjidHoldTag)
 
-	// create artifical stale replication cursors
+	// create artifical stale replication cursors & step holds
 	createArtificalStaleAbstractions := func(jobId endpoint.JobID) []endpoint.Abstraction {
 		snap2Cursor, err := endpoint.CreateReplicationCursor(ctx, sfs, snap2, jobId) // no shadow
 		require.NoError(ctx, err)
@@ -322,7 +327,15 @@ func (s *PartialSender) Send(ctx context.Context, r *pdu.SendReq) (r1 *pdu.SendR
 	return r1, r2, r3
 }
 
-func ReplicationIsResumableFullSend(ctx *platformtest.Context) {
+func ReplicationIsResumableFullSend__DisableIncrementalStepHolds_False(ctx *platformtest.Context) {
+	implReplicationIsResumableFullSend(ctx, false)
+}
+
+func ReplicationIsResumableFullSend__DisableIncrementalStepHolds_True(ctx *platformtest.Context) {
+	implReplicationIsResumableFullSend(ctx, true)
+}
+
+func implReplicationIsResumableFullSend(ctx *platformtest.Context, disableIncrementalStepHolds bool) {
 
 	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
 		CREATEROOT
@@ -353,6 +366,7 @@ func ReplicationIsResumableFullSend(ctx *platformtest.Context) {
 		interceptSender: func(e *endpoint.Sender) logic.Sender {
 			return &PartialSender{Sender: e, failAfterByteCount: 1 << 20}
 		},
+		disableIncrementalStepHolds: disableIncrementalStepHolds,
 	}
 	rfs := rep.ReceiveSideFilesystem()
 
@@ -393,4 +407,147 @@ func ReplicationIsResumableFullSend(ctx *platformtest.Context) {
 	_ = fsversion(ctx, rfs, "@2")
 	_ = fsversion(ctx, rfs, "@3")
 
+}
+
+func ReplicationIncrementalDestroysStepHoldsIffIncrementalStepHoldsAreDisabledButStepHoldsExist(ctx *platformtest.Context) {
+
+	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
+		CREATEROOT
+		+  "sender"
+		+  "receiver"
+		R  zfs create -p "${ROOTDS}/receiver/${ROOTDS}"
+	`)
+
+	sjid := endpoint.MustMakeJobID("sender-job")
+	rjid := endpoint.MustMakeJobID("receiver-job")
+
+	sfs := ctx.RootDataset + "/sender"
+	rfsRoot := ctx.RootDataset + "/receiver"
+
+	// fully replicate snapshots @1
+	{
+		mustSnapshot(ctx, sfs+"@1")
+		rep := replicationInvocation{
+			sjid:                        sjid,
+			rjid:                        rjid,
+			sfs:                         sfs,
+			rfsRoot:                     rfsRoot,
+			disableIncrementalStepHolds: false,
+		}
+		rfs := rep.ReceiveSideFilesystem()
+		report := rep.Do(ctx)
+		ctx.Logf("\n%s", pretty.Sprint(report))
+		// assert this worked (not the main subject of the test)
+		_ = fsversion(ctx, rfs, "@1")
+	}
+
+	// create a large snapshot @2
+	{
+		sfsmp, err := zfs.ZFSGetMountpoint(ctx, sfs)
+		require.NoError(ctx, err)
+		require.True(ctx, sfsmp.Mounted)
+		writeDummyData(path.Join(sfsmp.Mountpoint, "dummy.data"), 1<<22)
+		mustSnapshot(ctx, sfs+"@2")
+	}
+	snap2sfs := fsversion(ctx, sfs, "@2")
+
+	// partially replicate snapshots @2 with step holds enabled
+	// to effect a step-holds situation
+	{
+		rep := replicationInvocation{
+			sjid:                        sjid,
+			rjid:                        rjid,
+			sfs:                         sfs,
+			rfsRoot:                     rfsRoot,
+			disableIncrementalStepHolds: false, // !
+			interceptSender: func(e *endpoint.Sender) logic.Sender {
+				return &PartialSender{Sender: e, failAfterByteCount: 1 << 20}
+			},
+		}
+		rfs := rep.ReceiveSideFilesystem()
+		report := rep.Do(ctx)
+		ctx.Logf("\n%s", pretty.Sprint(report))
+		// assert this partial receive worked
+		_, err := zfs.ZFSGetFilesystemVersion(ctx, rfs+"@2")
+		ctx.Logf("%T %s", err, err)
+		_, notFullyReceived := err.(*zfs.DatasetDoesNotExist)
+		require.True(ctx, notFullyReceived)
+		// assert step holds are in place
+		abs, absErrs, err := endpoint.ListAbstractions(ctx, endpoint.ListZFSHoldsAndBookmarksQuery{
+			FS: endpoint.ListZFSHoldsAndBookmarksQueryFilesystemFilter{
+				FS: &sfs,
+			},
+			Concurrency: 1,
+			JobID:       &sjid,
+			What:        endpoint.AbstractionTypeSet{endpoint.AbstractionStepHold: true},
+		})
+		require.NoError(ctx, err)
+		require.Empty(ctx, absErrs)
+		require.Len(ctx, abs, 2)
+		sort.Slice(abs, func(i, j int) bool {
+			return abs[i].GetCreateTXG() < abs[j].GetCreateTXG()
+		})
+		require.True(ctx, zfs.FilesystemVersionEqualIdentity(abs[0].GetFilesystemVersion(), fsversion(ctx, sfs, "@1")))
+		require.True(ctx, zfs.FilesystemVersionEqualIdentity(abs[1].GetFilesystemVersion(), fsversion(ctx, sfs, "@2")))
+	}
+
+	//
+	// end of test setup
+	//
+
+	// retry replication with incremental step holds disabled
+	// - replication should not fail due to holds-related stuff
+	// - replication should fail intermittently due to partial sender being fully read
+	// - the partial sender is 1/4th the length of the stream, thus expect
+	//   successful replication after 5 more attempts
+	rep := replicationInvocation{
+		sjid:                        sjid,
+		rjid:                        rjid,
+		sfs:                         sfs,
+		rfsRoot:                     rfsRoot,
+		disableIncrementalStepHolds: true, // !
+		interceptSender: func(e *endpoint.Sender) logic.Sender {
+			return &PartialSender{Sender: e, failAfterByteCount: 1 << 20}
+		},
+	}
+	rfs := rep.ReceiveSideFilesystem()
+	for i := 0; ; i++ {
+		require.True(ctx, i < 5)
+		report := rep.Do(ctx)
+		ctx.Logf("retry run=%v\n%s", i, pretty.Sprint(report))
+		_, err := zfs.ZFSGetFilesystemVersion(ctx, rfs+"@2")
+		if err == nil {
+			break
+		}
+	}
+
+	// assert replication worked
+	fsversion(ctx, rfs, "@2")
+
+	// assert no step holds exist
+	abs, absErrs, err := endpoint.ListAbstractions(ctx, endpoint.ListZFSHoldsAndBookmarksQuery{
+		FS: endpoint.ListZFSHoldsAndBookmarksQueryFilesystemFilter{
+			FS: &sfs,
+		},
+		Concurrency: 1,
+		JobID:       &sjid,
+		What:        endpoint.AbstractionTypeSet{endpoint.AbstractionStepHold: true},
+	})
+	require.NoError(ctx, err)
+	require.Empty(ctx, absErrs)
+	require.Len(ctx, abs, 0)
+
+	// assert that the replication cursor bookmark exists
+	abs, absErrs, err = endpoint.ListAbstractions(ctx, endpoint.ListZFSHoldsAndBookmarksQuery{
+		FS: endpoint.ListZFSHoldsAndBookmarksQueryFilesystemFilter{
+			FS: &sfs,
+		},
+		Concurrency: 1,
+		JobID:       &sjid,
+		What:        endpoint.AbstractionTypeSet{endpoint.AbstractionReplicationCursorBookmarkV2: true},
+	})
+	require.NoError(ctx, err)
+	require.Empty(ctx, absErrs)
+	require.Len(ctx, abs, 1)
+	require.True(ctx, zfs.FilesystemVersionEqualIdentity(abs[0].GetFilesystemVersion(), snap2sfs))
 }
