@@ -152,9 +152,10 @@ func modePushFromConfig(g *config.Global, in *config.PushJob, jobID endpoint.Job
 	}
 
 	m.senderConfig = &endpoint.SenderConfig{
-		FSF:     fsf,
-		Encrypt: &zfs.NilBool{B: in.Send.Encrypted},
-		JobID:   jobID,
+		FSF:                         fsf,
+		Encrypt:                     &zfs.NilBool{B: in.Send.Encrypted},
+		DisableIncrementalStepHolds: in.Send.StepHolds.DisableIncremental,
+		JobID:                       jobID,
 	}
 	m.plannerPolicy = &logic.PlannerPolicy{
 		EncryptedSend: logic.TriFromBool(in.Send.Encrypted),

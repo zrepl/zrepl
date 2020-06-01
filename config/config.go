@@ -76,7 +76,12 @@ type SnapJob struct {
 }
 
 type SendOptions struct {
-	Encrypted bool `yaml:"encrypted"`
+	Encrypted bool                 `yaml:"encrypted"`
+	StepHolds SendOptionsStepHolds `yaml:"step_holds,optional"`
+}
+
+type SendOptionsStepHolds struct {
+	DisableIncremental bool `yaml:"disable_incremental,optional"`
 }
 
 var _ yaml.Defaulter = (*SendOptions)(nil)

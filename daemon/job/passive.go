@@ -79,9 +79,10 @@ func modeSourceFromConfig(g *config.Global, in *config.SourceJob, jobID endpoint
 		return nil, errors.Wrap(err, "cannot build filesystem filter")
 	}
 	m.senderConfig = &endpoint.SenderConfig{
-		FSF:     fsf,
-		Encrypt: &zfs.NilBool{B: in.Send.Encrypted},
-		JobID:   jobID,
+		FSF:                         fsf,
+		Encrypt:                     &zfs.NilBool{B: in.Send.Encrypted},
+		DisableIncrementalStepHolds: in.Send.StepHolds.DisableIncremental,
+		JobID:                       jobID,
 	}
 
 	if m.snapper, err = snapper.FromConfig(g, fsf, in.Snapshotting); err != nil {

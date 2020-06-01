@@ -26,10 +26,11 @@ import (
 // of a new sender and receiver instance and one blocking invocation
 // of the replication engine without encryption
 type replicationInvocation struct {
-	sjid, rjid      endpoint.JobID
-	sfs             string
-	rfsRoot         string
-	interceptSender func(e *endpoint.Sender) logic.Sender
+	sjid, rjid                  endpoint.JobID
+	sfs                         string
+	rfsRoot                     string
+	interceptSender             func(e *endpoint.Sender) logic.Sender
+	disableIncrementalStepHolds bool
 }
 
 func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
@@ -42,9 +43,10 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 	err := sfilter.Add(i.sfs, "ok")
 	require.NoError(ctx, err)
 	sender := i.interceptSender(endpoint.NewSender(endpoint.SenderConfig{
-		FSF:     sfilter.AsFilter(),
-		Encrypt: &zfs.NilBool{B: false},
-		JobID:   i.sjid,
+		FSF:                         sfilter.AsFilter(),
+		Encrypt:                     &zfs.NilBool{B: false},
+		DisableIncrementalStepHolds: i.disableIncrementalStepHolds,
+		JobID:                       i.sjid,
 	}))
 	receiver := endpoint.NewReceiver(endpoint.ReceiverConfig{
 		JobID:                      i.rjid,
@@ -86,10 +88,11 @@ func ReplicationIncrementalIsPossibleIfCommonSnapshotIsDestroyed(ctx *platformte
 	snap1 := fsversion(ctx, sfs, "@1")
 
 	rep := replicationInvocation{
-		sjid:    sjid,
-		rjid:    rjid,
-		sfs:     sfs,
-		rfsRoot: rfsRoot,
+		sjid:                        sjid,
+		rjid:                        rjid,
+		sfs:                         sfs,
+		rfsRoot:                     rfsRoot,
+		disableIncrementalStepHolds: false,
 	}
 	rfs := rep.ReceiveSideFilesystem()
 
@@ -149,10 +152,11 @@ func implReplicationIncrementalCleansUpStaleAbstractions(ctx *platformtest.Conte
 	rfsRoot := ctx.RootDataset + "/receiver"
 
 	rep := replicationInvocation{
-		sjid:    sjid,
-		rjid:    rjid,
-		sfs:     sfs,
-		rfsRoot: rfsRoot,
+		sjid:                        sjid,
+		rjid:                        rjid,
+		sfs:                         sfs,
+		rfsRoot:                     rfsRoot,
+		disableIncrementalStepHolds: false,
 	}
 	rfs := rep.ReceiveSideFilesystem()
 
@@ -322,7 +326,15 @@ func (s *PartialSender) Send(ctx context.Context, r *pdu.SendReq) (r1 *pdu.SendR
 	return r1, r2, r3
 }
 
-func ReplicationIsResumableFullSend(ctx *platformtest.Context) {
+func ReplicationIsResumableFullSend__DisableIncrementalStepHolds_False(ctx *platformtest.Context) {
+	implReplicationIsResumableFullSend(ctx, false)
+}
+
+func ReplicationIsResumableFullSend__DisableIncrementalStepHolds_True(ctx *platformtest.Context) {
+	implReplicationIsResumableFullSend(ctx, true)
+}
+
+func implReplicationIsResumableFullSend(ctx *platformtest.Context, disableIncrementalStepHolds bool) {
 
 	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
 		CREATEROOT
@@ -353,6 +365,7 @@ func ReplicationIsResumableFullSend(ctx *platformtest.Context) {
 		interceptSender: func(e *endpoint.Sender) logic.Sender {
 			return &PartialSender{Sender: e, failAfterByteCount: 1 << 20}
 		},
+		disableIncrementalStepHolds: disableIncrementalStepHolds,
 	}
 	rfs := rep.ReceiveSideFilesystem()
 
