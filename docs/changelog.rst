@@ -35,18 +35,23 @@ This is a big one! Headlining features:
 * **Resumable Send & Recv Support**
   No knobs required, automatically used where supported.
 * **Hold-Protected Send & Recv**
-  Automatic ZFS holds to ensure that we can always resume a replication step.
-* **Encrypted Send & Recv Support** for OpenZFS native encryption.
-  :ref:`Configurable <job-send-options>` at the job level, i.e., for all filesystems a job is responsible for.
+  Automatic ZFS holds to ensure that we can always use resumable send&recv for a replication step.
+* **Encrypted Send & Recv Support** for OpenZFS native encryption,
+  :ref:`configurable <job-send-options>` at the job level, i.e., for all filesystems a job is responsible for.
 * **Receive-side hold on last received dataset**
   The counterpart to the replication cursor bookmark on the send-side.
   Ensures that incremental replication will always be possible between a sender and receiver.
 
-Actual changelog:
+.. TIP::
 
-* |break_config| **more restrictive job names than in prior zrepl versions**
-  Starting with this version, job names are going to be embedded into ZFS holds and bookmark names.
+   We highly recommend studying the :ref:`overview section of the configuration chapter <overview-how-replication-works>` to understand how replication works.
 
+Additional changelog:
+
+* |break| |break_config| **more restrictive job names than in prior zrepl versions**
+  Starting with this version, job names are going to be embedded into ZFS holds and bookmark names (see :ref:`here<replication-cursor-and-last-received-hold>` and :ref:`here<step-holds-and-bookmarks>`).
+  Therefore you might need to adjust your job names.
+  **Note that jobs** :issue:`cannot be renamed easily<327>` **once you start using zrepl 0.3.**
 * |break| |mig| replication cursor representation changed
 
   * zrepl now manages the :ref:`replication cursor bookmark <replication-cursor-and-last-received-hold>` per job-filesystem tuple instead of a single replication cursor per filesystem.
