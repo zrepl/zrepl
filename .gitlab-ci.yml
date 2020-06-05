@@ -1,0 +1,16 @@
+build-and-run-platformtests:
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - mkdir artifacts
+    # platformtests are installed by the CI environment
+    - /opt/platformtest-linux-amd64
+      -test.coverprofile artifacts/platformtest.cover
+      -test.v
+      __DEVEL--i-heard-you-like-tests
+      -poolname zreplplatformtest
+      -imagepath /tmp/zreplplatformtest.pool.img
+      -mountpoint /tmp/zreplplatformtest.pool
+  artifacts:
+    paths:
+      - artifacts
