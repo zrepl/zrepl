@@ -60,10 +60,10 @@ jobs:
 
       - run: make zrepl-bin
       - run: make test-platform-bin
-      - run: make vet
-      - run: make lint
-      - run: make release
-      - run: make test-go
+      # - run: make vet
+      # - run: make lint
+      # - run: make release
+      # - run: make test-go
       # cannot run test-platform because circle-ci runs in linux containers
 
       - store_artifacts:
