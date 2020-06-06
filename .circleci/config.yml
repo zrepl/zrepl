@@ -86,6 +86,7 @@ jobs:
             mc config host add --api s3v4 zrepl-minio https://minio.cschwarz.com ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
             
             # Upload artifacts
+            mkdir -p artifacts/release
             echo "$CIRCLE_BUILD_URL" > ./artifacts/release/cirlceci_build_url
             mc cp -r artifacts/release "zrepl-minio/zrepl-ci-artifacts/${CIRCLE_SHA1}/${CIRCLE_JOB}/"
 
