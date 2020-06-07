@@ -32,19 +32,27 @@ func (m *ExampleVarType) Set(s string) error {
 
 const EnvVarName = "ZREPL_ENVCONST_UNIT_TEST_VAR"
 
-func TestVar(t *testing.T) {
+func TestVarDefaultValue(t *testing.T) {
+	envconst.Reset()
 	_, set := os.LookupEnv(EnvVarName)
 	require.False(t, set)
 	defer os.Unsetenv(EnvVarName)
 
 	val := envconst.Var(EnvVarName, &Var1)
 	if &Var1 != val {
-		t.Errorf("default value shut be same address")
+		t.Errorf("default value should be same address")
 	}
+}
+
+func TestVarOverriddenValue(t *testing.T) {
+	envconst.Reset()
+	_, set := os.LookupEnv(EnvVarName)
+	require.False(t, set)
+	defer os.Unsetenv(EnvVarName)
 
 	err := os.Setenv(EnvVarName, "var2")
 	require.NoError(t, err)
 
-	val = envconst.Var(EnvVarName, &Var1)
+	val := envconst.Var(EnvVarName, &Var1)
 	require.Equal(t, &Var2, val, "only structural identity is required for non-default vars")
 }

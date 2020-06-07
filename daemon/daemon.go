@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 	"github.com/zrepl/zrepl/endpoint"
+	"github.com/zrepl/zrepl/util/envconst"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
@@ -150,7 +151,8 @@ type Status struct {
 }
 
 type GlobalStatus struct {
-	ZFSCmds *zfscmd.Report
+	ZFSCmds  *zfscmd.Report
+	Envconst *envconst.Report
 }
 
 func (s *jobs) status() map[string]*job.Status {
