@@ -120,7 +120,13 @@ func (j *controlJob) Run(ctx context.Context) {
 		jsonResponder{log, func() (interface{}, error) {
 			jobs := j.jobs.status()
 			globalZFS := zfscmd.GetReport()
-			s := Status{Jobs: jobs, Global: GlobalStatus{ZFSCmds: globalZFS}}
+			envconstReport := envconst.GetReport()
+			s := Status{
+				Jobs: jobs,
+				Global: GlobalStatus{
+					ZFSCmds:  globalZFS,
+					Envconst: envconstReport,
+				}}
 			return s, nil
 		}})
 
