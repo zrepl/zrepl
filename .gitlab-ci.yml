@@ -14,3 +14,4 @@ build-and-run-platformtests:
   artifacts:
     paths:
       - artifacts
+  image: "images:ubuntu/focal/cloud"
