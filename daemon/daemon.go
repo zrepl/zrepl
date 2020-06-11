@@ -95,6 +95,7 @@ func Run(ctx context.Context, conf *config.Config) error {
 	}
 
 	// register global (=non job-local) metrics
+	version.PrometheusRegister(prometheus.DefaultRegisterer)
 	zfscmd.RegisterMetrics(prometheus.DefaultRegisterer)
 	trace.RegisterMetrics(prometheus.DefaultRegisterer)
 	endpoint.RegisterMetrics(prometheus.DefaultRegisterer)
