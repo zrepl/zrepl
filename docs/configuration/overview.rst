@@ -12,7 +12,7 @@ The following paths are considered:
 The ``zrepl configcheck`` subcommand can be used to validate the configuration.
 The command will output nothing and exit with zero status code if the configuration is valid.
 The error messages vary in quality and usefulness: please report confusing config errors to the tracking :issue:`155`.
-Full example configs such as in the :ref:`tutorial` or the :sampleconf:`/` directory might also be helpful.
+Full example configs such as in the :ref:`quick-start guides <quickstart-toc>` or the :sampleconf:`/` directory might also be helpful.
 However, copy-pasting examples is no substitute for reading documentation!
 
 Config File Structure

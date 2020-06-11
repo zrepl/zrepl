@@ -36,6 +36,7 @@ Filesystems matched by ``filesystems`` that are not encrypted are not sent and w
 
 If ``encryption=false``, zrepl expects that filesystems matching ``filesystems`` are not encrypted or have loaded encryption keys.
 
+.. _job-send-option-step-holds-disable-incremental:
 
 ``step_holds.disable_incremental`` option
 -----------------------------------------

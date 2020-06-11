@@ -1,0 +1,12 @@
+jobs:
+- name: sink
+  type: sink
+  serve:
+      type: tls
+      listen: ":8888"
+      ca: "/etc/zrepl/prod.crt"
+      cert: "/etc/zrepl/backups.crt"
+      key: "/etc/zrepl/backups.key"
+      client_cns:
+        - "prod"
+  root_fs: "storage/zrepl/sink"

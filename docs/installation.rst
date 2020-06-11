@@ -7,7 +7,7 @@ Installation
 
 .. TIP::
 
-    Note: check out the :ref:`tutorial` if you want a first impression of zrepl.
+    Note: check out the :ref:`quick-start guides <quickstart-toc>` if you want a first impression of zrepl.
 
 .. toctree::
 

@@ -126,7 +126,7 @@ Modify the ``/usr/local/etc/zrepl/zrepl.yml`` configuration file.
 
 .. TIP::
 
-    Note: check out the :ref:`tutorial` for examples of a ``sink`` job.
+    Note: check out the :ref:`quick-start guides <quickstart-toc>` for examples of a ``sink`` job.
 
 Now ``zrepl`` can be started.
 

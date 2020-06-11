@@ -26,3 +26,7 @@
 .. |snapshotting-spec| replace:: :ref:`snapshotting specification <job-snapshotting-spec>`
 .. |pruning-spec| replace:: :ref:`pruning specification <prune>`
 .. |filter-spec| replace:: :ref:`filter specification<pattern-filter>`
+
+.. |br| raw:: html
+
+   <br/>
