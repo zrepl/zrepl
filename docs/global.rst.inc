@@ -11,10 +11,12 @@
    :target: https://zrepl.github.io
 .. |Donate via PayPal| image:: https://img.shields.io/badge/donate-paypal-yellow.svg
    :target: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=R5QSXJVYHGX96
-.. |Donate via Liberapay| image:: https://img.shields.io/liberapay/receives/zrepl.svg?logo=liberapay
+.. |Donate via Liberapay| image:: https://img.shields.io/liberapay/patrons/zrepl.svg?logo=liberapay
    :target: https://liberapay.com/zrepl/donate
 .. |Donate via Patreon| image:: https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.herokuapp.com%2Fzrepl%2Fpledges&style=flat&color=yellow
    :target: https://www.patreon.com/zrepl
+.. |Donate via GitHub Sponsors| image:: https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=yellow
+   :target: https://github.com/sponsors/problame
 .. |Twitter| image:: https://img.shields.io/twitter/url/https/github.com/zrepl/zrepl.svg?style=social
    :target: https://twitter.com/intent/tweet?text=Wow:&url=https%3A%2F%2Fgithub.com%2Fzrepl%2Fzrepl
 

@@ -2,7 +2,8 @@
 [![Language: Go](https://img.shields.io/badge/language-Go-6ad7e5.svg)](https://golang.org/)
 [![User Docs](https://img.shields.io/badge/docs-web-blue.svg)](https://zrepl.github.io)
 [![Donate via Patreon](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.herokuapp.com%2Fzrepl%2Fpledges&style=flat&color=yellow)](https://www.patreon.com/zrepl)
-[![Donate via Liberapay](https://img.shields.io/liberapay/receives/zrepl.svg?logo=liberapay)](https://liberapay.com/zrepl/donate)
+[![Donate via GitHub Sponsors](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=yellow)](https://github.com/sponsors/problame)
+[![Donate via Liberapay](https://img.shields.io/liberapay/patrons/zrepl.svg?logo=liberapay)](https://liberapay.com/zrepl/donate)
 [![Donate via PayPal](https://img.shields.io/badge/donate-paypal-yellow.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=R5QSXJVYHGX96)
 [![Twitter](https://img.shields.io/twitter/url/https/github.com/zrepl/zrepl.svg?style=social)](https://twitter.com/intent/tweet?text=Wow:&url=https%3A%2F%2Fgithub.com%2Fzrepl%2Fzrepl)
 

@@ -80,7 +80,7 @@ Additional changelog:
 .. NOTE::
    |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
    |  You can support maintenance and feature development through one of the following services:
-   |  |Donate via Patreon| |Donate via Liberapay| |Donate via PayPal|
+   |  |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
    |  Note that PayPal processing fees are relatively high for small donations.
    |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
 

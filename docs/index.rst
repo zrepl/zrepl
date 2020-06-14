@@ -5,7 +5,7 @@
 
 .. include:: global.rst.inc
 
-|GitHub license| |Language: Go| |Twitter| |Donate via Patreon| |Donate via Liberapay| |Donate via PayPal| 
+|GitHub license| |Language: Go| |Twitter| |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
 
 
 zrepl - ZFS replication
