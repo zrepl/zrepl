@@ -51,7 +51,7 @@ Additional changelog:
 * |break| |break_config| **more restrictive job names than in prior zrepl versions**
   Starting with this version, job names are going to be embedded into ZFS holds and bookmark names (see :ref:`here<replication-cursor-and-last-received-hold>` and :ref:`here<step-holds-and-bookmarks>`).
   Therefore you might need to adjust your job names.
-  **Note that jobs** :issue:`cannot be renamed easily<327>` **once you start using zrepl 0.3.**
+  **Note that jobs** :issue:`cannot be renamed easily` **once you start using zrepl 0.3.**
 * |break| |mig| replication cursor representation changed
 
   * zrepl now manages the :ref:`replication cursor bookmark <replication-cursor-and-last-received-hold>` per job-filesystem tuple instead of a single replication cursor per filesystem.
@@ -62,11 +62,11 @@ Additional changelog:
     The migration will ensure that only those old-format cursors are destroyed that have been superseeded by new-format cursors.
 
 * |feature| New option ``listen_freebind`` (tcp, tls, prometheus listener)
-* |feature| :issue:`<265>` transport/tcp: support for CIDR masks in client IP whitelist
+* |feature| :issue:`265` transport/tcp: support for CIDR masks in client IP whitelist
 * |feature| documented subcommand to generate ``bash`` and ``zsh`` completions
-* |feature| :issue:`<307>` ``chrome://trace`` -compatible activity tracing of zrepl daemon activity
+* |feature| :issue:`307` ``chrome://trace`` -compatible activity tracing of zrepl daemon activity
 * |feature| logging: trace IDs for better log entry correlation with concurrent replication jobs
-* |feature| experimental environment variable for parallel replication (see :issue:`<306>` )
+* |feature| experimental environment variable for parallel replication (see :issue:`306` )
 * |bugfix| missing logger context vars in control connection handlers
 * |bugfix| improved error messages on ``zfs send`` errors
 * |bugfix| |docs| snapshotting: clarify sync-up behavior and warn about filesystems
