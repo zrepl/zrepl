@@ -51,11 +51,10 @@ git rm -rf .
 popd
 
 echo "building site"
+
 set -e
 sphinx-versioning build \
-   --show-banner \
-   --whitelist-branches '^master$' \
-   --whitelist-tags '(v)?\d+\.[1-9][0-9]*.\d+$' \
+   $(python3 gen-sphinx-versioning-flags.py) \
    docs ./public_git \
    -- -c sphinxconf # older conf.py throw errors because they used
                     # version = subprocess.show_output(["git", "describe"])
