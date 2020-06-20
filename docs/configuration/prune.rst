@@ -46,6 +46,8 @@ Example Configuration:
              grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
              regex: "^zrepl_.*"
            # manually created snapshots will be kept forever on receiver
+           - type: regex
+             regex: "^manual_.*"
 
 .. DANGER::
     You might have **existing snapshots** of filesystems affected by pruning which you want to keep, i.e. not be destroyed by zrepl.
