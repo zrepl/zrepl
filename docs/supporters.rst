@@ -32,6 +32,7 @@ We would like to thank the following people and organizations for supporting zre
 
    <div class="fa fa-code" style="width: 1em;"></div>
 
+* |supporter-std| `Hans Schulz <https://github.com/schulzh>`_
 * |supporter-std| Henning Kessler
 * |supporter-std| `John Ramsden <https://github.com/johnramsden>`_
 * |supporter-std| `DrLuke <https://github.com/drluke>`_
