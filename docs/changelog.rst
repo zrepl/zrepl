@@ -51,7 +51,7 @@ Additional changelog:
 * |break| |break_config| **more restrictive job names than in prior zrepl versions**
   Starting with this version, job names are going to be embedded into ZFS holds and bookmark names (see :ref:`here<replication-cursor-and-last-received-hold>` and :ref:`here<step-holds-and-bookmarks>`).
   Therefore you might need to adjust your job names.
-  **Note that jobs** :issue:`cannot be renamed easily` **once you start using zrepl 0.3.**
+  **Note that jobs** cannot be renamed easily **once you start using zrepl 0.3.**
 * |break| |mig| replication cursor representation changed
 
   * zrepl now manages the :ref:`replication cursor bookmark <replication-cursor-and-last-received-hold>` per job-filesystem tuple instead of a single replication cursor per filesystem.
