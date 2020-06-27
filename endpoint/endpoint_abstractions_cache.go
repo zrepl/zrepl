@@ -10,49 +10,49 @@ import (
 	"github.com/zrepl/zrepl/util/chainlock"
 )
 
-var sendAbstractionsCacheMetrics struct {
+var abstractionsCacheMetrics struct {
 	count prometheus.Gauge
 }
 
 func init() {
-	sendAbstractionsCacheMetrics.count = prometheus.NewGauge(prometheus.GaugeOpts{
+	abstractionsCacheMetrics.count = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "zrepl",
 		Subsystem: "endpoint",
-		Name:      "send_abstractions_cache_entry_count",
-		Help:      "number of send abstractions tracked in the sendAbstractionsCache data structure",
+		Name:      "abstractions_cache_entry_count",
+		Help:      "number of abstractions tracked in the abstractionsCache data structure",
 	})
 }
 
-var sendAbstractionsCacheSingleton = newSendAbstractionsCache()
+var abstractionsCacheSingleton = newAbstractionsCache()
 
-func SendAbstractionsCacheInvalidate(fs string) {
-	sendAbstractionsCacheSingleton.InvalidateFSCache(fs)
+func AbstractionsCacheInvalidate(fs string) {
+	abstractionsCacheSingleton.InvalidateFSCache(fs)
 }
 
-type sendAbstractionsCacheDidLoadFSState int
+type abstractionsCacheDidLoadFSState int
 
 const (
-	sendAbstractionsCacheDidLoadFSStateNo sendAbstractionsCacheDidLoadFSState = iota // 0-value has meaning
-	sendAbstractionsCacheDidLoadFSStateInProgress
-	sendAbstractionsCacheDidLoadFSStateDone
+	abstractionsCacheDidLoadFSStateNo abstractionsCacheDidLoadFSState = iota // 0-value has meaning
+	abstractionsCacheDidLoadFSStateInProgress
+	abstractionsCacheDidLoadFSStateDone
 )
 
-type sendAbstractionsCache struct {
+type abstractionsCache struct {
 	mtx              chainlock.L
 	abstractions     []Abstraction
-	didLoadFS        map[string]sendAbstractionsCacheDidLoadFSState
+	didLoadFS        map[string]abstractionsCacheDidLoadFSState
 	didLoadFSChanged *sync.Cond
 }
 
-func newSendAbstractionsCache() *sendAbstractionsCache {
-	c := &sendAbstractionsCache{
-		didLoadFS: make(map[string]sendAbstractionsCacheDidLoadFSState),
+func newAbstractionsCache() *abstractionsCache {
+	c := &abstractionsCache{
+		didLoadFS: make(map[string]abstractionsCacheDidLoadFSState),
 	}
 	c.didLoadFSChanged = c.mtx.NewCond()
 	return c
 }
 
-func (s *sendAbstractionsCache) Put(a Abstraction) {
+func (s *abstractionsCache) Put(a Abstraction) {
 	defer s.mtx.Lock().Unlock()
 
 	var zeroJobId JobID
@@ -63,10 +63,10 @@ func (s *sendAbstractionsCache) Put(a Abstraction) {
 	}
 
 	s.abstractions = append(s.abstractions, a)
-	sendAbstractionsCacheMetrics.count.Set(float64(len(s.abstractions)))
+	abstractionsCacheMetrics.count.Set(float64(len(s.abstractions)))
 }
 
-func (s *sendAbstractionsCache) InvalidateFSCache(fs string) {
+func (s *abstractionsCache) InvalidateFSCache(fs string) {
 	// FIXME: O(n)
 	newAbs := make([]Abstraction, 0, len(s.abstractions))
 	for _, a := range s.abstractions {
@@ -75,9 +75,9 @@ func (s *sendAbstractionsCache) InvalidateFSCache(fs string) {
 		}
 	}
 	s.abstractions = newAbs
-	sendAbstractionsCacheMetrics.count.Set(float64(len(s.abstractions)))
+	abstractionsCacheMetrics.count.Set(float64(len(s.abstractions)))
 
-	s.didLoadFS[fs] = sendAbstractionsCacheDidLoadFSStateNo
+	s.didLoadFS[fs] = abstractionsCacheDidLoadFSStateNo
 	s.didLoadFSChanged.Broadcast()
 
 }
@@ -86,7 +86,7 @@ func (s *sendAbstractionsCache) InvalidateFSCache(fs string) {
 // - only fetches on-disk abstractions once, but every time from the in-memory store
 //
 // That means that for precise results, all abstractions created by the endpoint must be .Put into this cache.
-func (s *sendAbstractionsCache) GetAndDeleteByJobIDAndFS(ctx context.Context, jobID JobID, fs string, keep func(a Abstraction) bool) (ret []Abstraction) {
+func (s *abstractionsCache) GetAndDeleteByJobIDAndFS(ctx context.Context, jobID JobID, fs string, types AbstractionTypeSet, keep func(a Abstraction) bool) (ret []Abstraction) {
 	defer s.mtx.Lock().Unlock()
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 	var zeroJobId JobID
@@ -97,50 +97,50 @@ func (s *sendAbstractionsCache) GetAndDeleteByJobIDAndFS(ctx context.Context, jo
 		panic("must not pass zero-value fs")
 	}
 
-	s.tryLoadOnDiskSendAbstractions(ctx, fs)
+	s.tryLoadOnDiskAbstractions(ctx, fs)
 
 	// FIXME O(n)
 	var remaining []Abstraction
 	for _, a := range s.abstractions {
 		aJobId := *a.GetJobID()
 		aFS := a.GetFS()
-		if aJobId == jobID && aFS == fs && !keep(a) {
+		if aJobId == jobID && aFS == fs && types[a.GetType()] && !keep(a) {
 			ret = append(ret, a)
 		} else {
 			remaining = append(remaining, a)
 		}
 	}
 	s.abstractions = remaining
-	sendAbstractionsCacheMetrics.count.Set(float64(len(s.abstractions)))
+	abstractionsCacheMetrics.count.Set(float64(len(s.abstractions)))
 
 	return ret
 }
 
 // caller must hold s.mtx
-func (s *sendAbstractionsCache) tryLoadOnDiskSendAbstractions(ctx context.Context, fs string) {
-	for s.didLoadFS[fs] != sendAbstractionsCacheDidLoadFSStateDone {
-		if s.didLoadFS[fs] == sendAbstractionsCacheDidLoadFSStateInProgress {
+func (s *abstractionsCache) tryLoadOnDiskAbstractions(ctx context.Context, fs string) {
+	for s.didLoadFS[fs] != abstractionsCacheDidLoadFSStateDone {
+		if s.didLoadFS[fs] == abstractionsCacheDidLoadFSStateInProgress {
 			s.didLoadFSChanged.Wait()
 			continue
 		}
-		if s.didLoadFS[fs] != sendAbstractionsCacheDidLoadFSStateNo {
+		if s.didLoadFS[fs] != abstractionsCacheDidLoadFSStateNo {
 			panic(fmt.Sprintf("unreachable: %v", s.didLoadFS[fs]))
 		}
 
-		s.didLoadFS[fs] = sendAbstractionsCacheDidLoadFSStateInProgress
+		s.didLoadFS[fs] = abstractionsCacheDidLoadFSStateInProgress
 		defer s.didLoadFSChanged.Broadcast()
 
 		var onDiskAbs []Abstraction
 		var err error
 		s.mtx.DropWhile(func() {
-			onDiskAbs, err = s.tryLoadOnDiskSendAbstractionsImpl(ctx, fs) // no shadow
+			onDiskAbs, err = s.tryLoadOnDiskAbstractionsImpl(ctx, fs) // no shadow
 		})
 
 		if err != nil {
-			s.didLoadFS[fs] = sendAbstractionsCacheDidLoadFSStateNo
-			getLogger(ctx).WithField("fs", fs).WithError(err).Error("cannot list send step abstractions for filesystem")
+			s.didLoadFS[fs] = abstractionsCacheDidLoadFSStateNo
+			getLogger(ctx).WithField("fs", fs).WithError(err).Error("cannot list abstractions for filesystem")
 		} else {
-			s.didLoadFS[fs] = sendAbstractionsCacheDidLoadFSStateDone
+			s.didLoadFS[fs] = abstractionsCacheDidLoadFSStateDone
 			s.abstractions = append(s.abstractions, onDiskAbs...)
 			getLogger(ctx).WithField("fs", fs).WithField("abstractions", onDiskAbs).Debug("loaded step abstractions for filesystem")
 		}
@@ -149,7 +149,7 @@ func (s *sendAbstractionsCache) tryLoadOnDiskSendAbstractions(ctx context.Contex
 }
 
 // caller should _not hold s.mtx
-func (s *sendAbstractionsCache) tryLoadOnDiskSendAbstractionsImpl(ctx context.Context, fs string) ([]Abstraction, error) {
+func (s *abstractionsCache) tryLoadOnDiskAbstractionsImpl(ctx context.Context, fs string) ([]Abstraction, error) {
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	q := ListZFSHoldsAndBookmarksQuery{
@@ -158,9 +158,10 @@ func (s *sendAbstractionsCache) tryLoadOnDiskSendAbstractionsImpl(ctx context.Co
 		},
 		JobID: nil,
 		What: AbstractionTypeSet{
-			AbstractionStepHold:                    true,
-			AbstractionStepBookmark:                true,
-			AbstractionReplicationCursorBookmarkV2: true,
+			AbstractionStepHold:                           true,
+			AbstractionTentativeReplicationCursorBookmark: true,
+			AbstractionReplicationCursorBookmarkV2:        true,
+			AbstractionLastReceivedHold:                   true,
 		},
 		Concurrency: 1,
 	}
@@ -175,12 +176,12 @@ func (s *sendAbstractionsCache) tryLoadOnDiskSendAbstractionsImpl(ctx context.Co
 	return abs, nil
 }
 
-func (s *sendAbstractionsCache) TryBatchDestroy(ctx context.Context, jobId JobID, fs string, keep func(a Abstraction) bool, check func(willDestroy []Abstraction)) {
+func (s *abstractionsCache) TryBatchDestroy(ctx context.Context, jobId JobID, fs string, types AbstractionTypeSet, keep func(a Abstraction) bool, check func(willDestroy []Abstraction)) {
 	// no s.mtx, we only use the public interface in this function
 
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
-	obsoleteAbs := s.GetAndDeleteByJobIDAndFS(ctx, jobId, fs, keep)
+	obsoleteAbs := s.GetAndDeleteByJobIDAndFS(ctx, jobId, fs, types, keep)
 
 	if check != nil {
 		check(obsoleteAbs)
@@ -193,11 +194,11 @@ func (s *sendAbstractionsCache) TryBatchDestroy(ctx context.Context, jobId JobID
 			getLogger(ctx).
 				WithField("abstraction", res.Abstraction).
 				WithError(res.DestroyErr).
-				Error("cannot destroy stale send step abstraction")
+				Error("cannot destroy abstraction")
 		} else {
 			getLogger(ctx).
 				WithField("abstraction", res.Abstraction).
-				Info("destroyed stale send step abstraction")
+				Info("destroyed abstraction")
 		}
 	}
 	if hadErr {

@@ -24,9 +24,9 @@ func MakeJobID(s string) (JobID, error) {
 		return JobID{}, errors.Wrap(err, "must be usable as a dataset path component")
 	}
 
-	if _, err := stepBookmarkNameImpl("pool/ds", 0xface601d, s); err != nil {
+	if _, err := tentativeReplicationCursorBookmarkNameImpl("pool/ds", 0xface601d, s); err != nil {
 		// note that this might still fail due to total maximum name length, but we can't enforce that
-		return JobID{}, errors.Wrap(err, "must be usable for a step bookmark")
+		return JobID{}, errors.Wrap(err, "must be usable for a tentative replication cursor bookmark")
 	}
 
 	if _, err := stepHoldTagImpl(s); err != nil {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/filters"
+	"github.com/zrepl/zrepl/zfs"
 )
 
 // FIXME: properly abstract snapshotting:
@@ -32,7 +32,7 @@ func (s *PeriodicOrManual) Report() *Report {
 	return nil
 }
 
-func FromConfig(g *config.Global, fsf *filters.DatasetMapFilter, in config.SnapshottingEnum) (*PeriodicOrManual, error) {
+func FromConfig(g *config.Global, fsf zfs.DatasetFilter, in config.SnapshottingEnum) (*PeriodicOrManual, error) {
 	switch v := in.Ret.(type) {
 	case *config.SnapshottingPeriodic:
 		snapper, err := PeriodicFromConfig(g, fsf, v)

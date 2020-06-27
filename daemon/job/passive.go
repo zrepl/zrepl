@@ -9,7 +9,6 @@ import (
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/endpoint"
@@ -48,19 +47,9 @@ func (m *modeSink) SnapperReport() *snapper.Report { return nil }
 func modeSinkFromConfig(g *config.Global, in *config.SinkJob, jobID endpoint.JobID) (m *modeSink, err error) {
 	m = &modeSink{}
 
-	rootDataset, err := zfs.NewDatasetPath(in.RootFS)
+	m.receiverConfig, err = buildReceiverConfig(in, jobID)
 	if err != nil {
-		return nil, errors.New("root dataset is not a valid zfs filesystem path")
-	}
-
-	m.receiverConfig = endpoint.ReceiverConfig{
-		JobID:                      jobID,
-		RootWithoutClientComponent: rootDataset,
-		AppendClientIdentity:       true, // !
-		UpdateLastReceivedHold:     true,
-	}
-	if err := m.receiverConfig.Validate(); err != nil {
-		return nil, errors.Wrap(err, "cannot build receiver config")
+		return nil, err
 	}
 
 	return m, nil
@@ -74,18 +63,13 @@ type modeSource struct {
 func modeSourceFromConfig(g *config.Global, in *config.SourceJob, jobID endpoint.JobID) (m *modeSource, err error) {
 	// FIXME exact dedup of modePush
 	m = &modeSource{}
-	fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
+
+	m.senderConfig, err = buildSenderConfig(in, jobID)
 	if err != nil {
-		return nil, errors.Wrap(err, "cannot build filesystem filter")
-	}
-	m.senderConfig = &endpoint.SenderConfig{
-		FSF:                         fsf,
-		Encrypt:                     &zfs.NilBool{B: in.Send.Encrypted},
-		DisableIncrementalStepHolds: in.Send.StepHolds.DisableIncremental,
-		JobID:                       jobID,
+		return nil, errors.Wrap(err, "send options")
 	}
 
-	if m.snapper, err = snapper.FromConfig(g, fsf, in.Snapshotting); err != nil {
+	if m.snapper, err = snapper.FromConfig(g, m.senderConfig.FSF, in.Snapshotting); err != nil {
 		return nil, errors.Wrap(err, "cannot build snapper")
 	}
 

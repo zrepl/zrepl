@@ -21,10 +21,9 @@ import (
 )
 
 type SenderConfig struct {
-	FSF                         zfs.DatasetFilter
-	Encrypt                     *zfs.NilBool
-	DisableIncrementalStepHolds bool
-	JobID                       JobID
+	FSF     zfs.DatasetFilter
+	Encrypt *zfs.NilBool
+	JobID   JobID
 }
 
 func (c *SenderConfig) Validate() error {
@@ -40,10 +39,9 @@ func (c *SenderConfig) Validate() error {
 
 // Sender implements replication.ReplicationEndpoint for a sending side
 type Sender struct {
-	FSFilter                    zfs.DatasetFilter
-	encrypt                     *zfs.NilBool
-	disableIncrementalStepHolds bool
-	jobId                       JobID
+	FSFilter zfs.DatasetFilter
+	encrypt  *zfs.NilBool
+	jobId    JobID
 }
 
 func NewSender(conf SenderConfig) *Sender {
@@ -51,10 +49,9 @@ func NewSender(conf SenderConfig) *Sender {
 		panic("invalid config" + err.Error())
 	}
 	return &Sender{
-		FSFilter:                    conf.FSF,
-		encrypt:                     conf.Encrypt,
-		disableIncrementalStepHolds: conf.DisableIncrementalStepHolds,
-		jobId:                       conf.JobID,
+		FSFilter: conf.FSF,
+		encrypt:  conf.Encrypt,
+		jobId:    conf.JobID,
 	}
 }
 
@@ -211,37 +208,27 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 		return res, nil, nil
 	}
 
-	// create a replication cursor for `From` (usually an idempotent no-op because SendCompleted already created it before)
-	var fromReplicationCursor Abstraction
-	if sendArgs.From != nil {
-		// For all but the first replication, this should always be a no-op because SendCompleted already moved the cursor
-		fromReplicationCursor, err = CreateReplicationCursor(ctx, sendArgs.FS, *sendArgs.FromVersion, s.jobId) // no shadow
-		if err == zfs.ErrBookmarkCloningNotSupported {
-			getLogger(ctx).Debug("not creating replication cursor from bookmark because ZFS does not support it")
-			// fallthrough
-		} else if err != nil {
-			return nil, nil, errors.Wrap(err, "cannot set replication cursor to `from` version before starting send")
-		}
+	// create holds or bookmarks of `From` and `To` to guarantee one of the following:
+	// - that the replication step can always be resumed (`holds`),
+	// - that the replication step can be interrupted and a future replication
+	//   step with same or different `To` but same `From` is still possible (`bookmarks`)
+	// - nothing (`none`)
+	//
+	// ...
+	//
+	// ... actually create the abstractions
+	replicationGuaranteeOptions, err := replicationGuaranteeOptionsFromPDU(r.GetReplicationConfig().Protection)
+	if err != nil {
+		return nil, nil, err
 	}
-
-	takeStepHolds := sendArgs.FromVersion == nil || !s.disableIncrementalStepHolds
-
-	var fromHold, toHold Abstraction
-	// make sure `From` doesn't go away in order to make this step resumable
-	if sendArgs.From != nil && takeStepHolds {
-		fromHold, err = HoldStep(ctx, sendArgs.FS, *sendArgs.FromVersion, s.jobId) // no shadow
-		if err == zfs.ErrBookmarkCloningNotSupported {
-			getLogger(ctx).Debug("not creating step bookmark because ZFS does not support it")
-			// fallthrough
-		} else if err != nil {
-			return nil, nil, errors.Wrapf(err, "cannot hold `from` version %q before starting send", *sendArgs.FromVersion)
-		}
+	replicationGuaranteeStrategy := replicationGuaranteeOptions.Strategy(sendArgs.From != nil)
+	liveAbs, err := replicationGuaranteeStrategy.SenderPreSend(ctx, s.jobId, &sendArgs)
+	if err != nil {
+		return nil, nil, err
 	}
-	if takeStepHolds {
-		// make sure `To` doesn't go away in order to make this step resumable
-		toHold, err = HoldStep(ctx, sendArgs.FS, sendArgs.ToVersion, s.jobId)
-		if err != nil {
-			return nil, nil, errors.Wrapf(err, "cannot hold `to` version %q before starting send", sendArgs.ToVersion)
+	for _, a := range liveAbs {
+		if a != nil {
+			abstractionsCacheSingleton.Put(a)
 		}
 	}
 
@@ -261,7 +248,6 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 	//
 	// Note further that a resuming send, due to the idempotent nature of func CreateReplicationCursor and HoldStep,
 	// will never lose its step holds because we just (idempotently re-)created them above, before attempting the cleanup.
-	liveAbs := []Abstraction{fromHold, toHold, fromReplicationCursor}
 	func() {
 		ctx, endSpan := trace.WithSpan(ctx, "cleanup-stale-abstractions")
 		defer endSpan()
@@ -283,22 +269,29 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 			for _, staleVersion := range obsoleteAbs {
 				for _, mustLiveVersion := range mustLiveVersions {
 					isSendArg := zfs.FilesystemVersionEqualIdentity(mustLiveVersion, staleVersion.GetFilesystemVersion())
-					isStepHoldWeMightHaveCreatedWithCurrentValueOf_takeStepHolds :=
-						takeStepHolds && staleVersion.GetType() == AbstractionStepHold
-					if isSendArg && isStepHoldWeMightHaveCreatedWithCurrentValueOf_takeStepHolds {
+					stepHoldBasedGuaranteeStrategy := false
+					k := replicationGuaranteeStrategy.Kind()
+					switch k {
+					case ReplicationGuaranteeKindResumability:
+						stepHoldBasedGuaranteeStrategy = true
+					case ReplicationGuaranteeKindIncremental:
+					case ReplicationGuaranteeKindNone:
+					default:
+						panic(fmt.Sprintf("this is supposed to be an exhaustive match, got %v", k))
+					}
+					isSnapshot := mustLiveVersion.IsSnapshot()
+					if isSendArg && (!isSnapshot || stepHoldBasedGuaranteeStrategy) {
 						panic(fmt.Sprintf("impl error: %q would be destroyed because it is considered stale but it is part of of sendArgs=%s", mustLiveVersion.String(), pretty.Sprint(sendArgs)))
 					}
 				}
 			}
 		}
-		sendAbstractionsCacheSingleton.TryBatchDestroy(ctx, s.jobId, sendArgs.FS, keep, check)
-	}()
-	// now add the newly created abstractions to the cleaned-up cache
-	for _, a := range liveAbs {
-		if a != nil {
-			sendAbstractionsCacheSingleton.Put(a)
+		destroyTypes := AbstractionTypeSet{
+			AbstractionStepHold:                           true,
+			AbstractionTentativeReplicationCursorBookmark: true,
 		}
-	}
+		abstractionsCacheSingleton.TryBatchDestroy(ctx, s.jobId, sendArgs.FS, destroyTypes, keep, check)
+	}()
 
 	sendStream, err := zfs.ZFSSend(ctx, sendArgs)
 	if err != nil {
@@ -332,36 +325,32 @@ func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*p
 		return nil, errors.Wrap(err, "validate `to` exists")
 	}
 
-	log := func(ctx context.Context) Logger {
-		log := getLogger(ctx).WithField("to_guid", to.Guid).
-			WithField("fs", fs).
-			WithField("to", to.RelName)
-		if from != nil {
-			log = log.WithField("from", from.RelName).WithField("from_guid", from.Guid)
-		}
-		return log
-	}
-
-	toReplicationCursor, err := CreateReplicationCursor(ctx, fs, to, p.jobId)
+	replicationGuaranteeOptions, err := replicationGuaranteeOptionsFromPDU(orig.GetReplicationConfig().Protection)
 	if err != nil {
-		if err == zfs.ErrBookmarkCloningNotSupported {
-			log(ctx).Debug("not setting replication cursor, bookmark cloning not supported")
-		} else {
-			msg := "cannot move replication cursor, keeping hold on `to` until successful"
-			log(ctx).WithError(err).Error(msg)
-			err = errors.Wrap(err, msg)
-			// it is correct to not destroy from and to step holds if we can't move the cursor!
-			return &pdu.SendCompletedRes{}, err
+		return nil, err
+	}
+	liveAbs, err := replicationGuaranteeOptions.Strategy(from != nil).SenderPostRecvConfirmed(ctx, p.jobId, fs, to)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range liveAbs {
+		if a != nil {
+			abstractionsCacheSingleton.Put(a)
 		}
-	} else {
-		sendAbstractionsCacheSingleton.Put(toReplicationCursor)
-		log(ctx).WithField("to_cursor", toReplicationCursor.String()).Info("successfully created `to` replication cursor")
 	}
-
-	keep := func(a Abstraction) bool {
-		return AbstractionEquals(a, toReplicationCursor)
+	keep := func(a Abstraction) (keep bool) {
+		keep = false
+		for _, k := range liveAbs {
+			keep = keep || AbstractionEquals(a, k)
+		}
+		return keep
 	}
-	sendAbstractionsCacheSingleton.TryBatchDestroy(ctx, p.jobId, fs, keep, nil)
+	destroyTypes := AbstractionTypeSet{
+		AbstractionStepHold:                           true,
+		AbstractionTentativeReplicationCursorBookmark: true,
+		AbstractionReplicationCursorBookmarkV2:        true,
+	}
+	abstractionsCacheSingleton.TryBatchDestroy(ctx, p.jobId, fs, destroyTypes, keep, nil)
 
 	return &pdu.SendCompletedRes{}, nil
 
@@ -437,8 +426,6 @@ type ReceiverConfig struct {
 
 	RootWithoutClientComponent *zfs.DatasetPath // TODO use
 	AppendClientIdentity       bool
-
-	UpdateLastReceivedHold bool
 }
 
 func (c *ReceiverConfig) copyIn() {
@@ -863,12 +850,38 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.
 		return nil, errors.Wrap(err, msg)
 	}
 
-	if s.conf.UpdateLastReceivedHold {
-		log.Debug("move last-received-hold")
-		if err := MoveLastReceivedHold(ctx, lp.ToString(), toRecvd, s.conf.JobID); err != nil {
-			return nil, errors.Wrap(err, "cannot move last-received-hold")
+	replicationGuaranteeOptions, err := replicationGuaranteeOptionsFromPDU(req.GetReplicationConfig().Protection)
+	if err != nil {
+		return nil, err
+	}
+	replicationGuaranteeStrategy := replicationGuaranteeOptions.Strategy(ph.FSExists)
+	liveAbs, err := replicationGuaranteeStrategy.ReceiverPostRecv(ctx, s.conf.JobID, lp.ToString(), toRecvd)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range liveAbs {
+		if a != nil {
+			abstractionsCacheSingleton.Put(a)
 		}
 	}
+	keep := func(a Abstraction) (keep bool) {
+		keep = false
+		for _, k := range liveAbs {
+			keep = keep || AbstractionEquals(a, k)
+		}
+		return keep
+	}
+	check := func(obsoleteAbs []Abstraction) {
+		for _, abs := range obsoleteAbs {
+			if zfs.FilesystemVersionEqualIdentity(abs.GetFilesystemVersion(), toRecvd) {
+				panic(fmt.Sprintf("would destroy endpoint abstraction around the filesystem version we just received %s", abs))
+			}
+		}
+	}
+	destroyTypes := AbstractionTypeSet{
+		AbstractionLastReceivedHold: true,
+	}
+	abstractionsCacheSingleton.TryBatchDestroy(ctx, s.conf.JobID, lp.ToString(), destroyTypes, keep, check)
 
 	return &pdu.ReceiveRes{}, nil
 }

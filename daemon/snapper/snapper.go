@@ -11,7 +11,6 @@ import (
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/daemon/hooks"
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
@@ -49,7 +48,7 @@ type args struct {
 	ctx            context.Context
 	prefix         string
 	interval       time.Duration
-	fsf            *filters.DatasetMapFilter
+	fsf            zfs.DatasetFilter
 	snapshotsTaken chan<- struct{}
 	hooks          *hooks.List
 	dryRun         bool
@@ -109,7 +108,7 @@ func getLogger(ctx context.Context) Logger {
 	return logging.GetLogger(ctx, logging.SubsysSnapshot)
 }
 
-func PeriodicFromConfig(g *config.Global, fsf *filters.DatasetMapFilter, in *config.SnapshottingPeriodic) (*Snapper, error) {
+func PeriodicFromConfig(g *config.Global, fsf zfs.DatasetFilter, in *config.SnapshottingPeriodic) (*Snapper, error) {
 	if in.Prefix == "" {
 		return nil, errors.New("prefix must not be empty")
 	}
@@ -383,7 +382,7 @@ func wait(a args, u updater) state {
 	}
 }
 
-func listFSes(ctx context.Context, mf *filters.DatasetMapFilter) (fss []*zfs.DatasetPath, err error) {
+func listFSes(ctx context.Context, mf zfs.DatasetFilter) (fss []*zfs.DatasetPath, err error) {
 	return zfs.ZFSListMapping(ctx, mf)
 }
 

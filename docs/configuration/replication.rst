@@ -1,0 +1,47 @@
+.. include:: ../global.rst.inc
+
+
+Replication Options
+===================
+
+
+::
+   
+   jobs:
+   - type: push
+     filesystems: ...
+     replication:
+       protection:
+         initial:     guarantee_resumability # guarantee_{resumability,incremental,nothing}
+         incremental: guarantee_resumability # guarantee_{resumability,incremental,nothing}
+     ...
+
+.. _replication-option-protection:
+
+``protection`` option
+--------------------------
+
+The ``protection`` variable controls the degree to which a replicated filesystem is protected from getting out of sync through a zrepl pruner or external tools that destroy snapshots.
+zrepl can guarantee :ref:`resumability <step-holds>` or just :ref:`incremental replication <replication-cursor-and-last-received-hold>`.
+
+``guarantee_resumability`` is the **default** value and guarantees that a replication step is always resumable and that incremental replication will always be possible.
+The implementation uses replication cursors, last-received-hold and step holds.
+
+``guarantee_incremental`` only guarantees that incremental replication will always be possible.
+If a step ``from -> to`` is interrupted and its `to` snapshot is destroyed, zrepl will remove the half-received ``to``'s resume state and start a new step ``from -> to2``.
+The implementation uses replication cursors, tentative replication cursors and last-received-hold.
+
+``guarantee_nothing`` does not make any guarantees with regards to keeping sending and receiving side in sync.
+No bookmarks or holds are created to protect sender and receiver from diverging.
+
+**Tradeoffs**
+
+Using ``guarantee_incremental`` instead of ``guarantee_resumability`` obviously removes the resumability guarantee.
+This means that replication progress is no longer monotonic which might lead to a replication setup that never makes progress if mid-step interruptions are too frequent (e.g. frequent network outages).
+However, the advantage and :issue:`reason for existence <288>` of the ``incremental`` mode is that it allows the pruner to delete snapshots of interrupted replication steps
+which is useful if replication happens so rarely (or fails so frequently) that the amount of disk space exclusively referenced by the step's snapshots becomes intolerable.
+
+.. NOTE::
+
+   When changing this flag, obsoleted zrepl-managed bookmarks and holds will be destroyed on the next replication step that is attempted for each filesystem.
+

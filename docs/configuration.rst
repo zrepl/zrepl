@@ -12,6 +12,7 @@ Configuration
     configuration/transports
     configuration/filter_syntax
     configuration/sendrecvoptions
+    configuration/replication
     configuration/snapshotting
     configuration/prune
     configuration/logging

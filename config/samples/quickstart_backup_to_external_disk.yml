@@ -52,12 +52,15 @@ jobs:
   }
   send:
     encrypted: true
-    # disable incremental step holds so that
-    # - we can yank out the backup drive during replication
-    # - thereby sacrificing resumability
-    # - in exchange for the replicating snapshot not sticking around until we reconnect the backup drive
-    step_holds:
-      disable_incremental: true
+  replication:
+    protection:
+      initial: guarantee_resumability
+      # Downgrade protection to guarantee_incremental which uses zfs bookmarks instead of zfs holds.
+      # Thus, when we yank out the backup drive during replication
+      # - we might not be able to resume the interrupted replication step because the partially received `to` snapshot of a `from`->`to` step may be pruned any time
+      # - but in exchange we get back the disk space allocated by `to` when we prune it
+      # - and because we still have the bookmarks created by `guarantee_incremental`, we can still do incremental replication of `from`->`to2` in the future
+      incremental: guarantee_incremental
   snapshotting:
     type: manual
   pruning:

@@ -23,19 +23,19 @@ type AbstractionType string
 // There are a lot of exhaustive switches on AbstractionType in the code base.
 // When adding a new abstraction type, make sure to search and update them!
 const (
-	AbstractionStepBookmark                AbstractionType = "step-bookmark"
-	AbstractionStepHold                    AbstractionType = "step-hold"
-	AbstractionLastReceivedHold            AbstractionType = "last-received-hold"
-	AbstractionReplicationCursorBookmarkV1 AbstractionType = "replication-cursor-bookmark-v1"
-	AbstractionReplicationCursorBookmarkV2 AbstractionType = "replication-cursor-bookmark-v2"
+	AbstractionStepHold                           AbstractionType = "step-hold"
+	AbstractionLastReceivedHold                   AbstractionType = "last-received-hold"
+	AbstractionTentativeReplicationCursorBookmark AbstractionType = "tentative-replication-cursor-bookmark-v2"
+	AbstractionReplicationCursorBookmarkV1        AbstractionType = "replication-cursor-bookmark-v1"
+	AbstractionReplicationCursorBookmarkV2        AbstractionType = "replication-cursor-bookmark-v2"
 )
 
 var AbstractionTypesAll = map[AbstractionType]bool{
-	AbstractionStepBookmark:                true,
-	AbstractionStepHold:                    true,
-	AbstractionLastReceivedHold:            true,
-	AbstractionReplicationCursorBookmarkV1: true,
-	AbstractionReplicationCursorBookmarkV2: true,
+	AbstractionStepHold:                           true,
+	AbstractionLastReceivedHold:                   true,
+	AbstractionTentativeReplicationCursorBookmark: true,
+	AbstractionReplicationCursorBookmarkV1:        true,
+	AbstractionReplicationCursorBookmarkV2:        true,
 }
 
 // Implementation Note:
@@ -80,11 +80,11 @@ func AbstractionEquals(a, b Abstraction) bool {
 
 func (t AbstractionType) Validate() error {
 	switch t {
-	case AbstractionStepBookmark:
-		return nil
 	case AbstractionStepHold:
 		return nil
 	case AbstractionLastReceivedHold:
+		return nil
+	case AbstractionTentativeReplicationCursorBookmark:
 		return nil
 	case AbstractionReplicationCursorBookmarkV1:
 		return nil
@@ -185,8 +185,8 @@ type BookmarkExtractor func(fs *zfs.DatasetPath, v zfs.FilesystemVersion) Abstra
 // returns nil if the abstraction type is not bookmark-based
 func (t AbstractionType) BookmarkExtractor() BookmarkExtractor {
 	switch t {
-	case AbstractionStepBookmark:
-		return StepBookmarkExtractor
+	case AbstractionTentativeReplicationCursorBookmark:
+		return TentativeReplicationCursorExtractor
 	case AbstractionReplicationCursorBookmarkV1:
 		return ReplicationCursorV1Extractor
 	case AbstractionReplicationCursorBookmarkV2:
@@ -205,7 +205,7 @@ type HoldExtractor = func(fs *zfs.DatasetPath, v zfs.FilesystemVersion, tag stri
 // returns nil if the abstraction type is not hold-based
 func (t AbstractionType) HoldExtractor() HoldExtractor {
 	switch t {
-	case AbstractionStepBookmark:
+	case AbstractionTentativeReplicationCursorBookmark:
 		return nil
 	case AbstractionReplicationCursorBookmarkV1:
 		return nil
@@ -215,6 +215,23 @@ func (t AbstractionType) HoldExtractor() HoldExtractor {
 		return StepHoldExtractor
 	case AbstractionLastReceivedHold:
 		return LastReceivedHoldExtractor
+	default:
+		panic(fmt.Sprintf("unimpl: %q", t))
+	}
+}
+
+func (t AbstractionType) BookmarkNamer() func(fs string, guid uint64, jobId JobID) (string, error) {
+	switch t {
+	case AbstractionTentativeReplicationCursorBookmark:
+		return TentativeReplicationCursorBookmarkName
+	case AbstractionReplicationCursorBookmarkV1:
+		panic("shouldn't be creating new ones")
+	case AbstractionReplicationCursorBookmarkV2:
+		return ReplicationCursorBookmarkName
+	case AbstractionStepHold:
+		return nil
+	case AbstractionLastReceivedHold:
+		return nil
 	default:
 		panic(fmt.Sprintf("unimpl: %q", t))
 	}
@@ -697,11 +714,9 @@ func ListStale(ctx context.Context, q ListZFSHoldsAndBookmarksQuery) (*Staleness
 		return nil, &ListStaleQueryError{errors.New("ListStale cannot have Until != nil set on query")}
 	}
 
-	// if asking for step holds, must also as for step bookmarks (same kind of abstraction)
-	// as well as replication cursor bookmarks (for firstNotStale)
+	// if asking for step holds must also ask for replication cursor bookmarks (for firstNotStale)
 	ifAnyThenAll := AbstractionTypeSet{
 		AbstractionStepHold:                    true,
-		AbstractionStepBookmark:                true,
 		AbstractionReplicationCursorBookmarkV2: true,
 	}
 	if q.What.ContainsAnyOf(ifAnyThenAll) && !q.What.ContainsAll(ifAnyThenAll) {
@@ -730,7 +745,7 @@ type fsAjobAtype struct {
 }
 
 // For step holds and bookmarks, only those older than the most recent replication cursor
-// of their (filesystem,job) is considered because younger ones cannot be stale by definition
+// of their (filesystem,job) are considered because younger ones cannot be stale by definition
 // (if we destroy them, we might actually lose the hold on the `To` for an ongoing incremental replication)
 //
 // For replication cursors and last-received-holds, only the most recent one is kept.
@@ -772,8 +787,6 @@ func listStaleFiltering(abs []Abstraction, sinceBound *CreateTXGRangeBound) *Sta
 			}
 
 		// stepFirstNotStaleCandidate.step
-		case AbstractionStepBookmark:
-			fallthrough
 		case AbstractionStepHold:
 			if c.step == nil || (*c.step).GetCreateTXG() < a.GetCreateTXG() {
 				a := a
@@ -797,7 +810,7 @@ func listStaleFiltering(abs []Abstraction, sinceBound *CreateTXGRangeBound) *Sta
 	for k := range by {
 		l := by[k]
 
-		if k.Type == AbstractionStepHold || k.Type == AbstractionStepBookmark {
+		if k.Type == AbstractionStepHold {
 			// all older than the most recent cursor are stale, others are always live
 
 			// if we don't have a replication cursor yet, use untilBound = nil

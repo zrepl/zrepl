@@ -12,7 +12,6 @@ import (
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/daemon/job/reset"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"github.com/zrepl/zrepl/daemon/pruner"
@@ -145,23 +144,24 @@ func (m *modePush) ResetConnectBackoff() {
 
 func modePushFromConfig(g *config.Global, in *config.PushJob, jobID endpoint.JobID) (*modePush, error) {
 	m := &modePush{}
+	var err error
 
-	fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
+	m.senderConfig, err = buildSenderConfig(in, jobID)
 	if err != nil {
-		return nil, errors.Wrap(err, "cannot build filesystem filter")
+		return nil, errors.Wrap(err, "sender config")
 	}
 
-	m.senderConfig = &endpoint.SenderConfig{
-		FSF:                         fsf,
-		Encrypt:                     &zfs.NilBool{B: in.Send.Encrypted},
-		DisableIncrementalStepHolds: in.Send.StepHolds.DisableIncremental,
-		JobID:                       jobID,
+	replicationConfig, err := logic.ReplicationConfigFromConfig(in.Replication)
+	if err != nil {
+		return nil, errors.Wrap(err, "field `replication`")
 	}
+
 	m.plannerPolicy = &logic.PlannerPolicy{
-		EncryptedSend: logic.TriFromBool(in.Send.Encrypted),
+		EncryptedSend:     logic.TriFromBool(in.Send.Encrypted),
+		ReplicationConfig: *replicationConfig,
 	}
 
-	if m.snapper, err = snapper.FromConfig(g, fsf, in.Snapshotting); err != nil {
+	if m.snapper, err = snapper.FromConfig(g, m.senderConfig.FSF, in.Snapshotting); err != nil {
 		return nil, errors.Wrap(err, "cannot build snapper")
 	}
 
@@ -173,7 +173,6 @@ type modePull struct {
 	receiver       *endpoint.Receiver
 	receiverConfig endpoint.ReceiverConfig
 	sender         *rpc.Client
-	rootFS         *zfs.DatasetPath
 	plannerPolicy  *logic.PlannerPolicy
 	interval       config.PositiveDurationOrManual
 }
@@ -247,26 +246,19 @@ func modePullFromConfig(g *config.Global, in *config.PullJob, jobID endpoint.Job
 	m = &modePull{}
 	m.interval = in.Interval
 
-	m.rootFS, err = zfs.NewDatasetPath(in.RootFS)
+	replicationConfig, err := logic.ReplicationConfigFromConfig(in.Replication)
 	if err != nil {
-		return nil, errors.New("RootFS is not a valid zfs filesystem path")
-	}
-	if m.rootFS.Length() <= 0 {
-		return nil, errors.New("RootFS must not be empty") // duplicates error check of receiver
+		return nil, errors.Wrap(err, "field `replication`")
 	}
 
 	m.plannerPolicy = &logic.PlannerPolicy{
-		EncryptedSend: logic.DontCare,
+		EncryptedSend:     logic.DontCare,
+		ReplicationConfig: *replicationConfig,
 	}
 
-	m.receiverConfig = endpoint.ReceiverConfig{
-		JobID:                      jobID,
-		RootWithoutClientComponent: m.rootFS,
-		AppendClientIdentity:       false, // !
-		UpdateLastReceivedHold:     true,
-	}
-	if err := m.receiverConfig.Validate(); err != nil {
-		return nil, errors.Wrap(err, "cannot build receiver config")
+	m.receiverConfig, err = buildReceiverConfig(in, jobID)
+	if err != nil {
+		return nil, err
 	}
 
 	return m, nil
@@ -365,7 +357,7 @@ func (j *ActiveSide) OwnedDatasetSubtreeRoot() (rfs *zfs.DatasetPath, ok bool) {
 		_ = j.mode.(*modePush) // make sure we didn't introduce a new job type
 		return nil, false
 	}
-	return pull.rootFS.Copy(), true
+	return pull.receiverConfig.RootWithoutClientComponent.Copy(), true
 }
 
 func (j *ActiveSide) SenderConfig() *endpoint.SenderConfig {

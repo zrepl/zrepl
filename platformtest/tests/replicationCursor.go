@@ -22,6 +22,7 @@ func CreateReplicationCursor(ctx *platformtest.Context) {
 		R  zfs bookmark "${ROOTDS}/foo bar@2 with space" "${ROOTDS}/foo bar#2 with space"
 		+  "foo bar@3 with space"
 		R  zfs bookmark "${ROOTDS}/foo bar@3 with space" "${ROOTDS}/foo bar#3 with space"
+		-  "foo bar@3 with space"
 	`)
 
 	jobid := endpoint.MustMakeJobID("zreplplatformtest")
@@ -42,6 +43,7 @@ func CreateReplicationCursor(ctx *platformtest.Context) {
 
 	snap := fsversion(ctx, fs, "@1 with space")
 	book := fsversion(ctx, fs, "#1 with space")
+	book3 := fsversion(ctx, fs, "#3 with space")
 
 	// create first cursor
 	cursorOfSnap, err := endpoint.CreateReplicationCursor(ctx, fs, snap, jobid)
@@ -49,8 +51,11 @@ func CreateReplicationCursor(ctx *platformtest.Context) {
 	// check CreateReplicationCursor is idempotent (for snapshot target)
 	cursorOfSnapIdemp, err := endpoint.CreateReplicationCursor(ctx, fs, snap, jobid)
 	checkCreateCursor(err, cursorOfSnap, snap)
+	// check CreateReplicationCursor is idempotent (for bookmark target of snapshot)
+	cursorOfBook, err := endpoint.CreateReplicationCursor(ctx, fs, book, jobid)
+	checkCreateCursor(err, cursorOfBook, snap)
 	// ... for target = non-cursor bookmark
-	_, err = endpoint.CreateReplicationCursor(ctx, fs, book, jobid)
+	_, err = endpoint.CreateReplicationCursor(ctx, fs, book3, jobid)
 	assert.Equal(ctx, zfs.ErrBookmarkCloningNotSupported, err)
 	// ... for target = replication cursor bookmark to be created
 	cursorOfCursor, err := endpoint.CreateReplicationCursor(ctx, fs, cursorOfSnapIdemp.GetFilesystemVersion(), jobid)

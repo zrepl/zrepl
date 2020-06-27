@@ -52,11 +52,12 @@ func (j JobEnum) Name() string {
 }
 
 type ActiveJob struct {
-	Type    string                `yaml:"type"`
-	Name    string                `yaml:"name"`
-	Connect ConnectEnum           `yaml:"connect"`
-	Pruning PruningSenderReceiver `yaml:"pruning"`
-	Debug   JobDebugSettings      `yaml:"debug,optional"`
+	Type        string                `yaml:"type"`
+	Name        string                `yaml:"name"`
+	Connect     ConnectEnum           `yaml:"connect"`
+	Pruning     PruningSenderReceiver `yaml:"pruning"`
+	Debug       JobDebugSettings      `yaml:"debug,optional"`
+	Replication *Replication          `yaml:"replication,optional,fromdefaults"`
 }
 
 type PassiveJob struct {
@@ -76,18 +77,7 @@ type SnapJob struct {
 }
 
 type SendOptions struct {
-	Encrypted bool                 `yaml:"encrypted"`
-	StepHolds SendOptionsStepHolds `yaml:"step_holds,optional"`
-}
-
-type SendOptionsStepHolds struct {
-	DisableIncremental bool `yaml:"disable_incremental,optional"`
-}
-
-var _ yaml.Defaulter = (*SendOptions)(nil)
-
-func (l *SendOptions) SetDefault() {
-	*l = SendOptions{Encrypted: false}
+	Encrypted bool `yaml:"encrypted,optional,default=false"`
 }
 
 type RecvOptions struct {
@@ -98,10 +88,13 @@ type RecvOptions struct {
 	// Reencrypt bool `yaml:"reencrypt"`
 }
 
-var _ yaml.Defaulter = (*RecvOptions)(nil)
+type Replication struct {
+	Protection *ReplicationOptionsProtection `yaml:"protection,optional,fromdefaults"`
+}
 
-func (l *RecvOptions) SetDefault() {
-	*l = RecvOptions{}
+type ReplicationOptionsProtection struct {
+	Initial     string `yaml:"initial,optional,default=guarantee_resumability"`
+	Incremental string `yaml:"incremental,optional,default=guarantee_resumability"`
 }
 
 type PushJob struct {
@@ -111,12 +104,19 @@ type PushJob struct {
 	Send         *SendOptions      `yaml:"send,fromdefaults,optional"`
 }
 
+func (j *PushJob) GetFilesystems() FilesystemsFilter { return j.Filesystems }
+func (j *PushJob) GetSendOptions() *SendOptions      { return j.Send }
+
 type PullJob struct {
 	ActiveJob `yaml:",inline"`
 	RootFS    string                   `yaml:"root_fs"`
 	Interval  PositiveDurationOrManual `yaml:"interval"`
 	Recv      *RecvOptions             `yaml:"recv,fromdefaults,optional"`
 }
+
+func (j *PullJob) GetRootFS() string             { return j.RootFS }
+func (j *PullJob) GetAppendClientIdentity() bool { return false }
+func (j *PullJob) GetRecvOptions() *RecvOptions  { return j.Recv }
 
 type PositiveDurationOrManual struct {
 	Interval time.Duration
@@ -155,12 +155,19 @@ type SinkJob struct {
 	Recv       *RecvOptions `yaml:"recv,optional,fromdefaults"`
 }
 
+func (j *SinkJob) GetRootFS() string             { return j.RootFS }
+func (j *SinkJob) GetAppendClientIdentity() bool { return true }
+func (j *SinkJob) GetRecvOptions() *RecvOptions  { return j.Recv }
+
 type SourceJob struct {
 	PassiveJob   `yaml:",inline"`
 	Snapshotting SnapshottingEnum  `yaml:"snapshotting"`
 	Filesystems  FilesystemsFilter `yaml:"filesystems"`
 	Send         *SendOptions      `yaml:"send,optional,fromdefaults"`
 }
+
+func (j *SourceJob) GetFilesystems() FilesystemsFilter { return j.Filesystems }
+func (j *SourceJob) GetSendOptions() *SendOptions      { return j.Send }
 
 type FilesystemsFilter map[string]bool
 

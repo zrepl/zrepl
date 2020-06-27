@@ -25,7 +25,7 @@ A few additional requirements:
 * We want to be able to put off the backups for more than three weeks, i.e., longer than the lifetime of the automatically created snapshots on our workstation.
   **zrepl should use bookmarks and holds to achieve this goal**.
 * When we yank out the drive during replication and go on a long vacation, we do *not* want the partially replicated snapshot to stick around as it would hold on to too much disk space over time.
-  Therefore, we want zrepl to deviate from its :ref:`default step-hold behavior <step-holds-and-bookmarks>` and sacrifice resumability, but nonetheless retain the ability to do incremental replication once we return from our vacation.
+  Therefore, we want zrepl to deviate from its :ref:`default behavior <replication-option-protection>` and sacrifice resumability, but nonetheless retain the ability to do incremental replication once we return from our vacation.
   **zrepl should provide an easy config knob to disable step holds for incremental replication**.
 
 The following config snippet implements the setup described above.

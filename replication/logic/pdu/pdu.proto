@@ -61,6 +61,25 @@ message SendReq {
   Tri Encrypted = 5;
 
   bool DryRun = 6;
+
+  ReplicationConfig ReplicationConfig = 7;
+}
+
+message ReplicationConfig {
+  ReplicationConfigProtection protection = 1;
+}
+
+
+message ReplicationConfigProtection {
+  ReplicationGuaranteeKind Initial = 1;
+  ReplicationGuaranteeKind Incremental = 2;
+}
+
+enum ReplicationGuaranteeKind {
+  GuaranteeInvalid = 0;
+  GuaranteeResumability = 1;
+  GuaranteeIncrementalReplication = 2;
+  GuaranteeNothing = 3; 
 }
 
 message Property {
@@ -93,6 +112,8 @@ message ReceiveReq {
   // If true, the receiver should clear the resume token before performing the
   // zfs recv of the stream in the request
   bool ClearResumeToken = 3;
+
+  ReplicationConfig ReplicationConfig = 4;
 }
 
 message ReceiveRes {}

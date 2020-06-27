@@ -4,12 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"sort"
 
 	"github.com/pkg/errors"
-
-	"github.com/zrepl/zrepl/util/errorarray"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -49,6 +46,28 @@ func ParseReplicationCursorBookmarkName(fullname string) (uint64, JobID, error) 
 	guid, jobID, err := parseJobAndGuidBookmarkName(fullname, replicationCursorBookmarkNamePrefix)
 	if err != nil {
 		err = errors.Wrap(err, "parse replication cursor bookmark name") // no shadow
+	}
+	return guid, jobID, err
+}
+
+const tentativeReplicationCursorBookmarkNamePrefix = "zrepl_CURSORTENTATIVE_"
+
+// v must be validated by caller
+func TentativeReplicationCursorBookmarkName(fs string, guid uint64, id JobID) (string, error) {
+	return tentativeReplicationCursorBookmarkNameImpl(fs, guid, id.String())
+}
+
+func tentativeReplicationCursorBookmarkNameImpl(fs string, guid uint64, jobid string) (string, error) {
+	return makeJobAndGuidBookmarkName(tentativeReplicationCursorBookmarkNamePrefix, fs, guid, jobid)
+}
+
+// name is the full bookmark name, including dataset path
+//
+// err != nil always means that the bookmark is not a step bookmark
+func ParseTentativeReplicationCursorBookmarkName(fullname string) (guid uint64, jobID JobID, err error) {
+	guid, jobID, err = parseJobAndGuidBookmarkName(fullname, tentativeReplicationCursorBookmarkNamePrefix)
+	if err != nil {
+		err = errors.Wrap(err, "parse step bookmark name") // no shadow!
 	}
 	return guid, jobID, err
 }
@@ -122,23 +141,23 @@ func GetReplicationCursors(ctx context.Context, dp *zfs.DatasetPath, jobID JobID
 //
 // returns ErrBookmarkCloningNotSupported if version is a bookmark and bookmarking bookmarks is not supported by ZFS
 func CreateReplicationCursor(ctx context.Context, fs string, target zfs.FilesystemVersion, jobID JobID) (a Abstraction, err error) {
+	return createBookmarkAbstraction(ctx, AbstractionReplicationCursorBookmarkV2, fs, target, jobID)
+}
 
-	bookmarkname, err := ReplicationCursorBookmarkName(fs, target.GetGuid(), jobID)
+func CreateTentativeReplicationCursor(ctx context.Context, fs string, target zfs.FilesystemVersion, jobID JobID) (a Abstraction, err error) {
+	return createBookmarkAbstraction(ctx, AbstractionTentativeReplicationCursorBookmark, fs, target, jobID)
+}
+
+func createBookmarkAbstraction(ctx context.Context, abstractionType AbstractionType, fs string, target zfs.FilesystemVersion, jobID JobID) (a Abstraction, err error) {
+
+	bookmarkNamer := abstractionType.BookmarkNamer()
+	if bookmarkNamer == nil {
+		panic(abstractionType)
+	}
+
+	bookmarkname, err := bookmarkNamer(fs, target.GetGuid(), jobID)
 	if err != nil {
-		return nil, errors.Wrap(err, "determine replication cursor name")
-	}
-
-	if target.IsBookmark() && target.GetName() == bookmarkname {
-		return &bookmarkBasedAbstraction{
-			Type:              AbstractionReplicationCursorBookmarkV2,
-			FS:                fs,
-			FilesystemVersion: target,
-			JobID:             jobID,
-		}, nil
-	}
-
-	if !target.IsSnapshot() {
-		return nil, zfs.ErrBookmarkCloningNotSupported
+		return nil, errors.Wrapf(err, "determine %s name", abstractionType)
 	}
 
 	// idempotently create bookmark (guid is encoded in it)
@@ -152,123 +171,11 @@ func CreateReplicationCursor(ctx context.Context, fs string, target zfs.Filesyst
 	}
 
 	return &bookmarkBasedAbstraction{
-		Type:              AbstractionReplicationCursorBookmarkV2,
+		Type:              abstractionType,
 		FS:                fs,
 		FilesystemVersion: cursorBookmark,
 		JobID:             jobID,
 	}, nil
-}
-
-const (
-	ReplicationCursorBookmarkNamePrefix = "zrepl_last_received_J_"
-)
-
-var lastReceivedHoldTagRE = regexp.MustCompile("^zrepl_last_received_J_(.+)$")
-
-// err != nil always means that the bookmark is not a step bookmark
-func ParseLastReceivedHoldTag(tag string) (JobID, error) {
-	match := lastReceivedHoldTagRE.FindStringSubmatch(tag)
-	if match == nil {
-		return JobID{}, errors.Errorf("parse last-received-hold tag: does not match regex %s", lastReceivedHoldTagRE.String())
-	}
-	jobId, err := MakeJobID(match[1])
-	if err != nil {
-		return JobID{}, errors.Wrap(err, "parse last-received-hold tag: invalid job id field")
-	}
-	return jobId, nil
-}
-
-func LastReceivedHoldTag(jobID JobID) (string, error) {
-	return lastReceivedHoldImpl(jobID.String())
-}
-
-func lastReceivedHoldImpl(jobid string) (string, error) {
-	tag := fmt.Sprintf("%s%s", ReplicationCursorBookmarkNamePrefix, jobid)
-	if err := zfs.ValidHoldTag(tag); err != nil {
-		return "", err
-	}
-	return tag, nil
-}
-
-func CreateLastReceivedHold(ctx context.Context, fs string, to zfs.FilesystemVersion, jobID JobID) (Abstraction, error) {
-
-	if !to.IsSnapshot() {
-		return nil, errors.Errorf("last-received-hold: target must be a snapshot: %s", to.FullPath(fs))
-	}
-
-	tag, err := LastReceivedHoldTag(jobID)
-	if err != nil {
-		return nil, errors.Wrap(err, "last-received-hold: hold tag")
-	}
-
-	// we never want to be without a hold
-	// => hold new one before releasing old hold
-
-	err = zfs.ZFSHold(ctx, fs, to, tag)
-	if err != nil {
-		return nil, errors.Wrap(err, "last-received-hold: hold newly received")
-	}
-
-	return &holdBasedAbstraction{
-		Type:              AbstractionLastReceivedHold,
-		FS:                fs,
-		FilesystemVersion: to,
-		JobID:             jobID,
-		Tag:               tag,
-	}, nil
-}
-
-func MoveLastReceivedHold(ctx context.Context, fs string, to zfs.FilesystemVersion, jobID JobID) error {
-
-	_, err := CreateLastReceivedHold(ctx, fs, to, jobID)
-	if err != nil {
-		return err
-	}
-
-	q := ListZFSHoldsAndBookmarksQuery{
-		What: AbstractionTypeSet{
-			AbstractionLastReceivedHold: true,
-		},
-		FS: ListZFSHoldsAndBookmarksQueryFilesystemFilter{
-			FS: &fs,
-		},
-		JobID: &jobID,
-		CreateTXG: CreateTXGRange{
-			Since: nil,
-			Until: &CreateTXGRangeBound{
-				CreateTXG: to.GetCreateTXG(),
-				Inclusive: &zfs.NilBool{B: false},
-			},
-		},
-		Concurrency: 1,
-	}
-	abs, absErrs, err := ListAbstractions(ctx, q)
-	if err != nil {
-		return errors.Wrap(err, "last-received-hold: list")
-	}
-	if len(absErrs) > 0 {
-		return errors.Wrap(ListAbstractionsErrors(absErrs), "last-received-hold: list")
-	}
-
-	getLogger(ctx).WithField("last-received-holds", fmt.Sprintf("%s", abs)).Debug("releasing last-received-holds")
-
-	var errs []error
-	for res := range BatchDestroy(ctx, abs) {
-		log := getLogger(ctx).
-			WithField("last-received-hold", res.Abstraction)
-		if res.DestroyErr != nil {
-			errs = append(errs, res.DestroyErr)
-			log.WithError(err).
-				Error("cannot release last-received-hold")
-		} else {
-			log.Info("released last-received-hold")
-		}
-	}
-	if len(errs) == 0 {
-		return nil
-	} else {
-		return errorarray.Wrap(errs, "last-received-hold: release")
-	}
 }
 
 func ReplicationCursorV2Extractor(fs *zfs.DatasetPath, v zfs.FilesystemVersion) (_ Abstraction) {
@@ -308,24 +215,28 @@ func ReplicationCursorV1Extractor(fs *zfs.DatasetPath, v zfs.FilesystemVersion) 
 	return nil
 }
 
-var _ HoldExtractor = LastReceivedHoldExtractor
+var _ BookmarkExtractor = TentativeReplicationCursorExtractor
 
-func LastReceivedHoldExtractor(fs *zfs.DatasetPath, v zfs.FilesystemVersion, holdTag string) Abstraction {
-	var err error
-
-	if v.Type != zfs.Snapshot {
+func TentativeReplicationCursorExtractor(fs *zfs.DatasetPath, v zfs.FilesystemVersion) (_ Abstraction) {
+	if v.Type != zfs.Bookmark {
 		panic("impl error")
 	}
 
-	jobID, err := ParseLastReceivedHoldTag(holdTag)
+	fullname := v.ToAbsPath(fs)
+
+	guid, jobid, err := ParseTentativeReplicationCursorBookmarkName(fullname)
+	if guid != v.Guid {
+		// TODO log this possibly tinkered-with bookmark
+		return nil
+	}
 	if err == nil {
-		return &holdBasedAbstraction{
-			Type:              AbstractionLastReceivedHold,
+		bm := &bookmarkBasedAbstraction{
+			Type:              AbstractionTentativeReplicationCursorBookmark,
 			FS:                fs.ToString(),
 			FilesystemVersion: v,
-			Tag:               holdTag,
-			JobID:             jobID,
+			JobID:             jobid,
 		}
+		return bm
 	}
 	return nil
 }

@@ -27,11 +27,11 @@ import (
 // of a new sender and receiver instance and one blocking invocation
 // of the replication engine without encryption
 type replicationInvocation struct {
-	sjid, rjid                  endpoint.JobID
-	sfs                         string
-	rfsRoot                     string
-	interceptSender             func(e *endpoint.Sender) logic.Sender
-	disableIncrementalStepHolds bool
+	sjid, rjid      endpoint.JobID
+	sfs             string
+	rfsRoot         string
+	interceptSender func(e *endpoint.Sender) logic.Sender
+	guarantee       pdu.ReplicationConfigProtection
 }
 
 func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
@@ -44,19 +44,20 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 	err := sfilter.Add(i.sfs, "ok")
 	require.NoError(ctx, err)
 	sender := i.interceptSender(endpoint.NewSender(endpoint.SenderConfig{
-		FSF:                         sfilter.AsFilter(),
-		Encrypt:                     &zfs.NilBool{B: false},
-		DisableIncrementalStepHolds: i.disableIncrementalStepHolds,
-		JobID:                       i.sjid,
+		FSF:     sfilter.AsFilter(),
+		Encrypt: &zfs.NilBool{B: false},
+		JobID:   i.sjid,
 	}))
 	receiver := endpoint.NewReceiver(endpoint.ReceiverConfig{
 		JobID:                      i.rjid,
 		AppendClientIdentity:       false,
 		RootWithoutClientComponent: mustDatasetPath(i.rfsRoot),
-		UpdateLastReceivedHold:     true,
 	})
 	plannerPolicy := logic.PlannerPolicy{
 		EncryptedSend: logic.TriFromBool(false),
+		ReplicationConfig: pdu.ReplicationConfig{
+			Protection: &i.guarantee,
+		},
 	}
 
 	report, wait := replication.Do(
@@ -89,11 +90,11 @@ func ReplicationIncrementalIsPossibleIfCommonSnapshotIsDestroyed(ctx *platformte
 	snap1 := fsversion(ctx, sfs, "@1")
 
 	rep := replicationInvocation{
-		sjid:                        sjid,
-		rjid:                        rjid,
-		sfs:                         sfs,
-		rfsRoot:                     rfsRoot,
-		disableIncrementalStepHolds: false,
+		sjid:      sjid,
+		rjid:      rjid,
+		sfs:       sfs,
+		rfsRoot:   rfsRoot,
+		guarantee: *pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability),
 	}
 	rfs := rep.ReceiveSideFilesystem()
 
@@ -153,11 +154,11 @@ func implReplicationIncrementalCleansUpStaleAbstractions(ctx *platformtest.Conte
 	rfsRoot := ctx.RootDataset + "/receiver"
 
 	rep := replicationInvocation{
-		sjid:                        sjid,
-		rjid:                        rjid,
-		sfs:                         sfs,
-		rfsRoot:                     rfsRoot,
-		disableIncrementalStepHolds: false,
+		sjid:      sjid,
+		rjid:      rjid,
+		sfs:       sfs,
+		rfsRoot:   rfsRoot,
+		guarantee: *pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability),
 	}
 	rfs := rep.ReceiveSideFilesystem()
 
@@ -207,7 +208,7 @@ func implReplicationIncrementalCleansUpStaleAbstractions(ctx *platformtest.Conte
 	snap5 := fsversion(ctx, sfs, "@5")
 
 	if invalidateCacheBeforeSecondReplication {
-		endpoint.SendAbstractionsCacheInvalidate(sfs)
+		endpoint.AbstractionsCacheInvalidate(sfs)
 	}
 
 	// do another replication
@@ -327,15 +328,59 @@ func (s *PartialSender) Send(ctx context.Context, r *pdu.SendReq) (r1 *pdu.SendR
 	return r1, r2, r3
 }
 
-func ReplicationIsResumableFullSend__DisableIncrementalStepHolds_False(ctx *platformtest.Context) {
-	implReplicationIsResumableFullSend(ctx, false)
+func ReplicationIsResumableFullSend__both_GuaranteeResumability(ctx *platformtest.Context) {
+
+	setup := replicationIsResumableFullSendSetup{
+		protection: pdu.ReplicationConfigProtection{
+			Initial:     pdu.ReplicationGuaranteeKind_GuaranteeResumability,
+			Incremental: pdu.ReplicationGuaranteeKind_GuaranteeResumability,
+		},
+		expectDatasetIsBusyErrorWhenDestroySnapshotWhilePartiallyReplicated: true,
+		expectAllThreeSnapshotsToThreeBePresentAfterLoop:                    true,
+		expectNoSnapshotsOnReceiverAfterLoop:                                false,
+	}
+
+	implReplicationIsResumableFullSend(ctx, setup)
 }
 
-func ReplicationIsResumableFullSend__DisableIncrementalStepHolds_True(ctx *platformtest.Context) {
-	implReplicationIsResumableFullSend(ctx, true)
+func ReplicationIsResumableFullSend__initial_GuaranteeResumability_incremental_GuaranteeIncrementalReplication(ctx *platformtest.Context) {
+
+	setup := replicationIsResumableFullSendSetup{
+		protection: pdu.ReplicationConfigProtection{
+			Initial:     pdu.ReplicationGuaranteeKind_GuaranteeResumability,
+			Incremental: pdu.ReplicationGuaranteeKind_GuaranteeIncrementalReplication,
+		},
+		expectDatasetIsBusyErrorWhenDestroySnapshotWhilePartiallyReplicated: true,
+		expectAllThreeSnapshotsToThreeBePresentAfterLoop:                    true,
+		expectNoSnapshotsOnReceiverAfterLoop:                                false,
+	}
+
+	implReplicationIsResumableFullSend(ctx, setup)
 }
 
-func implReplicationIsResumableFullSend(ctx *platformtest.Context, disableIncrementalStepHolds bool) {
+func ReplicationIsResumableFullSend__initial_GuaranteeIncrementalReplication_incremental_GuaranteeIncrementalReplication(ctx *platformtest.Context) {
+
+	setup := replicationIsResumableFullSendSetup{
+		protection: pdu.ReplicationConfigProtection{
+			Initial:     pdu.ReplicationGuaranteeKind_GuaranteeIncrementalReplication,
+			Incremental: pdu.ReplicationGuaranteeKind_GuaranteeIncrementalReplication,
+		},
+		expectDatasetIsBusyErrorWhenDestroySnapshotWhilePartiallyReplicated: false,
+		expectAllThreeSnapshotsToThreeBePresentAfterLoop:                    false,
+		expectNoSnapshotsOnReceiverAfterLoop:                                true,
+	}
+
+	implReplicationIsResumableFullSend(ctx, setup)
+}
+
+type replicationIsResumableFullSendSetup struct {
+	protection                                                          pdu.ReplicationConfigProtection
+	expectDatasetIsBusyErrorWhenDestroySnapshotWhilePartiallyReplicated bool
+	expectAllThreeSnapshotsToThreeBePresentAfterLoop                    bool
+	expectNoSnapshotsOnReceiverAfterLoop                                bool
+}
+
+func implReplicationIsResumableFullSend(ctx *platformtest.Context, setup replicationIsResumableFullSendSetup) {
 
 	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
 		CREATEROOT
@@ -366,8 +411,9 @@ func implReplicationIsResumableFullSend(ctx *platformtest.Context, disableIncrem
 		interceptSender: func(e *endpoint.Sender) logic.Sender {
 			return &PartialSender{Sender: e, failAfterByteCount: 1 << 20}
 		},
-		disableIncrementalStepHolds: disableIncrementalStepHolds,
+		guarantee: setup.protection,
 	}
+
 	rfs := rep.ReceiveSideFilesystem()
 
 	for i := 2; i < 10; i++ {
@@ -381,8 +427,11 @@ func implReplicationIsResumableFullSend(ctx *platformtest.Context, disableIncrem
 			// and we wrote dummy data 1<<22 bytes, thus at least
 			// for the first 4 times this should not be possible
 			// due to step holds
-			require.Error(ctx, err)
-			require.Contains(ctx, err.Error(), "dataset is busy")
+			if setup.expectDatasetIsBusyErrorWhenDestroySnapshotWhilePartiallyReplicated {
+				ctx.Logf("i=%v", i)
+				require.Error(ctx, err)
+				require.Contains(ctx, err.Error(), "dataset is busy")
+			}
 		}
 
 		// and create some additional snapshots that could
@@ -401,11 +450,19 @@ func implReplicationIsResumableFullSend(ctx *platformtest.Context, disableIncrem
 		}
 	}
 
-	// make sure all the filesystem versions we created
-	// were replicated by the replication loop
-	_ = fsversion(ctx, rfs, "@1")
-	_ = fsversion(ctx, rfs, "@2")
-	_ = fsversion(ctx, rfs, "@3")
+	if setup.expectAllThreeSnapshotsToThreeBePresentAfterLoop {
+		// make sure all the filesystem versions we created
+		// were replicated by the replication loop
+		_ = fsversion(ctx, rfs, "@1")
+		_ = fsversion(ctx, rfs, "@2")
+		_ = fsversion(ctx, rfs, "@3")
+	}
+
+	if setup.expectNoSnapshotsOnReceiverAfterLoop {
+		versions, err := zfs.ZFSListFilesystemVersions(ctx, mustDatasetPath(rfs), zfs.ListFilesystemVersionsOptions{})
+		require.NoError(ctx, err)
+		require.Empty(ctx, versions)
+	}
 
 }
 
@@ -428,11 +485,11 @@ func ReplicationIncrementalDestroysStepHoldsIffIncrementalStepHoldsAreDisabledBu
 	{
 		mustSnapshot(ctx, sfs+"@1")
 		rep := replicationInvocation{
-			sjid:                        sjid,
-			rjid:                        rjid,
-			sfs:                         sfs,
-			rfsRoot:                     rfsRoot,
-			disableIncrementalStepHolds: false,
+			sjid:      sjid,
+			rjid:      rjid,
+			sfs:       sfs,
+			rfsRoot:   rfsRoot,
+			guarantee: *pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability),
 		}
 		rfs := rep.ReceiveSideFilesystem()
 		report := rep.Do(ctx)
@@ -455,11 +512,11 @@ func ReplicationIncrementalDestroysStepHoldsIffIncrementalStepHoldsAreDisabledBu
 	// to effect a step-holds situation
 	{
 		rep := replicationInvocation{
-			sjid:                        sjid,
-			rjid:                        rjid,
-			sfs:                         sfs,
-			rfsRoot:                     rfsRoot,
-			disableIncrementalStepHolds: false, // !
+			sjid:      sjid,
+			rjid:      rjid,
+			sfs:       sfs,
+			rfsRoot:   rfsRoot,
+			guarantee: *pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability), // !
 			interceptSender: func(e *endpoint.Sender) logic.Sender {
 				return &PartialSender{Sender: e, failAfterByteCount: 1 << 20}
 			},
@@ -495,17 +552,17 @@ func ReplicationIncrementalDestroysStepHoldsIffIncrementalStepHoldsAreDisabledBu
 	// end of test setup
 	//
 
-	// retry replication with incremental step holds disabled
+	// retry replication with incremental step holds disabled (set to bookmarks-only in this case)
 	// - replication should not fail due to holds-related stuff
 	// - replication should fail intermittently due to partial sender being fully read
 	// - the partial sender is 1/4th the length of the stream, thus expect
 	//   successful replication after 5 more attempts
 	rep := replicationInvocation{
-		sjid:                        sjid,
-		rjid:                        rjid,
-		sfs:                         sfs,
-		rfsRoot:                     rfsRoot,
-		disableIncrementalStepHolds: true, // !
+		sjid:      sjid,
+		rjid:      rjid,
+		sfs:       sfs,
+		rfsRoot:   rfsRoot,
+		guarantee: *pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeIncrementalReplication), // !
 		interceptSender: func(e *endpoint.Sender) logic.Sender {
 			return &PartialSender{Sender: e, failAfterByteCount: 1 << 20}
 		},
@@ -550,4 +607,149 @@ func ReplicationIncrementalDestroysStepHoldsIffIncrementalStepHoldsAreDisabledBu
 	require.Empty(ctx, absErrs)
 	require.Len(ctx, abs, 1)
 	require.True(ctx, zfs.FilesystemVersionEqualIdentity(abs[0].GetFilesystemVersion(), snap2sfs))
+}
+
+func ReplicationStepCompletedLostBehavior__GuaranteeResumability(ctx *platformtest.Context) {
+	scenario := replicationStepCompletedLostBehavior_impl(ctx, pdu.ReplicationGuaranteeKind_GuaranteeResumability)
+
+	require.Error(ctx, scenario.deleteSfs1Err, "protected by holds")
+	require.Contains(ctx, scenario.deleteSfs1Err.Error(), "dataset is busy")
+
+	require.Error(ctx, scenario.deleteSfs2Err, "protected by holds")
+	require.Contains(ctx, scenario.deleteSfs2Err.Error(), "dataset is busy")
+
+	require.Nil(ctx, scenario.finalReport.Error())
+	_ = fsversion(ctx, scenario.rfs, "@3") // @3 ade it to the other side
+}
+
+func ReplicationStepCompletedLostBehavior__GuaranteeIncrementalReplication(ctx *platformtest.Context) {
+	scenario := replicationStepCompletedLostBehavior_impl(ctx, pdu.ReplicationGuaranteeKind_GuaranteeIncrementalReplication)
+
+	require.NoError(ctx, scenario.deleteSfs1Err, "not protected by holds")
+	require.NoError(ctx, scenario.deleteSfs2Err, "not protected by holds")
+
+	// step bookmarks should protect against loss of StepCompleted message
+	require.Nil(ctx, scenario.finalReport.Error())
+	_ = fsversion(ctx, scenario.rfs, "@3") // @3 ade it to the other side
+}
+
+type FailSendCompletedSender struct {
+	*endpoint.Sender
+}
+
+var _ logic.Sender = (*FailSendCompletedSender)(nil)
+
+func (p *FailSendCompletedSender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*pdu.SendCompletedRes, error) {
+	return nil, fmt.Errorf("[mock] SendCompleted not delivered to actual endpoint")
+}
+
+type replicationStepCompletedLost_scenario struct {
+	rfs                          string
+	deleteSfs1Err, deleteSfs2Err error
+	finalReport                  *report.FilesystemReport
+}
+
+func replicationStepCompletedLostBehavior_impl(ctx *platformtest.Context, guaranteeKind pdu.ReplicationGuaranteeKind) *replicationStepCompletedLost_scenario {
+
+	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
+		CREATEROOT
+		+  "sender"
+		+  "receiver"
+		R  zfs create -p "${ROOTDS}/receiver/${ROOTDS}"
+	`)
+
+	sjid := endpoint.MustMakeJobID("sender-job")
+	rjid := endpoint.MustMakeJobID("receiver-job")
+
+	sfs := ctx.RootDataset + "/sender"
+	rfsRoot := ctx.RootDataset + "/receiver"
+
+	// fully replicate snapshots @1
+	{
+		mustSnapshot(ctx, sfs+"@1")
+		rep := replicationInvocation{
+			sjid:      sjid,
+			rjid:      rjid,
+			sfs:       sfs,
+			rfsRoot:   rfsRoot,
+			guarantee: *pdu.ReplicationConfigProtectionWithKind(guaranteeKind),
+		}
+		rfs := rep.ReceiveSideFilesystem()
+		report := rep.Do(ctx)
+		ctx.Logf("\n%s", pretty.Sprint(report))
+		// assert this worked (not the main subject of the test)
+		_ = fsversion(ctx, rfs, "@1")
+	}
+
+	// create a second snapshot @2
+	mustSnapshot(ctx, sfs+"@2")
+
+	// fake loss of stepcompleted message
+	rep := replicationInvocation{
+		sjid:      sjid,
+		rjid:      rjid,
+		sfs:       sfs,
+		rfsRoot:   rfsRoot,
+		guarantee: *pdu.ReplicationConfigProtectionWithKind(guaranteeKind),
+		interceptSender: func(e *endpoint.Sender) logic.Sender {
+			return &FailSendCompletedSender{e}
+		},
+	}
+	rfs := rep.ReceiveSideFilesystem()
+	report := rep.Do(ctx)
+	ctx.Logf("\n%s", pretty.Sprint(report))
+
+	// assert the replication worked
+	_ = fsversion(ctx, rfs, "@2")
+	// and that we hold it using a last-received-hold
+	abs, absErrs, err := endpoint.ListAbstractions(ctx, endpoint.ListZFSHoldsAndBookmarksQuery{
+		FS: endpoint.ListZFSHoldsAndBookmarksQueryFilesystemFilter{
+			FS: &rfs,
+		},
+		Concurrency: 1,
+		JobID:       &rjid,
+		What:        endpoint.AbstractionTypeSet{endpoint.AbstractionLastReceivedHold: true},
+	})
+	require.NoError(ctx, err)
+	require.Empty(ctx, absErrs)
+	require.Len(ctx, abs, 1)
+	require.True(ctx, zfs.FilesystemVersionEqualIdentity(abs[0].GetFilesystemVersion(), fsversion(ctx, rfs, "@2")))
+
+	// now try to delete @2 on the sender, this should work because don't have step holds on it
+	deleteSfs2Err := zfs.ZFSDestroy(ctx, sfs+"@2")
+	// defer check to caller
+
+	// and create a new snapshot on the sender
+	mustSnapshot(ctx, sfs+"@3")
+
+	// now we have: sender @1, @3
+	//              recver @1, @2
+
+	// delete @1 on both sides to demonstrate that, if we didn't have bookmarks, we would be out of sync
+	deleteSfs1Err := zfs.ZFSDestroy(ctx, sfs+"@1")
+	// defer check to caller
+	err = zfs.ZFSDestroy(ctx, rfs+"@1")
+	require.NoError(ctx, err)
+
+	// attempt replication and return the filesystem report report
+	{
+		rep := replicationInvocation{
+			sjid:      sjid,
+			rjid:      rjid,
+			sfs:       sfs,
+			rfsRoot:   rfsRoot,
+			guarantee: *pdu.ReplicationConfigProtectionWithKind(guaranteeKind),
+		}
+		report := rep.Do(ctx)
+		ctx.Logf("expecting failure:\n%s", pretty.Sprint(report))
+		require.Len(ctx, report.Attempts, 1)
+		require.Len(ctx, report.Attempts[0].Filesystems, 1)
+		return &replicationStepCompletedLost_scenario{
+			rfs:           rfs,
+			deleteSfs1Err: deleteSfs1Err,
+			deleteSfs2Err: deleteSfs2Err,
+			finalReport:   report.Attempts[0].Filesystems[0],
+		}
+	}
+
 }

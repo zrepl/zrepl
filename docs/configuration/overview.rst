@@ -132,23 +132,10 @@ The following high-level steps take place during replication and can be monitore
    
 The idea behind the execution order of replication steps is that if the sender snapshots all filesystems simultaneously at fixed intervals, the receiver will have all filesystems snapshotted at time ``T1`` before the first snapshot at ``T2 = T1 + $interval`` is replicated.
 
-Placeholder Filesystems
-^^^^^^^^^^^^^^^^^^^^^^^
-.. _replication-placeholder-property:
-
-**Placeholder filesystems** on the receiving side are regular ZFS filesystems with the placeholder property ``zrepl:placeholder=on``.
-Placeholders allow the receiving side to mirror the sender's ZFS dataset hierarchy without replicating every filesystem at every intermediary dataset path component.
-Consider the following example: ``S/H/J`` shall be replicated to ``R/sink/job/S/H/J``, but neither ``S/H`` nor ``S`` shall be replicated.
-ZFS requires the existence of ``R/sink/job/S`` and ``R/sink/job/S/H`` in order to receive into ``R/sink/job/S/H/J``.
-Thus, zrepl creates the parent filesystems as placeholders on the receiving side.
-If at some point ``S/H`` and ``S`` shall be replicated, the receiving side invalidates the placeholder flag automatically.
-The ``zrepl test placeholder`` command can be used to check whether a filesystem is a placeholder.
-
 ZFS Background Knowledge
 ^^^^^^^^^^^^^^^^^^^^^^^^
-
-This section gives some background knowledge about ZFS features that zrepl uses to guarantee that
-**incremental replication is always possible and that started replication steps can always be resumed if they are interrupted.**
+This section gives some background knowledge about ZFS features that zrepl uses to provide guarantees for a replication filesystem.
+Specifically, zrepl guarantees by default that **incremental replication is always possible and that started replication steps can always be resumed if they are interrupted.**
 
 **ZFS Send Modes & Bookmarks**
 ZFS supports full sends (``zfs send fs@to``) and incremental sends (``zfs send -i @from fs@to``).
@@ -166,41 +153,56 @@ An incremental send can only be resumed if ``@to`` still exists *and* either ``@
 
 **ZFS Holds**
 ZFS holds prevent a snapshot from being deleted through ``zfs destroy``, letting the destroy fail with a ``datset is busy`` error.
-Holds are created and referred to by a user-defined *tag*. They can be thought of as a named, persistent lock on the snapshot.
+Holds are created and referred to by a *tag*. They can be thought of as a named, persistent lock on the snapshot.
+
+
+.. _zrepl-zfs-abstractions:
+
+ZFS Abstractions Managed By zrepl
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+With the background knowledge from the previous paragraph, we now summarize the different on-disk ZFS objects that zrepl manages to provide its functionality.
+
+.. _replication-placeholder-property:
+
+**Placeholder filesystems** on the receiving side are regular ZFS filesystems with the placeholder property ``zrepl:placeholder=on``.
+Placeholders allow the receiving side to mirror the sender's ZFS dataset hierarchy without replicating every filesystem at every intermediary dataset path component.
+Consider the following example: ``S/H/J`` shall be replicated to ``R/sink/job/S/H/J``, but neither ``S/H`` nor ``S`` shall be replicated.
+ZFS requires the existence of ``R/sink/job/S`` and ``R/sink/job/S/H`` in order to receive into ``R/sink/job/S/H/J``.
+Thus, zrepl creates the parent filesystems as placeholders on the receiving side.
+If at some point ``S/H`` and ``S`` shall be replicated, the receiving side invalidates the placeholder flag automatically.
+The ``zrepl test placeholder`` command can be used to check whether a filesystem is a placeholder.
 
 .. _replication-cursor-and-last-received-hold:
 
-Guaranteeing That Incremental Sends Are Always Possible
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-**Replication cursor** bookmark and **last-received-hold** are managed by zrepl to ensure that future replications can always be done incrementally.
+The **replication cursor** bookmark and **last-received-hold** are managed by zrepl to ensure that future replications can always be done incrementally.
 The replication cursor is a send-side bookmark of the most recent successfully replicated snapshot,
 and the last-received-hold is a hold of that snapshot on the receiving side.
-Both are moved aomically after the receiving side has confirmed that a replication step is complete.
+Both are moved atomically after the receiving side has confirmed that a replication step is complete.
 
 The replication cursor has the format ``#zrepl_CUSOR_G_<GUID>_J_<JOBNAME>``.
 The last-received-hold tag has the format ``zrepl_last_received_J_<JOBNAME>``.
 Encoding the job name in the names ensures that multiple sending jobs can replicate the same filesystem to different receivers without interference.
 
+.. _tentative-replication-cursor-bookmarks:
+
+**Tentative replication cursor bookmarks** are short-lived boomkarks that protect the atomic moving-forward of the replication cursor and last-received-hold (see :issue:`this issue <340>`).
+They are only necessary if step holds are not used as per the :ref:`replication.protection <replication-option-protection>` setting.
+The tentative replication cursor has the format ``#zrepl_CUSORTENTATIVE_G_<GUID>_J_<JOBNAME>``.
 The ``zrepl zfs-abstraction list`` command provides a listing of all bookmarks and holds managed by zrepl.
 
-.. _step-holds-and-bookmarks:
-
-Guaranteeing That Sends Are Always Resumable
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. _step-holds:
 
 **Step holds** are zfs holds managed by zrepl to ensure that a replication step can always be resumed if it is interrupted, e.g., due to network outage.
 zrepl creates step holds before it attempts a replication step and releases them after the receiver confirms that the replication step is complete.
 For an initial replication ``full @initial_snap``, zrepl puts a zfs hold on ``@initial_snap``.
 For an incremental send ``@from -> @to``, zrepl puts a zfs hold on both ``@from`` and ``@to``.
 Note that ``@from`` is not strictly necessary for resumability -- a bookmark on the sending side would be sufficient --, but size-estimation in currently used OpenZFS versions only works if ``@from`` is a snapshot.
-
 The hold tag has the format ``zrepl_STEP_J_<JOBNAME>``.
 A job only ever has one active send per filesystem.
 Thus, there are never more than two step holds for a given pair of ``(job,filesystem)``.
 
 **Step bookmarks** are zrepl's equivalent for holds on bookmarks (ZFS does not support putting holds on bookmarks).
-They are intended for a situation where a replication step uses a bookmark ``#bm`` as incremental ``from`` that is not managed by zrepl.
+They are intended for a situation where a replication step uses a bookmark ``#bm`` as incremental ``from`` where ``#bm`` is not managed by zrepl.
 To ensure resumability, zrepl copies ``#bm`` to step bookmark ``#zrepl_STEP_G_<GUID>_J_<JOBNAME>``.
 If the replication is interrupted and ``#bm`` is deleted by the user, the step bookmark remains as an incremental source for the resumable send.
 Note that zrepl does not yet support creating step bookmarks because the `corresponding ZFS feature for copying bookmarks <https://github.com/openzfs/zfs/pull/9571>`_ is not yet widely available .

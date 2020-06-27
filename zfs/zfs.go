@@ -1593,9 +1593,10 @@ var ErrBookmarkCloningNotSupported = fmt.Errorf("bookmark cloning feature is not
 
 // idempotently create bookmark of the given version v
 //
-// v must be validated by the caller
+// if `v` is a bookmark, returns ErrBookmarkCloningNotSupported
+// unless a bookmark with the name `bookmark` exists and has the same idenitty (zfs.FilesystemVersionEqualIdentity)
 //
-// does not destroy an existing bookmark, returns
+// v must be validated by the caller
 //
 func ZFSBookmark(ctx context.Context, fs string, v FilesystemVersion, bookmark string) (bm FilesystemVersion, err error) {
 
@@ -1612,7 +1613,21 @@ func ZFSBookmark(ctx context.Context, fs string, v FilesystemVersion, bookmark s
 	promTimer := prometheus.NewTimer(prom.ZFSBookmarkDuration.WithLabelValues(fs))
 	defer promTimer.ObserveDuration()
 
-	if !v.IsSnapshot() {
+	bookmarkname := fmt.Sprintf("%s#%s", fs, bookmark)
+	if err := EntityNamecheck(bookmarkname, EntityTypeBookmark); err != nil {
+		return bm, err
+	}
+
+	if v.IsBookmark() {
+		existingBm, err := ZFSGetFilesystemVersion(ctx, bookmarkname)
+		if _, ok := err.(*DatasetDoesNotExist); ok {
+			return bm, ErrBookmarkCloningNotSupported
+		} else if err != nil {
+			return bm, errors.Wrap(err, "bookmark: idempotency check for bookmark cloning")
+		}
+		if FilesystemVersionEqualIdentity(bm, existingBm) {
+			return existingBm, nil
+		}
 		return bm, ErrBookmarkCloningNotSupported // TODO This is work in progress: https://github.com/zfsonlinux/zfs/pull/9571
 	}
 
@@ -1620,12 +1635,6 @@ func ZFSBookmark(ctx context.Context, fs string, v FilesystemVersion, bookmark s
 	if err := EntityNamecheck(snapname, EntityTypeSnapshot); err != nil {
 		return bm, err
 	}
-	bookmarkname := fmt.Sprintf("%s#%s", fs, bookmark)
-	if err := EntityNamecheck(bookmarkname, EntityTypeBookmark); err != nil {
-		return bm, err
-	}
-
-	debug("bookmark: %q %q", snapname, bookmarkname)
 
 	cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, "bookmark", snapname, bookmarkname)
 	stdio, err := cmd.CombinedOutput()
@@ -1637,7 +1646,7 @@ func ZFSBookmark(ctx context.Context, fs string, v FilesystemVersion, bookmark s
 			// check if this was idempotent
 			bookGuid, err := ZFSGetGUID(ctx, fs, "#"+bookmark)
 			if err != nil {
-				return bm, errors.Wrap(err, "bookmark idempotency check") // guid error expressive enough
+				return bm, errors.Wrap(err, "bookmark: idempotency check for bookmark creation") // guid error expressive enough
 			}
 
 			if v.Guid == bookGuid {

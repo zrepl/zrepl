@@ -60,9 +60,9 @@ jobs:
 	})
 
 	t.Run("encrypted_unspecified", func(t *testing.T) {
-		c, err := testConfig(t, fill(encrypted_unspecified))
-		assert.Error(t, err)
-		assert.Nil(t, c)
+		c = testValidConfig(t, fill(encrypted_unspecified))
+		encrypted := c.Jobs[0].Ret.(*PushJob).Send.Encrypted
+		assert.Equal(t, false, encrypted)
 	})
 
 	t.Run("send_not_specified", func(t *testing.T) {

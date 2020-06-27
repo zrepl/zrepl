@@ -52,10 +52,6 @@ type Receiver interface {
 	Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.ReadCloser) (*pdu.ReceiveRes, error)
 }
 
-type PlannerPolicy struct {
-	EncryptedSend tri // all sends must be encrypted (send -w, and encryption!=off)
-}
-
 type Planner struct {
 	sender   Sender
 	receiver Receiver
@@ -561,12 +557,13 @@ func (s *Step) updateSizeEstimate(ctx context.Context) error {
 func (s *Step) buildSendRequest(dryRun bool) (sr *pdu.SendReq) {
 	fs := s.parent.Path
 	sr = &pdu.SendReq{
-		Filesystem:  fs,
-		From:        s.from, // may be nil
-		To:          s.to,
-		Encrypted:   s.encrypt.ToPDU(),
-		ResumeToken: s.resumeToken,
-		DryRun:      dryRun,
+		Filesystem:        fs,
+		From:              s.from, // may be nil
+		To:                s.to,
+		Encrypted:         s.encrypt.ToPDU(),
+		ResumeToken:       s.resumeToken,
+		DryRun:            dryRun,
+		ReplicationConfig: &s.parent.policy.ReplicationConfig,
 	}
 	return sr
 }
@@ -603,9 +600,10 @@ func (s *Step) doReplication(ctx context.Context) error {
 	}()
 
 	rr := &pdu.ReceiveReq{
-		Filesystem:       fs,
-		To:               sr.GetTo(),
-		ClearResumeToken: !sres.UsedResumeToken,
+		Filesystem:        fs,
+		To:                sr.GetTo(),
+		ClearResumeToken:  !sres.UsedResumeToken,
+		ReplicationConfig: &s.parent.policy.ReplicationConfig,
 	}
 	log.Debug("initiate receive request")
 	_, err = s.receiver.Receive(ctx, rr, byteCountingStream)
