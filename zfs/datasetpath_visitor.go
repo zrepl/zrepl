@@ -33,9 +33,10 @@ type DatasetPathVisit struct {
 	Path *DatasetPath
 	// If true, the dataset referenced by Path was not in the list of datasets to traverse
 	FilledIn bool
+	Parent   *DatasetPathVisit
 }
 
-type DatasetPathsVisitor func(v DatasetPathVisit) (visitChildTree bool)
+type DatasetPathsVisitor func(v *DatasetPathVisit) (visitChildTree bool)
 
 // Traverse a list of DatasetPaths top down, i.e. given a set of datasets with same
 // path prefix, those with shorter prefix are traversed first.
@@ -44,7 +45,11 @@ type DatasetPathsVisitor func(v DatasetPathVisit) (visitChildTree bool)
 func (f *DatasetPathForest) WalkTopDown(visitor DatasetPathsVisitor) {
 
 	for _, r := range f.roots {
-		r.WalkTopDown([]string{}, visitor)
+		r.WalkTopDown(&DatasetPathVisit{
+			Path:     &DatasetPath{nil},
+			FilledIn: true,
+			Parent:   nil,
+		}, visitor)
 	}
 
 }
@@ -88,19 +93,21 @@ func (t *datasetPathTree) Add(p []string) bool {
 
 }
 
-func (t *datasetPathTree) WalkTopDown(parent []string, visitor DatasetPathsVisitor) {
+func (t *datasetPathTree) WalkTopDown(parent *DatasetPathVisit, visitor DatasetPathsVisitor) {
 
-	this := append(parent, t.Component)
+	thisVisitPath := parent.Path.Copy()
+	thisVisitPath.Extend(&DatasetPath{[]string{t.Component}})
 
-	thisVisit := DatasetPathVisit{
-		&DatasetPath{this},
+	thisVisit := &DatasetPathVisit{
+		thisVisitPath,
 		t.FilledIn,
+		parent,
 	}
 	visitChildTree := visitor(thisVisit)
 
 	if visitChildTree {
 		for _, c := range t.Children {
-			c.WalkTopDown(this, visitor)
+			c.WalkTopDown(thisVisit, visitor)
 		}
 	}
 

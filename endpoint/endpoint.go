@@ -679,7 +679,7 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.
 		f := zfs.NewDatasetPathForest()
 		f.Add(lp)
 		getLogger(ctx).Debug("begin tree-walk")
-		f.WalkTopDown(func(v zfs.DatasetPathVisit) (visitChildTree bool) {
+		f.WalkTopDown(func(v *zfs.DatasetPathVisit) (visitChildTree bool) {
 			if v.Path.Equal(lp) {
 				return false
 			}
@@ -707,7 +707,7 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.
 				}
 				l := getLogger(ctx).WithField("placeholder_fs", v.Path)
 				l.Debug("create placeholder filesystem")
-				err := zfs.ZFSCreatePlaceholderFilesystem(ctx, v.Path)
+				err := zfs.ZFSCreatePlaceholderFilesystem(ctx, v.Path, v.Parent.Path)
 				if err != nil {
 					l.WithError(err).Error("cannot create placeholder filesystem")
 					visitErr = err

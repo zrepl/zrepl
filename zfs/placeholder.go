@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
@@ -78,14 +79,23 @@ func ZFSGetFilesystemPlaceholderState(ctx context.Context, p *DatasetPath) (stat
 	return state, nil
 }
 
-func ZFSCreatePlaceholderFilesystem(ctx context.Context, p *DatasetPath) (err error) {
-	if p.Length() == 1 {
-		return fmt.Errorf("cannot create %q: pools cannot be created with zfs create", p.ToString())
+func ZFSCreatePlaceholderFilesystem(ctx context.Context, fs *DatasetPath, parent *DatasetPath) (err error) {
+	if fs.Length() == 1 {
+		return fmt.Errorf("cannot create %q: pools cannot be created with zfs create", fs.ToString())
 	}
-	cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, "create",
+
+	cmdline := []string{
+		"create",
 		"-o", fmt.Sprintf("%s=%s", PlaceholderPropertyName, placeholderPropertyOn),
 		"-o", "mountpoint=none",
-		p.ToString())
+	}
+	if parentEncrypted, err := ZFSGetEncryptionEnabled(ctx, parent.ToString()); err != nil {
+		return errors.Wrap(err, "cannot determine encryption support")
+	} else if parentEncrypted {
+		cmdline = append(cmdline, "-o", "encryption=off")
+	}
+	cmdline = append(cmdline, fs.ToString())
+	cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, cmdline...)
 
 	stdio, err := cmd.CombinedOutput()
 	if err != nil {
