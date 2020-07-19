@@ -25,6 +25,10 @@ func TLSListenerFactoryFromConfig(c *config.Global, in *config.TLSServe) (transp
 		return nil, errors.New("fields 'ca', 'cert' and 'key'must be specified")
 	}
 
+	if fakeCertificateLoading {
+		return func() (transport.AuthenticatedListener, error) { return nil, nil }, nil
+	}
+
 	clientCA, err := tlsconf.ParseCAFile(in.Ca)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot parse ca file")

@@ -2,12 +2,16 @@ package job
 
 import (
 	"fmt"
+	"path"
+	"path/filepath"
 	"testing"
 
+	"github.com/kr/pretty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/transport/tls"
 )
 
 func TestValidateReceivingSidesDoNotOverlap(t *testing.T) {
@@ -105,6 +109,38 @@ jobs:
 			}
 
 		})
+	}
+
+}
+
+func TestSampleConfigsAreBuiltWithoutErrors(t *testing.T) {
+	paths, err := filepath.Glob("../../config/samples/*")
+	if err != nil {
+		t.Errorf("glob failed: %+v", err)
+	}
+
+	for _, p := range paths {
+
+		if path.Ext(p) != ".yml" {
+			t.Logf("skipping file %s", p)
+			continue
+		}
+
+		t.Run(p, func(t *testing.T) {
+			c, err := config.ParseConfig(p)
+			if err != nil {
+				t.Errorf("error parsing %s:\n%+v", p, err)
+			}
+
+			t.Logf("file: %s", p)
+			t.Log(pretty.Sprint(c))
+
+			tls.FakeCertificateLoading(t)
+			jobs, err := JobsFromConfig(c)
+			t.Logf("jobs: %#v", jobs)
+			assert.NoError(t, err)
+		})
+
 	}
 
 }

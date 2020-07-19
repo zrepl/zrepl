@@ -23,6 +23,10 @@ func TLSConnecterFromConfig(in *config.TLSConnect) (*TLSConnecter, error) {
 		Timeout: in.DialTimeout,
 	}
 
+	if fakeCertificateLoading {
+		return &TLSConnecter{in.Address, dialer, nil}, nil
+	}
+
 	ca, err := tlsconf.ParseCAFile(in.Ca)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot parse ca file")
