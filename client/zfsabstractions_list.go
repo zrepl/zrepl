@@ -63,7 +63,7 @@ func doZabsList(ctx context.Context, sc *cli.Subcommand, args []string) error {
 				defer line.Lock().Unlock()
 				if zabsListFlags.Json {
 					enc.SetIndent("", "  ")
-					if err := enc.Encode(abstractions); err != nil {
+					if err := enc.Encode(a); err != nil {
 						panic(err)
 					}
 					fmt.Println()
