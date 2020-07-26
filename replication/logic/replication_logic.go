@@ -550,7 +550,12 @@ func (s *Step) updateSizeEstimate(ctx context.Context) error {
 		log.WithError(err).Error("dry run send request failed")
 		return err
 	}
-	s.expectedSize = sres.ExpectedSize
+	if sres == nil {
+		err := fmt.Errorf("dry run send request returned nil send result")
+		log.Error(err.Error())
+		return err
+	}
+	s.expectedSize = sres.GetExpectedSize()
 	return nil
 }
 
@@ -579,6 +584,11 @@ func (s *Step) doReplication(ctx context.Context) error {
 	sres, stream, err := s.sender.Send(ctx, sr)
 	if err != nil {
 		log.WithError(err).Error("send request failed")
+		return err
+	}
+	if sres == nil {
+		err := fmt.Errorf("send request returned nil send result")
+		log.Error(err.Error())
 		return err
 	}
 	if stream == nil {
