@@ -138,6 +138,18 @@ full	zroot/test/a@3	10518512
 size	10518512
 `
 
+	// zero-length incremental send on ZoL 0.7.12
+	// (it omits the size field as well as the size line if size is 0)
+	// see https://github.com/zrepl/zrepl/issues/289
+	// fixed in https://github.com/openzfs/zfs/commit/835db58592d7d947e5818eb7281882e2a46073e0#diff-66bd524398bcd2ac70d90925ab6d8073L1245
+	incZeroSized_0_7_12 := `
+incremental	p1 with/ spaces d1@1 with space	p1 with/ spaces d1@2 with space
+`
+
+	fullZeroSized_0_7_12 := `
+full	p1 with/ spaces d1@2 with space
+`
+
 	fullWithSpaces := "\nfull\tpool1/otherjob/ds with spaces@blaffoo\t12912\nsize\t12912\n"
 	fullWithSpacesInIntermediateComponent := "\nfull\tpool1/otherjob/another ds with spaces/childfs@blaffoo\t12912\nsize\t12912\n"
 	incrementalWithSpaces := "\nincremental\tblaffoo\tpool1/otherjob/another ds with spaces@blaffoo2\t624\nsize\t624\n"
@@ -243,6 +255,25 @@ size	10518512
 				SizeEstimate: 624,
 			},
 		},
+		{
+			name: "incrementalZeroSizedOpenZFS_pre0.7.12", in: incZeroSized_0_7_12,
+			exp: &DrySendInfo{
+				Type:         DrySendTypeIncremental,
+				Filesystem:   "p1 with/ spaces d1",
+				From:         "p1 with/ spaces d1@1 with space",
+				To:           "p1 with/ spaces d1@2 with space",
+				SizeEstimate: 0,
+			},
+		},
+		{
+			name: "fullZeroSizedOpenZFS_pre0.7.12", in: fullZeroSized_0_7_12,
+			exp: &DrySendInfo{
+				Type:         DrySendTypeFull,
+				Filesystem:   "p1 with/ spaces d1",
+				To:           "p1 with/ spaces d1@2 with space",
+				SizeEstimate: 0,
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -251,10 +282,12 @@ size	10518512
 			in := tc.in[1:] // strip first newline
 			var si DrySendInfo
 			err := si.unmarshalZFSOutput([]byte(in))
+			t.Logf("%#v", &si)
+			t.Logf("err=%T %s", err, err)
+
 			if tc.expErr {
 				assert.Error(t, err)
 			}
-			t.Logf("%#v", &si)
 			if tc.exp != nil {
 				assert.Equal(t, tc.exp, &si)
 			}

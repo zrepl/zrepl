@@ -860,9 +860,9 @@ type DrySendInfo struct {
 var (
 	// keep same number of capture groups for unmarshalInfoLine homogeneity
 
-	sendDryRunInfoLineRegexFull = regexp.MustCompile(`^(full)\t()([^\t]+@[^\t]+)\t([0-9]+)$`)
+	sendDryRunInfoLineRegexFull = regexp.MustCompile(`^(?P<type>full)\t()(?P<to>[^\t]+@[^\t]+)(\t(?P<size>[0-9]+))?$`)
 	// cannot enforce '[#@]' in incremental source, see test cases
-	sendDryRunInfoLineRegexIncremental = regexp.MustCompile(`^(incremental)\t([^\t]+)\t([^\t]+@[^\t]+)\t([0-9]+)$`)
+	sendDryRunInfoLineRegexIncremental = regexp.MustCompile(`^(?P<type>incremental)\t(?P<from>[^\t]+)\t(?P<to>[^\t]+@[^\t]+)(\t(?P<size>[0-9]+))?$`)
 )
 
 // see test cases for example output
@@ -890,30 +890,44 @@ func (s *DrySendInfo) unmarshalInfoLine(l string) (regexMatched bool, err error)
 
 	mFull := sendDryRunInfoLineRegexFull.FindStringSubmatch(l)
 	mInc := sendDryRunInfoLineRegexIncremental.FindStringSubmatch(l)
+	var matchingExpr *regexp.Regexp
 	var m []string
 	if mFull == nil && mInc == nil {
 		return false, nil
 	} else if mFull != nil && mInc != nil {
 		panic(fmt.Sprintf("ambiguous ZFS dry send output: %q", l))
 	} else if mFull != nil {
-		m = mFull
+		matchingExpr, m = sendDryRunInfoLineRegexFull, mFull
 	} else if mInc != nil {
-		m = mInc
+		matchingExpr, m = sendDryRunInfoLineRegexIncremental, mInc
 	}
-	s.Type, err = DrySendTypeFromString(m[1])
+
+	fields := make(map[string]string, matchingExpr.NumSubexp())
+	for i, name := range matchingExpr.SubexpNames() {
+		if i != 0 {
+			fields[name] = m[i]
+		}
+	}
+
+	s.Type, err = DrySendTypeFromString(fields["type"])
 	if err != nil {
 		return true, err
 	}
 
-	s.From = m[2]
-	s.To = m[3]
+	s.From = fields["from"]
+	s.To = fields["to"]
 	toFS, _, _, err := DecomposeVersionString(s.To)
 	if err != nil {
 		return true, fmt.Errorf("'to' is not a valid filesystem version: %s", err)
 	}
 	s.Filesystem = toFS
 
-	s.SizeEstimate, err = strconv.ParseInt(m[4], 10, 64)
+	if fields["size"] == "" {
+		// workaround for OpenZFS 0.7 prior to https://github.com/openzfs/zfs/commit/835db58592d7d947e5818eb7281882e2a46073e0#diff-66bd524398bcd2ac70d90925ab6d8073L1245
+		// see https://github.com/zrepl/zrepl/issues/289
+		fields["size"] = "0"
+	}
+	s.SizeEstimate, err = strconv.ParseInt(fields["size"], 10, 64)
 	if err != nil {
 		return true, fmt.Errorf("cannot not parse size: %s", err)
 	}
