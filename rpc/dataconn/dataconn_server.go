@@ -239,6 +239,10 @@ func (s *Server) serveConnRequest(ctx context.Context, endpoint string, c *strea
 
 	if sendStream != nil {
 		err := c.SendStream(ctx, sendStream, ZFSStream)
+		closeErr := sendStream.Close()
+		if closeErr != nil {
+			s.log.WithError(err).Error("cannot close send stream")
+		}
 		if err != nil {
 			s.log.WithError(err).Error("cannot write send stream")
 		}
