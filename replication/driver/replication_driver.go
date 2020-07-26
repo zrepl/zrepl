@@ -2,7 +2,6 @@ package driver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"sort"
@@ -10,7 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/zrepl/zrepl/daemon/logging/trace"
+	"github.com/zrepl/zrepl/zfs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -374,11 +375,28 @@ func (a *attempt) doGlobalPlanning(ctx context.Context, prev *attempt) map[*fs]*
 	// invariant: prevs contains an entry for each unambiguous correspondence
 
 	// build up parent-child relationship (FIXME (O(n^2), but who's going to have that many filesystems...))
+	mustDatasetPathOrPlanFail := func(fs string) *zfs.DatasetPath {
+		dp, err := zfs.NewDatasetPath(fs)
+		if err != nil {
+			now := time.Now()
+			a.planErr = newTimedError(errors.Wrapf(err, "%q", fs), now)
+			a.fss = nil
+			a.finishedAt = now
+			return nil
+		}
+		return dp
+	}
 	for _, f1 := range a.fss {
-		fs1 := f1.fs.ReportInfo().Name
+		fs1 := mustDatasetPathOrPlanFail(f1.fs.ReportInfo().Name)
+		if fs1 == nil {
+			return nil
+		}
 		for _, f2 := range a.fss {
-			fs2 := f2.fs.ReportInfo().Name
-			if strings.HasPrefix(fs1, fs2) && fs1 != fs2 {
+			fs2 := mustDatasetPathOrPlanFail(f2.fs.ReportInfo().Name)
+			if fs2 == nil {
+				return nil
+			}
+			if fs1.HasPrefix(fs2) && !fs1.Equal(fs2) {
 				f1.initialRepOrd.parents = append(f1.initialRepOrd.parents, f2)
 				f2.initialRepOrd.children = append(f2.initialRepOrd.children, f1)
 			}

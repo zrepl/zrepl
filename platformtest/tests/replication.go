@@ -30,6 +30,7 @@ import (
 type replicationInvocation struct {
 	sjid, rjid        endpoint.JobID
 	sfs               string
+	sfilter           *filters.DatasetMapFilter
 	rfsRoot           string
 	interceptSender   func(e *endpoint.Sender) logic.Sender
 	interceptReceiver func(e *endpoint.Receiver) logic.Receiver
@@ -45,11 +46,16 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 		i.interceptReceiver = func(e *endpoint.Receiver) logic.Receiver { return e }
 	}
 
-	sfilter := filters.NewDatasetMapFilter(1, true)
-	err := sfilter.Add(i.sfs, "ok")
-	require.NoError(ctx, err)
+	if i.sfs != "" && i.sfilter != nil || i.sfs == "" && i.sfilter == nil {
+		panic("either sfs or sfilter must be set")
+	}
+	if i.sfilter == nil {
+		i.sfilter = filters.NewDatasetMapFilter(1, true)
+		err := i.sfilter.Add(i.sfs, "ok")
+		require.NoError(ctx, err)
+	}
 	sender := i.interceptSender(endpoint.NewSender(endpoint.SenderConfig{
-		FSF:     sfilter.AsFilter(),
+		FSF:     i.sfilter.AsFilter(),
 		Encrypt: &zfs.NilBool{B: false},
 		JobID:   i.sjid,
 	}))
@@ -834,4 +840,77 @@ func ReplicationReceiverErrorWhileStillSending(ctx *platformtest.Context) {
 	require.Nil(ctx, afs.PlanError)
 	require.NotNil(ctx, afs.StepError)
 	require.Contains(ctx, afs.StepError.Err, mockRecvErr.Error())
+}
+
+func ReplicationFailingInitialParentProhibitsChildReplication(ctx *platformtest.Context) {
+
+	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
+		CREATEROOT
+		+  "sender"
+		+  "sender/a"
+		+  "sender/a/child"
+		+  "sender/aa"
+		+  "receiver"
+		R  zfs create -p "${ROOTDS}/receiver/${ROOTDS}"
+		R  zfs snapshot -r ${ROOTDS}/sender@initial
+	`)
+
+	sjid := endpoint.MustMakeJobID("sender-job")
+	rjid := endpoint.MustMakeJobID("receiver-job")
+
+	fsA := ctx.RootDataset + "/sender/a"
+	fsAChild := ctx.RootDataset + "/sender/a/child"
+	fsAA := ctx.RootDataset + "/sender/aa"
+
+	sfilter := filters.NewDatasetMapFilter(3, true)
+	mustAddToSFilter := func(fs string) {
+		err := sfilter.Add(fs, "ok")
+		require.NoError(ctx, err)
+	}
+	mustAddToSFilter(fsA)
+	mustAddToSFilter(fsAChild)
+	mustAddToSFilter(fsAA)
+	rfsRoot := ctx.RootDataset + "/receiver"
+
+	mockRecvErr := fmt.Errorf("yifae4ohPhaquaes0hohghiep9oufie4roo7quoWooluaj2ee8")
+
+	rep := replicationInvocation{
+		sjid:      sjid,
+		rjid:      rjid,
+		sfilter:   sfilter,
+		rfsRoot:   rfsRoot,
+		guarantee: *pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeNothing),
+		interceptReceiver: func(r *endpoint.Receiver) logic.Receiver {
+			return &ErroringReceiver{recvErr: mockRecvErr, Receiver: r}
+		},
+	}
+
+	r := rep.Do(ctx)
+	ctx.Logf("\n%s", pretty.Sprint(r))
+
+	require.Len(ctx, r.Attempts, 1)
+	attempt := r.Attempts[0]
+	require.Nil(ctx, attempt.PlanError)
+	require.Len(ctx, attempt.Filesystems, 3)
+
+	fsByName := make(map[string]*report.FilesystemReport, len(attempt.Filesystems))
+	for _, fs := range attempt.Filesystems {
+		fsByName[fs.Info.Name] = fs
+	}
+
+	require.Contains(ctx, fsByName, fsA)
+	require.Contains(ctx, fsByName, fsAA)
+	require.Contains(ctx, fsByName, fsAA)
+
+	checkFS := func(fs string, expectErrMsg string) {
+		rep := fsByName[fs]
+		require.Len(ctx, rep.Steps, 1)
+		require.Nil(ctx, rep.PlanError)
+		require.NotNil(ctx, rep.StepError)
+		require.Contains(ctx, rep.StepError.Err, expectErrMsg)
+	}
+
+	checkFS(fsA, mockRecvErr.Error())
+	checkFS(fsAChild, "parent(s) failed during initial replication")
+	checkFS(fsAA, mockRecvErr.Error()) // fsAA is not treated as a child of fsA
 }
