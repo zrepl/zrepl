@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path"
 	"sort"
 
@@ -27,17 +28,21 @@ import (
 // of a new sender and receiver instance and one blocking invocation
 // of the replication engine without encryption
 type replicationInvocation struct {
-	sjid, rjid      endpoint.JobID
-	sfs             string
-	rfsRoot         string
-	interceptSender func(e *endpoint.Sender) logic.Sender
-	guarantee       pdu.ReplicationConfigProtection
+	sjid, rjid        endpoint.JobID
+	sfs               string
+	rfsRoot           string
+	interceptSender   func(e *endpoint.Sender) logic.Sender
+	interceptReceiver func(e *endpoint.Receiver) logic.Receiver
+	guarantee         pdu.ReplicationConfigProtection
 }
 
 func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 
 	if i.interceptSender == nil {
 		i.interceptSender = func(e *endpoint.Sender) logic.Sender { return e }
+	}
+	if i.interceptReceiver == nil {
+		i.interceptReceiver = func(e *endpoint.Receiver) logic.Receiver { return e }
 	}
 
 	sfilter := filters.NewDatasetMapFilter(1, true)
@@ -48,11 +53,11 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 		Encrypt: &zfs.NilBool{B: false},
 		JobID:   i.sjid,
 	}))
-	receiver := endpoint.NewReceiver(endpoint.ReceiverConfig{
+	receiver := i.interceptReceiver(endpoint.NewReceiver(endpoint.ReceiverConfig{
 		JobID:                      i.rjid,
 		AppendClientIdentity:       false,
 		RootWithoutClientComponent: mustDatasetPath(i.rfsRoot),
-	})
+	}))
 	plannerPolicy := logic.PlannerPolicy{
 		EncryptedSend: logic.TriFromBool(false),
 		ReplicationConfig: pdu.ReplicationConfig{
@@ -752,4 +757,81 @@ func replicationStepCompletedLostBehavior_impl(ctx *platformtest.Context, guaran
 		}
 	}
 
+}
+
+type ErroringReceiver struct {
+	recvErr error
+	*endpoint.Receiver
+}
+
+func (r *ErroringReceiver) Receive(ctx context.Context, req *pdu.ReceiveReq, stream io.ReadCloser) (*pdu.ReceiveRes, error) {
+	return nil, r.recvErr
+}
+
+type NeverEndingSender struct {
+	*endpoint.Sender
+}
+
+func (s *NeverEndingSender) Send(ctx context.Context, req *pdu.SendReq) (r *pdu.SendRes, stream io.ReadCloser, _ error) {
+	stream = nil
+	r = &pdu.SendRes{
+		UsedResumeToken: false,
+		ExpectedSize:    1 << 30,
+	}
+	if req.DryRun {
+		return r, stream, nil
+	}
+	dz, err := os.Open("/dev/zero")
+	if err != nil {
+		panic(err)
+	}
+	return r, dz, nil
+}
+
+func ReplicationReceiverErrorWhileStillSending(ctx *platformtest.Context) {
+
+	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
+		CREATEROOT
+		+  "sender"
+		+  "sender@1"
+		+  "receiver"
+		R  zfs create -p "${ROOTDS}/receiver/${ROOTDS}"
+	`)
+
+	sjid := endpoint.MustMakeJobID("sender-job")
+	rjid := endpoint.MustMakeJobID("receiver-job")
+
+	sfs := ctx.RootDataset + "/sender"
+	rfsRoot := ctx.RootDataset + "/receiver"
+
+	mockRecvErr := fmt.Errorf("YiezahK3thie8ahKiel5sah2uugei2ize1yi8feivuu7musoat")
+
+	rep := replicationInvocation{
+		sjid:      sjid,
+		rjid:      rjid,
+		sfs:       sfs,
+		rfsRoot:   rfsRoot,
+		guarantee: *pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeNothing),
+		interceptReceiver: func(r *endpoint.Receiver) logic.Receiver {
+			return &ErroringReceiver{recvErr: mockRecvErr, Receiver: r}
+		},
+		interceptSender: func(s *endpoint.Sender) logic.Sender {
+			return &NeverEndingSender{s}
+		},
+	}
+
+	// first replication
+	report := rep.Do(ctx)
+	ctx.Logf("\n%s", pretty.Sprint(report))
+
+	require.Len(ctx, report.Attempts, 1)
+	attempt := report.Attempts[0]
+	require.Nil(ctx, attempt.PlanError)
+	require.Len(ctx, attempt.Filesystems, 1)
+	afs := attempt.Filesystems[0]
+	require.Nil(ctx, afs.PlanError)
+	require.Len(ctx, afs.Steps, 1)
+	require.Nil(ctx, afs.PlanError)
+	require.NotNil(ctx, afs.StepError)
+	require.Contains(ctx, afs.StepError.Err, mockRecvErr.Error())
 }
