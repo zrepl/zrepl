@@ -98,14 +98,16 @@ jobs:
               -X POST \
               -d '{"context":"zrepl/publish-ci-artifacts", "state": "success", "description":"CI Build Artifacts for '"$JOB_NAME"'", "target_url":"https://minio.cschwarz.com/minio/zrepl-ci-artifacts/'"$COMMIT"'/"}'
 
+      # kick off binary packaging workflow
       - run:
-          shell: /bin/bash -euo pipefail
+          shell: /bin/bash -eo pipefail
           command: |
-            # Trigger Debian Package Build
-            curl -v -X POST https://api.github.com/repos/zrepl/debian-binary-packaging/dispatches \
-              -H 'Accept: application/vnd.github.v3+json' \
-              -H "Authorization: token $ZREPL_DEBIAN_BINARYPACKAGIN_TRIGGER_BUILD_GITHUB_TOKEN" \
-              --data '{"event_type": "push", "client_payload": { "zrepl_main_repo_commit": "'"$CIRCLE_SHA1"'", "go_version": "'"${CIRCLE_JOB##build-}"'" }}'
+            if [ -n "$CIRCLE_PR_NUMBER" ]; then # CIRCLE_PR_NUMBER is guaranteed to be only present in forked PRs (external)
+              echo "Forked PR detected. Sry, can't trust you with credentials."
+              exit 0
+            fi
+            set -u # from now on
+            GITHUB_ACCESS_TOKEN="$ZREPL_DEBIAN_BINARYPACKAGIN_TRIGGER_BUILD_GITHUB_TOKEN" .circleci/trigger_debian_binary_packaging_workflow.bash "$CIRCLE_SHA1" "${CIRCLE_JOB##build-}"
 
   build-1.11:
     <<: *build-latest
