@@ -65,6 +65,7 @@ Additional changelog:
     The migration will ensure that only those old-format cursors are destroyed that have been superseeded by new-format cursors.
 
 * |feature| New option ``listen_freebind`` (tcp, tls, prometheus listener)
+* |feature| :issue:`341` Prometheus metric for failing replications + corresponding Grafana panel
 * |feature| :issue:`265` transport/tcp: support for CIDR masks in client IP whitelist
 * |feature| documented subcommand to generate ``bash`` and ``zsh`` completions
 * |feature| :issue:`307` ``chrome://trace`` -compatible activity tracing of zrepl daemon activity

@@ -162,3 +162,30 @@ func (f *FilesystemReport) NextStep() *StepReport {
 func (f *StepReport) IsIncremental() bool {
 	return f.Info.From != ""
 }
+
+// Returns, for the latest replication attempt,
+// 0  if there have not been any replication attempts,
+// -1 if the replication failed while enumerating file systems
+// N  if N filesystems could not not be replicated successfully
+func (r *Report) GetFailedFilesystemsCountInLatestAttempt() int {
+
+	if len(r.Attempts) == 0 {
+		return 0
+	}
+
+	a := r.Attempts[len(r.Attempts)-1]
+	switch a.State {
+	case AttemptPlanningError:
+		return -1
+	case AttemptFanOutError:
+		var count int
+		for _, f := range a.Filesystems {
+			if f.Error() != nil {
+				count++
+			}
+		}
+		return count
+	default:
+		return 0
+	}
+}

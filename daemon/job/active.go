@@ -34,9 +34,10 @@ type ActiveSide struct {
 
 	prunerFactory *pruner.PrunerFactory
 
-	promRepStateSecs    *prometheus.HistogramVec // labels: state
-	promPruneSecs       *prometheus.HistogramVec // labels: prune_side
-	promBytesReplicated *prometheus.CounterVec   // labels: filesystem
+	promRepStateSecs      *prometheus.HistogramVec // labels: state
+	promPruneSecs         *prometheus.HistogramVec // labels: prune_side
+	promBytesReplicated   *prometheus.CounterVec   // labels: filesystem
+	promReplicationErrors prometheus.Gauge
 
 	tasksMtx sync.Mutex
 	tasks    activeSideTasks
@@ -299,6 +300,14 @@ func activeSide(g *config.Global, in *config.ActiveJob, configJob interface{}) (
 		ConstLabels: prometheus.Labels{"zrepl_job": j.name.String()},
 	}, []string{"filesystem"})
 
+	j.promReplicationErrors = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace:   "zrepl",
+		Subsystem:   "replication",
+		Name:        "filesystem_errors",
+		Help:        "number of filesystems that failed replication in the latest replication attempt, or -1 if the job failed before enumerating the filesystems",
+		ConstLabels: prometheus.Labels{"zrepl_job": j.name.String()},
+	})
+
 	j.connecter, err = fromconfig.ConnecterFromConfig(g, in.Connect)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot build client")
@@ -323,6 +332,7 @@ func (j *ActiveSide) RegisterMetrics(registerer prometheus.Registerer) {
 	registerer.MustRegister(j.promRepStateSecs)
 	registerer.MustRegister(j.promPruneSecs)
 	registerer.MustRegister(j.promBytesReplicated)
+	registerer.MustRegister(j.promReplicationErrors)
 }
 
 func (j *ActiveSide) Name() string { return j.name.String() }
@@ -455,6 +465,10 @@ func (j *ActiveSide) do(ctx context.Context) {
 		GetLogger(ctx).Info("start replication")
 		repWait(true) // wait blocking
 		repCancel()   // always cancel to free up context resources
+
+		replicationReport := j.tasks.replicationReport()
+		j.promReplicationErrors.Set(float64(replicationReport.GetFailedFilesystemsCountInLatestAttempt()))
+
 		endSpan()
 	}
 
