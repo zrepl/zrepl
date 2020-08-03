@@ -920,7 +920,7 @@
             "stack": false,
             "steppedLine": false,
             "targets": [{
-                "expr": "zrepl_endpoint_send_abstractions_cache_entry_count",
+                "expr": "zrepl_endpoint_abstractions_cache_entry_count",
                 "format": "time_series",
                 "intervalFactor": 1,
                 "refId": "A"
@@ -929,7 +929,7 @@
             "timeFrom": null,
             "timeRegions": [],
             "timeShift": null,
-            "title": "send abstractions cache entry count (should not be zero and not grow unboundedly)",
+            "title": "zfs abstractions cache entry count (should not be zero and not grow unboundedly)",
             "tooltip": {
                 "shared": true,
                 "sort": 0,
@@ -1236,6 +1236,6 @@
     },
     "timezone": "",
     "title": "zrepl 0.3",
-    "uid": "etJuvBmGz",
-    "version": 6
+    "uid": "etQuvBnGz",
+    "version": 7
 }
