@@ -66,7 +66,7 @@ type ProtocolError struct {
 }
 
 func (e *ProtocolError) Error() string {
-	return fmt.Sprintf("protocol error: %s", e)
+	return fmt.Sprintf("protocol error: %s", e.cause)
 }
 
 func (c *Client) recv(ctx context.Context, conn *stream.Conn, res proto.Message) error {
