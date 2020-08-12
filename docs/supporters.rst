@@ -32,6 +32,8 @@ We would like to thank the following people and organizations for supporting zre
 
    <div class="fa fa-code" style="width: 1em;"></div>
 
+* |supporter-std| `@jwittlincohen <https://github.com/jwittlincohen>`_
+* |supporter-std| `Michael D. Schmitt <https://waterbendingscroll.dancingdragons.org>`_
 * |supporter-std| `Hans Schulz <https://github.com/schulzh>`_
 * |supporter-std| Henning Kessler
 * |supporter-std| `John Ramsden <https://github.com/johnramsden>`_
