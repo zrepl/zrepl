@@ -84,34 +84,81 @@ Policy ``grid``
         - type: grid
           regex: "^zrepl_.*"
           grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
-                │                │
-                └─ one hour interval
-                                 │
-                                 └─ 24 adjacent one-hour intervals
+                │                │               │
+                └─ 1 repetition of a one-hour interval with keep=all
+                                 │               │
+                                 └─ 24 repetitions of a one-hour interval with keep=1
+                                                 │
+                                                 └─ 6 repetitions of a 30-day interval with keep=1
       ...
 
-The retention grid can be thought of as a time-based sieve:
-The ``grid`` field specifies a list of adjacent time intervals:
-the left edge of the leftmost (first) interval is the ``creation`` date of the youngest snapshot.
-All intervals to its right describe time intervals further in the past.
-
-Each interval carries a maximum number of snapshots to keep.
-It is specified via ``(keep=N)``, where ``N`` is either ``all`` (all snapshots are kept) or a positive integer.
-The default value is **keep=1**.
-
+The retention grid can be thought of as a time-based sieve that thins out snapshots as they get older.
+The ``grid`` field specifies a list of adjacent time intervals.
 The following procedure happens during pruning:
 
 #. The list of snapshots is filtered by the regular expression in ``regex``.
    Only snapshots names that match the regex are considered for this rule, all others are not affected.
-#. The filtered list of snapshots is sorted by ``creation``
-#. The left edge of the first interval is aligned to the ``creation`` date of the youngest snapshot
-#. A list of buckets is created, one for each interval
-#. The list of snapshots is split up into the buckets.
+#. The filtered list of snapshots is sorted by ``creation``.
+#. The left edge of the first interval is aligned to the ``creation`` date of the youngest snapshot.
+#. A list of buckets is created, one for each interval.
+#. The snapshots are placed into the bucket that matches their ``creation`` date.
 #. For each bucket
 
    #. the contained snapshot list is sorted by creation.
    #. snapshots from the list, oldest first, are destroyed until the specified ``keep`` count is reached.
    #. all remaining snapshots on the list are kept.
+
+The syntax to describe the list of time intervals ("buckets") is as follows:
+
+::
+
+     Repeat x Duration (keep=all)
+
+* The **duration** specifies the length of the interval.
+* The **keep** count specifies the number of snapshots that fit into the bucket.
+  It can be either a positive integer or ``all`` (all snapshots are kept).
+* The **repeat** count repeats the bucket definition for the specified number of times.
+
+**Example**:
+
+::
+
+          This grid spec produces the following list of adjacent buckets. For the sake of simplicity,
+          we subject all snapshots to the grid pruning policy by settings `regex: .*`.
+
+          `
+           grid: 1x1h(keep=all) | 2x2h | 1x3h
+           regex: .*
+          `
+
+          0h         1h         2h         3h         4h         5h         6h         7h         8h
+          |          |          |          |          |          |          |          |          |
+          |-Bucket 1-|------Bucket 2-------|-------Bucket 3------|------------Bucket 4------------|
+          | keep=all |       keep=1        |        keep=1       |             keep=1             |
+
+
+
+          Let us consider the following set of snapshots @a-zA-C , taken at an interval of ~15min:
+
+
+          |  a  b  c  d  e  f  g  h  i  j  k  l  m  n  o  p  q  r  s  t  u  v  w  x  y  z  A  B  C |
+
+
+          The `grid` algorithm maps them to their respective buckets:
+
+          Bucket 1: a, b, c
+          Bucket 2: d,e,f,g,h,i,j
+          Bucket 3: k,l,m,n,o,p,q,r
+          Bucket 4: q,r,s,t,u,v,w,x,y,z,A,B,C
+
+          It then applies the per-bucket pruning logic described above which resulting in the
+          following list of remaining snapshots.
+
+          |  a  b  c  d                    k                       s                               |
+
+          Note that it only makes sense to grow (not shorten) the interval duration for buckets
+          further in the past since each bucket acts like a low-pass filter for incoming snapshots
+          and adding a less-low-pass-filter after a low-pass one has no effect.
 
 
 .. _prune-keep-last-n:
