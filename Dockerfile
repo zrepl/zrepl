@@ -12,7 +12,7 @@ ENV ZREPL_VERSION=${ZREPL_VERSION}
 RUN set -eux && \
     # Add the zrepl APT repository
     apt-get update && apt-get install --yes curl gnupg lsb-release && \
-    (curl https://zrepl.cschwarz.com/apt/apt-key.asc | apt-key add -) && \
+    (curl -fsSL https://zrepl.cschwarz.com/apt/apt-key.asc | apt-key add -) && \
     ( \
       . /etc/os-release && \
       ARCH="$(dpkg --print-architecture)" && \
