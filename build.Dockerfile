@@ -1,4 +1,4 @@
-FROM golang:latest
+FROM golang:1.14.7
 
 RUN apt-get update && apt-get install -y \
     python3-pip \
@@ -27,4 +27,3 @@ ADD build/ /tmp/build
 RUN /tmp/lazy.sh godep
 
 RUN chmod -R 0777 /go
-
