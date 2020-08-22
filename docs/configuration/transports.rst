@@ -91,7 +91,8 @@ The ``tls`` transport uses TCP + TLS with client authentication using client cer
 The client identity is the common name (CN) presented in the client certificate.
 
 It is recommended to set up a dedicated CA infrastructure for this transport, e.g. using OpenVPN's `EasyRSA <https://github.com/OpenVPN/easy-rsa>`_.
-For a simple 2-machine setup, see the :ref:`instructions below<transport-tcp+tlsclientauth-2machineopenssl>`.
+For a simple 2-machine setup, mutual TLS might also be sufficient.
+We provide :ref:`copy-pastable instructions to generate the certificates below <transport-tcp+tlsclientauth-certgen>`.
 
 The implementation uses `Go's TLS library <https://golang.org/pkg/crypto/tls/>`_.
 Since Go binaries are statically linked, you or your distribution need to recompile zrepl when vulnerabilities in that library are disclosed.
@@ -102,6 +103,16 @@ Specify absolute paths if you are unsure what directory that is (or find out fro
 If intermediate CAs are used, the **full chain** must be present in either in the ``ca`` file or the individual ``cert`` files.
 Regardless, the client's certificate must be first in the ``cert`` file, with each following certificate directly certifying the one preceding it (see `TLS's specification <https://tools.ietf.org/html/rfc5246#section-7.4.2>`_).
 This is the common default when using a CA management tool.
+
+.. NOTE::
+
+   As of Go 1.15 (zrepl 0.3.0 and newer), the Go TLS / x509 library **requrires Subject Alternative Names**
+   be present in certificates. You might need to re-generate your certificates using one of the :ref:`two alternatives
+   provided below<transport-tcp+tlsclientauth-certgen>`.
+
+   Note further that zrepl continues to use the CommonName field to assign client identities.
+   Hence, we recommend to keep the Subject Alternative Name and the CommonName in sync.
+
 
 Serve
 ~~~~~
@@ -147,45 +158,25 @@ The ``server_cn`` specifies the expected common name (CN) of the server's certif
 It overrides the hostname specified in ``address``.
 The connection fails if either do not match.
 
+.. _transport-tcp+tlsclientauth-certgen:
+
 .. _transport-tcp+tlsclientauth-2machineopenssl:
 
-Self-Signed Certificates
-~~~~~~~~~~~~~~~~~~~~~~~~
+Mutual-TLS between Two Machines
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Tools like `EasyRSA <https://github.com/OpenVPN/easy-rsa>`_ make it easy to manage CA infrastructure for multiple clients, e.g. a central zrepl backup server (in sink mode).
 However, for a two-machine setup, self-signed certificates distributed using an out-of-band mechanism will also work just fine:
 
 Suppose you have a push-mode setup, with `backups.example.com` running the :ref:`sink job <job-sink>`, and `prod.example.com` running the :ref:`push job <job-push>`.
 Run the following OpenSSL commands on each host, substituting HOSTNAME in both filenames and the interactive input prompt by OpenSSL:
 
 .. code-block:: bash
-   :emphasize-lines: 1-5,24
 
-   openssl req -x509 -sha256 -nodes \
-      -newkey rsa:4096 \
-      -days 365 \
-      -keyout HOSTNAME.key \
-      -out HOSTNAME.crt
-
-   #Generating a 4096 bit RSA private key
-   #................++++
-   #.++++
-   #writing new private key to 'backups.key'
-   #-----
-   #You are about to be asked to enter information that will be incorporated
-   #into your certificate request.
-   #What you are about to enter is what is called a Distinguished Name or a DN.
-   #There are quite a few fields but you can leave some blank
-   #For some fields there will be a default value,
-   #If you enter '.', the field will be left blank.
-   #-----
-   #Country Name (2 letter code) [XX]:
-   #State or Province Name (full name) []:
-   #Locality Name (eg, city) [Default City]:
-   #Organization Name (eg, company) [Default Company Ltd]:
-   #Organizational Unit Name (eg, section) []:
-   #Common Name (eg, your name or your server's hostname) []:HOSTNAME
-   #Email Address []:
+   (name=HOSTNAME; openssl req -x509 -sha256 -nodes \
+    -newkey rsa:4096 \
+    -days 365 \
+    -keyout $name.key \
+    -out $name.crt -addext "subjectAltName = DNS:$name" -subj "/CN=$name")
 
 Now copy each machine's ``HOSTNAME.crt`` to the other machine's ``/etc/zrepl/HOSTNAME.crt``, for example using `scp`.
 The serve & connect configuration will thus look like the following:
@@ -214,6 +205,36 @@ The serve & connect configuration will thus look like the following:
        key:  /etc/zrepl/prod.example.com.key
        server_cn: "backups.example.com"
      ...
+
+
+Certificate Authority using EasyRSA
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For more than two machines, it might make sense to set up a CA infrastructure.
+Tools like `EasyRSA <https://github.com/OpenVPN/easy-rsa>`_ make this very easy:
+
+::
+
+     #!/usr/bin/env bash
+     set -euo pipefail
+
+     HOSTS=(backupserver prod1 prod2 prod3)
+
+     curl -L https://github.com/OpenVPN/easy-rsa/releases/download/v3.0.7/EasyRSA-3.0.7.tgz > EasyRSA-3.0.7.tgz
+     echo "157d2e8c115c3ad070c1b2641a4c9191e06a32a8e50971847a718251eeb510a8  EasyRSA-3.0.7.tgz" | sha256sum -c
+     rm -rf EasyRSA-3.0.7
+     tar -xf EasyRSA-3.0.7.tgz
+     cd EasyRSA-3.0.7
+     ./easyrsa
+     ./easyrsa init-pki
+     ./easyrsa build-ca nopass
+
+     for host in $HOSTS; do
+         ./easyrsa build-serverClient-full $host nopass
+         echo cert for host $host available at pki/issued/$host.crt
+         echo key for host $host available at pki/private/$host.key
+     done
+     echo ca cert available at pki/ca.crt
 
 
 .. _transport-ssh+stdinserver:

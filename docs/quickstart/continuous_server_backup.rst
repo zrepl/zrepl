@@ -51,21 +51,18 @@ To get things going quickly, we skip setting up a CA and generate two self-signe
 For convenience, we generate the key pairs on our local machine and distribute them using ssh:
 
 .. code-block:: bash
-   :emphasize-lines: 6,13
 
-   openssl req -x509 -sha256 -nodes \
-      -newkey rsa:4096 \
-      -days 365 \
-      -keyout backups.key \
-      -out backups.crt
-   # ... and use "backups" as Common Name (CN)
+   (name=backups; openssl req -x509 -sha256 -nodes \
+    -newkey rsa:4096 \
+    -days 365 \
+    -keyout $name.key \
+    -out $name.crt -addext "subjectAltName = DNS:$name" -subj "/CN=$name")
 
-   openssl req -x509 -sha256 -nodes \
-      -newkey rsa:4096 \
-      -days 365 \
-      -keyout prod.key \
-      -out prod.crt
-   # ... and use "prod" as Common Name (CN)
+   (name=prod; openssl req -x509 -sha256 -nodes \
+    -newkey rsa:4096 \
+    -days 365 \
+    -keyout $name.key \
+    -out $name.crt -addext "subjectAltName = DNS:$name" -subj "/CN=$name")
 
    ssh root@backups "mkdir /etc/zrepl"
    scp  backups.key backups.crt prod.crt root@backups:/etc/zrepl
