@@ -3,10 +3,6 @@ workflows:
   version: 2
   build:
     jobs:
-      - build-1.11
-      - build-1.12
-      - build-1.13
-      - build-1.14
       - build-1.15
       - build-latest
       - test-build-in-docker
@@ -109,26 +105,6 @@ jobs:
             fi
             set -u # from now on
             GITHUB_ACCESS_TOKEN="$ZREPL_DEBIAN_BINARYPACKAGIN_TRIGGER_BUILD_GITHUB_TOKEN" .circleci/trigger_debian_binary_packaging_workflow.bash "$CIRCLE_SHA1" "${CIRCLE_JOB##build-}"
-
-  build-1.11:
-    <<: *build-latest
-    docker:
-    - image: circleci/golang:1.11
-
-  build-1.12:
-    <<: *build-latest
-    docker:
-    - image: circleci/golang:1.12
-
-  build-1.13:
-    <<: *build-latest
-    docker:
-    - image: circleci/golang:1.13
-
-  build-1.14:
-    <<: *build-latest
-    docker:
-    - image: circleci/golang:1.14
 
   build-1.15:
     <<: *build-latest
