@@ -38,13 +38,13 @@ matrix:
 
   - <<: *zrepl_build_template
     go:
-    - "1.12"
+    - "1.15.x"
 
   - <<: *zrepl_build_template
     go:
     - "master"
 
-  - &zrepl_docs_template 
+  - &zrepl_docs_template
     language: python
     python:
     - "3.4"
@@ -62,7 +62,6 @@ matrix:
   - <<: *zrepl_docs_template
     python:
     - "3.7"
-  
 
   allow_failures:
   - <<: *zrepl_build_template
