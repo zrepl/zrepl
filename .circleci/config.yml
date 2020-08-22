@@ -7,6 +7,7 @@ workflows:
       - build-1.12
       - build-1.13
       - build-1.14
+      - build-1.15
       - build-latest
       - test-build-in-docker
 jobs:
@@ -45,7 +46,7 @@ jobs:
           key: source
           paths:
             - ".git"
-      
+
       # install deps
       - run: wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip
       - run: echo "6003de742ea3fcf703cfec1cd4a3380fd143081a2eb0e559065563496af27807  protoc-3.6.1-linux-x86_64.zip" | sha256sum -c
@@ -54,7 +55,7 @@ jobs:
           key: protobuf
           paths:
             - "/usr/include/google/protobuf"
-            
+
       - run: sudo apt update && sudo apt install python3 python3-pip libgirepository1.0-dev gawk
       - run: ./lazy.sh devsetup
 
@@ -78,12 +79,12 @@ jobs:
               exit 0
             fi
             set -u # from now on
-            
+
             # Download and install minio
             curl -sSL https://dl.minio.io/client/mc/release/linux-amd64/mc -o ${GOPATH}/bin/mc
             chmod +x ${GOPATH}/bin/mc
             mc config host add --api s3v4 zrepl-minio https://minio.cschwarz.com ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
-            
+
             # Upload artifacts
             echo "$CIRCLE_BUILD_URL" > ./artifacts/release/cirlceci_build_url
             mc cp -r artifacts/release "zrepl-minio/zrepl-ci-artifacts/${CIRCLE_SHA1}/${CIRCLE_JOB}/"
@@ -128,6 +129,11 @@ jobs:
     <<: *build-latest
     docker:
     - image: circleci/golang:1.14
+
+  build-1.15:
+    <<: *build-latest
+    docker:
+    - image: circleci/golang:1.15
 
   # this job tries to mimic the build-in-docker instructions
   # given in docs/installation.rst
