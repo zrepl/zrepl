@@ -93,9 +93,11 @@ package trace
 import (
 	"context"
 	"fmt"
+	runtimedebug "runtime/debug"
 	"strings"
 	"time"
 
+	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zrepl/zrepl/util/chainlock"
@@ -120,15 +122,19 @@ func RegisterMetrics(r prometheus.Registerer) {
 }
 
 type traceNode struct {
-	id         string
-	annotation string
-	parentTask *traceNode
+	// NOTE: members with prefix debug are only valid if the package variable debugEnabled is true.
+
+	id                 string
+	annotation         string
+	parentTask         *traceNode
+	debugCreationStack string // debug: stack trace of when the traceNode was created
 
 	mtx chainlock.L
 
-	activeChildTasks int32 // only for task nodes, insignificant for span nodes
-	parentSpan       *traceNode
-	activeChildSpan  *traceNode // nil if task or span doesn't have an active child span
+	activeChildTasks      int32               // only for task nodes, insignificant for span nodes
+	debugActiveChildTasks map[*traceNode]bool // debug: set of active child tasks
+	parentSpan            *traceNode
+	activeChildSpan       *traceNode // nil if task or span doesn't have an active child span
 
 	startedAt time.Time
 	endedAt   time.Time
@@ -136,6 +142,14 @@ type traceNode struct {
 
 func (s *traceNode) StartedAt() time.Time { return s.startedAt }
 func (s *traceNode) EndedAt() time.Time   { return s.endedAt }
+
+// caller must hold mtx
+func (s *traceNode) debugString() string {
+	if !debugEnabled {
+		return "<debugEnabled=false>"
+	}
+	return pretty.Sprint(s)
+}
 
 // Returned from WithTask or WithSpan.
 // Must be called once the task or span ends.
@@ -196,8 +210,16 @@ func WithTask(ctx context.Context, taskName string) (context.Context, DoneFunc) 
 		endedAt:   time.Time{},
 	}
 
+	if debugEnabled {
+		this.debugCreationStack = string(runtimedebug.Stack())
+		this.debugActiveChildTasks = map[*traceNode]bool{}
+	}
+
 	if parentTask != nil {
 		this.parentTask.activeChildTasks++
+		if debugEnabled {
+			this.parentTask.debugActiveChildTasks[this] = true
+		}
 		parentTask.mtx.Unlock()
 	}
 
@@ -218,7 +240,7 @@ func WithTask(ctx context.Context, taskName string) (context.Context, DoneFunc) 
 			defer this.mtx.Lock().Unlock()
 
 			if this.activeChildTasks != 0 {
-				panic(errors.Wrapf(ErrTaskStillHasActiveChildTasks, "end task: %v active child tasks", this.activeChildTasks))
+				panic(errors.WithMessagef(ErrTaskStillHasActiveChildTasks, "end task: %v active child tasks\n: %s", this.activeChildTasks, this.debugString()))
 			}
 
 			// support idempotent task ends
@@ -229,8 +251,11 @@ func WithTask(ctx context.Context, taskName string) (context.Context, DoneFunc) 
 
 			if this.parentTask != nil {
 				this.parentTask.activeChildTasks--
+				if debugEnabled {
+					delete(this.parentTask.debugActiveChildTasks, this)
+				}
 				if this.parentTask.activeChildTasks < 0 {
-					panic("impl error: parent task with negative activeChildTasks count")
+					panic(fmt.Sprintf("impl error: parent task with negative activeChildTasks count: %s", this.debugString()))
 				}
 			}
 			return false
@@ -277,6 +302,10 @@ func WithSpan(ctx context.Context, annotation string) (context.Context, DoneFunc
 
 		startedAt: time.Now(),
 		endedAt:   time.Time{},
+	}
+
+	if debugEnabled {
+		this.debugCreationStack = string(runtimedebug.Stack())
 	}
 
 	parentSpan.mtx.HoldWhile(func() {
