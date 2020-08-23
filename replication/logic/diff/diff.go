@@ -77,56 +77,48 @@ func IncrementalPath(receiver, sender []*FilesystemVersion) (incPath []*Filesyst
 	receiver = SortVersionListByCreateTXGThenBookmarkLTSnapshot(receiver)
 	sender = SortVersionListByCreateTXGThenBookmarkLTSnapshot(sender)
 
-	// Find most recent common ancestor by name, preferring snapshots over bookmarks
+	var mrcaCandidate struct {
+		found bool
+		guid  uint64
+		r, s  int
+	}
 
-	mrcaRcv := len(receiver) - 1
-	mrcaSnd := len(sender) - 1
-
-	for mrcaRcv >= 0 && mrcaSnd >= 0 {
-		if receiver[mrcaRcv].Guid == sender[mrcaSnd].Guid {
-			// Since we arrive from the end of the array, and because we defined bookmark < snapshot,
-			// this condition will match snapshot first, which is what we want because it gives us
-			// size estimation
-			break
-		}
-		receiverCreation, err := receiver[mrcaRcv].CreationAsTime()
-		if err != nil {
-			panic(err) // FIXME move this to a sorting phase before
-		}
-		senderCreation, err := sender[mrcaSnd].CreationAsTime()
-		if err != nil {
-			panic(err) // FIXME move this to the sorting phase before
-		}
-
-		if receiverCreation.Before(senderCreation) {
-			mrcaSnd--
-		} else {
-			mrcaRcv--
+findCandidate:
+	for r := len(receiver) - 1; r >= 0; r-- {
+		for s := len(sender) - 1; s >= 0; s-- {
+			if sender[s].GetGuid() == receiver[r].GetGuid() {
+				mrcaCandidate.guid = sender[s].GetGuid()
+				mrcaCandidate.s = s
+				mrcaCandidate.r = r
+				mrcaCandidate.found = true
+				break findCandidate
+			}
 		}
 	}
 
-	if mrcaRcv == -1 || mrcaSnd == -1 {
+	// handle failure cases
+	if !mrcaCandidate.found {
 		return nil, &ConflictNoCommonAncestor{
 			SortedSenderVersions:   sender,
 			SortedReceiverVersions: receiver,
 		}
-	}
-
-	if mrcaRcv != len(receiver)-1 {
+	} else if mrcaCandidate.r != len(receiver)-1 {
 		return nil, &ConflictDiverged{
 			SortedSenderVersions:   sender,
 			SortedReceiverVersions: receiver,
-			CommonAncestor:         sender[mrcaSnd],
-			SenderOnly:             sender[mrcaSnd+1:],
-			ReceiverOnly:           receiver[mrcaRcv+1:],
+			CommonAncestor:         sender[mrcaCandidate.s],
+			SenderOnly:             sender[mrcaCandidate.s+1:],
+			ReceiverOnly:           receiver[mrcaCandidate.r+1:],
 		}
 	}
 
+	// incPath is possible
+
 	// incPath must not contain bookmarks except initial one,
 	incPath = make([]*FilesystemVersion, 0, len(sender))
-	incPath = append(incPath, sender[mrcaSnd])
+	incPath = append(incPath, sender[mrcaCandidate.s])
 	// it's ok if incPath[0] is a bookmark, but not the subsequent ones in the incPath
-	for i := mrcaSnd + 1; i < len(sender); i++ {
+	for i := mrcaCandidate.s + 1; i < len(sender); i++ {
 		if sender[i].Type == FilesystemVersion_Snapshot && incPath[len(incPath)-1].Guid != sender[i].Guid {
 			incPath = append(incPath, sender[i])
 		}
