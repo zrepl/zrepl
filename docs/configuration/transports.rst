@@ -229,7 +229,7 @@ Tools like `EasyRSA <https://github.com/OpenVPN/easy-rsa>`_ make this very easy:
      ./easyrsa init-pki
      ./easyrsa build-ca nopass
 
-     for host in $HOSTS; do
+     for host in "${HOSTS[@]}"; do
          ./easyrsa build-serverClient-full $host nopass
          echo cert for host $host available at pki/issued/$host.crt
          echo key for host $host available at pki/private/$host.key
