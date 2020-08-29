@@ -125,14 +125,16 @@ func (c *Cmd) startPre(newTask bool) {
 }
 
 func (c *Cmd) startPost(err error) {
-	now := time.Now()
 
-	c.mtx.Lock()
+	now := time.Now()
 	c.startedAt = now
-	c.mtx.Unlock()
 
 	startPostReport(c, err, now)
 	startPostLogging(c, err, now)
+
+	if err != nil {
+		c.waitReturnEndSpanCb()
+	}
 }
 
 func (c *Cmd) waitPre() {
