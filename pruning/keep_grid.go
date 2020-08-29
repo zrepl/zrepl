@@ -99,17 +99,21 @@ func (a retentionGridAdaptor) LessThan(b retentiongrid.Entry) bool {
 // Prune filters snapshots with the retention grid.
 func (p *KeepGrid) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 
-	snaps = filterSnapList(snaps, func(snapshot Snapshot) bool {
+	matching, notMatching := partitionSnapList(snaps, func(snapshot Snapshot) bool {
 		return p.re.MatchString(snapshot.Name())
 	})
-	if len(snaps) == 0 {
-		return nil
+
+	// snaps that don't match the regex are not kept by this rule
+	destroyList = append(destroyList, notMatching...)
+
+	if len(matching) == 0 {
+		return destroyList
 	}
 
 	// Build adaptors for retention grid
 	adaptors := make([]retentiongrid.Entry, 0)
-	for i := range snaps {
-		adaptors = append(adaptors, retentionGridAdaptor{snaps[i]})
+	for i := range matching {
+		adaptors = append(adaptors, retentionGridAdaptor{matching[i]})
 	}
 
 	// determine 'now' edge
@@ -122,9 +126,8 @@ func (p *KeepGrid) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 	_, removea := p.retentionGrid.FitEntries(now, adaptors)
 
 	// Revert adaptors
-	destroyList = make([]Snapshot, len(removea))
 	for i := range removea {
-		destroyList[i] = removea[i].(retentionGridAdaptor).Snapshot
+		destroyList = append(destroyList, removea[i].(retentionGridAdaptor).Snapshot)
 	}
 	return destroyList
 }

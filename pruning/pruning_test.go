@@ -75,6 +75,10 @@ func TestPruneSnapshots(t *testing.T) {
 		},
 	}
 
+	reltime := func(secs int64) time.Time {
+		return time.Unix(secs, 0)
+	}
+
 	tcs := map[string]testCase{
 		"simple": {
 			inputs: inputs["s1"],
@@ -120,6 +124,24 @@ func TestPruneSnapshots(t *testing.T) {
 				MustKeepRegex("foo_", false),
 			},
 			expDestroy: map[string]bool{},
+		},
+		"multiple_grids_with_disjoint_regexes": {
+			inputs: []Snapshot{
+				stubSnap{"p1_a", false, reltime(4)},
+				stubSnap{"p2_a", false, reltime(5)},
+				stubSnap{"p1_b", false, reltime(14)},
+				stubSnap{"p2_b", false, reltime(15)},
+				stubSnap{"p1_c", false, reltime(29)},
+				stubSnap{"p2_c", false, reltime(30)},
+			},
+			rules: []KeepRule{
+				MustNewKeepGrid("^p1_", `1x10s | 1x10s`),
+				MustNewKeepGrid("^p2_", `1x10s | 1x10s`),
+			},
+			expDestroy: map[string]bool{
+				"p1_a": true,
+				"p2_a": true,
+			},
 		},
 	}
 
