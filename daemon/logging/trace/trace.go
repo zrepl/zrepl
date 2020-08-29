@@ -93,6 +93,7 @@ package trace
 import (
 	"context"
 	"fmt"
+	"os"
 	runtimedebug "runtime/debug"
 	"strings"
 	"time"
@@ -241,7 +242,11 @@ func WithTask(ctx context.Context, taskName string) (context.Context, DoneFunc) 
 			defer this.mtx.Lock().Unlock()
 
 			if this.activeChildTasks != 0 {
-				panic(errors.WithMessagef(ErrTaskStillHasActiveChildTasks, "end task: %v active child tasks\n: %s", this.activeChildTasks, this.debugString()))
+				if debugEnabled {
+					// the debugString can be quite long and panic won't print it completely
+					fmt.Fprintf(os.Stderr, "going to panic due to activeChildTasks:\n%s\n", this.debugString())
+				}
+				panic(errors.WithMessagef(ErrTaskStillHasActiveChildTasks, "end task: %v active child tasks\n", this.activeChildTasks))
 			}
 
 			// support idempotent task ends
@@ -256,7 +261,11 @@ func WithTask(ctx context.Context, taskName string) (context.Context, DoneFunc) 
 					delete(this.parentTask.debugActiveChildTasks, this)
 				}
 				if this.parentTask.activeChildTasks < 0 {
-					panic(fmt.Sprintf("impl error: parent task with negative activeChildTasks count: %s", this.debugString()))
+					if debugEnabled {
+						// the debugString can be quite long and panic won't print it completely
+						fmt.Fprintf(os.Stderr, "going to panic due to activeChildTasks < 0:\n%s\n", this.parentTask.debugString())
+					}
+					panic(fmt.Sprintf("impl error: parent task with negative activeChildTasks count: %v", this.parentTask.activeChildTasks))
 				}
 			}
 			return false
