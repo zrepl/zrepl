@@ -39,10 +39,7 @@ func TestKeepLastN(t *testing.T) {
 			rules: []KeepRule{
 				KeepLastN{1},
 			},
-			expDestroyAlternatives: []map[string]bool{
-				{"1": true, "2": true, "3": true, "4": true},
-				{"1": true, "2": true, "3": true, "5": true},
-			},
+			expDestroy: map[string]bool{"1": true, "2": true, "3": true, "4": true},
 		},
 		"keepMany": {
 			inputs: inputs["s1"],

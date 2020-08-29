@@ -3,6 +3,9 @@ package pruning
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type stubSnap struct {
@@ -18,10 +21,9 @@ func (s stubSnap) Replicated() bool { return s.replicated }
 func (s stubSnap) Date() time.Time { return s.date }
 
 type testCase struct {
-	inputs                 []Snapshot
-	rules                  []KeepRule
-	expDestroy, effDestroy map[string]bool
-	expDestroyAlternatives []map[string]bool
+	inputs     []Snapshot
+	rules      []KeepRule
+	expDestroy map[string]bool
 }
 
 type snapshotList []Snapshot
@@ -44,41 +46,20 @@ func (l snapshotList) NameList() []string {
 }
 
 func testTable(tcs map[string]testCase, t *testing.T) {
-	mapEqual := func(a, b map[string]bool) bool {
-		if len(a) != len(b) {
-			return false
-		}
-		for k, v := range a {
-			if w, ok := b[k]; !ok || v != w {
-				return false
-			}
-		}
-		return true
-	}
-
 	for name := range tcs {
 		t.Run(name, func(t *testing.T) {
 			tc := tcs[name]
-			remove := PruneSnapshots(tc.inputs, tc.rules)
-			tc.effDestroy = make(map[string]bool)
-			for _, s := range remove {
-				tc.effDestroy[s.Name()] = true
+			destroyList := PruneSnapshots(tc.inputs, tc.rules)
+			destroySet := make(map[string]bool, len(destroyList))
+			for _, s := range destroyList {
+				destroySet[s.Name()] = true
 			}
-			if tc.expDestroyAlternatives == nil {
-				if tc.expDestroy == nil {
-					panic("must specify either expDestroyAlternatives or expDestroy")
-				}
-				tc.expDestroyAlternatives = []map[string]bool{tc.expDestroy}
-			}
-			var okAlt map[string]bool = nil
-			for _, alt := range tc.expDestroyAlternatives {
-				t.Logf("testing possible result: %v", alt)
-				if mapEqual(alt, tc.effDestroy) {
-					okAlt = alt
-				}
-			}
-			if okAlt == nil {
-				t.Errorf("no alternatives matched result: %v", tc.effDestroy)
+			t.Logf("destroySet:\n%#v", destroySet)
+			t.Logf("expected:\n%#v", tc.expDestroy)
+
+			require.Equal(t, len(tc.expDestroy), len(destroySet))
+			for name := range destroySet {
+				assert.True(t, tc.expDestroy[name], "%q", name)
 			}
 		})
 	}
