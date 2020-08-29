@@ -37,7 +37,7 @@ func (t *RetentionIntervalList) UnmarshalYAML(u func(interface{}, bool) error) (
 		return err
 	}
 
-	intervals, err := parseRetentionGridIntervalsString(in)
+	intervals, err := ParseRetentionIntervalSpec(in)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func parseRetentionGridIntervalString(e string) (intervals []RetentionInterval, 
 
 }
 
-func parseRetentionGridIntervalsString(s string) (intervals []RetentionInterval, err error) {
+func ParseRetentionIntervalSpec(s string) (intervals []RetentionInterval, err error) {
 
 	ges := strings.Split(s, "|")
 	intervals = make([]RetentionInterval, 0, 7*len(ges))

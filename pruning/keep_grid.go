@@ -30,35 +30,61 @@ func NewKeepGrid(in *config.PruneGrid) (p *KeepGrid, err error) {
 		return nil, errors.Wrap(err, "Regex is invalid")
 	}
 
+	return newKeepGrid(re, in.Grid)
+}
+
+func MustNewKeepGrid(regex, gridspec string) *KeepGrid {
+
+	ris, err := config.ParseRetentionIntervalSpec(gridspec)
+	if err != nil {
+		panic(err)
+	}
+
+	re := regexp.MustCompile(regex)
+
+	grid, err := newKeepGrid(re, ris)
+	if err != nil {
+		panic(err)
+	}
+	return grid
+}
+
+func newKeepGrid(re *regexp.Regexp, configIntervals []config.RetentionInterval) (*KeepGrid, error) {
+	if re == nil {
+		panic("re must not be nil")
+	}
+
+	if len(configIntervals) == 0 {
+		return nil, errors.New("retention grid must specify at least one interval")
+	}
+
+	intervals := make([]retentiongrid.Interval, len(configIntervals))
+	for i := range configIntervals {
+		intervals[i] = &configIntervals[i]
+	}
+
 	// Assert intervals are of increasing length (not necessarily required, but indicates config mistake)
 	lastDuration := time.Duration(0)
-	for i := range in.Grid {
+	for i := range intervals {
 
-		if in.Grid[i].Length() < lastDuration {
+		if intervals[i].Length() < lastDuration {
 			// If all intervals before were keep=all, this is ok
 			allPrevKeepCountAll := true
 			for j := i - 1; allPrevKeepCountAll && j >= 0; j-- {
-				allPrevKeepCountAll = in.Grid[j].KeepCount() == config.RetentionGridKeepCountAll
+				allPrevKeepCountAll = intervals[j].KeepCount() == config.RetentionGridKeepCountAll
 			}
 			if allPrevKeepCountAll {
 				goto isMonotonicIncrease
 			}
-			err = errors.New("retention grid interval length must be monotonically increasing")
-			return
+			return nil, errors.New("retention grid interval length must be monotonically increasing")
 		}
 	isMonotonicIncrease:
-		lastDuration = in.Grid[i].Length()
-
-	}
-
-	retentionIntervals := make([]retentiongrid.Interval, len(in.Grid))
-	for i := range in.Grid {
-		retentionIntervals[i] = &in.Grid[i]
+		lastDuration = intervals[i].Length()
 	}
 
 	return &KeepGrid{
-		retentiongrid.NewGrid(retentionIntervals),
-		re,
+		retentionGrid: retentiongrid.NewGrid(intervals),
+		re:            re,
 	}, nil
 }
 
