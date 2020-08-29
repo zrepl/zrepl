@@ -79,6 +79,13 @@ func (c *Cmd) log() Logger {
 	return getLogger(c.ctx).WithField("cmd", c.String())
 }
 
+// Start the command.
+//
+// This creates a new trace.WithTask as a child task of the ctx passed to CommandContext.
+// If the process is successfully started (err == nil), it is the CALLER'S RESPONSIBILITY to ensure that
+// the spawned process does not outlive the ctx's trace.Task.
+//
+// If this method returns an error, the Cmd instance is invalid. Start must not be called repeatedly.
 func (c *Cmd) Start() (err error) {
 	c.startPre(true)
 	err = c.cmd.Start()
@@ -86,7 +93,9 @@ func (c *Cmd) Start() (err error) {
 	return err
 }
 
-// only call this after a successful call to .Start()
+// Get the underlying os.Process.
+//
+// Only call this method after a successful call to .Start().
 func (c *Cmd) Process() *os.Process {
 	if c.startedAt.IsZero() {
 		panic("calling Process() only allowed after successful call to Start()")
@@ -94,6 +103,10 @@ func (c *Cmd) Process() *os.Process {
 	return c.cmd.Process
 }
 
+// Blocking wait for the process to exit.
+// May be called concurrently and repeatly (exec.Cmd.Wait() semantics apply).
+//
+// Only call this method after a successful call to .Start().
 func (c *Cmd) Wait() (err error) {
 	c.waitPre()
 	err = c.cmd.Wait()
