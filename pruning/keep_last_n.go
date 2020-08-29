@@ -2,6 +2,7 @@ package pruning
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -26,7 +27,13 @@ func (k KeepLastN) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 	res := shallowCopySnapList(snaps)
 
 	sort.Slice(res, func(i, j int) bool {
-		return res[i].Date().After(res[j].Date())
+		// by date (youngest first)
+		id, jd := res[i].Date(), res[j].Date()
+		if !id.Equal(jd) {
+			return id.After(jd)
+		}
+		// then lexicographically descending (e.g. b, a)
+		return strings.Compare(res[i].Name(), res[j].Name()) == 1
 	})
 
 	return res[k.n:]
