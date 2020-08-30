@@ -3,7 +3,6 @@ package pruning
 import (
 	"fmt"
 	"regexp"
-	"sort"
 	"time"
 
 	"github.com/pkg/errors"
@@ -88,14 +87,6 @@ func newKeepGrid(re *regexp.Regexp, configIntervals []config.RetentionInterval) 
 	}, nil
 }
 
-type retentionGridAdaptor struct {
-	Snapshot
-}
-
-func (a retentionGridAdaptor) LessThan(b retentiongrid.Entry) bool {
-	return a.Date().Before(b.Date())
-}
-
 // Prune filters snapshots with the retention grid.
 func (p *KeepGrid) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 
@@ -110,24 +101,16 @@ func (p *KeepGrid) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 		return destroyList
 	}
 
-	// Build adaptors for retention grid
-	adaptors := make([]retentiongrid.Entry, 0)
-	for i := range matching {
-		adaptors = append(adaptors, retentionGridAdaptor{matching[i]})
-	}
-
-	// determine 'now' edge
-	sort.SliceStable(adaptors, func(i, j int) bool {
-		return adaptors[i].LessThan(adaptors[j])
-	})
-	now := adaptors[len(adaptors)-1].Date()
-
 	// Evaluate retention grid
-	_, removea := p.retentionGrid.FitEntries(now, adaptors)
+	entrySlice := make([]retentiongrid.Entry, 0)
+	for i := range matching {
+		entrySlice = append(entrySlice, matching[i])
+	}
+	_, gridDestroyList := p.retentionGrid.FitEntries(entrySlice)
 
 	// Revert adaptors
-	for i := range removea {
-		destroyList = append(destroyList, removea[i].(retentionGridAdaptor).Snapshot)
+	for i := range gridDestroyList {
+		destroyList = append(destroyList, gridDestroyList[i].(Snapshot))
 	}
 	return destroyList
 }
