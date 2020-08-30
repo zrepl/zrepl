@@ -38,7 +38,41 @@ jobs:
     encrypted: true
 `
 
-	encrypted_unspecified := `
+	raw_true := `
+  send:
+    raw: true
+
+`
+
+	raw_false := `
+  send:
+    raw: false
+
+`
+
+	raw_and_encrypted := `
+  send:
+    encrypted: true
+    raw: true
+`
+
+	properties_and_encrypted := `
+  send:
+    encrypted: true
+    send_properties: true
+`
+
+	properties_true := `
+  send:
+    send_properties: true
+`
+
+	properties_false := `
+  send:
+    send_properties: false
+`
+
+	send_empty := `
   send: {}
 `
 
@@ -59,10 +93,50 @@ jobs:
 		assert.Equal(t, true, encrypted)
 	})
 
-	t.Run("encrypted_unspecified", func(t *testing.T) {
-		c, err := testConfig(t, fill(encrypted_unspecified))
-		assert.Error(t, err)
-		assert.Nil(t, c)
+	t.Run("send_empty", func(t *testing.T) {
+		c := testValidConfig(t, fill(send_empty))
+		encrypted := c.Jobs[0].Ret.(*PushJob).Send.Encrypted
+		assert.Equal(t, false, encrypted)
+	})
+
+	t.Run("properties_and_encrypted", func(t *testing.T) {
+		c := testValidConfig(t, fill(properties_and_encrypted))
+		encrypted := c.Jobs[0].Ret.(*PushJob).Send.Encrypted
+		properties := c.Jobs[0].Ret.(*PushJob).Send.SendProperties
+		assert.Equal(t, true, encrypted)
+		assert.Equal(t, true, properties)
+	})
+
+	t.Run("properties_false", func(t *testing.T) {
+		c := testValidConfig(t, fill(properties_false))
+		properties := c.Jobs[0].Ret.(*PushJob).Send.SendProperties
+		assert.Equal(t, false, properties)
+	})
+
+	t.Run("properties_true", func(t *testing.T) {
+		c := testValidConfig(t, fill(properties_true))
+		properties := c.Jobs[0].Ret.(*PushJob).Send.SendProperties
+		assert.Equal(t, true, properties)
+	})
+
+	t.Run("raw_true", func(t *testing.T) {
+		c := testValidConfig(t, fill(raw_true))
+		raw := c.Jobs[0].Ret.(*PushJob).Send.Raw
+		assert.Equal(t, true, raw)
+	})
+
+	t.Run("raw_false", func(t *testing.T) {
+		c := testValidConfig(t, fill(raw_false))
+		raw := c.Jobs[0].Ret.(*PushJob).Send.Raw
+		assert.Equal(t, false, raw)
+	})
+
+	t.Run("raw_and_encrypted", func(t *testing.T) {
+		c := testValidConfig(t, fill(raw_and_encrypted))
+		raw := c.Jobs[0].Ret.(*PushJob).Send.Raw
+		encrypted := c.Jobs[0].Ret.(*PushJob).Send.Encrypted
+		assert.Equal(t, true, raw)
+		assert.Equal(t, true, encrypted)
 	})
 
 	t.Run("send_not_specified", func(t *testing.T) {

@@ -18,13 +18,21 @@ import (
 	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/util/semaphore"
 	"github.com/zrepl/zrepl/zfs"
+	zfsprop "github.com/zrepl/zrepl/zfs/property"
 )
 
 type SenderConfig struct {
 	FSF                         zfs.DatasetFilter
-	Encrypt                     *zfs.NilBool
 	DisableIncrementalStepHolds bool
 	JobID                       JobID
+
+	Encrypt              *zfs.NilBool
+	SendRaw              bool
+	SendProperties       bool
+	SendBackupProperties bool
+	SendLargeBlocks      bool
+	SendCompressed       bool
+	SendEmbeddedData     bool
 }
 
 func (c *SenderConfig) Validate() error {
@@ -41,9 +49,16 @@ func (c *SenderConfig) Validate() error {
 // Sender implements replication.ReplicationEndpoint for a sending side
 type Sender struct {
 	FSFilter                    zfs.DatasetFilter
-	encrypt                     *zfs.NilBool
 	disableIncrementalStepHolds bool
 	jobId                       JobID
+
+	encrypt              *zfs.NilBool
+	sendRaw              bool
+	sendProperties       bool
+	sendBackupProperties bool
+	sendLargeBlocks      bool
+	sendCompressed       bool
+	sendEmbeddedData     bool
 }
 
 func NewSender(conf SenderConfig) *Sender {
@@ -52,9 +67,16 @@ func NewSender(conf SenderConfig) *Sender {
 	}
 	return &Sender{
 		FSFilter:                    conf.FSF,
-		encrypt:                     conf.Encrypt,
 		disableIncrementalStepHolds: conf.DisableIncrementalStepHolds,
 		jobId:                       conf.JobID,
+
+		encrypt:              conf.Encrypt,
+		sendRaw:              conf.SendRaw,
+		sendProperties:       conf.SendProperties,
+		sendBackupProperties: conf.SendBackupProperties,
+		sendLargeBlocks:      conf.SendLargeBlocks,
+		sendCompressed:       conf.SendCompressed,
+		sendEmbeddedData:     conf.SendEmbeddedData,
 	}
 }
 
@@ -171,13 +193,35 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 		FS:          r.Filesystem,
 		From:        uncheckedSendArgsFromPDU(r.GetFrom()), // validated by zfs.ZFSSendDry / zfs.ZFSSend
 		To:          uncheckedSendArgsFromPDU(r.GetTo()),   // validated by zfs.ZFSSendDry / zfs.ZFSSend
-		Encrypted:   s.encrypt,
-		ResumeToken: r.ResumeToken, // nil or not nil, depending on decoding success
+		ResumeToken: r.ResumeToken,                         // nil or not nil, depending on decoding success
+
+		Encrypted:        s.encrypt,
+		Properties:       s.sendProperties,
+		BackupProperties: s.sendBackupProperties,
+		Raw:              s.sendRaw,
+		LargeBlocks:      s.sendLargeBlocks,
+		Compressed:       s.sendCompressed,
+		EmbeddedData:     s.sendEmbeddedData,
 	}
 
 	sendArgs, err := sendArgsUnvalidated.Validate(ctx)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "validate send arguments")
+	}
+
+	if s.sendRaw {
+		encryptionSupported, err := zfs.EncryptionCLISupported(ctx)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "cannot determine CLI native encryption support")
+		}
+
+		if !encryptionSupported {
+			// zfs-send(8) about `send -w`: "For unencrypted datasets, this flag will be equivalent to -Lec."
+			sendArgs.Raw = false
+			sendArgs.LargeBlocks = true  // -L
+			sendArgs.Compressed = true   // -c
+			sendArgs.EmbeddedData = true // -e
+		}
 	}
 
 	getLogger(ctx).Debug("acquire concurrent send semaphore")
@@ -432,6 +476,8 @@ type FSMap interface { // FIXME unused
 	AsFilter() FSFilter
 }
 
+// NOTE: when adding members to this struct, remember
+//       to add them to `ReceiverConfig.copyIn()`
 type ReceiverConfig struct {
 	JobID JobID
 
@@ -439,14 +485,46 @@ type ReceiverConfig struct {
 	AppendClientIdentity       bool
 
 	UpdateLastReceivedHold bool
+
+	InheritProperties  []zfsprop.Property
+	OverrideProperties map[zfsprop.Property]string
 }
 
 func (c *ReceiverConfig) copyIn() {
 	c.RootWithoutClientComponent = c.RootWithoutClientComponent.Copy()
+
+	pInherit := make([]zfsprop.Property, len(c.InheritProperties))
+	copy(pInherit, c.InheritProperties)
+	c.InheritProperties = pInherit
+
+	pOverride := make(map[zfsprop.Property]string, len(c.OverrideProperties))
+	for key, value := range c.OverrideProperties {
+		pOverride[key] = value
+	}
+	c.OverrideProperties = pOverride
 }
 
 func (c *ReceiverConfig) Validate() error {
 	c.JobID.MustValidate()
+
+	if c.InheritProperties != nil {
+		for _, prop := range c.InheritProperties {
+			err := prop.Validate()
+			if err != nil {
+				return errors.Wrapf(err, "inherit property %q", prop)
+			}
+		}
+	}
+
+	if c.OverrideProperties != nil {
+		for prop := range c.OverrideProperties {
+			err := prop.Validate()
+			if err != nil {
+				return errors.Wrapf(err, "override property %q", prop)
+			}
+		}
+	}
+
 	if c.RootWithoutClientComponent.Length() <= 0 {
 		return errors.New("RootWithoutClientComponent must not be an empty dataset path")
 	}
@@ -734,6 +812,10 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.
 		return nil, errors.Wrap(err, "cannot get placeholder state")
 	}
 	log.WithField("placeholder_state", fmt.Sprintf("%#v", ph)).Debug("placeholder state")
+
+	recvOpts.InheritProperties = s.conf.InheritProperties
+	recvOpts.OverrideProperties = s.conf.OverrideProperties
+
 	if ph.FSExists && ph.IsPlaceholder {
 		recvOpts.RollbackAndForceRecv = true
 		clearPlaceholderProperty = true

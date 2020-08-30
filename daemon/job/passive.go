@@ -58,6 +58,9 @@ func modeSinkFromConfig(g *config.Global, in *config.SinkJob, jobID endpoint.Job
 		RootWithoutClientComponent: rootDataset,
 		AppendClientIdentity:       true, // !
 		UpdateLastReceivedHold:     true,
+
+		InheritProperties:  in.Recv.Properties.Inherit,
+		OverrideProperties: in.Recv.Properties.Override,
 	}
 	if err := m.receiverConfig.Validate(); err != nil {
 		return nil, errors.Wrap(err, "cannot build receiver config")
@@ -80,9 +83,16 @@ func modeSourceFromConfig(g *config.Global, in *config.SourceJob, jobID endpoint
 	}
 	m.senderConfig = &endpoint.SenderConfig{
 		FSF:                         fsf,
-		Encrypt:                     &zfs.NilBool{B: in.Send.Encrypted},
-		DisableIncrementalStepHolds: in.Send.StepHolds.DisableIncremental,
 		JobID:                       jobID,
+		DisableIncrementalStepHolds: in.Send.StepHolds.DisableIncremental,
+
+		Encrypt:              &zfs.NilBool{B: in.Send.Encrypted},
+		SendRaw:              in.Send.Raw,
+		SendProperties:       in.Send.SendProperties,
+		SendBackupProperties: in.Send.BackupProperties,
+		SendLargeBlocks:      in.Send.LargeBlocks,
+		SendCompressed:       in.Send.Compressed,
+		SendEmbeddedData:     in.Send.EmbeddedData,
 	}
 
 	if m.snapper, err = snapper.FromConfig(g, fsf, in.Snapshotting); err != nil {
