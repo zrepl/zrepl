@@ -44,6 +44,13 @@ This is a big one! Headlining features:
 
    We highly recommend studying the updated :ref:`overview section of the configuration chapter <overview-how-replication-works>` to understand how replication works.
 
+.. TIP::
+
+   Go 1.15 changed the default TLS validation policy to **require Subject Alternative Names (SAN) in certificates**.
+   The openssl commands we provided in the quick-start guides up to and including the zrepl 0.3 docs seem not to work properly.
+   If you encounter certificate validation errors regarding SAN and wish to continue to use your old certificates, start the zrepl daemon with env var ``GODEBUG=x509ignoreCN=0``.
+   Alternatively, generate new certificates with SANs (see :ref:`both options int the TLS transport docs <transport-tcp+tlsclientauth-certgen>` ).
+
 Quick-start guides:
 
 * We have added :ref:`another quick-start guide for a typical workstation use case for zrepl <quickstart-backup-to-external-disk>`.
@@ -51,6 +58,7 @@ Quick-start guides:
 
 Additional changelog:
 
+* |break| Go 1.15 TLS changes mentioned above.
 * |break| |break_config| **more restrictive job names than in prior zrepl versions**
   Starting with this version, job names are going to be embedded into ZFS holds and bookmark names (see :ref:`this section for details <zrepl-zfs-abstractions>`).
   Therefore you might need to adjust your job names.

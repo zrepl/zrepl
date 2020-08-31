@@ -147,11 +147,26 @@ zrepl-bin:
 generate-platform-test-list:
 	$(GO_BUILD) -o $(ARTIFACTDIR)/generate-platform-test-list ./platformtest/tests/gen
 
-test-platform-bin:
+COVER_PLATFORM_BIN_PATH := $(ARTIFACTDIR)/platformtest-cover-$(ZREPL_TARGET_TUPLE)
+cover-platform-bin:
 	$(GO_ENV_VARS) $(GO) test $(GO_BUILDFLAGS) \
-		-c -o "$(ARTIFACTDIR)/platformtest-$(ZREPL_TARGET_TUPLE)" \
+		-c -o "$(COVER_PLATFORM_BIN_PATH)" \
 		-covermode=atomic -cover -coverpkg github.com/zrepl/zrepl/... \
 		./platformtest/harness
+cover-platform:
+	# do not track dependency on cover-platform-bin to allow build of binary outside of test VM
+	export _TEST_PLATFORM_CMD="$(COVER_PLATFORM_BIN_PATH) \
+		-test.coverprofile \"$(ARTIFACTDIR)/platformtest.cover\" \
+		-test.v \
+		__DEVEL--i-heard-you-like-tests"; \
+		$(MAKE) _test-or-cover-platform-impl
+
+TEST_PLATFORM_BIN_PATH := $(ARTIFACTDIR)/platformtest-$(ZREPL_TARGET_TUPLE)
+test-platform-bin:
+	$(GO_BUILD) -o "$(TEST_PLATFORM_BIN_PATH)" ./platformtest/harness
+test-platform:
+	export _TEST_PLATFORM_CMD="\"$(TEST_PLATFORM_BIN_PATH)\""; \
+		$(MAKE) _test-or-cover-platform-impl
 
 ZREPL_PLATFORMTEST_POOLNAME := zreplplatformtest
 ZREPL_PLATFORMTEST_IMAGEPATH := /tmp/zreplplatformtest.pool.img
@@ -159,14 +174,14 @@ ZREPL_PLATFORMTEST_MOUNTPOINT := /tmp/zreplplatformtest.pool
 ZREPL_PLATFORMTEST_ZFS_LOG := /tmp/zreplplatformtest.zfs.log
 # ZREPL_PLATFORMTEST_STOP_AND_KEEP := -failure.stop-and-keep-pool
 ZREPL_PLATFORMTEST_ARGS := 
-test-platform: $(ARTIFACTDIR) # do not track dependency on test-platform-bin to allow build of platformtest outside of test VM
+_test-or-cover-platform-impl: $(ARTIFACTDIR)
+ifndef _TEST_PLATFORM_CMD
+	$(error _TEST_PLATFORM_CMD is undefined, caller 'cover-platform' or 'test-platform' should have defined it)
+endif
 	rm -f "$(ZREPL_PLATFORMTEST_ZFS_LOG)"
 	rm -f "$(ARTIFACTDIR)/platformtest.cover"
 	platformtest/logmockzfs/logzfsenv "$(ZREPL_PLATFORMTEST_ZFS_LOG)" `which zfs` \
-	"$(ARTIFACTDIR)/platformtest-$(ZREPL_TARGET_TUPLE)" \
-		-test.coverprofile "$(ARTIFACTDIR)/platformtest.cover" \
-		-test.v \
-		__DEVEL--i-heard-you-like-tests \
+		$(_TEST_PLATFORM_CMD) \
 		-poolname "$(ZREPL_PLATFORMTEST_POOLNAME)" \
 		-imagepath "$(ZREPL_PLATFORMTEST_IMAGEPATH)" \
 		-mountpoint "$(ZREPL_PLATFORMTEST_MOUNTPOINT)" \
@@ -178,10 +193,11 @@ cover-merge: $(ARTIFACTDIR)
 cover-html: cover-merge
 	$(GO) tool cover -html "$(ARTIFACTDIR)/merged.cover" -o "$(ARTIFACTDIR)/merged.cover.html"
 
-test-full:
+cover-full:
 	test "$$(id -u)" = "0" || echo "MUST RUN AS ROOT" 1>&2
 	$(MAKE) test-go COVER=1
-	$(MAKE) test-platform
+	$(MAKE) cover-platform-bin
+	$(MAKE) cover-platform
 	$(MAKE) cover-html
 
 ##################### DEV TARGETS #####################

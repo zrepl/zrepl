@@ -82,7 +82,7 @@ func (l Level) String() string {
 	case Error:
 		return "error"
 	default:
-		return string(l)
+		return fmt.Sprintf("unknown level %d", l)
 	}
 }
 

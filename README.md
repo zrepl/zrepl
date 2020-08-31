@@ -21,7 +21,7 @@ zrepl is a one-stop ZFS backup & replication solution.
 
 ## Feature Requests
 
-1. Does you feature request require default values / some kind of configuration?
+1. Does your feature request require default values / some kind of configuration?
    If so, think of an expressive configuration example.
 2. Think of at least one use case that generalizes from your concrete application.
 3. Open an issue on GitHub with example conf & use case attached.
