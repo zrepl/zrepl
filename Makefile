@@ -20,7 +20,7 @@ GOARCH ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOARCH"')
 GOARM ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOARM"')
 GOHOSTOS ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOHOSTOS"')
 GOHOSTARCH ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOHOSTARCH"')
-GO_ENV_VARS := GO111MODULE=on
+GO_ENV_VARS := GO111MODULE=on CGO_ENABLED=0
 GO_LDFLAGS := "-X github.com/zrepl/zrepl/version.zreplVersion=$(_ZREPL_VERSION)"
 GO_MOD_READONLY := -mod=readonly
 GO_EXTRA_BUILDFLAGS :=
