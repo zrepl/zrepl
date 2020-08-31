@@ -202,14 +202,20 @@ cover-full:
 
 ##################### DEV TARGETS #####################
 # not part of the build, must do that manually
-.PHONY: generate format
+.PHONY: generate formatcheck format
 
 generate: generate-platform-test-list
 	protoc -I=replication/logic/pdu --go_out=plugins=grpc:replication/logic/pdu replication/logic/pdu/pdu.proto
 	$(GO_ENV_VARS) $(GO) generate $(GO_BUILDFLAGS) -x ./...
 
+GOIMPORTS := goimports -srcdir . -local 'github.com/zrepl/zrepl'
+FINDSRCFILES := find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go'
+
+formatcheck:
+	@ $(GOIMPORTS) -l $(shell $(FINDSRCFILES))
+
 format:
-	goimports -srcdir . -local 'github.com/zrepl/zrepl' -w $(shell find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go')
+	@ $(GOIMPORTS) -w -d $(shell  $(FINDSRCFILES))
 
 ##################### NOARCH #####################
 .PHONY: noarch $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/_zrepl.zsh_completion $(ARTIFACTDIR)/go_env.txt docs docs-clean
