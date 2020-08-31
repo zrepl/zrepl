@@ -3,11 +3,3 @@ global:
     - type: stdout
       format: human
       level: debug
-
-jobs:
-  - type: sink
-    name: "local_sink"
-    root_fs: "storage/zrepl/sink"
-    serve:
-      type: local
-      listener_name: localsink
