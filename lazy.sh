@@ -20,11 +20,14 @@ if ! type go >/dev/null; then
 fi
 
 if [ -z "$GOPATH" ]; then
-    step "Make sure you have your GOPATH configured correctly" 1>&2
+    step "Your GOPATH is not configured correctly" 1>&2
     exit 1
 fi
 
-CHECKOUTPATH="${GOPATH}/src/github.com/zrepl/zrepl"
+if ! (echo "$PATH" | grep "${GOPATH}/bin" > /dev/null); then
+    step "GOPATH/bin is not in your PATH (it should be towards the start of it)"
+    exit 1
+fi
 
 godep() {
     step "install build dependencies (versions pinned in build/go.mod and build/tools.go)"
@@ -51,8 +54,9 @@ docdep() {
         exit 1
     fi
     step "Installing doc build dependencies"
-    local reqpath="${CHECKOUTPATH}/docs/requirements.txt"
-    if [ ! -z "$ZREPL_LAZY_DOCS_REQPATH" ]; then
+    # shellcheck disable=SC2155
+    local reqpath="$(dirname "${BASH_SOURCE[0]}")/docs/requirements.txt"
+    if [ -n "$ZREPL_LAZY_DOCS_REQPATH" ]; then
         reqpath="$ZREPL_LAZY_DOCS_REQPATH"
     fi
     pip3 install -r "$reqpath"
@@ -63,9 +67,15 @@ release() {
     make release
 }
 
+    # shellcheck disable=SC2198
+if [ -z "$@" ]; then
+    step "No command specified, exiting"
+    exit 1
+fi
+
 for cmd in "$@"; do
     case "$cmd" in
-        godep|docdep|release_bins|docs)
+        godep|docdep|release|docs)
             eval $cmd
             continue
             ;;
