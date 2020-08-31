@@ -100,6 +100,7 @@ import (
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/zrepl/zrepl/util/chainlock"
 )
 

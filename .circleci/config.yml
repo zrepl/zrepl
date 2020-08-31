@@ -60,6 +60,15 @@ jobs:
 
       - run: make zrepl-bin
       - run: make vet
+      - run:
+          shell: /bin/bash
+          command: |
+            needformat="$(make formatcheck)"
+            if [ -n "$needformat" ]; then
+              echo "$needformat"
+              exit 1
+            fi
+            exit 0
       - run: make lint
       - run: make release
       - run: make test-go

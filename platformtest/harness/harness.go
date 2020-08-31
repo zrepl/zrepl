@@ -11,6 +11,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"

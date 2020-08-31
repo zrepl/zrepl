@@ -10,6 +10,7 @@ import (
 
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/replication/logic/pdu"

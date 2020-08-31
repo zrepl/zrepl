@@ -12,6 +12,7 @@ import (
 
 	"github.com/montanaflynn/stats"
 	"github.com/stretchr/testify/assert"
+
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 )
 

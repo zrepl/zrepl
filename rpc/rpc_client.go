@@ -10,8 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/zrepl/zrepl/daemon/logging/trace"
 	"google.golang.org/grpc"
+
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/google/uuid"
 
