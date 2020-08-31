@@ -1,3 +1,9 @@
+global:
+  logging:
+    - type: stdout
+      format: human
+      level: debug
+
 jobs:
   - type: sink
     name: "local_sink"

@@ -1,13 +1,16 @@
 FROM scratch
 
-COPY artifacts/release/zrepl-linux-amd64 /zrepl
-COPY docker-image-zrepl.yml /zrepl.yml
+COPY artifacts/release/zrepl-linux-amd64 /usr/bin/zrepl
+COPY --chown=0775 docker/etc/zrepl/zrepl.yml /etc/zrepl/zrepl.yml
+# Without this COPY /var/run, the COPY /var/run/zrepl chown doesn't take effect?!
+COPY docker/var/run /var/run
+COPY --chown=0700 docker/var/run/zrepl /var/run/zrepl
 
-CMD ["--config", "/zrepl.yml", "daemon"]
-ENTRYPOINT ["/zrepl"]
-#STOPSIGNAL SIGTERM
+CMD ["--config", "/etc/zrepl/zrepl.yml", "daemon"]
+ENTRYPOINT ["/usr/bin/zrepl"]
+STOPSIGNAL SIGTERM
 VOLUME /etc/zrepl
-#WORKDIR "/tmp"
+WORKDIR "/"
 
 #FROM debian:stable-slim
 
