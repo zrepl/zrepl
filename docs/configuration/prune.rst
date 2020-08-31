@@ -175,9 +175,11 @@ Policy ``last_n``
          keep_receiver:
          - type: last_n
            count: 10
+           regex: ^zrepl_.*$ # optional
      ...
 
-``last_n`` keeps the last ``count`` snapshots (last = youngest = most recent creation date).
+``last_n`` filters the snapshot list by ``regex``, then keeps the last ``count`` snapshots in that list (last = youngest = most recent creation date)
+All snapshots that don't match ``regex`` or exceed ``count`` in the filtered list are destroyed unless matched by other rules.
 
 .. _prune-keep-regex:
 
