@@ -212,7 +212,9 @@ GOIMPORTS := goimports -srcdir . -local 'github.com/zrepl/zrepl'
 FINDSRCFILES := find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go'
 
 formatcheck:
-	@ $(GOIMPORTS) -l $(shell $(FINDSRCFILES))
+	@# goimports doesn't have a knob to exit with non-zero status code if formatting is needed
+	@# see https://go-review.googlesource.com/c/tools/+/237378
+	@ affectedfiles=$$($(GOIMPORTS) -l $(shell $(FINDSRCFILES)) | tee /dev/stderr | wc -l); test "$$affectedfiles" = 0
 
 format:
 	@ $(GOIMPORTS) -w -d $(shell  $(FINDSRCFILES))
