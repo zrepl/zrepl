@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zrepl/zrepl/platformtest"
+	"github.com/zrepl/zrepl/util/nodefault"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -28,7 +29,7 @@ func ResumableRecvAndTokenHandling(ctx *platformtest.Context) {
 	s := makeResumeSituation(ctx, src, recvFS, zfs.ZFSSendArgsUnvalidated{
 		FS:          sendFS,
 		To:          src.snapA,
-		Encrypted:   &zfs.NilBool{B: false},
+		Encrypted:   &nodefault.Bool{B: false},
 		ResumeToken: "",
 	}, zfs.RecvOptions{
 		RollbackAndForceRecv: false, // doesnt' exist yet

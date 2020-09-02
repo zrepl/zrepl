@@ -21,6 +21,7 @@ import (
 
 	"github.com/zrepl/zrepl/util/circlog"
 	"github.com/zrepl/zrepl/util/envconst"
+	"github.com/zrepl/zrepl/util/nodefault"
 	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
@@ -563,27 +564,11 @@ func (v ZFSSendArgVersion) MustBeBookmark() {
 	}
 }
 
-type NilBool struct{ B bool }
-
-func (n *NilBool) Validate() error {
-	if n == nil {
-		return fmt.Errorf("must explicitly set `true` or `false`")
-	}
-	return nil
-}
-
-func (n *NilBool) String() string {
-	if n == nil {
-		return "unset"
-	}
-	return fmt.Sprintf("%v", n.B)
-}
-
 // When updating this struct, check Validate and ValidateCorrespondsToResumeToken (POTENTIALLY SECURITY SENSITIVE)
 type ZFSSendArgsUnvalidated struct {
 	FS        string
 	From, To  *ZFSSendArgVersion // From may be nil
-	Encrypted *NilBool
+	Encrypted *nodefault.Bool
 
 	// Preferred if not empty
 	ResumeToken string // if not nil, must match what is specified in From, To (covered by ValidateCorrespondsToResumeToken)
@@ -596,7 +581,7 @@ type ZFSSendArgsValidated struct {
 }
 
 type zfsSendArgsValidationContext struct {
-	encEnabled *NilBool
+	encEnabled *nodefault.Bool
 }
 
 type ZFSSendArgsValidationErrorCode int
@@ -653,7 +638,7 @@ func (a ZFSSendArgsUnvalidated) Validate(ctx context.Context) (v ZFSSendArgsVali
 		// fallthrough
 	}
 
-	if err := a.Encrypted.Validate(); err != nil {
+	if err := a.Encrypted.ValidateNoDefault(); err != nil {
 		return v, newGenericValidationError(a, errors.Wrap(err, "`Raw` invalid"))
 	}
 
@@ -663,7 +648,7 @@ func (a ZFSSendArgsUnvalidated) Validate(ctx context.Context) (v ZFSSendArgsVali
 		return v, newValidationError(a, ZFSSendArgsFSEncryptionCheckFail,
 			errors.Wrapf(err, "cannot check whether filesystem %q is encrypted", a.FS))
 	}
-	valCtx.encEnabled = &NilBool{fsEncrypted}
+	valCtx.encEnabled = &nodefault.Bool{B: fsEncrypted}
 
 	if a.Encrypted.B && !fsEncrypted {
 		return v, newValidationError(a, ZFSSendArgsEncryptedSendRequestedButFSUnencrypted,
@@ -790,7 +775,7 @@ func ZFSSend(ctx context.Context, sendArgs ZFSSendArgsValidated) (*SendStream, e
 
 	// pre-validation of sendArgs for plain ErrEncryptedSendNotSupported error
 	// TODO go1.13: push this down to sendArgs.Validate
-	if encryptedSendValid := sendArgs.Encrypted.Validate(); encryptedSendValid == nil && sendArgs.Encrypted.B {
+	if encryptedSendValid := sendArgs.Encrypted.ValidateNoDefault(); encryptedSendValid == nil && sendArgs.Encrypted.B {
 		supported, err := EncryptionCLISupported(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot determine CLI native encryption support")

@@ -19,6 +19,7 @@ import (
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/replication/report"
 	"github.com/zrepl/zrepl/util/limitio"
+	"github.com/zrepl/zrepl/util/nodefault"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -57,7 +58,7 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 	}
 	sender := i.interceptSender(endpoint.NewSender(endpoint.SenderConfig{
 		FSF:     i.sfilter.AsFilter(),
-		Encrypt: &zfs.NilBool{B: false},
+		Encrypt: &nodefault.Bool{B: false},
 		JobID:   i.sjid,
 	}))
 	receiver := i.interceptReceiver(endpoint.NewReceiver(endpoint.ReceiverConfig{

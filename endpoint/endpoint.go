@@ -17,19 +17,20 @@ import (
 	"github.com/zrepl/zrepl/util/chainedio"
 	"github.com/zrepl/zrepl/util/chainlock"
 	"github.com/zrepl/zrepl/util/envconst"
+	"github.com/zrepl/zrepl/util/nodefault"
 	"github.com/zrepl/zrepl/util/semaphore"
 	"github.com/zrepl/zrepl/zfs"
 )
 
 type SenderConfig struct {
 	FSF     zfs.DatasetFilter
-	Encrypt *zfs.NilBool
+	Encrypt *nodefault.Bool
 	JobID   JobID
 }
 
 func (c *SenderConfig) Validate() error {
 	c.JobID.MustValidate()
-	if err := c.Encrypt.Validate(); err != nil {
+	if err := c.Encrypt.ValidateNoDefault(); err != nil {
 		return errors.Wrap(err, "`Encrypt` field invalid")
 	}
 	if _, err := StepHoldTag(c.JobID); err != nil {
@@ -41,7 +42,7 @@ func (c *SenderConfig) Validate() error {
 // Sender implements replication.ReplicationEndpoint for a sending side
 type Sender struct {
 	FSFilter zfs.DatasetFilter
-	encrypt  *zfs.NilBool
+	encrypt  *nodefault.Bool
 	jobId    JobID
 }
 

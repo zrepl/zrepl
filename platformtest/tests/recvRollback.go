@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zrepl/zrepl/platformtest"
+	"github.com/zrepl/zrepl/util/nodefault"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -28,7 +29,7 @@ func ReceiveForceRollbackWorksUnencrypted(ctx *platformtest.Context) {
 
 	sendArgs, err := zfs.ZFSSendArgsUnvalidated{
 		FS:          sfs,
-		Encrypted:   &zfs.NilBool{B: false},
+		Encrypted:   &nodefault.Bool{B: false},
 		From:        nil,
 		To:          &sfsSnap1,
 		ResumeToken: "",

@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/zrepl/zrepl/daemon/logging/trace"
+	"github.com/zrepl/zrepl/util/nodefault"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
@@ -175,7 +176,7 @@ func (j *SnapJob) doPrune(ctx context.Context) {
 		JobID: j.name,
 		FSF:   j.fsfilter,
 		// FIXME encryption setting is irrelevant for SnapJob because the endpoint is only used as pruner.Target
-		Encrypt: &zfs.NilBool{B: true},
+		Encrypt: &nodefault.Bool{B: true},
 	})
 	j.pruner = j.prunerFactory.BuildLocalPruner(ctx, sender, alwaysUpToDateReplicationCursorHistory{sender})
 	log.Info("start pruning")
