@@ -13,6 +13,7 @@ import (
 
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 	"github.com/zrepl/zrepl/util/envconst"
+	"github.com/zrepl/zrepl/util/nodefault"
 	"github.com/zrepl/zrepl/util/semaphore"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -257,7 +258,7 @@ type ListZFSHoldsAndBookmarksQuery struct {
 
 type CreateTXGRangeBound struct {
 	CreateTXG uint64
-	Inclusive *zfs.NilBool // must not be nil
+	Inclusive *nodefault.Bool // must not be nil
 }
 
 // A non-empty range of CreateTXGs
@@ -300,7 +301,7 @@ func (q *ListZFSHoldsAndBookmarksQuery) Validate() error {
 var createTXGRangeBoundAllowCreateTXG0 = envconst.Bool("ZREPL_ENDPOINT_LIST_ABSTRACTIONS_QUERY_CREATETXG_RANGE_BOUND_ALLOW_0", false)
 
 func (i *CreateTXGRangeBound) Validate() error {
-	if err := i.Inclusive.Validate(); err != nil {
+	if err := i.Inclusive.ValidateNoDefault(); err != nil {
 		return errors.Wrap(err, "Inclusive")
 	}
 	if i.CreateTXG == 0 && !createTXGRangeBoundAllowCreateTXG0 {
@@ -419,7 +420,7 @@ func (r *CreateTXGRange) String() string {
 	if r.Since == nil {
 		fmt.Fprintf(&buf, "~")
 	} else {
-		if err := r.Since.Inclusive.Validate(); err != nil {
+		if err := r.Since.Inclusive.ValidateNoDefault(); err != nil {
 			fmt.Fprintf(&buf, "?")
 		} else if r.Since.Inclusive.B {
 			fmt.Fprintf(&buf, "[")
@@ -435,7 +436,7 @@ func (r *CreateTXGRange) String() string {
 		fmt.Fprintf(&buf, "~")
 	} else {
 		fmt.Fprintf(&buf, "%d", r.Until.CreateTXG)
-		if err := r.Until.Inclusive.Validate(); err != nil {
+		if err := r.Until.Inclusive.ValidateNoDefault(); err != nil {
 			fmt.Fprintf(&buf, "?")
 		} else if r.Until.Inclusive.B {
 			fmt.Fprintf(&buf, "]")
@@ -829,14 +830,14 @@ func listStaleFiltering(abs []Abstraction, sinceBound *CreateTXGRangeBound) *Sta
 					untilBound = &CreateTXGRangeBound{
 						CreateTXG: (*sfnsc.cursor).GetCreateTXG(),
 						// if we have a cursor, can throw away step hold on both From and To
-						Inclusive: &zfs.NilBool{B: true},
+						Inclusive: &nodefault.Bool{B: true},
 					}
 				} else if sfnsc.step != nil {
 					untilBound = &CreateTXGRangeBound{
 						CreateTXG: (*sfnsc.step).GetCreateTXG(),
 						// if we don't have a cursor, the step most recent step hold is our
 						// initial replication cursor and it's possibly still live (interrupted initial replication)
-						Inclusive: &zfs.NilBool{B: false},
+						Inclusive: &nodefault.Bool{B: false},
 					}
 				} else {
 					untilBound = nil // consider everything stale

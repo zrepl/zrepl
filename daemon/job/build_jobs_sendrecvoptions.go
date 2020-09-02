@@ -6,6 +6,7 @@ import (
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/endpoint"
+	"github.com/zrepl/zrepl/util/nodefault"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -23,7 +24,7 @@ func buildSenderConfig(in SendingJobConfig, jobID endpoint.JobID) (*endpoint.Sen
 
 	return &endpoint.SenderConfig{
 		FSF:     fsf,
-		Encrypt: &zfs.NilBool{B: in.GetSendOptions().Encrypted},
+		Encrypt: &nodefault.Bool{B: in.GetSendOptions().Encrypted},
 		JobID:   jobID,
 	}, nil
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/zfs"
+	"github.com/zrepl/zrepl/util/nodefault"
 )
 
 func TestCreateTXGRange(t *testing.T) {
@@ -47,8 +47,8 @@ func TestCreateTXGRange(t *testing.T) {
 			name:          "wrong order obvious",
 			expectInvalid: true,
 			config: &CreateTXGRange{
-				Since: &CreateTXGRangeBound{23, &zfs.NilBool{B: true}},
-				Until: &CreateTXGRangeBound{20, &zfs.NilBool{B: true}},
+				Since: &CreateTXGRangeBound{23, &nodefault.Bool{B: true}},
+				Until: &CreateTXGRangeBound{20, &nodefault.Bool{B: true}},
 			},
 			expectString: "[23,20]",
 		},
@@ -56,8 +56,8 @@ func TestCreateTXGRange(t *testing.T) {
 			name:          "wrong order edge-case could also be empty",
 			expectInvalid: true,
 			config: &CreateTXGRange{
-				Since: &CreateTXGRangeBound{23, &zfs.NilBool{B: false}},
-				Until: &CreateTXGRangeBound{22, &zfs.NilBool{B: true}},
+				Since: &CreateTXGRangeBound{23, &nodefault.Bool{B: false}},
+				Until: &CreateTXGRangeBound{22, &nodefault.Bool{B: true}},
 			},
 			expectString: "(23,22]",
 		},
@@ -65,8 +65,8 @@ func TestCreateTXGRange(t *testing.T) {
 			name:          "empty",
 			expectInvalid: true,
 			config: &CreateTXGRange{
-				Since: &CreateTXGRangeBound{2, &zfs.NilBool{B: false}},
-				Until: &CreateTXGRangeBound{2, &zfs.NilBool{B: false}},
+				Since: &CreateTXGRangeBound{2, &nodefault.Bool{B: false}},
+				Until: &CreateTXGRangeBound{2, &nodefault.Bool{B: false}},
 			},
 			expectString: "(2,2)",
 		},
@@ -74,8 +74,8 @@ func TestCreateTXGRange(t *testing.T) {
 			name:          "inclusive-since-exclusive-until",
 			expectInvalid: false,
 			config: &CreateTXGRange{
-				Since: &CreateTXGRangeBound{2, &zfs.NilBool{B: true}},
-				Until: &CreateTXGRangeBound{5, &zfs.NilBool{B: false}},
+				Since: &CreateTXGRangeBound{2, &nodefault.Bool{B: true}},
+				Until: &CreateTXGRangeBound{5, &nodefault.Bool{B: false}},
 			},
 			expectString: "[2,5)",
 			expect: []testCaseExpectation{
@@ -92,8 +92,8 @@ func TestCreateTXGRange(t *testing.T) {
 			name:          "exclusive-since-inclusive-until",
 			expectInvalid: false,
 			config: &CreateTXGRange{
-				Since: &CreateTXGRangeBound{2, &zfs.NilBool{B: false}},
-				Until: &CreateTXGRangeBound{5, &zfs.NilBool{B: true}},
+				Since: &CreateTXGRangeBound{2, &nodefault.Bool{B: false}},
+				Until: &CreateTXGRangeBound{5, &nodefault.Bool{B: true}},
 			},
 			expectString: "(2,5]",
 			expect: []testCaseExpectation{
@@ -111,7 +111,7 @@ func TestCreateTXGRange(t *testing.T) {
 			expectInvalid: true,
 			config: &CreateTXGRange{
 				Since: nil,
-				Until: &CreateTXGRangeBound{0, &zfs.NilBool{B: true}},
+				Until: &CreateTXGRangeBound{0, &nodefault.Bool{B: true}},
 			},
 			expectString: "~,0]",
 		},
@@ -119,7 +119,7 @@ func TestCreateTXGRange(t *testing.T) {
 			name:          "half-open-no-until",
 			expectInvalid: false,
 			config: &CreateTXGRange{
-				Since: &CreateTXGRangeBound{2, &zfs.NilBool{B: false}},
+				Since: &CreateTXGRangeBound{2, &nodefault.Bool{B: false}},
 				Until: nil,
 			},
 			expectString: "(2,~",
@@ -138,7 +138,7 @@ func TestCreateTXGRange(t *testing.T) {
 			expectInvalid: false,
 			config: &CreateTXGRange{
 				Since: nil,
-				Until: &CreateTXGRangeBound{4, &zfs.NilBool{B: true}},
+				Until: &CreateTXGRangeBound{4, &nodefault.Bool{B: true}},
 			},
 			expectString: "~,4]",
 			expect: []testCaseExpectation{
@@ -154,7 +154,7 @@ func TestCreateTXGRange(t *testing.T) {
 			name:          "edgeSince",
 			expectInvalid: false,
 			config: &CreateTXGRange{
-				Since: &CreateTXGRangeBound{math.MaxUint64, &zfs.NilBool{B: true}},
+				Since: &CreateTXGRangeBound{math.MaxUint64, &nodefault.Bool{B: true}},
 				Until: nil,
 			},
 			expectString: "[18446744073709551615,~",
@@ -169,7 +169,7 @@ func TestCreateTXGRange(t *testing.T) {
 			name:          "edgeSinceNegative",
 			expectInvalid: true,
 			config: &CreateTXGRange{
-				Since: &CreateTXGRangeBound{math.MaxUint64, &zfs.NilBool{B: false}},
+				Since: &CreateTXGRangeBound{math.MaxUint64, &nodefault.Bool{B: false}},
 				Until: nil,
 			},
 			expectString: "(18446744073709551615,~",
@@ -178,7 +178,7 @@ func TestCreateTXGRange(t *testing.T) {
 			name:          "edgeUntil",
 			expectInvalid: false,
 			config: &CreateTXGRange{
-				Until: &CreateTXGRangeBound{0, &zfs.NilBool{B: true}},
+				Until: &CreateTXGRangeBound{0, &nodefault.Bool{B: true}},
 			},
 			configAllowZeroCreateTXG: true,
 			expectString:             "~,0]",
@@ -193,7 +193,7 @@ func TestCreateTXGRange(t *testing.T) {
 			expectInvalid:            true,
 			configAllowZeroCreateTXG: true,
 			config: &CreateTXGRange{
-				Until: &CreateTXGRangeBound{0, &zfs.NilBool{B: false}},
+				Until: &CreateTXGRangeBound{0, &nodefault.Bool{B: false}},
 			},
 			expectString: "~,0)",
 		},

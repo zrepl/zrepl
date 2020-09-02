@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zrepl/zrepl/platformtest"
+	"github.com/zrepl/zrepl/util/nodefault"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -42,7 +43,7 @@ func sendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden_impl(ctx *plat
 			RelName: "@a snap",
 			GUID:    props.Guid,
 		},
-		Encrypted:   &zfs.NilBool{B: true},
+		Encrypted:   &nodefault.Bool{B: true},
 		ResumeToken: "",
 	}.Validate(ctx)
 
@@ -97,7 +98,7 @@ func SendArgsValidationResumeTokenEncryptionMismatchForbidden(ctx *platformtest.
 	unencS := makeResumeSituation(ctx, src, unencRecvFS, zfs.ZFSSendArgsUnvalidated{
 		FS:        sendFS,
 		To:        src.snapA,
-		Encrypted: &zfs.NilBool{B: false}, // !
+		Encrypted: &nodefault.Bool{B: false}, // !
 	}, zfs.RecvOptions{
 		RollbackAndForceRecv: false,
 		SavePartialRecvState: true,
@@ -106,7 +107,7 @@ func SendArgsValidationResumeTokenEncryptionMismatchForbidden(ctx *platformtest.
 	encS := makeResumeSituation(ctx, src, encRecvFS, zfs.ZFSSendArgsUnvalidated{
 		FS:        sendFS,
 		To:        src.snapA,
-		Encrypted: &zfs.NilBool{B: true}, // !
+		Encrypted: &nodefault.Bool{B: true}, // !
 	}, zfs.RecvOptions{
 		RollbackAndForceRecv: false,
 		SavePartialRecvState: true,
@@ -174,7 +175,7 @@ func SendArgsValidationResumeTokenDifferentFilesystemForbidden(ctx *platformtest
 	rs := makeResumeSituation(ctx, src1, recvFS, zfs.ZFSSendArgsUnvalidated{
 		FS:        sendFS1,
 		To:        src1.snapA,
-		Encrypted: &zfs.NilBool{B: false},
+		Encrypted: &nodefault.Bool{B: false},
 	}, zfs.RecvOptions{
 		RollbackAndForceRecv: false,
 		SavePartialRecvState: true,
@@ -188,7 +189,7 @@ func SendArgsValidationResumeTokenDifferentFilesystemForbidden(ctx *platformtest
 			RelName: src2.snapA.RelName,
 			GUID:    src2.snapA.GUID,
 		},
-		Encrypted:   &zfs.NilBool{B: false},
+		Encrypted:   &nodefault.Bool{B: false},
 		ResumeToken: rs.recvErrDecoded.ResumeTokenRaw,
 	}
 	_, err = maliciousSend.Validate(ctx)
