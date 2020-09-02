@@ -1,83 +1,79 @@
-version: 2.0
-workflows:
-  version: 2
-  build:
-    jobs:
-      - build-1.11
-      - build-1.12
-      - build-1.13
-      - build-1.14
-      - build-latest
-      - test-build-in-docker
-jobs:
+version: 2.1
 
-  # build-latest serves as the template
-  # we use YAML anchors & aliases to exchange the docker image (and hence Go version used for the build)
-  build-latest: &build-latest
-    description: Builds zrepl
-    parameters:
-      image:
-        description: "the docker image that the job should use"
-        type: string
-    docker:
-      - image: circleci/golang:latest
-    environment:
-      # required by lazy.sh
-      TERM: xterm
-    working_directory: /go/src/github.com/zrepl/zrepl
+commands:
+  setup-home-local-bin:
     steps:
       - run:
-          name: Setup environment variables
+          shell: /bin/bash -euo pipefail
           command: |
-            # used by pip (for docs)
-            echo 'export PATH="$HOME/.local/bin:$PATH"' >> $BASH_ENV
-            # we use modules
-            echo 'export GO111MODULE=on' >> $BASH_ENV
-
-      - restore_cache:
-          keys:
-            - source
-            - protobuf
-
-      - checkout
-
-      - save_cache:
-          key: source
-          paths:
-            - ".git"
-      
-      # install deps
-      - run: wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip
-      - run: echo "6003de742ea3fcf703cfec1cd4a3380fd143081a2eb0e559065563496af27807  protoc-3.6.1-linux-x86_64.zip" | sha256sum -c
-      - run: sudo unzip -d /usr protoc-3.6.1-linux-x86_64.zip
-      - save_cache:
-          key: protobuf
-          paths:
-            - "/usr/include/google/protobuf"
-            
-      - run: sudo apt update && sudo apt install python3 python3-pip libgirepository1.0-dev gawk
-      - run: ./lazy.sh devsetup
-
-      - run: make zrepl-bin
-      - run: make vet
-      - run:
-          shell: /bin/bash
-          command: |
-            needformat="$(make formatcheck)"
-            if [ -n "$needformat" ]; then
-              echo "$needformat"
-              exit 1
+            mkdir -p "$HOME/.local/bin"
+            line='export PATH="$HOME/.local/bin:$PATH"'
+            if grep "$line" $BASH_ENV >/dev/null; then
+              echo "$line" >> $BASH_ENV
             fi
-            exit 0
-      - run: make lint
-      - run: make release
-      - run: make test-go
-      # cannot run test-platform because circle-ci runs in linux containers
 
-      - store_artifacts:
-          path: ./artifacts/release
-          when: always
+  invoke-lazy-sh:
+    parameters:
+      subcommand:
+        type: string
+    steps:
+      - run:
+          environment:
+            TERM: xterm
+          command: ./lazy.sh <<parameters.subcommand>>
 
+  apt-update-and-install-common-deps:
+    steps:
+      - run: sudo apt update && sudo apt install gawk make
+
+  restore-cache-gomod:
+    steps:
+      - restore_cache:
+          key: go-mod-v4-{{ checksum "go.sum" }}
+  save-cache-gomod:
+    steps:
+      - save_cache:
+          key: go-mod-v4-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
+
+  install-godep:
+    steps:
+      - apt-update-and-install-common-deps
+      - invoke-lazy-sh:
+          subcommand: godep
+
+  install-docdep:
+    steps:
+      - apt-update-and-install-common-deps
+      - run: sudo apt install python3 python3-pip libgirepository1.0-dev
+      - invoke-lazy-sh:
+          subcommand: docdep
+
+  download-and-install-minio-client:
+    steps:
+      - setup-home-local-bin
+      - restore_cache:
+          key: minio-client-v2
+      - run:
+          shell: /bin/bash -eo pipefail
+          command: |
+            if which mc; then exit 0; fi
+            sudo curl -sSL https://dl.min.io/client/mc/release/linux-amd64/archive/mc.RELEASE.2020-08-20T00-23-01Z \
+              -o "$HOME/.local/bin/mc"
+            sudo chmod +x "$HOME/.local/bin/mc"
+      - save_cache:
+          key: minio-client-v2
+          paths:
+            - "$HOME/.local/bin/mc"
+
+  upload-minio:
+    parameters:
+      src:
+        type: string
+      dst:
+        type: string
+    steps:
       - run:
           shell: /bin/bash -eo pipefail
           when: always
@@ -87,69 +83,211 @@ jobs:
               exit 0
             fi
             set -u # from now on
-            
-            # Download and install minio
-            curl -sSL https://dl.minio.io/client/mc/release/linux-amd64/mc -o ${GOPATH}/bin/mc
-            chmod +x ${GOPATH}/bin/mc
+
             mc config host add --api s3v4 zrepl-minio https://minio.cschwarz.com ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
-            
+
+            # keep in sync with set-github-minio-status
+            jobprefix=zrepl-ci-artifacts/test/${CIRCLE_SHA1}/${CIRCLE_JOB}
+
             # Upload artifacts
-            echo "$CIRCLE_BUILD_URL" > ./artifacts/release/cirlceci_build_url
-            mc cp -r artifacts/release "zrepl-minio/zrepl-ci-artifacts/${CIRCLE_SHA1}/${CIRCLE_JOB}/"
+            mkdir -p ./artifacts
+            mc cp -r <<parameters.src>> "zrepl-minio/$jobprefix/<<parameters.dst>>"
 
-            # Push Artifact Link to GitHub
-            REPO="zrepl/zrepl"
-            COMMIT="${CIRCLE_SHA1}"
-            JOB_NAME="${CIRCLE_JOB}"
-            curl "https://api.github.com/repos/$REPO/statuses/$COMMIT" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: token $GITHUB_COMMIT_STATUS_TOKEN" \
-              -X POST \
-              -d '{"context":"zrepl/publish-ci-artifacts", "state": "success", "description":"CI Build Artifacts for '"$JOB_NAME"'", "target_url":"https://minio.cschwarz.com/minio/zrepl-ci-artifacts/'"$COMMIT"'/"}'
-
-      # kick off binary packaging workflow
+  set-github-minio-status:
+    parameters:
+      context:
+        type: string
+      description:
+        type: string
+      minio-dst:
+        type: string
+    steps:
       - run:
           shell: /bin/bash -eo pipefail
           command: |
             if [ -n "$CIRCLE_PR_NUMBER" ]; then # CIRCLE_PR_NUMBER is guaranteed to be only present in forked PRs (external)
-              echo "Forked PR detected. Sry, can't trust you with credentials."
+              echo "Forked PR detected. Sry, can't trust you with credentials to external artifact store, use CircleCI's instead."
               exit 0
             fi
             set -u # from now on
-            GITHUB_ACCESS_TOKEN="$ZREPL_DEBIAN_BINARYPACKAGIN_TRIGGER_BUILD_GITHUB_TOKEN" .circleci/trigger_debian_binary_packaging_workflow.bash "$CIRCLE_SHA1" "${CIRCLE_JOB##build-}"
 
-  build-1.11:
-    <<: *build-latest
+            # keep in sync with with upload-minio command
+            jobprefix=zrepl-ci-artifacts/test/${CIRCLE_SHA1}/${CIRCLE_JOB}
+            # Push Artifact Link to GitHub
+            REPO="zrepl/zrepl"
+            COMMIT="${CIRCLE_SHA1}"
+            JOB_NAME="${CIRCLE_JOB}"
+            CONTEXT="<<parameters.context>>"
+            DESCRIPTION="<<parameters.description>>"
+            TARGETURL=https://minio.cschwarz.com/minio/"$jobprefix"/"<<parameters.minio-dst>>"
+            curl "https://api.github.com/repos/$REPO/statuses/$COMMIT" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: token $GITHUB_COMMIT_STATUS_TOKEN" \
+              -X POST \
+              -d '{"context":"'"$CONTEXT"'", "state": "success", "description":"'"$DESCRIPTION"'", "target_url":"'"$TARGETURL"'"}'
+
+
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - quickcheck-docs
+      - quickcheck-go: &quickcheck-go-smoketest
+          name: quickcheck-go-amd64-linux-1.15
+          goversion: &latest-go-release "1.15"
+          goos: linux
+          goarch: amd64
+      - test-go-on-latest-go-release:
+          goversion: *latest-go-release
+      - quickcheck-go:
+          requires:
+            - quickcheck-go-amd64-linux-1.15 #quickcheck-go-smoketest.name
+          matrix: &quickcheck-go-matrix
+            alias: quickcheck-go-matrix
+            parameters:
+              goversion: [*latest-go-release, "1.11"]
+              goos: ["linux", "freebsd"]
+              goarch: ["amd64", "arm64"]
+            exclude:
+              # don't re-do quickcheck-go-smoketest
+              - goversion: *latest-go-release
+                goos: linux
+                goarch: amd64
+              # not supported by Go 1.11
+              - goversion: "1.11"
+                goos: freebsd
+                goarch: arm64
+
+      - request-release-build:
+          type: approval
+          requires:
+            - quickcheck-docs
+            - quickcheck-go-amd64-linux-1.15 #quickcheck-go-smoketest.name
+            - quickcheck-go-matrix
+            - test-go-on-latest-go-release
+
+      - release-build:
+          requires:
+            - request-release-build
+
+      - release-deb:
+          requires:
+            - release-build
+      - release-rpm:
+          requires:
+            - release-build
+      - release-upload:
+          requires:
+            - release-build
+            - release-deb
+            - release-rpm
+
+jobs:
+  quickcheck-docs:
     docker:
-    - image: circleci/golang:1.11
-
-  build-1.12:
-    <<: *build-latest
-    docker:
-    - image: circleci/golang:1.12
-
-  build-1.13:
-    <<: *build-latest
-    docker:
-    - image: circleci/golang:1.13
-
-  build-1.14:
-    <<: *build-latest
-    docker:
-    - image: circleci/golang:1.14
-
-  # this job tests the build-in-docker instructions
-  # given in docs/installation/compile-from-source.rst
-  test-build-in-docker:
-    description: Check that build-in-docker works
-    machine:
-      image: default
+      - image: cimg/base:2020.08
     steps:
-    - checkout
-    - run: docker build -t zrepl_build -f build.Dockerfile .
-    - run:
-        command: |
-          docker run -it --rm \
-            -v "${PWD}:/src" \
-            --user "$(id -u):$(id -g)" \
-            zrepl_build make release
+      - checkout
+      - install-docdep
+      - run: make docs
+
+  quickcheck-go:
+    parameters:
+      goversion:
+        type: string
+      goos:
+        type: string
+      goarch:
+        type: string
+    docker:
+      - image: circleci/golang:<<parameters.goversion>>
+    environment:
+      GOOS: <<parameters.goos>>
+      GOARCH: <<parameters.goarch>>
+
+    steps:
+      - checkout
+
+      - restore-cache-gomod
+      - run: go mod download
+      - run: cd build && go mod download
+      - save-cache-gomod
+
+      - install-godep
+      - run: make formatcheck
+      - run: make generate-platform-test-list
+      - run: make zrepl-bin test-platform-bin
+      - run: make vet
+      - run: make lint
+
+      - download-and-install-minio-client
+      - run: rm -f artifacts/generate-platform-test-list
+      - store_artifacts:
+          path: artifacts
+      - upload-minio:
+          src: artifacts
+          dst: ""
+      - set-github-minio-status:
+          context: artifacts/${CIRCLE_JOB}
+          description: artifacts of CI job ${CIRCLE_JOB}
+          minio-dst: ""
+
+  test-go-on-latest-go-release:
+    parameters:
+      goversion:
+        type: string
+    docker:
+      - image: circleci/golang:<<parameters.goversion>>
+    steps:
+      - checkout
+      - restore-cache-gomod
+      - run: make test-go
+      # don't save-cache-gomod here, test-go doesn't pull all the dependencies
+
+  release-build:
+    machine: true
+    steps:
+      - checkout
+      - run: make release-docker
+      - persist_to_workspace:
+          root: .
+          paths: [.]
+  release-deb:
+    machine: true
+    steps:
+      - attach_workspace:
+          at: .
+      - run: make debs-docker
+      - persist_to_workspace:
+          root: .
+          paths:
+            - "artifacts/*.deb"
+
+  release-rpm:
+    machine: true
+    steps:
+      - attach_workspace:
+          at: .
+      - run: make rpms-docker
+      - persist_to_workspace:
+          root: .
+          paths:
+            - "artifacts/*.rpm"
+
+  release-upload:
+    docker:
+      - image: cimg/base:2020.08
+    steps:
+      - attach_workspace:
+          at: .
+      - store_artifacts:
+          path: artifacts
+      - download-and-install-minio-client
+      - upload-minio:
+          src: artifacts
+          dst: ""
+      - set-github-minio-status:
+          context: artifacts/release
+          description: CI-generated release artifacts
+          minio-dst: ""

@@ -57,6 +57,84 @@ ifeq (SIGN, 1)
 endif
 	@echo "ZREPL RELEASE ARTIFACTS AVAILABLE IN artifacts/release"
 
+release-docker:
+	docker build -t zrepl_release --pull -f build.Dockerfile .
+	docker run --rm -i -v $(CURDIR):/src -u $$(id -u):$$(id -g) \
+		zrepl_release \
+		make release GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)
+
+debs-docker:
+	$(MAKE) _debs_or_rpms_docker _DEB_OR_RPM=deb
+rpms-docker:
+	$(MAKE) _debs_or_rpms_docker _DEB_OR_RPM=rpm
+_debs_or_rpms_docker: # artifacts/_zrepl.zsh_completion artifacts/bash_completion docs zrepl-bin
+	$(MAKE) $(_DEB_OR_RPM)-docker GOOS=linux GOARCH=amd64
+	$(MAKE) $(_DEB_OR_RPM)-docker GOOS=linux GOARCH=arm64
+	$(MAKE) $(_DEB_OR_RPM)-docker GOOS=linux GOARCH=arm GOARM=7
+	$(MAKE) $(_DEB_OR_RPM)-docker GOOS=linux GOARCH=386
+
+rpm: $(ARTIFACTDIR) # artifacts/_zrepl.zsh_completion artifacts/bash_completion docs zrepl-bin
+	$(eval _ZREPL_RPM_VERSION := $(subst -,.,$(_ZREPL_VERSION)))
+	$(eval _ZREPL_RPM_TOPDIR_ABS := $(CURDIR)/$(ARTIFACTDIR)/rpmbuild)
+	rm -rf "$(_ZREPL_RPM_TOPDIR_ABS)"
+	mkdir "$(_ZREPL_RPM_TOPDIR_ABS)"
+	mkdir -p "$(_ZREPL_RPM_TOPDIR_ABS)"/{SPECS,RPMS,BUILD,BUILDROOT}
+	sed "s/^Version:.*/Version:          $(_ZREPL_RPM_VERSION)/g" \
+	    packaging/rpm/zrepl.spec >  $(_ZREPL_RPM_TOPDIR_ABS)/SPECS/zrepl.spec
+
+	# see /usr/lib/rpm/platform
+ifeq ($(GOARCH),amd64)
+	$(eval _ZREPL_RPMBUILD_TARGET := x86_64)
+else ifeq ($(GOARCH), 386)
+	$(eval _ZREPL_RPMBUILD_TARGET := i386)
+else ifeq ($(GOARCH), arm64)
+	$(eval _ZREPL_RPMBUILD_TARGET := aarch64)
+else ifeq ($(GOARCH), arm)
+	$(eval _ZREPL_RPMBUILD_TARGET := armv7hl)
+else
+	$(eval _ZREPL_RPMBUILD_TARGET := $(GOARCH))
+endif
+	rpmbuild \
+		--build-in-place \
+		--define "_sourcedir $(CURDIR)" \
+		--define "_topdir $(_ZREPL_RPM_TOPDIR_ABS)" \
+		--define "_zrepl_binary_filename zrepl-$(ZREPL_TARGET_TUPLE)" \
+		--target $(_ZREPL_RPMBUILD_TARGET) \
+		-bb "$(_ZREPL_RPM_TOPDIR_ABS)"/SPECS/zrepl.spec
+	cp "$(_ZREPL_RPM_TOPDIR_ABS)"/RPMS/$(_ZREPL_RPMBUILD_TARGET)/zrepl-$(_ZREPL_RPM_VERSION)*.rpm $(ARTIFACTDIR)/
+
+rpm-docker:
+	docker build -t zrepl_rpm_pkg --pull -f packaging/rpm/Dockerfile .
+	docker run --rm -i -v $(CURDIR):/build/src -u $$(id -u):$$(id -g) \
+		zrepl_rpm_pkg \
+		make rpm GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)
+
+deb: $(ARTIFACTDIR) # artifacts/_zrepl.zsh_completion artifacts/bash_completion docs zrepl-bin
+
+	cp packaging/deb/debian/changelog.template packaging/deb/debian/changelog
+	sed -i 's/DATE_DASH_R_OUTPUT/$(shell date -R)/' packaging/deb/debian/changelog
+	VERSION="$(subst -,.,$(_ZREPL_VERSION))"; \
+		export VERSION="$${VERSION#v}"; \
+		sed -i 's/VERSION/'"$$VERSION"'/' packaging/deb/debian/changelog
+
+ifeq ($(GOARCH), arm)
+	$(eval  DEB_HOST_ARCH := armhf)
+else ifeq ($(GOARCH), 386)
+	$(eval DEB_HOST_ARCH := i386)
+else
+	$(eval DEB_HOST_ARCH := $(GOARCH))
+endif
+
+	export ZREPL_DPKG_ZREPL_BINARY_FILENAME=zrepl-$(ZREPL_TARGET_TUPLE); \
+		dpkg-buildpackage -b --no-sign --host-arch $(DEB_HOST_ARCH)
+	cp ../*.deb artifacts/
+
+deb-docker:
+	docker build -t zrepl_debian_pkg --pull -f packaging/deb/Dockerfile .
+	docker run --rm -i -v $(CURDIR):/build/src -u $$(id -u):$$(id -g) \
+		zrepl_debian_pkg \
+		make deb GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)
+
 # expects `release` target to have run before
 NOARCH_TARBALL := $(ARTIFACTDIR)/zrepl-noarch.tar
 wrapup-and-checksum:
@@ -173,7 +251,7 @@ ZREPL_PLATFORMTEST_IMAGEPATH := /tmp/zreplplatformtest.pool.img
 ZREPL_PLATFORMTEST_MOUNTPOINT := /tmp/zreplplatformtest.pool
 ZREPL_PLATFORMTEST_ZFS_LOG := /tmp/zreplplatformtest.zfs.log
 # ZREPL_PLATFORMTEST_STOP_AND_KEEP := -failure.stop-and-keep-pool
-ZREPL_PLATFORMTEST_ARGS := 
+ZREPL_PLATFORMTEST_ARGS :=
 _test-or-cover-platform-impl: $(ARTIFACTDIR)
 ifndef _TEST_PLATFORM_CMD
 	$(error _TEST_PLATFORM_CMD is undefined, caller 'cover-platform' or 'test-platform' should have defined it)

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 
@@ -14,26 +14,31 @@ step() {
     echo "${bold}$1${normal}"
 }
 
-if ! type go >/dev/null; then
-    step "go binary not installed or not in \$PATH" 1>&2
-    exit 1
-fi
-
-if [ -z "$GOPATH" ]; then
-    step "Your GOPATH is not configured correctly" 1>&2
-    exit 1
-fi
-
-if ! (echo "$PATH" | grep "${GOPATH}/bin" > /dev/null); then
-    step "GOPATH/bin is not in your PATH (it should be towards the start of it)"
-    exit 1
-fi
-
 godep() {
     step "install build dependencies (versions pinned in build/go.mod and build/tools.go)"
+
+    if ! type go >/dev/null; then
+        step "go binary not installed or not in \$PATH" 1>&2
+        exit 1
+    fi
+
+    if [ -z "$GOPATH" ]; then
+        step "Your GOPATH is not configured correctly" 1>&2
+        exit 1
+    fi
+
+    if ! (echo "$PATH" | grep "${GOPATH}/bin" > /dev/null); then
+        step "GOPATH/bin is not in your PATH (it should be towards the start of it)"
+        exit 1
+    fi
+
     pushd "$(dirname "${BASH_SOURCE[0]}")"/build
     set -x
     export GO111MODULE=on # otherwise, a checkout of this repo in GOPATH will disable modules on Go 1.12 and earlier
+    source <(go env)
+    export GOOS="$GOHOSTOS"
+    export GOARCH="$GOHOSTARCH"
+    # TODO GOARM=$GOHOSTARM?
     go build -v -mod=readonly -o "$GOPATH/bin/stringer"      golang.org/x/tools/cmd/stringer
     go build -v -mod=readonly -o "$GOPATH/bin/protoc-gen-go" github.com/golang/protobuf/protoc-gen-go
     go build -v -mod=readonly -o "$GOPATH/bin/enumer"        github.com/alvaroloes/enumer
