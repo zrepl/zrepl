@@ -26,10 +26,3 @@ ENTRYPOINT ["/usr/bin/zrepl", "--config", "/etc/zrepl/zrepl.yml"]
 STOPSIGNAL SIGTERM
 VOLUME /etc/zrepl
 WORKDIR "/etc/zrepl"
-
-# TODO Confirm that SIGTERM is indeed the correct, safe signal. Also, how long should the grace period be?
-# TODO Document: Build the zrepl Docker container: export ZREPL_VERSION=0.3.0 && sudo docker build --tag zrepl:${ZREPL_VERSION} --build-arg ZREPL_VERSION=${ZREPL_VERSION} .
-# TODO Document: Running the zrepl Docker container: sudo docker run -d --name zrepl -v [ZREPL_CONF_DIR]:/etc/zrepl:ro --device /dev/zfs zrepl:0.3.0
-# TODO Document: Provide your zrepl configuration as a volume to this running Docker container.
-# TODO Document: Give the container access to ZFS.
-# TODO Document: Execute zrepl subcommands using this pattern: docker exec -it zrepl zrepl [subcommand]
