@@ -80,16 +80,19 @@ The active side (:ref:`push <job-push>` and :ref:`pull <job-pull>` job) executes
 .. TIP::
   The progress of the active side can be watched live using the ``zrepl status`` subcommand.
 
+.. _overview-passive-side--client-identity:
+
 How the Passive Side Works
 --------------------------
 
 The passive side (:ref:`sink <job-sink>` and :ref:`source <job-source>`) waits for connections from the corresponding active side,
 using the transport listener type specified in the ``serve`` field of the job configuration.
-Each transport listener provides a client's identity to the passive side job.
-It uses the client identity for access control:
+When a client connects, the transport listener performS listener-specific access control (cert validation, IP ACLs, etc)
+and determines the *client identity*.
+The passive side job then uses this client identity as follows:
 
 * The ``sink`` job maps requests from different client identities to their respective sub-filesystem tree ``root_fs/${client_identity}``.
-* The ``source`` job has a whitelist of client identities that are allowed pull access.
+* The ``source`` might, in the future, embed the client identity in :ref:`zrepl's ZFS abstraction names <zrepl-zfs-abstractions>` in order to support multi-host replication.
 
 .. TIP::
    The implementation of the ``sink`` job requires that the connecting client identities be a valid ZFS filesystem name components.
@@ -164,7 +167,7 @@ With the background knowledge from the previous paragraph, we now summarize the 
 
 .. _replication-placeholder-property:
 
-**Placeholder filesystems** on the receiving side are regular ZFS filesystems with the placeholder property ``zrepl:placeholder=on``.
+**Placeholder filesystems** on the receiving side are regular ZFS filesystems with the ZFS property ``zrepl:placeholder=on``.
 Placeholders allow the receiving side to mirror the sender's ZFS dataset hierarchy without replicating every filesystem at every intermediary dataset path component.
 Consider the following example: ``S/H/J`` shall be replicated to ``R/sink/job/S/H/J``, but neither ``S/H`` nor ``S`` shall be replicated.
 ZFS requires the existence of ``R/sink/job/S`` and ``R/sink/job/S/H`` in order to receive into ``R/sink/job/S/H/J``.
@@ -229,39 +232,53 @@ Limitations
 Multiple Jobs & More than 2 Machines
 ------------------------------------
 
+The quick-start guides focus on simple setups with a single sender and a single receiver.
+This section documents considerations for more complex setups.
+
 .. ATTENTION::
 
-  When using multiple jobs across single or multiple machines, the following rules are critical to avoid race conditions & data loss:
+   Before you continue, make sure you have a working understanding of :ref:`how zrepl works <overview-how-replication-works>`
+   and :ref:`what zrepl does to ensure <zrepl-zfs-abstractions>` that replication between sender and receiver is always
+   possible without conflicts.
+   This will help you understand why certain kinds of multi-machine setups do not (yet) work.
 
-  1. The sets of ZFS filesystems matched by the ``filesystems`` filter fields must be disjoint across all jobs configured on a machine.
-  2. The ZFS filesystem subtrees of jobs with ``root_fs`` must be disjoint.
-  3. Across all zrepl instances on all machines in the replication domain, there must be a 1:1 correspondence between active and passive jobs.
+.. NOTE::
 
-  Explanations & exceptions to above rules are detailed below.
+   If you can't find your desired configuration, have questions or would like to see improvements to multi-job setups, please `open an issue on GitHub <https://github.com/zrepl/zrepl/issues/new>`_.
 
-If you would like to see improvements to multi-job setups, please `open an issue on GitHub <https://github.com/zrepl/zrepl/issues/new>`_.
+Multiple Jobs on one Machine
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+As a general rule, multiple jobs configured on one machine **must operate on disjoint sets of filesystems**.
+Otherwise, concurrently running jobs might interfere when operating on the same filesystem.
 
-No Overlapping
-^^^^^^^^^^^^^^
+On your setup, ensure that
 
-Jobs run independently of each other.
-If two jobs match the same filesystem with their ``filesystems`` filter, they will operate on that filesystem independently and potentially in parallel.
-For example, if job A prunes snapshots that job B is planning to replicate, the replication will fail because B assumed the snapshot to still be present.
-However, the next replication attempt will re-examine the situation from scratch and should work.
+* all ``filesystems`` filter specifications are disjoint
+* no ``root_fs`` is a prefix or equal to another ``root_fs``
+* no ``filesystems`` filter maches any ``root_fs``
 
-N push jobs to 1 sink
-^^^^^^^^^^^^^^^^^^^^^
+**Exceptions to the rule**:
 
-The :ref:`sink job <job-sink>` namespaces by client identity.
-It is thus safe to push to one sink job with different client identities.
-If the push jobs have the same client identity, the filesystems matched by the push jobs must be disjoint to avoid races.
+* A ``snap`` and ``push`` job on the same machine can match the same ``filesystems``.
+  To avoid interference, only one of the jobs should be pruning snapshots on the sender, the other one should keep all snapshots.
+  Since the jobs won't coordinate, errors in the log are to be expected, but :ref:`zrepl's ZFS abstractions <zrepl-zfs-abstractions>` ensure that ``push`` and ``sink`` can always replicate incrementally.
+  This scenario is detailed in one of the :ref:`quick-start guides <quickstart-backup-to-external-disk>`.
 
-N pull jobs from 1 source
-^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Multiple pull jobs pulling from the same source have potential for race conditions during pruning:
-each pull job prunes the source side independently, causing replication-prune and prune-prune races.
+More Than 2 Machines
+^^^^^^^^^^^^^^^^^^^^
 
-There is currently no way for a pull job to filter which snapshots it should attempt to replicate.
-Thus, it is not possible to just manually assert that the prune rules of all pull jobs are disjoint to avoid replication-prune and prune-prune races.
+This section might be relevant to users who wish to *fan-in* (N machines replicate to 1) or *fan-out* (replicate 1 machine to N machines).
+
+**Working setups**:
+
+* N ``push`` identities, 1 ``sink`` (as long as the different push jobs have a different :ref:`client identity <overview-passive-side--client-identity>`)
+
+  * ``sink`` constrains each client to a disjoint sub-tree of the sink-side dataset hierarchy ``${root_fs}/${client_identity}``.
+    Therefore, the different clients cannot interfere.
+
+
+**Setups that do not work**:
+
+* N ``pull`` identities, 1 ``source`` job. Tracking :issue:`380`.
 
