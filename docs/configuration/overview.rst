@@ -59,8 +59,8 @@ Note that snapshot-creation denoted by "(snap)" is orthogonal to whether a job i
 | Pull mode             | ``pull``     | ``source``                       | * Central backup-server for many nodes                                             |
 |                       |              | (snap)                           | * Remote server to NAS behind NAT                                                  |
 +-----------------------+--------------+----------------------------------+------------------------------------------------------------------------------------+
-| Local replication     | | ``push`` + ``sink`` in one config             | * Backup FreeBSD boot pool                                                         |
-|                       | | with :ref:`local transport <transport-local>` |                                                                                    |
+| Local replication     | | ``push`` + ``sink`` in one config             | * Backup to :ref:`locally attached disk <quickstart-backup-to-external-disk>`      |
+|                       | | with :ref:`local transport <transport-local>` | * Backup FreeBSD boot pool                                                         |
 +-----------------------+--------------+----------------------------------+------------------------------------------------------------------------------------+
 | Snap & prune-only     | ``snap``     | N/A                              | * | Snapshots & pruning but no replication                                         |
 |                       | (snap)       |                                  |   | required                                                                       |
