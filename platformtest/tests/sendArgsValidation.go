@@ -9,11 +9,22 @@ import (
 	"github.com/zrepl/zrepl/zfs"
 )
 
-func SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden(ctx *platformtest.Context) {
+func SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden__EncryptionSupported_true(ctx *platformtest.Context) {
+	sendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden_impl(ctx, true)
+}
+
+func SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden__EncryptionSupported_false(ctx *platformtest.Context) {
+	sendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden_impl(ctx, false)
+}
+
+func sendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden_impl(ctx *platformtest.Context, testForEncryptionSupported bool) {
 
 	supported, err := zfs.EncryptionCLISupported(ctx)
 	check(err)
-	expectNotSupportedErr := !supported
+	if supported != testForEncryptionSupported {
+		ctx.SkipNow()
+	}
+	noEncryptionCLISupport := !supported
 
 	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
 	DESTROYROOT
@@ -44,9 +55,11 @@ func SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden(ctx *platformt
 		// fallthrough
 	}
 
-	if expectNotSupportedErr {
+	if noEncryptionCLISupport {
 		require.Error(ctx, err)
-		require.Equal(ctx, zfs.ErrEncryptedSendNotSupported, err)
+		saverr, ok := err.(*zfs.ZFSSendArgsValidationError)
+		require.True(ctx, ok, "%T", err)
+		require.Equal(ctx, zfs.ZFSSendArgsEncryptedSendRequestedButFSUnencrypted, saverr.What)
 		return
 	}
 	require.Error(ctx, err)
@@ -138,13 +151,7 @@ func SendArgsValidationResumeTokenEncryptionMismatchForbidden(ctx *platformtest.
 }
 
 func SendArgsValidationResumeTokenDifferentFilesystemForbidden(ctx *platformtest.Context) {
-
-	supported, err := zfs.EncryptionCLISupported(ctx)
-	check(err)
-	if !supported {
-		ctx.SkipNow()
-	}
-	supported, err = zfs.ResumeSendSupported(ctx)
+	supported, err := zfs.ResumeSendSupported(ctx)
 	check(err)
 	if !supported {
 		ctx.SkipNow()
