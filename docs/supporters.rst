@@ -32,6 +32,7 @@ We would like to thank the following people and organizations for supporting zre
 
    <div class="fa fa-code" style="width: 1em;"></div>
 
+* |supporter-std| `Gordon Schulz <https://github.com/azmodude>`_
 * |supporter-std| `@jwittlincohen <https://github.com/jwittlincohen>`_
 * |supporter-std| `Michael D. Schmitt <https://waterbendingscroll.dancingdragons.org>`_
 * |supporter-std| `Hans Schulz <https://github.com/schulzh>`_
@@ -46,7 +47,7 @@ We would like to thank the following people and organizations for supporting zre
 * |supporter-gold| `MNX.io <https://mnx.io>`_
 * |supporter-std| `Marshall Clyburn <https://github.com/mdclyburn>`_
 * |supporter-code| `Ross Williams <https://github.com/overhacked>`_
-* |supporter-std| Mike T.
+* |supporter-gold| Mike T.
 * |supporter-code| `Justin Scholz <https://github.com/JMoVS>`_
 * |supporter-code| `InsanePrawn <https://github.com/InsanePrawn>`_
 * |supporter-code| `Ben Woods <https://www.freshports.org/sysutils/zrepl/>`_
