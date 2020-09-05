@@ -14,7 +14,6 @@ Please open an issue on GitHub if you encounter any issues with the repository.
 Copy-paste the following snippet into your shell to set up the zrepl repository.
 Then ``dnf install zrepl`` and make sure to confirm that the signing key matches the one shown above.
 
-.. literalinclude:: ../../packaging/rpm/zrepl.repo
 ::
 
     cat > /etc/yum.repos.d/zrepl.repo <<EOF
