@@ -321,9 +321,11 @@ $(ARTIFACTDIR)/go_env.txt:
 	$(GO_ENV_VARS) $(GO) env > $@
 
 docs: $(ARTIFACTDIR)/docs
+	# https://www.sphinx-doc.org/en/master/man/sphinx-build.html
 	make -C docs \
 		html \
 		BUILDDIR=../artifacts/docs \
+		SPHINXOPTS="-W --keep-going -n"
 
 docs-clean:
 	make -C docs \
