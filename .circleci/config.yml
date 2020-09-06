@@ -127,8 +127,19 @@ commands:
               -d '{"context":"'"$CONTEXT"'", "state": "success", "description":"'"$DESCRIPTION"'", "target_url":"'"$TARGETURL"'"}'
 
 
-parameters:
+  trigger-pipeline:
+    parameters:
+      body_no_shell_subst:
+        type: string
+    steps:
+      - run: |
+          curl -X POST https://circleci.com/api/v2/project/github/zrepl/zrepl/pipeline \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json' \
+            -H "Circle-Token: $ZREPL_BOT_CIRCLE_TOKEN" \
+            --data '<<parameters.body_no_shell_subst>>'
 
+parameters:
   do_ci:
     type: boolean
     default: true
@@ -189,6 +200,19 @@ workflows:
             - release-build
             - release-deb
             - release-rpm
+
+  periodic:
+    triggers:
+      - schedule:
+          cron: "45 15 * * *"
+          filters:
+            branches:
+              only:
+                - master
+                - stable
+                - problame/circleci-build
+    jobs:
+      - periodic-trigger-pipeline
 
 jobs:
   quickcheck-docs:
@@ -298,3 +322,12 @@ jobs:
           context: artifacts/release
           description: CI-generated release artifacts
           minio-dst: ""
+
+  periodic-trigger-pipeline:
+    docker:
+      - image: cimg/base:2020.08
+    steps:
+      - trigger-pipeline:
+          body_no_shell_subst: '{"branch":"master", "parameters": { "do_ci": true, "do_release": true }}'
+      - trigger-pipeline:
+          body_no_shell_subst: '{"branch":"stable", "parameters": { "do_ci": true, "do_release": true }}'
