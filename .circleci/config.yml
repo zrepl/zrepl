@@ -87,7 +87,7 @@ commands:
             mc config host add --api s3v4 zrepl-minio https://minio.cschwarz.com ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
 
             # keep in sync with set-github-minio-status
-            jobprefix=zrepl-ci-artifacts/test/${CIRCLE_SHA1}/${CIRCLE_JOB}
+            jobprefix=zrepl-ci-artifacts/${CIRCLE_SHA1}-pipeline-<<pipeline.number>>/${CIRCLE_JOB}
 
             # Upload artifacts
             mkdir -p ./artifacts
@@ -112,7 +112,7 @@ commands:
             set -u # from now on
 
             # keep in sync with with upload-minio command
-            jobprefix=zrepl-ci-artifacts/test/${CIRCLE_SHA1}/${CIRCLE_JOB}
+            jobprefix=zrepl-ci-artifacts/${CIRCLE_SHA1}-pipeline-<<pipeline.number>>/${CIRCLE_JOB}
             # Push Artifact Link to GitHub
             REPO="zrepl/zrepl"
             COMMIT="${CIRCLE_SHA1}"
