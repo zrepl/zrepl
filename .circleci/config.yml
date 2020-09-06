@@ -223,6 +223,17 @@ jobs:
       - install-docdep
       - run: make docs
 
+      - store_artifacts:
+          path: artifacts
+      - download-and-install-minio-client
+      - upload-minio:
+          src: artifacts
+          dst: ""
+      - set-github-minio-status:
+          context: artifacts/${CIRCLE_JOB}
+          description: artifacts of CI job ${CIRCLE_JOB}
+          minio-dst: ""
+
   quickcheck-go:
     parameters:
       goversion:
