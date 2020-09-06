@@ -32,11 +32,13 @@ func ReceiveForceIntoEncryptedErr(ctx *platformtest.Context) {
 	sfsSnap1 := sendArgVersion(ctx, sfs, "@1")
 
 	sendArgs, err := zfs.ZFSSendArgsUnvalidated{
-		FS:          sfs,
-		Encrypted:   &nodefault.Bool{B: false},
-		From:        nil,
-		To:          &sfsSnap1,
-		ResumeToken: "",
+		FS:   sfs,
+		From: nil,
+		To:   &sfsSnap1,
+		ZFSSendFlags: zfs.ZFSSendFlags{
+			Encrypted:   &nodefault.Bool{B: false},
+			ResumeToken: "",
+		},
 	}.Validate(ctx)
 	require.NoError(ctx, err)
 

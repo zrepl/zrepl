@@ -67,7 +67,7 @@ type FilesystemPlaceholderState struct {
 func ZFSGetFilesystemPlaceholderState(ctx context.Context, p *DatasetPath) (state *FilesystemPlaceholderState, err error) {
 	state = &FilesystemPlaceholderState{FS: p.ToString()}
 	state.FS = p.ToString()
-	props, err := zfsGet(ctx, p.ToString(), []string{PlaceholderPropertyName}, sourceLocal)
+	props, err := zfsGet(ctx, p.ToString(), []string{PlaceholderPropertyName}, SourceLocal)
 	var _ error = (*DatasetDoesNotExist)(nil) // weak assertion on zfsGet's interface
 	if _, ok := err.(*DatasetDoesNotExist); ok {
 		return state, nil
@@ -110,12 +110,11 @@ func ZFSCreatePlaceholderFilesystem(ctx context.Context, fs *DatasetPath, parent
 }
 
 func ZFSSetPlaceholder(ctx context.Context, p *DatasetPath, isPlaceholder bool) error {
-	props := NewZFSProperties()
 	prop := placeholderPropertyOff
 	if isPlaceholder {
 		prop = placeholderPropertyOn
 	}
-	props.Set(PlaceholderPropertyName, prop)
+	props := map[string]string{PlaceholderPropertyName: prop}
 	return zfsSet(ctx, p.ToString(), props)
 }
 
