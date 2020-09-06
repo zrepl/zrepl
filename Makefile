@@ -28,6 +28,8 @@ GO_BUILDFLAGS := $(GO_MOD_READONLY) $(GO_EXTRA_BUILDFLAGS)
 GO_BUILD := $(GO_ENV_VARS) $(GO) build $(GO_BUILDFLAGS) -ldflags $(GO_LDFLAGS)
 GOLANGCI_LINT := golangci-lint
 GOCOVMERGE := gocovmerge
+RELEASE_DOCKER_BASEIMAGE_TAG ?= 1.15
+RELEASE_DOCKER_BASEIMAGE ?= golang:$(RELEASE_DOCKER_BASEIMAGE_TAG)
 
 ifneq ($(GOARM),)
 	ZREPL_TARGET_TUPLE := $(GOOS)-$(GOARCH)v$(GOARM)
@@ -57,8 +59,9 @@ ifeq (SIGN, 1)
 endif
 	@echo "ZREPL RELEASE ARTIFACTS AVAILABLE IN artifacts/release"
 
-release-docker:
-	docker build -t zrepl_release --pull -f build.Dockerfile .
+release-docker: $(ARTIFACTDIR)
+	sed 's/FROM.*!SUBSTITUTED_BY_MAKEFILE/FROM $(RELEASE_DOCKER_BASEIMAGE)/' build.Dockerfile > artifacts/release-docker.Dockerfile
+	docker build -t zrepl_release --pull -f artifacts/release-docker.Dockerfile .
 	docker run --rm -i -v $(CURDIR):/src -u $$(id -u):$$(id -g) \
 		zrepl_release \
 		make release GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)
@@ -319,6 +322,7 @@ $(ARTIFACTDIR)/_zrepl.zsh_completion:
 
 $(ARTIFACTDIR)/go_env.txt:
 	$(GO_ENV_VARS) $(GO) env > $@
+	$(GO) version >> $@
 
 docs: $(ARTIFACTDIR)/docs
 	# https://www.sphinx-doc.org/en/master/man/sphinx-build.html

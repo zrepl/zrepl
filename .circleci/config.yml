@@ -127,10 +127,25 @@ commands:
               -d '{"context":"'"$CONTEXT"'", "state": "success", "description":"'"$DESCRIPTION"'", "target_url":"'"$TARGETURL"'"}'
 
 
+parameters:
+
+  do_ci:
+    type: boolean
+    default: true
+
+  do_release:
+    type: boolean
+    default: false
+
+  release_docker_baseimage_tag:
+    type: string
+    default: "latest"
 
 workflows:
   version: 2
-  build:
+
+  ci:
+    when: << pipeline.parameters.do_ci >>
     jobs:
       - quickcheck-docs
       - quickcheck-go: &quickcheck-go-smoketest
@@ -159,18 +174,10 @@ workflows:
                 goos: freebsd
                 goarch: arm64
 
-      - request-release-build:
-          type: approval
-          requires:
-            - quickcheck-docs
-            - quickcheck-go-amd64-linux-1.15 #quickcheck-go-smoketest.name
-            - quickcheck-go-matrix
-            - test-go-on-latest-go-release
-
-      - release-build:
-          requires:
-            - request-release-build
-
+  release:
+    when: << pipeline.parameters.do_release >>
+    jobs:
+      - release-build
       - release-deb:
           requires:
             - release-build
@@ -249,7 +256,7 @@ jobs:
     machine: true
     steps:
       - checkout
-      - run: make release-docker
+      - run: make release-docker RELEASE_DOCKER_BASEIMAGE_TAG=<<pipeline.parameters.release_docker_baseimage_tag>>
       - persist_to_workspace:
           root: .
           paths: [.]
