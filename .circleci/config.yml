@@ -139,7 +139,7 @@ parameters:
 
   release_docker_baseimage_tag:
     type: string
-    default: "latest"
+    default: "1.15"
 
 workflows:
   version: 2
