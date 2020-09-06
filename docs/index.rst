@@ -61,7 +61,11 @@ Main Features
     * [x] Automatic ZFS holds during send & receive
     * [x] Automatic bookmark \& hold management for guaranteed incremental send & recv 
     * [x] Encrypted raw send & receive to untrusted receivers (OpenZFS native encryption)
-    * [ ] Compressed send & receive
+    * [x] Properties send & receive
+    * [x] Compressed send & receive
+    * [x] Large blocks send & receive
+    * [x] Embedded data send & receive
+    * [x] Resume state send & receive
 
 * **Automatic snapshot management**
 

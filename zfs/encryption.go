@@ -51,7 +51,7 @@ func ZFSGetEncryptionEnabled(ctx context.Context, fs string) (enabled bool, err 
 		return false, err
 	}
 
-	props, err := zfsGet(ctx, fs, []string{"encryption"}, sourceAny)
+	props, err := zfsGet(ctx, fs, []string{"encryption"}, SourceAny)
 	if err != nil {
 		return false, errors.Wrap(err, "cannot get `encryption` property")
 	}

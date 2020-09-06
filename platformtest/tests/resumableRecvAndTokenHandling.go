@@ -27,10 +27,12 @@ func ResumableRecvAndTokenHandling(ctx *platformtest.Context) {
 	src := makeDummyDataSnapshots(ctx, sendFS)
 
 	s := makeResumeSituation(ctx, src, recvFS, zfs.ZFSSendArgsUnvalidated{
-		FS:          sendFS,
-		To:          src.snapA,
-		Encrypted:   &nodefault.Bool{B: false},
-		ResumeToken: "",
+		FS: sendFS,
+		To: src.snapA,
+		ZFSSendFlags: zfs.ZFSSendFlags{
+			Encrypted:   &nodefault.Bool{B: false},
+			ResumeToken: "",
+		},
 	}, zfs.RecvOptions{
 		RollbackAndForceRecv: false, // doesnt' exist yet
 		SavePartialRecvState: true,

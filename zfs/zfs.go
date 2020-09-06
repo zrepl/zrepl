@@ -22,6 +22,7 @@ import (
 	"github.com/zrepl/zrepl/util/circlog"
 	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/util/nodefault"
+	zfsprop "github.com/zrepl/zrepl/zfs/property"
 	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
@@ -326,45 +327,6 @@ func absVersion(fs string, v *ZFSSendArgVersion) (full string, err error) {
 	return fmt.Sprintf("%s%s", fs, v.RelName), nil
 }
 
-// tok is allowed to be nil
-// a must already be validated
-//
-// SECURITY SENSITIVE because Raw must be handled correctly
-func (a ZFSSendArgsUnvalidated) buildCommonSendArgs() ([]string, error) {
-
-	args := make([]string, 0, 3)
-	// ResumeToken takes precedence, we assume that it has been validated to reflect
-	// what is described by the other fields in ZFSSendArgs
-	if a.ResumeToken != "" {
-		args = append(args, "-t", a.ResumeToken)
-		return args, nil
-	}
-
-	if a.Encrypted.B {
-		args = append(args, "-w")
-	}
-
-	toV, err := absVersion(a.FS, a.To)
-	if err != nil {
-		return nil, err
-	}
-
-	fromV := ""
-	if a.From != nil {
-		fromV, err = absVersion(a.FS, a.From)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if fromV == "" { // Initial
-		args = append(args, toV)
-	} else {
-		args = append(args, "-i", fromV, toV)
-	}
-	return args, nil
-}
-
 func pipeWithCapacityHint(capacity int) (r, w *os.File, err error) {
 	if capacity <= 0 {
 		panic(fmt.Sprintf("capacity must be positive %v", capacity))
@@ -566,18 +528,29 @@ func (v ZFSSendArgVersion) MustBeBookmark() {
 
 // When updating this struct, check Validate and ValidateCorrespondsToResumeToken (POTENTIALLY SECURITY SENSITIVE)
 type ZFSSendArgsUnvalidated struct {
-	FS        string
-	From, To  *ZFSSendArgVersion // From may be nil
-	Encrypted *nodefault.Bool
-
-	// Preferred if not empty
-	ResumeToken string // if not nil, must match what is specified in From, To (covered by ValidateCorrespondsToResumeToken)
+	FS       string
+	From, To *ZFSSendArgVersion // From may be nil
+	ZFSSendFlags
 }
 
 type ZFSSendArgsValidated struct {
 	ZFSSendArgsUnvalidated
 	FromVersion *FilesystemVersion
 	ToVersion   FilesystemVersion
+}
+
+type ZFSSendFlags struct {
+	Encrypted        *nodefault.Bool
+	Properties       bool
+	BackupProperties bool
+	Raw              bool
+	LargeBlocks      bool
+	Compressed       bool
+	EmbeddedData     bool
+	Saved            bool
+
+	// Preferred if not empty
+	ResumeToken string // if not nil, must match what is specified in From, To (covered by ValidateCorrespondsToResumeToken)
 }
 
 type zfsSendArgsValidationContext struct {
@@ -638,8 +611,8 @@ func (a ZFSSendArgsUnvalidated) Validate(ctx context.Context) (v ZFSSendArgsVali
 		// fallthrough
 	}
 
-	if err := a.Encrypted.ValidateNoDefault(); err != nil {
-		return v, newGenericValidationError(a, errors.Wrap(err, "`Raw` invalid"))
+	if err := a.ZFSSendFlags.Validate(); err != nil {
+		return v, newGenericValidationError(a, errors.Wrap(err, "send flags invalid"))
 	}
 
 	valCtx := &zfsSendArgsValidationContext{}
@@ -655,10 +628,8 @@ func (a ZFSSendArgsUnvalidated) Validate(ctx context.Context) (v ZFSSendArgsVali
 			errors.Errorf("encrypted send requested, but filesystem %q is not encrypted", a.FS))
 	}
 
-	if a.ResumeToken != "" {
-		if err := a.validateCorrespondsToResumeToken(ctx, valCtx); err != nil {
-			return v, newValidationError(a, ZFSSendArgsResumeTokenMismatch, err)
-		}
+	if err := a.validateEncryptionFlagsCorrespondToResumeToken(ctx, valCtx); err != nil {
+		return v, newValidationError(a, ZFSSendArgsResumeTokenMismatch, err)
 	}
 
 	return ZFSSendArgsValidated{
@@ -666,6 +637,89 @@ func (a ZFSSendArgsUnvalidated) Validate(ctx context.Context) (v ZFSSendArgsVali
 		FromVersion:            fromVersion,
 		ToVersion:              toVersion,
 	}, nil
+}
+
+func (f ZFSSendFlags) Validate() error {
+	if err := f.Encrypted.ValidateNoDefault(); err != nil {
+		return errors.Wrap(err, "flag `Encrypted` invalid")
+	}
+	return nil
+}
+
+// If ResumeToken is empty, builds a command line with the flags specified.
+// If ResumeToken is not empty, build a command line with just `-t {{.ResumeToken}}`.
+//
+// SECURITY SENSITIVE it is the caller's responsibility to ensure that a.Encrypted semantics
+// hold for the file system that will be sent with the send flags returned by this function
+func (a ZFSSendFlags) buildSendFlagsUnchecked() []string {
+
+	args := make([]string, 0)
+
+	// ResumeToken takes precedence, we assume that it has been validated
+	// to reflect what is described by the other fields.
+	if a.ResumeToken != "" {
+		args = append(args, "-t", a.ResumeToken)
+		return args
+	}
+
+	if a.Encrypted.B || a.Raw {
+		args = append(args, "-w")
+	}
+
+	if a.Properties {
+		args = append(args, "-p")
+	}
+
+	if a.BackupProperties {
+		args = append(args, "-b")
+	}
+
+	if a.LargeBlocks {
+		args = append(args, "-L")
+	}
+
+	if a.Compressed {
+		args = append(args, "-c")
+	}
+
+	if a.EmbeddedData {
+		args = append(args, "-e")
+	}
+
+	if a.Saved {
+		args = append(args, "-S")
+	}
+
+	return args
+}
+
+func (a ZFSSendArgsValidated) buildSendCommandLine() ([]string, error) {
+
+	flags := a.buildSendFlagsUnchecked()
+
+	if a.ZFSSendFlags.ResumeToken != "" {
+		return flags, nil
+	}
+
+	toV, err := absVersion(a.FS, a.To)
+	if err != nil {
+		return nil, err
+	}
+
+	fromV := ""
+	if a.From != nil {
+		fromV, err = absVersion(a.FS, a.From)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if fromV == "" { // Initial
+		flags = append(flags, toV)
+	} else {
+		flags = append(flags, "-i", fromV, toV)
+	}
+	return flags, nil
 }
 
 type ZFSSendArgsResumeTokenMismatchError struct {
@@ -692,10 +746,17 @@ func (c ZFSSendArgsResumeTokenMismatchErrorCode) fmt(format string, args ...inte
 	}
 }
 
-// This is SECURITY SENSITIVE and requires exhaustive checking of both side's values
-// An attacker requesting a Send with a crafted ResumeToken may encode different parameters in the resume token than expected:
+// Validate that the encryption settings specified in `a` correspond to the encryption settings encoded in the resume token.
+//
+// This is SECURITY SENSITIVE:
+// It is possible for an attacker to craft arbitrary resume tokens.
+// Those malicious resume tokens could encode different parameters in the resume token than expected:
 // for example, they may specify another file system (e.g. the filesystem with secret data) or request unencrypted send instead of encrypted raw send.
-func (a ZFSSendArgsUnvalidated) validateCorrespondsToResumeToken(ctx context.Context, valCtx *zfsSendArgsValidationContext) error {
+//
+// Note that we don't check correspondence of all other send flags because
+// a) the resume token does not capture all send flags (e.g. send -p is implemented in libzfs and thus not represented in the resume token)
+// b) it would force us to either reject resume tokens with unknown flags.
+func (a ZFSSendArgsUnvalidated) validateEncryptionFlagsCorrespondToResumeToken(ctx context.Context, valCtx *zfsSendArgsValidationContext) error {
 
 	if a.ResumeToken == "" {
 		return nil // nothing to do
@@ -720,6 +781,7 @@ func (a ZFSSendArgsUnvalidated) validateCorrespondsToResumeToken(ctx context.Con
 			"filesystem in resume token field `toname` = %q does not match expected value %q", tokenFS.ToString(), a.FS)
 	}
 
+	// If From is set, it must match.
 	if (a.From != nil) != t.HasFromGUID { // existence must be same
 		if t.HasFromGUID {
 			return gen.fmt("resume token not expected to be incremental, but `fromguid` = %v", t.FromGUID)
@@ -774,18 +836,20 @@ func ZFSSend(ctx context.Context, sendArgs ZFSSendArgsValidated) (*SendStream, e
 	args = append(args, "send")
 
 	// pre-validation of sendArgs for plain ErrEncryptedSendNotSupported error
-	// TODO go1.13: push this down to sendArgs.Validate
-	if encryptedSendValid := sendArgs.Encrypted.ValidateNoDefault(); encryptedSendValid == nil && sendArgs.Encrypted.B {
-		supported, err := EncryptionCLISupported(ctx)
+	// we tie BackupProperties (send -b) and SendRaw (-w, same as with Encrypted) to this
+	// since these were released together.
+	if sendArgs.Encrypted.B || sendArgs.Raw || sendArgs.BackupProperties {
+		encryptionSupported, err := EncryptionCLISupported(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot determine CLI native encryption support")
 		}
-		if !supported {
+
+		if !encryptionSupported {
 			return nil, ErrEncryptedSendNotSupported
 		}
 	}
 
-	sargs, err := sendArgs.buildCommonSendArgs()
+	sargs, err := sendArgs.buildSendCommandLine()
 	if err != nil {
 		return nil, err
 	}
@@ -959,7 +1023,7 @@ func ZFSSendDry(ctx context.Context, sendArgs ZFSSendArgsValidated) (_ *DrySendI
 
 	args := make([]string, 0)
 	args = append(args, "send", "-n", "-v", "-P")
-	sargs, err := sendArgs.buildCommonSendArgs()
+	sargs, err := sendArgs.buildSendCommandLine()
 	if err != nil {
 		return nil, err
 	}
@@ -977,14 +1041,6 @@ func ZFSSendDry(ctx context.Context, sendArgs ZFSSendArgsValidated) (_ *DrySendI
 	return &si, nil
 }
 
-type RecvOptions struct {
-	// Rollback to the oldest snapshot, destroy it, then perform `recv -F`.
-	// Note that this doesn't change property values, i.e. an existing local property value will be kept.
-	RollbackAndForceRecv bool
-	// Set -s flag used for resumable send & recv
-	SavePartialRecvState bool
-}
-
 type ErrRecvResumeNotSupported struct {
 	FS       string
 	CheckErr error
@@ -999,6 +1055,39 @@ func (e *ErrRecvResumeNotSupported) Error() string {
 		fmt.Fprintf(&buf, "not supported by ZFS or pool")
 	}
 	return buf.String()
+}
+
+type RecvOptions struct {
+	// Rollback to the oldest snapshot, destroy it, then perform `recv -F`.
+	// Note that this doesn't change property values, i.e. an existing local property value will be kept.
+	RollbackAndForceRecv bool
+	// Set -s flag used for resumable send & recv
+	SavePartialRecvState bool
+
+	InheritProperties  []zfsprop.Property
+	OverrideProperties map[zfsprop.Property]string
+}
+
+func (opts RecvOptions) buildRecvFlags() []string {
+	args := make([]string, 0)
+	if opts.RollbackAndForceRecv {
+		args = append(args, "-F")
+	}
+	if opts.SavePartialRecvState {
+		args = append(args, "-s")
+	}
+	if opts.InheritProperties != nil {
+		for _, prop := range opts.InheritProperties {
+			args = append(args, "-x", string(prop))
+		}
+	}
+	if opts.OverrideProperties != nil {
+		for prop, value := range opts.OverrideProperties {
+			args = append(args, "-o", fmt.Sprintf("%s=%s", prop, value))
+		}
+	}
+
+	return args
 }
 
 const RecvStderrBufSiz = 1 << 15
@@ -1049,17 +1138,14 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, stream io.Rea
 		}
 	}
 
-	args := make([]string, 0)
-	args = append(args, "recv")
-	if opts.RollbackAndForceRecv {
-		args = append(args, "-F")
-	}
 	if opts.SavePartialRecvState {
 		if supported, err := ResumeRecvSupported(ctx, fsdp); err != nil || !supported {
 			return &ErrRecvResumeNotSupported{FS: fs, CheckErr: err}
 		}
-		args = append(args, "-s")
 	}
+
+	args := []string{"recv"}
+	args = append(args, opts.buildRecvFlags()...)
 	args = append(args, v.FullPath(fs))
 
 	ctx, cancelCmd := context.WithCancel(ctx)
@@ -1235,43 +1321,38 @@ func ZFSRecvClearResumeToken(ctx context.Context, fs string) (err error) {
 	return nil
 }
 
+type PropertyValue struct {
+	Value  string
+	Source PropertySource
+}
+
 type ZFSProperties struct {
-	m map[string]string
+	m map[string]PropertyValue
 }
 
 func NewZFSProperties() *ZFSProperties {
-	return &ZFSProperties{make(map[string]string, 4)}
-}
-
-func (p *ZFSProperties) Set(key, val string) {
-	p.m[key] = val
+	return &ZFSProperties{make(map[string]PropertyValue, 4)}
 }
 
 func (p *ZFSProperties) Get(key string) string {
+	return p.m[key].Value
+}
+
+func (p *ZFSProperties) GetDetails(key string) PropertyValue {
 	return p.m[key]
 }
 
-func (p *ZFSProperties) appendArgs(args *[]string) (err error) {
-	for prop, val := range p.m {
+func zfsSet(ctx context.Context, path string, props map[string]string) error {
+	args := make([]string, 0)
+	args = append(args, "set")
+
+	for prop, val := range props {
 		if strings.Contains(prop, "=") {
 			return errors.New("prop contains rune '=' which is the delimiter between property name and value")
 		}
-		*args = append(*args, fmt.Sprintf("%s=%s", prop, val))
+		args = append(args, fmt.Sprintf("%s=%s", prop, val))
 	}
-	return nil
-}
 
-func ZFSSet(ctx context.Context, fs *DatasetPath, props *ZFSProperties) (err error) {
-	return zfsSet(ctx, fs.ToString(), props)
-}
-
-func zfsSet(ctx context.Context, path string, props *ZFSProperties) (err error) {
-	args := make([]string, 0)
-	args = append(args, "set")
-	err = props.appendArgs(&args)
-	if err != nil {
-		return err
-	}
 	args = append(args, path)
 
 	cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, args...)
@@ -1283,11 +1364,15 @@ func zfsSet(ctx context.Context, path string, props *ZFSProperties) (err error) 
 		}
 	}
 
-	return
+	return err
+}
+
+func ZFSSet(ctx context.Context, fs *DatasetPath, props map[string]string) error {
+	return zfsSet(ctx, fs.ToString(), props)
 }
 
 func ZFSGet(ctx context.Context, fs *DatasetPath, props []string) (*ZFSProperties, error) {
-	return zfsGet(ctx, fs.ToString(), props, sourceAny)
+	return zfsGet(ctx, fs.ToString(), props, SourceAny)
 }
 
 // The returned error includes requested filesystem and version as quoted strings in its error message
@@ -1307,7 +1392,7 @@ func ZFSGetGUID(ctx context.Context, fs string, version string) (g uint64, err e
 		return 0, errors.New("version does not start with @ or #")
 	}
 	path := fmt.Sprintf("%s%s", fs, version)
-	props, err := zfsGet(ctx, path, []string{"guid"}, sourceAny) // always local
+	props, err := zfsGet(ctx, path, []string{"guid"}, SourceAny) // always local
 	if err != nil {
 		return 0, err
 	}
@@ -1323,7 +1408,7 @@ func ZFSGetMountpoint(ctx context.Context, fs string) (*GetMountpointOutput, err
 	if err := EntityNamecheck(fs, EntityTypeFilesystem); err != nil {
 		return nil, err
 	}
-	props, err := zfsGet(ctx, fs, []string{"mountpoint", "mounted"}, sourceAny)
+	props, err := zfsGet(ctx, fs, []string{"mountpoint", "mounted"}, SourceAny)
 	if err != nil {
 		return nil, err
 	}
@@ -1340,7 +1425,7 @@ func ZFSGetMountpoint(ctx context.Context, fs string) (*GetMountpointOutput, err
 }
 
 func ZFSGetRawAnySource(ctx context.Context, path string, props []string) (*ZFSProperties, error) {
-	return zfsGet(ctx, path, props, sourceAny)
+	return zfsGet(ctx, path, props, SourceAny)
 }
 
 var zfsGetDatasetDoesNotExistRegexp = regexp.MustCompile(`^cannot open '([^)]+)': (dataset does not exist|no such pool or dataset)`) // verified in platformtest
@@ -1360,46 +1445,68 @@ func tryDatasetDoesNotExist(expectPath string, stderr []byte) *DatasetDoesNotExi
 	return nil
 }
 
-type zfsPropertySource uint
+//go:generate enumer -type=PropertySource -trimprefix=Source
+type PropertySource uint
 
 const (
-	sourceLocal zfsPropertySource = 1 << iota
-	sourceDefault
-	sourceInherited
-	sourceNone
-	sourceTemporary
-	sourceReceived
+	SourceLocal PropertySource = 1 << iota
+	SourceDefault
+	SourceInherited
+	SourceNone
+	SourceTemporary
+	SourceReceived
 
-	sourceAny zfsPropertySource = ^zfsPropertySource(0)
+	SourceAny PropertySource = ^PropertySource(0)
 )
 
-func (s zfsPropertySource) zfsGetSourceFieldPrefixes() []string {
+var propertySourceParseLUT = map[string]PropertySource{
+	"local":     SourceLocal,
+	"default":   SourceDefault,
+	"inherited": SourceInherited,
+	"-":         SourceNone,
+	"temporary": SourceTemporary,
+	"received":  SourceReceived,
+}
+
+func parsePropertySource(s string) (PropertySource, error) {
+	fields := strings.Fields(s)
+	if len(fields) > 0 {
+		v, ok := propertySourceParseLUT[fields[0]]
+		if ok {
+			return v, nil
+		}
+		// fallthrough
+	}
+	return 0, fmt.Errorf("unknown property source %q", s)
+}
+
+func (s PropertySource) zfsGetSourceFieldPrefixes() []string {
 	prefixes := make([]string, 0, 7)
-	if s&sourceLocal != 0 {
+	if s&SourceLocal != 0 {
 		prefixes = append(prefixes, "local")
 	}
-	if s&sourceDefault != 0 {
+	if s&SourceDefault != 0 {
 		prefixes = append(prefixes, "default")
 	}
-	if s&sourceInherited != 0 {
+	if s&SourceInherited != 0 {
 		prefixes = append(prefixes, "inherited")
 	}
-	if s&sourceNone != 0 {
+	if s&SourceNone != 0 {
 		prefixes = append(prefixes, "-")
 	}
-	if s&sourceTemporary != 0 {
+	if s&SourceTemporary != 0 {
 		prefixes = append(prefixes, "temporary")
 	}
-	if s&sourceReceived != 0 {
+	if s&SourceReceived != 0 {
 		prefixes = append(prefixes, "received")
 	}
-	if s == sourceAny {
+	if s == SourceAny {
 		prefixes = append(prefixes, "")
 	}
 	return prefixes
 }
 
-func zfsGet(ctx context.Context, path string, props []string, allowedSources zfsPropertySource) (*ZFSProperties, error) {
+func zfsGet(ctx context.Context, path string, props []string, allowedSources PropertySource) (*ZFSProperties, error) {
 	args := []string{"get", "-Hp", "-o", "property,value,source", strings.Join(props, ","), path}
 	cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, args...)
 	stdout, err := cmd.Output()
@@ -1425,7 +1532,7 @@ func zfsGet(ctx context.Context, path string, props []string, allowedSources zfs
 		return nil, fmt.Errorf("zfs get did not return the number of expected property values")
 	}
 	res := &ZFSProperties{
-		make(map[string]string, len(lines)),
+		make(map[string]PropertyValue, len(lines)),
 	}
 	allowedPrefixes := allowedSources.zfsGetSourceFieldPrefixes()
 	for _, line := range lines[:len(lines)-1] {
@@ -1436,8 +1543,16 @@ func zfsGet(ctx context.Context, path string, props []string, allowedSources zfs
 			return nil, fmt.Errorf("zfs get did not return property,value,source tuples")
 		}
 		for _, p := range allowedPrefixes {
+			// prefix-match so that SourceAny (= "") works
 			if strings.HasPrefix(fields[2], p) {
-				res.m[fields[0]] = fields[1]
+				source, err := parsePropertySource(fields[2])
+				if err != nil {
+					return nil, errors.Wrap(err, "parse property source")
+				}
+				res.m[fields[0]] = PropertyValue{
+					Value:  fields[1],
+					Source: source,
+				}
 				break
 			}
 		}

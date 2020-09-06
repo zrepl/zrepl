@@ -21,6 +21,7 @@ import (
 	"github.com/zrepl/zrepl/util/limitio"
 	"github.com/zrepl/zrepl/util/nodefault"
 	"github.com/zrepl/zrepl/zfs"
+	zfsprop "github.com/zrepl/zrepl/zfs/property"
 )
 
 // mimics the replication invocations of an active-side job
@@ -30,13 +31,15 @@ import (
 // of a new sender and receiver instance and one blocking invocation
 // of the replication engine without encryption
 type replicationInvocation struct {
-	sjid, rjid        endpoint.JobID
-	sfs               string
-	sfilter           *filters.DatasetMapFilter
-	rfsRoot           string
-	interceptSender   func(e *endpoint.Sender) logic.Sender
-	interceptReceiver func(e *endpoint.Receiver) logic.Receiver
-	guarantee         *pdu.ReplicationConfigProtection
+	sjid, rjid         endpoint.JobID
+	sfs                string
+	sfilter            *filters.DatasetMapFilter
+	rfsRoot            string
+	interceptSender    func(e *endpoint.Sender) logic.Sender
+	interceptReceiver  func(e *endpoint.Receiver) logic.Receiver
+	guarantee          *pdu.ReplicationConfigProtection
+	senderConfigHook   func(*endpoint.SenderConfig)
+	receiverConfigHook func(*endpoint.ReceiverConfig)
 }
 
 func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
@@ -56,16 +59,30 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 		err := i.sfilter.Add(i.sfs, "ok")
 		require.NoError(ctx, err)
 	}
-	sender := i.interceptSender(endpoint.NewSender(endpoint.SenderConfig{
+
+	senderConfig := endpoint.SenderConfig{
 		FSF:     i.sfilter.AsFilter(),
 		Encrypt: &nodefault.Bool{B: false},
 		JobID:   i.sjid,
-	}))
-	receiver := i.interceptReceiver(endpoint.NewReceiver(endpoint.ReceiverConfig{
+	}
+	if i.senderConfigHook != nil {
+		i.senderConfigHook(&senderConfig)
+	}
+
+	receiverConfig := endpoint.ReceiverConfig{
 		JobID:                      i.rjid,
 		AppendClientIdentity:       false,
 		RootWithoutClientComponent: mustDatasetPath(i.rfsRoot),
-	}))
+	}
+	if i.receiverConfigHook != nil {
+		i.receiverConfigHook(&receiverConfig)
+	}
+
+	require.Equal(ctx, senderConfig.JobID, i.sjid)
+	require.Equal(ctx, receiverConfig.JobID, i.rjid)
+
+	sender := i.interceptSender(endpoint.NewSender(senderConfig))
+	receiver := i.interceptReceiver(endpoint.NewReceiver(receiverConfig))
 	plannerPolicy := logic.PlannerPolicy{
 		EncryptedSend: logic.TriFromBool(false),
 		ReplicationConfig: &pdu.ReplicationConfig{
@@ -901,7 +918,7 @@ func ReplicationFailingInitialParentProhibitsChildReplication(ctx *platformtest.
 	}
 
 	require.Contains(ctx, fsByName, fsA)
-	require.Contains(ctx, fsByName, fsAA)
+	require.Contains(ctx, fsByName, fsAChild)
 	require.Contains(ctx, fsByName, fsAA)
 
 	checkFS := func(fs string, expectErrMsg string) {
@@ -915,4 +932,154 @@ func ReplicationFailingInitialParentProhibitsChildReplication(ctx *platformtest.
 	checkFS(fsA, mockRecvErr.Error())
 	checkFS(fsAChild, "parent(s) failed during initial replication")
 	checkFS(fsAA, mockRecvErr.Error()) // fsAA is not treated as a child of fsA
+}
+
+func ReplicationPropertyReplicationWorks(ctx *platformtest.Context) {
+
+	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
+		CREATEROOT
+		+  "sender"
+		+  "sender/a"
+		+  "sender/a@1"
+		+  "sender/a/child"
+		+  "sender/a/child@1"
+		+  "receiver"
+	`)
+
+	sjid := endpoint.MustMakeJobID("sender-job")
+	rjid := endpoint.MustMakeJobID("receiver-job")
+
+	fsA := ctx.RootDataset + "/sender/a"
+	fsAChild := ctx.RootDataset + "/sender/a/child"
+
+	sfilter := filters.NewDatasetMapFilter(2, true)
+	mustAddToSFilter := func(fs string) {
+		err := sfilter.Add(fs, "ok")
+		require.NoError(ctx, err)
+	}
+	mustAddToSFilter(fsA)
+	mustAddToSFilter(fsAChild)
+	rfsRoot := ctx.RootDataset + "/receiver"
+
+	type testPropExpectation struct {
+		Exists             bool
+		Source             zfs.PropertySource
+		ExpectSpecialValue string
+	}
+	type testProp struct {
+		Name           string
+		SetOnSender    map[string]bool
+		ExpectReceiver map[string]testPropExpectation
+	}
+	testProps := []testProp{
+		{
+			Name:        "zrepl:ignored",
+			SetOnSender: map[string]bool{fsA: true, fsAChild: true},
+			ExpectReceiver: map[string]testPropExpectation{
+				fsA: {
+					Exists: false,
+				},
+				fsAChild: {
+					Exists: false,
+				},
+			},
+		},
+		{
+			Name:        "zrepl:replicate",
+			SetOnSender: map[string]bool{fsA: true, fsAChild: true},
+			ExpectReceiver: map[string]testPropExpectation{
+				fsA:      {Exists: true, Source: zfs.SourceReceived},
+				fsAChild: {Exists: true, Source: zfs.SourceReceived},
+			},
+		},
+		{
+			Name:        "zrepl:overridden",
+			SetOnSender: map[string]bool{fsA: false, fsAChild: true},
+			ExpectReceiver: map[string]testPropExpectation{
+				fsA:      {Exists: true, Source: zfs.SourceLocal, ExpectSpecialValue: "overridden value"},
+				fsAChild: {Exists: true, Source: zfs.SourceLocal, ExpectSpecialValue: "overridden value"},
+			},
+		},
+	}
+
+	for _, prop := range testProps {
+		for fs := range prop.SetOnSender {
+			err := zfs.ZFSSet(ctx, mustDatasetPath(fs), map[string]string{prop.Name: prop.Name})
+			require.NoError(ctx, err)
+		}
+	}
+
+	rep := replicationInvocation{
+		sjid:      sjid,
+		rjid:      rjid,
+		sfilter:   sfilter,
+		rfsRoot:   rfsRoot,
+		guarantee: pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeNothing),
+		receiverConfigHook: func(c *endpoint.ReceiverConfig) {
+			c.InheritProperties = []zfsprop.Property{"zrepl:ignored"}
+			c.OverrideProperties = map[zfsprop.Property]string{
+				"zrepl:overridden": "overridden value",
+			}
+		},
+		senderConfigHook: func(c *endpoint.SenderConfig) {
+			c.SendProperties = true // TODO: do another tier with SendBackupProperties
+		},
+	}
+
+	r := rep.Do(ctx)
+	ctx.Logf("\n%s", pretty.Sprint(r))
+
+	require.Len(ctx, r.Attempts, 1)
+	attempt := r.Attempts[0]
+	require.Nil(ctx, attempt.PlanError)
+	require.Len(ctx, attempt.Filesystems, 2)
+
+	fsByName := make(map[string]*report.FilesystemReport, len(attempt.Filesystems))
+	for _, fs := range attempt.Filesystems {
+		fsByName[fs.Info.Name] = fs
+	}
+
+	require.Contains(ctx, fsByName, fsA)
+	require.Contains(ctx, fsByName, fsAChild)
+	require.Len(ctx, fsByName, 2)
+
+	requireFSReportSucceeded := func(fs string) *zfs.DatasetPath {
+		rep := fsByName[fs]
+		require.Len(ctx, rep.Steps, 1)
+		require.Nil(ctx, rep.PlanError)
+		require.Nil(ctx, rep.StepError)
+		require.Len(ctx, rep.Steps, 1)
+		require.Equal(ctx, 1, rep.CurrentStep)
+		return mustDatasetPath(path.Join(rfsRoot, fs))
+	}
+
+	rfsA := requireFSReportSucceeded(fsA)
+	rfsAChild := requireFSReportSucceeded(fsAChild)
+
+	rfsmap := map[string]*zfs.DatasetPath{
+		fsA:      rfsA,
+		fsAChild: rfsAChild,
+	}
+
+	for fs, rfs := range rfsmap {
+		for _, tp := range testProps {
+			r_, err := zfs.ZFSGet(ctx, rfs, []string{tp.Name})
+			require.NoError(ctx, err)
+			r := r_.GetDetails(tp.Name)
+
+			expect := tp.ExpectReceiver[fs]
+
+			if !expect.Exists {
+				require.Equal(ctx, zfs.SourceNone, r.Source)
+			} else {
+				require.Equal(ctx, expect.Source, r.Source)
+
+				if expect.ExpectSpecialValue != "" {
+					require.Equal(ctx, expect.ExpectSpecialValue, r.Value)
+				} else {
+					require.Equal(ctx, tp.Name, r.Value)
+				}
+			}
+		}
+	}
 }

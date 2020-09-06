@@ -148,6 +148,22 @@ Incremental sends require that ``@from`` be present on the receiving side when r
 Incremental sends can also use a ZFS bookmark as *from* on the sending side (``zfs send -i #bm_from fs@to``), where ``#bm_from`` was created using ``zfs bookmark fs@from fs#bm_from``.
 The receiving side must always have the actual snapshot ``@from``, regardless of whether the sending side uses ``@from`` or a bookmark of it.
 
+.. _zfs-background-knowledge-plain-vs-raw-sends:
+
+**Plain and raw sends**
+By default, ``zfs send`` sends the most generic, backwards-compatible data stream format (so-called 'plain send').
+If the sent uses newer features, e.g. compression or encryption, ``zfs send`` has to un-do these operations on the fly to produce the plain send stream.
+If the receiver uses newer features (e.g. compression or encryption inherited from the parent FS), it applies the necessary transformations again on the fly during ``zfs recv``.
+
+Flags such as ``-e``, ``-c`` and ``-L``  tell ZFS to produce a send stream that is closer to how the data is stored on disk.
+Sending with those flags removes computational overhead from sender and receiver.
+However, the receiver will not apply certain transformations, e.g., it will not compress with the receive-side ``compression`` algorithm.
+
+The ``-w`` (``--raw``) flag produces a send stream that is as *raw* as possible.
+For unencrypted datasets, its current effect is the same as ``-Lce``.
+
+Encrypted datasets can only be sent plain (unencrypted) or raw (encrypted) using the ``-w`` flag.
+
 **Resumable Send & Recv**
 The ``-s`` flag for ``zfs recv`` tells zfs to save the partially received send stream in case it is interrupted.
 To resume the replication, the receiving side filesystem's ``receive_resume_token`` must be passed to a new ``zfs send -t <value> | zfs recv`` command.

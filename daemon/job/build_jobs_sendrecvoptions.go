@@ -21,11 +21,19 @@ func buildSenderConfig(in SendingJobConfig, jobID endpoint.JobID) (*endpoint.Sen
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot build filesystem filter")
 	}
-
+	sendOpts := in.GetSendOptions()
 	return &endpoint.SenderConfig{
-		FSF:     fsf,
-		Encrypt: &nodefault.Bool{B: in.GetSendOptions().Encrypted},
-		JobID:   jobID,
+		FSF:   fsf,
+		JobID: jobID,
+
+		Encrypt:              &nodefault.Bool{B: sendOpts.Encrypted},
+		SendRaw:              sendOpts.Raw,
+		SendProperties:       sendOpts.SendProperties,
+		SendBackupProperties: sendOpts.BackupProperties,
+		SendLargeBlocks:      sendOpts.LargeBlocks,
+		SendCompressed:       sendOpts.Compressed,
+		SendEmbeddedData:     sendOpts.EmbeddedData,
+		SendSaved:            sendOpts.Saved,
 	}, nil
 }
 
@@ -44,10 +52,14 @@ func buildReceiverConfig(in ReceivingJobConfig, jobID endpoint.JobID) (rc endpoi
 		return rc, errors.New("root_fs must not be empty") // duplicates error check of receiver
 	}
 
+	recvOpts := in.GetRecvOptions()
 	rc = endpoint.ReceiverConfig{
 		JobID:                      jobID,
 		RootWithoutClientComponent: rootFs,
 		AppendClientIdentity:       in.GetAppendClientIdentity(),
+
+		InheritProperties:  recvOpts.Properties.Inherit,
+		OverrideProperties: recvOpts.Properties.Override,
 	}
 	if err := rc.Validate(); err != nil {
 		return rc, errors.Wrap(err, "cannot build receiver config")

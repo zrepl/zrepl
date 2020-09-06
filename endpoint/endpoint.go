@@ -20,12 +20,21 @@ import (
 	"github.com/zrepl/zrepl/util/nodefault"
 	"github.com/zrepl/zrepl/util/semaphore"
 	"github.com/zrepl/zrepl/zfs"
+	zfsprop "github.com/zrepl/zrepl/zfs/property"
 )
 
 type SenderConfig struct {
-	FSF     zfs.DatasetFilter
-	Encrypt *nodefault.Bool
-	JobID   JobID
+	FSF   zfs.DatasetFilter
+	JobID JobID
+
+	Encrypt              *nodefault.Bool
+	SendRaw              bool
+	SendProperties       bool
+	SendBackupProperties bool
+	SendLargeBlocks      bool
+	SendCompressed       bool
+	SendEmbeddedData     bool
+	SendSaved            bool
 }
 
 func (c *SenderConfig) Validate() error {
@@ -44,8 +53,8 @@ type Sender struct {
 	pdu.UnsafeReplicationServer // prefer compilation errors over default 'method X not implemented' impl
 
 	FSFilter zfs.DatasetFilter
-	encrypt  *nodefault.Bool
 	jobId    JobID
+	config   SenderConfig
 }
 
 func NewSender(conf SenderConfig) *Sender {
@@ -54,8 +63,8 @@ func NewSender(conf SenderConfig) *Sender {
 	}
 	return &Sender{
 		FSFilter: conf.FSF,
-		encrypt:  conf.Encrypt,
 		jobId:    conf.JobID,
+		config:   conf,
 	}
 }
 
@@ -155,12 +164,12 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 		// use s.encrypt setting
 		// ok, fallthrough outer
 	case pdu.Tri_False:
-		if s.encrypt.B {
+		if s.config.Encrypt.B {
 			return nil, nil, errors.New("only encrypted sends allowed (send -w + encryption!= off), but unencrypted send requested")
 		}
 		// fallthrough outer
 	case pdu.Tri_True:
-		if !s.encrypt.B {
+		if !s.config.Encrypt.B {
 			return nil, nil, errors.New("only unencrypted sends allowed, but encrypted send requested")
 		}
 		// fallthrough outer
@@ -169,11 +178,20 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 	}
 
 	sendArgsUnvalidated := zfs.ZFSSendArgsUnvalidated{
-		FS:          r.Filesystem,
-		From:        uncheckedSendArgsFromPDU(r.GetFrom()), // validated by zfs.ZFSSendDry / zfs.ZFSSend
-		To:          uncheckedSendArgsFromPDU(r.GetTo()),   // validated by zfs.ZFSSendDry / zfs.ZFSSend
-		Encrypted:   s.encrypt,
-		ResumeToken: r.ResumeToken, // nil or not nil, depending on decoding success
+		FS:   r.Filesystem,
+		From: uncheckedSendArgsFromPDU(r.GetFrom()), // validated by zfs.ZFSSendDry / zfs.ZFSSend
+		To:   uncheckedSendArgsFromPDU(r.GetTo()),   // validated by zfs.ZFSSendDry / zfs.ZFSSend
+		ZFSSendFlags: zfs.ZFSSendFlags{
+			ResumeToken:      r.ResumeToken, // nil or not nil, depending on decoding success
+			Encrypted:        s.config.Encrypt,
+			Properties:       s.config.SendProperties,
+			BackupProperties: s.config.SendBackupProperties,
+			Raw:              s.config.SendRaw,
+			LargeBlocks:      s.config.SendLargeBlocks,
+			Compressed:       s.config.SendCompressed,
+			EmbeddedData:     s.config.SendEmbeddedData,
+			Saved:            s.config.SendSaved,
+		},
 	}
 
 	sendArgs, err := sendArgsUnvalidated.Validate(ctx)
@@ -425,19 +443,49 @@ type FSMap interface { // FIXME unused
 	AsFilter() FSFilter
 }
 
+// NOTE: when adding members to this struct, remember
+//       to add them to `ReceiverConfig.copyIn()`
 type ReceiverConfig struct {
 	JobID JobID
 
 	RootWithoutClientComponent *zfs.DatasetPath // TODO use
 	AppendClientIdentity       bool
+
+	InheritProperties  []zfsprop.Property
+	OverrideProperties map[zfsprop.Property]string
 }
 
 func (c *ReceiverConfig) copyIn() {
 	c.RootWithoutClientComponent = c.RootWithoutClientComponent.Copy()
+
+	pInherit := make([]zfsprop.Property, len(c.InheritProperties))
+	copy(pInherit, c.InheritProperties)
+	c.InheritProperties = pInherit
+
+	pOverride := make(map[zfsprop.Property]string, len(c.OverrideProperties))
+	for key, value := range c.OverrideProperties {
+		pOverride[key] = value
+	}
+	c.OverrideProperties = pOverride
 }
 
 func (c *ReceiverConfig) Validate() error {
 	c.JobID.MustValidate()
+
+	for _, prop := range c.InheritProperties {
+		err := prop.Validate()
+		if err != nil {
+			return errors.Wrapf(err, "inherit property %q", prop)
+		}
+	}
+
+	for prop := range c.OverrideProperties {
+		err := prop.Validate()
+		if err != nil {
+			return errors.Wrapf(err, "override property %q", prop)
+		}
+	}
+
 	if c.RootWithoutClientComponent.Length() <= 0 {
 		return errors.New("RootWithoutClientComponent must not be an empty dataset path")
 	}
@@ -727,6 +775,10 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.
 		return nil, errors.Wrap(err, "cannot get placeholder state")
 	}
 	log.WithField("placeholder_state", fmt.Sprintf("%#v", ph)).Debug("placeholder state")
+
+	recvOpts.InheritProperties = s.conf.InheritProperties
+	recvOpts.OverrideProperties = s.conf.OverrideProperties
+
 	if ph.FSExists && ph.IsPlaceholder {
 		recvOpts.RollbackAndForceRecv = true
 		clearPlaceholderProperty = true

@@ -43,8 +43,10 @@ func sendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden_impl(ctx *plat
 			RelName: "@a snap",
 			GUID:    props.Guid,
 		},
-		Encrypted:   &nodefault.Bool{B: true},
-		ResumeToken: "",
+		ZFSSendFlags: zfs.ZFSSendFlags{
+			Encrypted:   &nodefault.Bool{B: true},
+			ResumeToken: "",
+		},
 	}.Validate(ctx)
 
 	var stream *zfs.SendStream
@@ -96,18 +98,18 @@ func SendArgsValidationResumeTokenEncryptionMismatchForbidden(ctx *platformtest.
 	src := makeDummyDataSnapshots(ctx, sendFS)
 
 	unencS := makeResumeSituation(ctx, src, unencRecvFS, zfs.ZFSSendArgsUnvalidated{
-		FS:        sendFS,
-		To:        src.snapA,
-		Encrypted: &nodefault.Bool{B: false}, // !
+		FS:           sendFS,
+		To:           src.snapA,
+		ZFSSendFlags: zfs.ZFSSendFlags{Encrypted: &nodefault.Bool{B: false}}, // !
 	}, zfs.RecvOptions{
 		RollbackAndForceRecv: false,
 		SavePartialRecvState: true,
 	})
 
 	encS := makeResumeSituation(ctx, src, encRecvFS, zfs.ZFSSendArgsUnvalidated{
-		FS:        sendFS,
-		To:        src.snapA,
-		Encrypted: &nodefault.Bool{B: true}, // !
+		FS:           sendFS,
+		To:           src.snapA,
+		ZFSSendFlags: zfs.ZFSSendFlags{Encrypted: &nodefault.Bool{B: true}}, // !
 	}, zfs.RecvOptions{
 		RollbackAndForceRecv: false,
 		SavePartialRecvState: true,
@@ -173,9 +175,9 @@ func SendArgsValidationResumeTokenDifferentFilesystemForbidden(ctx *platformtest
 	src2 := makeDummyDataSnapshots(ctx, sendFS2)
 
 	rs := makeResumeSituation(ctx, src1, recvFS, zfs.ZFSSendArgsUnvalidated{
-		FS:        sendFS1,
-		To:        src1.snapA,
-		Encrypted: &nodefault.Bool{B: false},
+		FS:           sendFS1,
+		To:           src1.snapA,
+		ZFSSendFlags: zfs.ZFSSendFlags{Encrypted: &nodefault.Bool{B: false}},
 	}, zfs.RecvOptions{
 		RollbackAndForceRecv: false,
 		SavePartialRecvState: true,
@@ -189,8 +191,10 @@ func SendArgsValidationResumeTokenDifferentFilesystemForbidden(ctx *platformtest
 			RelName: src2.snapA.RelName,
 			GUID:    src2.snapA.GUID,
 		},
-		Encrypted:   &nodefault.Bool{B: false},
-		ResumeToken: rs.recvErrDecoded.ResumeTokenRaw,
+		ZFSSendFlags: zfs.ZFSSendFlags{
+			Encrypted:   &nodefault.Bool{B: false},
+			ResumeToken: rs.recvErrDecoded.ResumeTokenRaw,
+		},
 	}
 	_, err = maliciousSend.Validate(ctx)
 	require.Error(ctx, err)

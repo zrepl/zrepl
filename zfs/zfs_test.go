@@ -5,6 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zrepl/zrepl/util/nodefault"
+	zfsprop "github.com/zrepl/zrepl/zfs/property"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,20 +44,20 @@ func TestDatasetPathTrimNPrefixComps(t *testing.T) {
 func TestZFSPropertySource(t *testing.T) {
 
 	tcs := []struct {
-		in  zfsPropertySource
+		in  PropertySource
 		exp []string
 	}{
 		{
-			in: sourceAny,
+			in: SourceAny,
 			// although empty prefix matches any source
 			exp: []string{"local", "default", "inherited", "-", "temporary", "received", ""},
 		},
 		{
-			in:  sourceTemporary,
+			in:  SourceTemporary,
 			exp: []string{"temporary"},
 		},
 		{
-			in:  sourceLocal | sourceInherited,
+			in:  SourceLocal | SourceInherited,
 			exp: []string{"local", "inherited"},
 		},
 	}
@@ -69,6 +72,21 @@ func TestZFSPropertySource(t *testing.T) {
 
 	for _, tc := range tcs {
 
+		t.Logf("TEST CASE %v", tc)
+
+		// give the parsing code some coverage
+		for _, e := range tc.exp {
+			if e == "" {
+				continue // "" is the prefix that matches SourceAny
+			}
+			s, err := parsePropertySource(e)
+			assert.NoError(t, err)
+			t.Logf("s: %x %s", s, s)
+			t.Logf("in: %x %s", tc.in, tc.in)
+			assert.True(t, s&tc.in != 0)
+		}
+
+		// prefix matching
 		res := tc.in.zfsGetSourceFieldPrefixes()
 		resSet := toSet(res)
 		expSet := toSet(tc.exp)
@@ -303,4 +321,132 @@ func TestTryRecvDestroyOrOverwriteEncryptedErr(t *testing.T) {
 	err := tryRecvDestroyOrOverwriteEncryptedErr([]byte(msg))
 	require.NotNil(t, err)
 	assert.EqualError(t, err, strings.TrimSpace(msg))
+}
+
+func TestZFSSendArgsBuildSendFlags(t *testing.T) {
+
+	type args = ZFSSendFlags
+	type SendTest struct {
+		conf         args
+		exactMatch   bool
+		flagsInclude []string
+		flagsExclude []string
+	}
+
+	withEncrypted := func(justFlags ZFSSendFlags) ZFSSendFlags {
+		if justFlags.Encrypted == nil {
+			justFlags.Encrypted = &nodefault.Bool{B: false}
+		}
+		return justFlags
+	}
+
+	var sendTests = map[string]SendTest{
+		"Empty Args": {
+			conf:         withEncrypted(args{}),
+			flagsInclude: []string{},
+			flagsExclude: []string{"-w", "-p", "-b"},
+		},
+		"Raw": {
+			conf:         withEncrypted(args{Raw: true}),
+			flagsInclude: []string{"-w"},
+			flagsExclude: []string{},
+		},
+		"Encrypted": {
+			conf:         withEncrypted(args{Encrypted: &nodefault.Bool{B: true}}),
+			flagsInclude: []string{"-w"},
+			flagsExclude: []string{},
+		},
+		"Unencrypted_And_Raw": {
+			conf:         withEncrypted(args{Encrypted: &nodefault.Bool{B: false}, Raw: true}),
+			flagsInclude: []string{"-w"},
+			flagsExclude: []string{},
+		},
+		"Encrypted_And_Raw": {
+			conf:         withEncrypted(args{Encrypted: &nodefault.Bool{B: true}, Raw: true}),
+			flagsInclude: []string{"-w"},
+			flagsExclude: []string{},
+		},
+		"Send properties": {
+			conf:         withEncrypted(args{Properties: true}),
+			flagsInclude: []string{"-p"},
+			flagsExclude: []string{},
+		},
+		"Send backup properties": {
+			conf:         withEncrypted(args{BackupProperties: true}),
+			flagsInclude: []string{"-b"},
+			flagsExclude: []string{},
+		},
+		"Send -b and -p": {
+			conf:         withEncrypted(args{Properties: true, BackupProperties: true}),
+			flagsInclude: []string{"-p", "-b"},
+			flagsExclude: []string{},
+		},
+		"Send resume state": {
+			conf:         withEncrypted(args{Saved: true}),
+			flagsInclude: []string{"-S"},
+		},
+		"Resume token wins if not empty": {
+			conf:         withEncrypted(args{ResumeToken: "$theresumetoken$", Compressed: true}),
+			flagsInclude: []string{"-t", "$theresumetoken$"},
+			exactMatch:   true,
+		},
+	}
+
+	for testName, test := range sendTests {
+		t.Run(testName, func(t *testing.T) {
+			flags := test.conf.buildSendFlagsUnchecked()
+			assert.GreaterOrEqual(t, len(flags), len(test.flagsInclude))
+			assert.Subset(t, flags, test.flagsInclude)
+			if test.exactMatch {
+				assert.Equal(t, flags, test.flagsInclude)
+			}
+			for flag := range flags {
+				assert.NotContains(t, test.flagsExclude, flag)
+			}
+		})
+	}
+}
+
+func TestZFSCommonRecvArgsBuild(t *testing.T) {
+	type RecvTest struct {
+		conf         RecvOptions
+		flagsInclude []string
+		flagsExclude []string
+	}
+	var recvTests = map[string]RecvTest{
+		"Empty Args": {
+			conf:         RecvOptions{},
+			flagsInclude: []string{},
+			flagsExclude: []string{"-x", "-o", "-F", "-s"},
+		},
+		"ForceRollback": {
+			conf:         RecvOptions{RollbackAndForceRecv: true},
+			flagsInclude: []string{"-F"},
+			flagsExclude: []string{"-x", "-o", "-s"},
+		},
+		"PartialSend": {
+			conf:         RecvOptions{SavePartialRecvState: true},
+			flagsInclude: []string{"-s"},
+			flagsExclude: []string{"-x", "-o", "-F"},
+		},
+		"Override properties": {
+			conf:         RecvOptions{OverrideProperties: map[zfsprop.Property]string{zfsprop.Property("abc"): "123"}},
+			flagsInclude: []string{"-o", "abc=123"},
+			flagsExclude: []string{"-x", "-F", "-s"},
+		},
+		"Exclude/inherit properties": {
+			conf:         RecvOptions{InheritProperties: []zfsprop.Property{"abc", "123"}},
+			flagsInclude: []string{"-x", "abc", "123"}, flagsExclude: []string{"-o", "-F", "-s"},
+		},
+	}
+
+	for testName, test := range recvTests {
+		t.Run(testName, func(t *testing.T) {
+			flags := test.conf.buildRecvFlags()
+			assert.Subset(t, flags, test.flagsInclude)
+			for flag := range flags {
+				assert.NotContains(t, test.flagsExclude, flag)
+			}
+		})
+	}
 }
