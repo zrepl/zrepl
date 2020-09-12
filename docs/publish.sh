@@ -1,14 +1,30 @@
 #!/bin/bash
 set -eo pipefail
 
+
+NON_INTERACTIVE=false
+DO_CLONE=false
+while getopts "ca" arg; do
+    case "$arg" in
+        "a")
+            NON_INTERACTIVE=true
+            ;;
+        "c")
+            DO_CLONE=true
+            ;;
+        *)
+            echo invalid option
+            exit 1
+            ;;
+    esac
+done
+
 GHPAGESREPO="git@github.com:zrepl/zrepl.github.io.git"
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 PUBLICDIR="${SCRIPTDIR}/public_git"
 
 checkout_repo_msg() {
     echo "clone ${GHPAGESREPO} to ${PUBLICDIR}:"
-    echo "	git clone ${GHPAGESREPO} ${PUBLICDIR}"
-    git clone "${GHPAGESREPO}" "${PUBLICDIR}"
 }
 
 exit_msg() {
@@ -25,11 +41,19 @@ cd "$SCRIPTDIR"
 
 if [ ! -d "$PUBLICDIR" ]; then
     checkout_repo_msg
-    exit 1
+    if $DO_CLONE; then
+        git clone "${GHPAGESREPO}" "${PUBLICDIR}"
+    else
+        exit 1
+    fi
 fi
 
-echo -n "PRESS ENTER to confirm you commited and pushed docs changes and tags to the zrepl repo"
-read
+if $NON_INTERACTIVE; then
+    echo "non-interactive mode"
+else
+    echo -n "PRESS ENTER to confirm you commited and pushed docs changes and tags to the zrepl repo"
+    read -r
+fi
 
 pushd "$PUBLICDIR" 
 
@@ -52,9 +76,10 @@ popd
 
 echo "building site"
 
+flags="$(python3 gen-sphinx-versioning-flags.py)"
 set -e
 sphinx-versioning build \
-   $(python3 gen-sphinx-versioning-flags.py) \
+   $flags \
    docs ./public_git \
    -- -c sphinxconf # older conf.py throw errors because they used
                     # version = subprocess.show_output(["git", "describe"])
@@ -66,7 +91,7 @@ git status --porcelain
 if [[ "$(git status --porcelain)" != "" ]]; then
     CURRENT_COMMIT="${CURRENT_COMMIT}(dirty)" 
 fi
-COMMIT_MSG="sphinx-versioning render from publish.sh - `date -u` - ${CURRENT_COMMIT}"
+COMMIT_MSG="sphinx-versioning render from publish.sh - $(date -u) - ${CURRENT_COMMIT}"
 
 pushd "$PUBLICDIR"
 

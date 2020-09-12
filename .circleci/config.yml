@@ -214,6 +214,14 @@ workflows:
     jobs:
       - periodic-trigger-pipeline
 
+  zrepl.github.io:
+    jobs:
+      - publish-zrepl-github-io:
+          filters:
+            branches:
+              only:
+                - stable
+
 jobs:
   quickcheck-docs:
     docker:
@@ -342,3 +350,31 @@ jobs:
           body_no_shell_subst: '{"branch":"master", "parameters": { "do_ci": true, "do_release": true }}'
       - trigger-pipeline:
           body_no_shell_subst: '{"branch":"stable", "parameters": { "do_ci": true, "do_release": true }}'
+
+  publish-zrepl-github-io:
+    docker:
+      - image: cimg/python:3.7
+    steps:
+      - checkout
+      - invoke-lazy-sh:
+          subcommand: docdep
+      - run:
+          command: |
+            git config --global user.email "me@cschwarz.com"
+            git config --global user.name "zrepl-github-io-ci"
+
+      # https://circleci.com/docs/2.0/add-ssh-key/#adding-multiple-keys-with-blank-hostnames
+      - run: ssh-add -D
+      # the default circleci ssh config only additional ssh keys for Host !github.com
+      - run:
+          command: |
+            cat > ~/.ssh/config \<<EOF
+            Host *
+              IdentityFile /home/circleci/.ssh/id_rsa_458e62c517f6c480e40452126ce47421
+            EOF
+      - add_ssh_keys:
+          fingerprints:
+            # deploy key for zrepl.github.io
+            - "45:8e:62:c5:17:f6:c4:80:e4:04:52:12:6c:e4:74:21"
+
+      - run: bash -x docs/publish.sh -c -a
