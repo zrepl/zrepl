@@ -58,13 +58,11 @@ for latest_patch in latest_by_major_minor:
     cmdline.append("--whitelist-tags")
     cmdline.append(f"^{re.escape(latest_patch.orig)}$")
 
-# we want to render the latest non-rc version as the default page
-# (latest_by_major_minor is already sorted)
-default_version = latest_by_major_minor[-1]
-for tag in reversed(latest_by_major_minor):
-    if tag.rc == 0:
-        default_version = tag
-        break
+# we want flexibility to update docs for the latest stable release
+# => we have a branch for that, called `stable` which we move manually
+# TODO: in the future, have f"stable-{latest_by_major_minor[-1]}"
+default_version = "stable"
+cmdline.extend(["--whitelist-branches", default_version])
 
 cmdline.extend(["--root-ref", f"{default_version}"])
 cmdline.extend(["--banner-main-ref", f"{default_version}"])
