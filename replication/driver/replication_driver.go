@@ -230,7 +230,10 @@ func Do(ctx context.Context, planner Planner) (ReportFunc, WaitFunc) {
 			errRep := cur.errorReport()
 
 			if rep.State == report.AttemptDone {
-				log.Debug("attempt completed successfully")
+				if len(rep.Filesystems) == 0 {
+					log.Warn("no filesystems were considered for replication")
+				}
+				log.Debug("attempt completed")
 				break
 			}
 
