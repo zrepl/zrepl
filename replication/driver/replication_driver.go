@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -237,7 +238,7 @@ func Do(ctx context.Context, planner Planner) (ReportFunc, WaitFunc) {
 			log.WithField("most_recent_err", mostRecentErr).WithField("most_recent_err_class", mostRecentErrClass).Debug("most recent error used for re-connect decision")
 			if mostRecentErr == nil {
 				// inconsistent reporting, let's bail out
-				log.Warn("attempt does not report done but error report does not report errors, aborting run")
+				log.WithField("attempt_state", rep.State).Warn("attempt does not report done but error report does not report errors, aborting run")
 				break
 			}
 			log.WithError(mostRecentErr.Err).Error("most recent error in this attempt")
@@ -310,6 +311,9 @@ func (a *attempt) doGlobalPlanning(ctx context.Context, prev *attempt) map[*fs]*
 		a.finishedAt = time.Now()
 		return nil
 	}
+
+	// a.fss != nil indicates that there was no planning error (see doc comment)
+	a.fss = make([]*fs, 0)
 
 	for _, pfs := range pfss {
 		fs := &fs{
@@ -676,10 +680,12 @@ func (a *attempt) report() *report.AttemptReport {
 		r.Filesystems[i] = a.fss[i].report()
 	}
 
-	state := report.AttemptPlanning
-	if a.planErr != nil {
+	var state report.AttemptState
+	if a.planErr == nil && a.fss == nil {
+		state = report.AttemptPlanning
+	} else if a.planErr != nil && a.fss == nil {
 		state = report.AttemptPlanningError
-	} else if a.fss != nil {
+	} else if a.planErr == nil && a.fss != nil {
 		if a.finishedAt.IsZero() {
 			state = report.AttemptFanOutFSs
 		} else {
@@ -692,6 +698,8 @@ func (a *attempt) report() *report.AttemptReport {
 				state = report.AttemptFanOutError
 			}
 		}
+	} else {
+		panic(fmt.Sprintf("attempt.planErr and attempt.fss must not both be != nil:\n%s\n%s", pretty.Sprint(a.planErr), pretty.Sprint(a.fss)))
 	}
 	r.State = state
 
