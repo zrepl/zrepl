@@ -13,7 +13,7 @@
    :target: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=R5QSXJVYHGX96
 .. |Donate via Liberapay| image:: https://img.shields.io/liberapay/patrons/zrepl.svg?logo=liberapay
    :target: https://liberapay.com/zrepl/donate
-.. |Donate via Patreon| image:: https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.vercel.app%2Fapi%3Fusername%3Dzrepl%26type%3Dpatrons&style=flat&color=yellow
+.. |Donate via Patreon| image:: https://img.shields.io/badge/dynamic/json?color=yellow&label=Patreon&query=data.attributes.patron_count&suffix=%20patrons&url=https%3A%2F%2Fwww.patreon.com%2Fapi%2Fcampaigns%2F3095079
    :target: https://www.patreon.com/zrepl
 .. |Donate via GitHub Sponsors| image:: https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=yellow
    :target: https://github.com/sponsors/problame
