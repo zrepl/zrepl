@@ -12,6 +12,8 @@ zrepl is a one-stop, integrated solution for ZFS replication.}
 %define _source_payload w9.gzdio
 %define _binary_payload w9.gzdio
 
+# don't strip pre-built binaries
+%define __strip /usr/bin/true
 
 Name:             zrepl
 Release:          1
