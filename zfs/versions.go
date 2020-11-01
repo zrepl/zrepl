@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,6 +41,7 @@ func (s VersionTypeSet) zfsListTFlagRepr() string {
 	for t := range s {
 		types = append(types, t.String())
 	}
+	sort.StringSlice(types).Sort()
 	return strings.Join(types, ",")
 }
 func (s VersionTypeSet) String() string { return s.zfsListTFlagRepr() }
