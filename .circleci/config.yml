@@ -204,7 +204,7 @@ workflows:
   periodic:
     triggers:
       - schedule:
-          cron: "45 15 * * *"
+          cron: "00 17 * * *"
           filters:
             branches:
               only:
@@ -212,7 +212,7 @@ workflows:
                 - stable
                 - problame/circleci-build
     jobs:
-      - periodic-trigger-pipeline
+      - periodic-full-pipeline-run
 
   zrepl.github.io:
     jobs:
@@ -342,14 +342,12 @@ jobs:
           description: CI-generated release artifacts
           minio-dst: ""
 
-  periodic-trigger-pipeline:
+  periodic-full-pipeline-run:
     docker:
       - image: cimg/base:2020.08
     steps:
       - trigger-pipeline:
-          body_no_shell_subst: '{"branch":"master", "parameters": { "do_ci": true, "do_release": true }}'
-      - trigger-pipeline:
-          body_no_shell_subst: '{"branch":"stable", "parameters": { "do_ci": true, "do_release": true }}'
+          body_no_shell_subst: '{"branch":"<<pipeline.git.branch>>", "parameters": { "do_ci": true, "do_release": true }}'
 
   publish-zrepl-github-io:
     docker:
