@@ -446,7 +446,7 @@ type FSMap interface { // FIXME unused
 type ReceiverConfig struct {
 	JobID JobID
 
-	RootWithoutClientComponent *zfs.DatasetPath // TODO use
+	RootWithoutClientComponent *zfs.DatasetPath
 	AppendClientIdentity       bool
 
 	InheritProperties  []zfsprop.Property
