@@ -18,11 +18,14 @@ import (
 
 // NOTE: Update ZFSSendARgs.Validate when changing fields (potentially SECURITY SENSITIVE)
 type ResumeToken struct {
-	HasFromGUID, HasToGUID    bool
-	FromGUID, ToGUID          uint64
-	ToName                    string
-	HasCompressOK, CompressOK bool
-	HasRawOk, RawOK           bool
+	HasFromGUID, HasToGUID        bool
+	FromGUID, ToGUID              uint64
+	ToName                        string
+	HasCompressOK, CompressOK     bool
+	HasRawOk, RawOK               bool
+	HasLargeBlockOK, LargeBlockOK bool
+	HasEmbedOk, EmbedOK           bool
+	HasSavedOk, SavedOk           bool
 }
 
 var resumeTokenNVListRE = regexp.MustCompile(`\t(\S+) = (.*)`)
@@ -237,6 +240,24 @@ func ParseResumeToken(ctx context.Context, token string) (*ResumeToken, error) {
 		case "compressok":
 			rt.HasCompressOK = true
 			rt.CompressOK, err = strconv.ParseBool(val)
+			if err != nil {
+				return nil, ResumeTokenParsingError
+			}
+		case "embedok":
+			rt.HasEmbedOk = true
+			rt.EmbedOK, err = strconv.ParseBool(val)
+			if err != nil {
+				return nil, ResumeTokenParsingError
+			}
+		case "largeblockok":
+			rt.HasLargeBlockOK = true
+			rt.LargeBlockOK, err = strconv.ParseBool(val)
+			if err != nil {
+				return nil, ResumeTokenParsingError
+			}
+		case "savedok":
+			rt.HasSavedOk = true
+			rt.SavedOk, err = strconv.ParseBool(val)
 			if err != nil {
 				return nil, ResumeTokenParsingError
 			}
