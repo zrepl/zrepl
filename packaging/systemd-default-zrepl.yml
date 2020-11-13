@@ -1,0 +1,13 @@
+global:
+  logging:
+    # use syslog instead of stdout because it makes journald happy
+    - type: syslog
+      format: human
+      level: warn
+
+jobs:
+#  - name: foo
+#    type: bar
+
+# see USR_SHARE_ZREPL/examples
+# or https://zrepl.github.io/configuration/overview.html

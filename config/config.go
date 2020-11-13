@@ -324,6 +324,7 @@ type PruneKeepNotReplicated struct {
 type PruneKeepLastN struct {
 	Type  string `yaml:"type"`
 	Count int    `yaml:"count"`
+	Regex string `yaml:"regex,optional"`
 }
 
 type PruneKeepRegex struct { // FIXME rename to KeepRegex

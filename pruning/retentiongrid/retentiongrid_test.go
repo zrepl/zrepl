@@ -10,25 +10,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type retentionIntervalStub struct {
+type testInterval struct {
 	length    time.Duration
 	keepCount int
 }
 
-func (i *retentionIntervalStub) Length() time.Duration {
-	return i.length
-}
-
-func (i *retentionIntervalStub) KeepCount() int {
-	return i.keepCount
-}
+func (i *testInterval) Length() time.Duration { return i.length }
+func (i *testInterval) KeepCount() int        { return i.keepCount }
 
 func gridFromString(gs string) (g *Grid) {
-	intervals := strings.Split(gs, "|")
-	g = &Grid{
-		intervals: make([]Interval, len(intervals)),
-	}
-	for idx, i := range intervals {
+	sintervals := strings.Split(gs, "|")
+	intervals := make([]Interval, len(sintervals))
+	for idx, i := range sintervals {
 		comps := strings.SplitN(i, ",", 2)
 		var durationStr, numSnapsStr string
 		durationStr = comps[0]
@@ -39,7 +32,7 @@ func gridFromString(gs string) (g *Grid) {
 		}
 
 		var err error
-		var interval retentionIntervalStub
+		var interval testInterval
 
 		if interval.keepCount, err = strconv.Atoi(numSnapsStr); err != nil {
 			panic(err)
@@ -48,44 +41,38 @@ func gridFromString(gs string) (g *Grid) {
 			panic(err)
 		}
 
-		g.intervals[idx] = &interval
+		intervals[idx] = &interval
 	}
-	return
+	return NewGrid(intervals)
 }
 
-type dummySnap struct {
+type testSnap struct {
 	Name       string
 	ShouldKeep bool
 	date       time.Time
 }
 
-func (ds dummySnap) Date() time.Time {
-	return ds.date
-}
-
-func (ds dummySnap) LessThan(b Entry) bool {
-	return ds.date.Before(b.(dummySnap).date) // don't have a txg here
-}
+func (ds testSnap) Date() time.Time { return ds.date }
 
 func validateRetentionGridFitEntries(t *testing.T, now time.Time, input, keep, remove []Entry) {
 
-	snapDescr := func(d dummySnap) string {
+	snapDescr := func(d testSnap) string {
 		return fmt.Sprintf("%s@%s", d.Name, d.date.Sub(now))
 	}
 
 	t.Logf("keep list:\n")
 	for k := range keep {
-		t.Logf("\t%s\n", snapDescr(keep[k].(dummySnap)))
+		t.Logf("\t%s\n", snapDescr(keep[k].(testSnap)))
 	}
 	t.Logf("remove list:\n")
 	for k := range remove {
-		t.Logf("\t%s\n", snapDescr(remove[k].(dummySnap)))
+		t.Logf("\t%s\n", snapDescr(remove[k].(testSnap)))
 	}
 
 	t.Logf("\n\n")
 
 	for _, s := range input {
-		d := s.(dummySnap)
+		d := s.(testSnap)
 		descr := snapDescr(d)
 		t.Logf("testing %s\n", descr)
 		if d.ShouldKeep {
@@ -97,21 +84,18 @@ func validateRetentionGridFitEntries(t *testing.T, now time.Time, input, keep, r
 
 	t.Logf("resulting list:\n")
 	for k := range keep {
-		t.Logf("\t%s\n", snapDescr(keep[k].(dummySnap)))
+		t.Logf("\t%s\n", snapDescr(keep[k].(testSnap)))
 	}
 }
 
-func TestRetentionGridFitEntriesEmptyInput(t *testing.T) {
+func TestEmptyInput(t *testing.T) {
 	g := gridFromString("10m|10m|10m|1h")
-	keep, remove := g.FitEntries(time.Now(), []Entry{})
+	keep, remove := g.FitEntries([]Entry{})
 	assert.Empty(t, keep)
 	assert.Empty(t, remove)
 }
 
-func TestRetentionGridFitEntriesIntervalBoundariesAndAlignment(t *testing.T) {
-
-	// Intervals are (duration], i.e. 10min is in the first interval, not in the second
-
+func TestIntervalBoundariesAndAlignment(t *testing.T) {
 	g := gridFromString("10m|10m|10m")
 
 	t.Logf("%#v\n", g)
@@ -119,20 +103,51 @@ func TestRetentionGridFitEntriesIntervalBoundariesAndAlignment(t *testing.T) {
 	now := time.Unix(0, 0)
 
 	snaps := []Entry{
-		dummySnap{"0", true, now.Add(1 * time.Minute)},    // before now
-		dummySnap{"1", true, now},                         // before now
-		dummySnap{"2", true, now.Add(-10 * time.Minute)},  // 1st interval
-		dummySnap{"3", true, now.Add(-20 * time.Minute)},  // 2nd interval
-		dummySnap{"4", true, now.Add(-30 * time.Minute)},  // 3rd interval
-		dummySnap{"5", false, now.Add(-40 * time.Minute)}, // after last interval
+		testSnap{"0", true, now.Add(1 * time.Minute)},    // before now => keep unconditionally
+		testSnap{"1", true, now},                         // 1st interval left edge => inclusive
+		testSnap{"2", true, now.Add(-10 * time.Minute)},  // 2nd interval left edge => inclusive
+		testSnap{"3", true, now.Add(-20 * time.Minute)},  // 3rd interval left edge => inclusuive
+		testSnap{"4", false, now.Add(-30 * time.Minute)}, // 3rd interval right edge => excludive
+		testSnap{"5", false, now.Add(-40 * time.Minute)}, // after last interval => remove unconditionally
 	}
 
-	keep, remove := g.FitEntries(now, snaps)
+	keep, remove := g.fitEntriesWithNow(now, snaps)
 	validateRetentionGridFitEntries(t, now, snaps, keep, remove)
-
 }
 
-func TestRetentionGridFitEntries(t *testing.T) {
+func TestKeepsOldestSnapsInABucket(t *testing.T) {
+	g := gridFromString("1m,2")
+
+	relt := func(secs int64) time.Time { return time.Unix(secs, 0) }
+
+	snaps := []Entry{
+		testSnap{"1", true, relt(1)},
+		testSnap{"2", true, relt(2)},
+		testSnap{"3", false, relt(3)},
+		testSnap{"4", false, relt(4)},
+		testSnap{"5", false, relt(5)},
+	}
+
+	now := relt(6)
+	keep, remove := g.FitEntries(snaps)
+	validateRetentionGridFitEntries(t, now, snaps, keep, remove)
+}
+
+func TestRespectsKeepCountAll(t *testing.T) {
+	g := gridFromString("1m,-1|1m,1")
+	relt := func(secs int64) time.Time { return time.Unix(secs, 0) }
+	snaps := []Entry{
+		testSnap{"a", true, relt(0)},
+		testSnap{"b", true, relt(-1)},
+		testSnap{"c", true, relt(-2)},
+		testSnap{"d", false, relt(-60)},
+		testSnap{"e", true, relt(-61)},
+	}
+	keep, remove := g.FitEntries(snaps)
+	validateRetentionGridFitEntries(t, relt(61), snaps, keep, remove)
+}
+
+func TestComplex(t *testing.T) {
 
 	g := gridFromString("10m,-1|10m|10m,2|1h")
 
@@ -141,20 +156,29 @@ func TestRetentionGridFitEntries(t *testing.T) {
 	now := time.Unix(0, 0)
 
 	snaps := []Entry{
-		dummySnap{"1", true, now.Add(3 * time.Minute)},   // pre-now must always be kept
-		dummySnap{"b1", true, now.Add(-6 * time.Minute)}, // 1st interval allows unlimited entries
-		dummySnap{"b3", true, now.Add(-8 * time.Minute)}, // 1st interval allows unlimited entries
-		dummySnap{"b2", true, now.Add(-9 * time.Minute)}, // 1st interval allows unlimited entries
-		dummySnap{"a", false, now.Add(-11 * time.Minute)},
-		dummySnap{"c", true, now.Add(-19 * time.Minute)}, // 2nd interval allows 1 entry
-		dummySnap{"foo", false, now.Add(-25 * time.Minute)},
-		dummySnap{"bar", true, now.Add(-26 * time.Minute)}, // 3rd interval allows 2 entries
-		dummySnap{"border", true, now.Add(-30 * time.Minute)},
-		dummySnap{"d", true, now.Add(-1*time.Hour - 15*time.Minute)},
-		dummySnap{"e", false, now.Add(-1*time.Hour - 31*time.Minute)}, // before earliest interval must always be deleted
-		dummySnap{"f", false, now.Add(-2 * time.Hour)},
+		// pre-now must always be kept
+		testSnap{"1", true, now.Add(3 * time.Minute)},
+		// 1st interval allows unlimited entries
+		testSnap{"b1", true, now.Add(-6 * time.Minute)},
+		testSnap{"b3", true, now.Add(-8 * time.Minute)},
+		testSnap{"b2", true, now.Add(-9 * time.Minute)},
+		// 2nd interval allows 1 entry
+		testSnap{"a", false, now.Add(-11 * time.Minute)},
+		testSnap{"c", true, now.Add(-19 * time.Minute)},
+		// 3rd interval allows 2 entries
+		testSnap{"foo", true, now.Add(-25 * time.Minute)},
+		testSnap{"bar", true, now.Add(-26 * time.Minute)},
+		// this is at the left edge of the 4th interval
+		testSnap{"border", false, now.Add(-30 * time.Minute)},
+		// right in the 4th interval
+		testSnap{"d", true, now.Add(-1*time.Hour - 15*time.Minute)},
+		// on the right edge of 4th interval => not in it => delete
+		testSnap{"q", false, now.Add(-1*time.Hour - 30*time.Minute)},
+		// older then 4th interval => always delete
+		testSnap{"e", false, now.Add(-1*time.Hour - 31*time.Minute)},
+		testSnap{"f", false, now.Add(-2 * time.Hour)},
 	}
-	keep, remove := g.FitEntries(now, snaps)
+	keep, remove := g.fitEntriesWithNow(now, snaps)
 
 	validateRetentionGridFitEntries(t, now, snaps, keep, remove)
 

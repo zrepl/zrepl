@@ -28,6 +28,8 @@ GO_BUILDFLAGS := $(GO_MOD_READONLY) $(GO_EXTRA_BUILDFLAGS)
 GO_BUILD := $(GO_ENV_VARS) $(GO) build $(GO_BUILDFLAGS) -ldflags $(GO_LDFLAGS)
 GOLANGCI_LINT := golangci-lint
 GOCOVMERGE := gocovmerge
+RELEASE_DOCKER_BASEIMAGE_TAG ?= 1.15
+RELEASE_DOCKER_BASEIMAGE ?= golang:$(RELEASE_DOCKER_BASEIMAGE_TAG)
 
 ifneq ($(GOARM),)
 	ZREPL_TARGET_TUPLE := $(GOOS)-$(GOARCH)v$(GOARM)
@@ -56,6 +58,85 @@ ifeq (SIGN, 1)
 	$(make) sign
 endif
 	@echo "ZREPL RELEASE ARTIFACTS AVAILABLE IN artifacts/release"
+
+release-docker: $(ARTIFACTDIR)
+	sed 's/FROM.*!SUBSTITUTED_BY_MAKEFILE/FROM $(RELEASE_DOCKER_BASEIMAGE)/' build.Dockerfile > artifacts/release-docker.Dockerfile
+	docker build -t zrepl_release --pull -f artifacts/release-docker.Dockerfile .
+	docker run --rm -i -v $(CURDIR):/src -u $$(id -u):$$(id -g) \
+		zrepl_release \
+		make release GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)
+
+debs-docker:
+	$(MAKE) _debs_or_rpms_docker _DEB_OR_RPM=deb
+rpms-docker:
+	$(MAKE) _debs_or_rpms_docker _DEB_OR_RPM=rpm
+_debs_or_rpms_docker: # artifacts/_zrepl.zsh_completion artifacts/bash_completion docs zrepl-bin
+	$(MAKE) $(_DEB_OR_RPM)-docker GOOS=linux GOARCH=amd64
+	$(MAKE) $(_DEB_OR_RPM)-docker GOOS=linux GOARCH=arm64
+	$(MAKE) $(_DEB_OR_RPM)-docker GOOS=linux GOARCH=arm GOARM=7
+	$(MAKE) $(_DEB_OR_RPM)-docker GOOS=linux GOARCH=386
+
+rpm: $(ARTIFACTDIR) # artifacts/_zrepl.zsh_completion artifacts/bash_completion docs zrepl-bin
+	$(eval _ZREPL_RPM_VERSION := $(subst -,.,$(_ZREPL_VERSION)))
+	$(eval _ZREPL_RPM_TOPDIR_ABS := $(CURDIR)/$(ARTIFACTDIR)/rpmbuild)
+	rm -rf "$(_ZREPL_RPM_TOPDIR_ABS)"
+	mkdir "$(_ZREPL_RPM_TOPDIR_ABS)"
+	mkdir -p "$(_ZREPL_RPM_TOPDIR_ABS)"/{SPECS,RPMS,BUILD,BUILDROOT}
+	sed "s/^Version:.*/Version:          $(_ZREPL_RPM_VERSION)/g" \
+	    packaging/rpm/zrepl.spec >  $(_ZREPL_RPM_TOPDIR_ABS)/SPECS/zrepl.spec
+
+	# see /usr/lib/rpm/platform
+ifeq ($(GOARCH),amd64)
+	$(eval _ZREPL_RPMBUILD_TARGET := x86_64)
+else ifeq ($(GOARCH), 386)
+	$(eval _ZREPL_RPMBUILD_TARGET := i386)
+else ifeq ($(GOARCH), arm64)
+	$(eval _ZREPL_RPMBUILD_TARGET := aarch64)
+else ifeq ($(GOARCH), arm)
+	$(eval _ZREPL_RPMBUILD_TARGET := armv7hl)
+else
+	$(eval _ZREPL_RPMBUILD_TARGET := $(GOARCH))
+endif
+	rpmbuild \
+		--build-in-place \
+		--define "_sourcedir $(CURDIR)" \
+		--define "_topdir $(_ZREPL_RPM_TOPDIR_ABS)" \
+		--define "_zrepl_binary_filename zrepl-$(ZREPL_TARGET_TUPLE)" \
+		--target $(_ZREPL_RPMBUILD_TARGET) \
+		-bb "$(_ZREPL_RPM_TOPDIR_ABS)"/SPECS/zrepl.spec
+	cp "$(_ZREPL_RPM_TOPDIR_ABS)"/RPMS/$(_ZREPL_RPMBUILD_TARGET)/zrepl-$(_ZREPL_RPM_VERSION)*.rpm $(ARTIFACTDIR)/
+
+rpm-docker:
+	docker build -t zrepl_rpm_pkg --pull -f packaging/rpm/Dockerfile .
+	docker run --rm -i -v $(CURDIR):/build/src -u $$(id -u):$$(id -g) \
+		zrepl_rpm_pkg \
+		make rpm GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)
+
+deb: $(ARTIFACTDIR) # artifacts/_zrepl.zsh_completion artifacts/bash_completion docs zrepl-bin
+
+	cp packaging/deb/debian/changelog.template packaging/deb/debian/changelog
+	sed -i 's/DATE_DASH_R_OUTPUT/$(shell date -R)/' packaging/deb/debian/changelog
+	VERSION="$(subst -,.,$(_ZREPL_VERSION))"; \
+		export VERSION="$${VERSION#v}"; \
+		sed -i 's/VERSION/'"$$VERSION"'/' packaging/deb/debian/changelog
+
+ifeq ($(GOARCH), arm)
+	$(eval  DEB_HOST_ARCH := armhf)
+else ifeq ($(GOARCH), 386)
+	$(eval DEB_HOST_ARCH := i386)
+else
+	$(eval DEB_HOST_ARCH := $(GOARCH))
+endif
+
+	export ZREPL_DPKG_ZREPL_BINARY_FILENAME=zrepl-$(ZREPL_TARGET_TUPLE); \
+		dpkg-buildpackage -b --no-sign --host-arch $(DEB_HOST_ARCH)
+	cp ../*.deb artifacts/
+
+deb-docker:
+	docker build -t zrepl_debian_pkg --pull -f packaging/deb/Dockerfile .
+	docker run --rm -i -v $(CURDIR):/build/src -u $$(id -u):$$(id -g) \
+		zrepl_debian_pkg \
+		make deb GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)
 
 # expects `release` target to have run before
 NOARCH_TARBALL := $(ARTIFACTDIR)/zrepl-noarch.tar
@@ -173,7 +254,7 @@ ZREPL_PLATFORMTEST_IMAGEPATH := /tmp/zreplplatformtest.pool.img
 ZREPL_PLATFORMTEST_MOUNTPOINT := /tmp/zreplplatformtest.pool
 ZREPL_PLATFORMTEST_ZFS_LOG := /tmp/zreplplatformtest.zfs.log
 # ZREPL_PLATFORMTEST_STOP_AND_KEEP := -failure.stop-and-keep-pool
-ZREPL_PLATFORMTEST_ARGS := 
+ZREPL_PLATFORMTEST_ARGS :=
 _test-or-cover-platform-impl: $(ARTIFACTDIR)
 ifndef _TEST_PLATFORM_CMD
 	$(error _TEST_PLATFORM_CMD is undefined, caller 'cover-platform' or 'test-platform' should have defined it)
@@ -202,14 +283,22 @@ cover-full:
 
 ##################### DEV TARGETS #####################
 # not part of the build, must do that manually
-.PHONY: generate format
+.PHONY: generate formatcheck format
 
 generate: generate-platform-test-list
 	protoc -I=replication/logic/pdu --go_out=plugins=grpc:replication/logic/pdu replication/logic/pdu/pdu.proto
 	$(GO_ENV_VARS) $(GO) generate $(GO_BUILDFLAGS) -x ./...
 
+GOIMPORTS := goimports -srcdir . -local 'github.com/zrepl/zrepl'
+FINDSRCFILES := find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go'
+
+formatcheck:
+	@# goimports doesn't have a knob to exit with non-zero status code if formatting is needed
+	@# see https://go-review.googlesource.com/c/tools/+/237378
+	@ affectedfiles=$$($(GOIMPORTS) -l $(shell $(FINDSRCFILES)) | tee /dev/stderr | wc -l); test "$$affectedfiles" = 0
+
 format:
-	goimports -srcdir . -local 'github.com/zrepl/zrepl' -w $(shell find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go')
+	@ $(GOIMPORTS) -w -d $(shell  $(FINDSRCFILES))
 
 ##################### NOARCH #####################
 .PHONY: noarch $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/_zrepl.zsh_completion $(ARTIFACTDIR)/go_env.txt docs docs-clean
@@ -233,11 +322,14 @@ $(ARTIFACTDIR)/_zrepl.zsh_completion:
 
 $(ARTIFACTDIR)/go_env.txt:
 	$(GO_ENV_VARS) $(GO) env > $@
+	$(GO) version >> $@
 
 docs: $(ARTIFACTDIR)/docs
+	# https://www.sphinx-doc.org/en/master/man/sphinx-build.html
 	make -C docs \
 		html \
 		BUILDDIR=../artifacts/docs \
+		SPHINXOPTS="-W --keep-going -n"
 
 docs-clean:
 	make -C docs \

@@ -3,8 +3,9 @@ package semaphore
 import (
 	"context"
 
-	"github.com/zrepl/zrepl/daemon/logging/trace"
 	wsemaphore "golang.org/x/sync/semaphore"
+
+	"github.com/zrepl/zrepl/daemon/logging/trace"
 )
 
 type S struct {

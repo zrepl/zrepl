@@ -8,8 +8,9 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/zrepl/zrepl/transport"
 	"golang.org/x/sys/unix"
+
+	"github.com/zrepl/zrepl/transport"
 )
 
 type ipMapEntry struct {

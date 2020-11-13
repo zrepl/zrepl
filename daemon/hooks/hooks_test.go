@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"

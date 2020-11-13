@@ -4,11 +4,20 @@ import (
 	"fmt"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/zrepl/zrepl/platformtest"
 	"github.com/zrepl/zrepl/zfs"
 )
 
 func ReceiveForceIntoEncryptedErr(ctx *platformtest.Context) {
+
+	supported, err := zfs.EncryptionCLISupported(ctx)
+	require.NoError(ctx, err, "encryption feature test failed")
+	if !supported {
+		ctx.SkipNow()
+		return
+	}
+
 	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
 		DESTROYROOT
 		CREATEROOT

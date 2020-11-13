@@ -27,6 +27,33 @@ We use the following annotations for classifying changes:
 * |bugfix| Change that fixes a bug, no regressions or incompatibilities expected.
 * |docs| Change to the documentation.
 
+0.3.1
+-----
+
+Mostly a bugfix release for :ref:`zrepl 0.3 <release-0.3>`.
+
+* |feature| pruning: add optional ``regex`` field to ``last_n`` rule
+* |docs| pruning: ``grid`` : improve documentation and add an example
+* |bugfix| pruning: ``grid``:  add all snapshots that do not match the regex to the rule's destroy list.
+  This brings the implementation in line with the docs.
+* |bugfix| ``easyrsa`` script in docs
+* |bugfix| platformtest: fix skipping encryption-only tests on systems that don't support encryption
+* |bugfix| replication: report AttemptDone if no filesystems are replicated
+* |feature| status + replication: warning if replication succeeeded without any filesystem being replicated
+* |docs| update multi-job & multi-host setup section
+* RPM Packaging
+* CI infrastructure rework
+* Continuous deployment of that new `stable` branch to zrepl.github.io.
+
+.. NOTE::
+   |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
+   |  You can support maintenance and feature development through one of the following services:
+   |  |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
+   |  Note that PayPal processing fees are relatively high for small donations.
+   |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
+
+.. _release-0.3:
+
 0.3
 ---
 
@@ -88,13 +115,6 @@ Additional changelog:
 * |docs| Document new replication features in the :ref:`config overview <overview-how-replication-works>` and :repomasterlink:`replication/design.md`.
 * **[MAINTAINER NOTICE]** New platform tests in this version, please make sure you run them for your distro!
 * **[MAINTAINER NOTICE]** Please add the shell completions to the zrepl packages.
-
-.. NOTE::
-   |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
-   |  You can support maintenance and feature development through one of the following services:
-   |  |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
-   |  Note that PayPal processing fees are relatively high for small donations.
-   |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
 
 0.2.1
 -----

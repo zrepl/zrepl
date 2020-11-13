@@ -480,6 +480,11 @@ func (t *tui) renderReplicationReport(rep *report.Report, history *bytesProgress
 			t.newline()
 		}
 
+		if len(latest.Filesystems) == 0 {
+			t.write("NOTE: no filesystems were considered for replication!")
+			t.newline()
+		}
+
 		var maxFSLen int
 		for _, fs := range latest.Filesystems {
 			if len(fs.Info.Name) > maxFSLen {

@@ -13,6 +13,7 @@ var (
 
 type ZreplVersionInformation struct {
 	Version         string
+	RuntimeGo       string
 	RuntimeGOOS     string
 	RuntimeGOARCH   string
 	RUNTIMECompiler string
@@ -21,6 +22,7 @@ type ZreplVersionInformation struct {
 func NewZreplVersionInformation() *ZreplVersionInformation {
 	return &ZreplVersionInformation{
 		Version:         zreplVersion,
+		RuntimeGo:       runtime.Version(),
 		RuntimeGOOS:     runtime.GOOS,
 		RuntimeGOARCH:   runtime.GOARCH,
 		RUNTIMECompiler: runtime.Compiler,
@@ -28,8 +30,8 @@ func NewZreplVersionInformation() *ZreplVersionInformation {
 }
 
 func (i *ZreplVersionInformation) String() string {
-	return fmt.Sprintf("zrepl version=%s GOOS=%s GOARCH=%s Compiler=%s",
-		i.Version, i.RuntimeGOOS, i.RuntimeGOARCH, i.RUNTIMECompiler)
+	return fmt.Sprintf("zrepl version=%s go=%s GOOS=%s GOARCH=%s Compiler=%s",
+		i.Version, i.RuntimeGo, i.RuntimeGOOS, i.RuntimeGOARCH, i.RUNTIMECompiler)
 }
 
 var prometheusMetric = prometheus.NewUntypedFunc(

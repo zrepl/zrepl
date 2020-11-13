@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -39,6 +41,7 @@ func (s VersionTypeSet) zfsListTFlagRepr() string {
 	for t := range s {
 		types = append(types, t.String())
 	}
+	sort.StringSlice(types).Sort()
 	return strings.Join(types, ",")
 }
 func (s VersionTypeSet) String() string { return s.zfsListTFlagRepr() }
@@ -218,14 +221,23 @@ func ZFSListFilesystemVersions(ctx context.Context, fs *DatasetPath, options Lis
 	promTimer := prometheus.NewTimer(prom.ZFSListFilesystemVersionDuration.WithLabelValues(fs.ToString()))
 	defer promTimer.ObserveDuration()
 
+	// Note: we don't create a separate trace.Task here because our loop that consumes
+	// the goroutine's output doesn't use ctx.
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	go ZFSListChan(ctx, listResults,
-		[]string{"name", "guid", "createtxg", "creation", "userrefs"},
-		fs,
-		"-r", "-d", "1",
-		"-t", options.typesFlagArgs(),
-		"-s", "createtxg", fs.ToString())
+	// make sure the goroutine doesn't outlive this function call
+	var wg sync.WaitGroup
+	wg.Add(1)
+	defer wg.Wait()
+	defer cancel() // on exit, cancel list process before waiting for it
+	go func() {
+		defer wg.Done()
+		ZFSListChan(ctx, listResults,
+			[]string{"name", "guid", "createtxg", "creation", "userrefs"},
+			fs,
+			"-r", "-d", "1",
+			"-t", options.typesFlagArgs(),
+			"-s", "createtxg", fs.ToString())
+	}()
 
 	res = make([]FilesystemVersion, 0)
 	for listResult := range listResults {

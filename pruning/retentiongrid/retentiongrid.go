@@ -16,85 +16,127 @@ type Grid struct {
 	intervals []Interval
 }
 
-//A point inside the grid, i.e. a thing the grid can decide to remove
 type Entry interface {
 	Date() time.Time
-	LessThan(b Entry) bool
-}
-
-func dateInInterval(date, startDateInterval time.Time, i Interval) bool {
-	return date.After(startDateInterval) && date.Before(startDateInterval.Add(i.Length()))
 }
 
 func NewGrid(l []Interval) *Grid {
+	if len(l) == 0 {
+		panic("must specify at least one interval")
+	}
 	// TODO Maybe check for ascending interval lengths here, although the algorithm
 	// 		itself doesn't care about that.
 	return &Grid{l}
 }
 
-// Partition a list of RetentionGridEntries into the Grid,
-// relative to a given start date `now`.
-//
-// The `keepCount` oldest entries per `retentiongrid.Interval` are kept (`keep`),
-// the others are removed (`remove`).
-//
-// Entries that are younger than `now` are always kept.
-// Those that are older than the earliest beginning of an interval are removed.
-func (g Grid) FitEntries(now time.Time, entries []Entry) (keep, remove []Entry) {
+func (g Grid) FitEntries(entries []Entry) (keep, remove []Entry) {
 
-	type bucket struct {
-		entries []Entry
+	if len(entries) == 0 {
+		return
 	}
+
+	// determine 'now' based on youngest snapshot
+	// => sort youngest-to-oldest
+	sort.SliceStable(entries, func(i, j int) bool {
+		return entries[i].Date().After(entries[j].Date())
+	})
+	now := entries[0].Date()
+
+	return g.fitEntriesWithNow(now, entries)
+}
+
+type bucket struct {
+	keepCount     int
+	youngerThan   time.Time
+	olderThanOrEq time.Time
+	entries       []Entry
+}
+
+func makeBucketFromInterval(olderThanOrEq time.Time, i Interval) bucket {
+	var b bucket
+	kc := i.KeepCount()
+	if kc == 0 {
+		panic("keep count 0 is not allowed")
+	}
+	if (kc < 0) && kc != RetentionGridKeepCountAll {
+		panic("negative keep counts are not allowed")
+	}
+	b.keepCount = kc
+	b.olderThanOrEq = olderThanOrEq
+	b.youngerThan = b.olderThanOrEq.Add(-i.Length())
+	return b
+}
+
+func (b *bucket) Contains(e Entry) bool {
+	d := e.Date()
+	olderThan := d.Before(b.olderThanOrEq)
+	eq := d.Equal(b.olderThanOrEq)
+	youngerThan := d.After(b.youngerThan)
+	return (olderThan || eq) && youngerThan
+}
+
+func (b *bucket) AddIfContains(e Entry) (added bool) {
+	added = b.Contains(e)
+	if added {
+		b.entries = append(b.entries, e)
+	}
+	return
+}
+
+func (b *bucket) RemoveYoungerSnapsExceedingKeepCount() (removed []Entry) {
+
+	if b.keepCount == RetentionGridKeepCountAll {
+		return nil
+	}
+
+	removeCount := len(b.entries) - b.keepCount
+	if removeCount <= 0 {
+		return nil
+	}
+
+	// sort youngest-to-oldest
+	sort.SliceStable(b.entries, func(i, j int) bool {
+		return b.entries[i].Date().After(b.entries[j].Date())
+	})
+
+	return b.entries[:removeCount]
+}
+
+func (g Grid) fitEntriesWithNow(now time.Time, entries []Entry) (keep, remove []Entry) {
+
 	buckets := make([]bucket, len(g.intervals))
+
+	buckets[0] = makeBucketFromInterval(now, g.intervals[0])
+	for i := 1; i < len(g.intervals); i++ {
+		buckets[i] = makeBucketFromInterval(buckets[i-1].youngerThan, g.intervals[i])
+	}
 
 	keep = make([]Entry, 0)
 	remove = make([]Entry, 0)
 
-	oldestIntervalStart := now
-	for i := range g.intervals {
-		oldestIntervalStart = oldestIntervalStart.Add(-g.intervals[i].Length())
-	}
-
+assignEntriesToBuckets:
 	for ei := 0; ei < len(entries); ei++ {
 		e := entries[ei]
-
-		date := e.Date()
-
-		if date == now || date.After(now) {
+		// unconditionally keep entries that are in the future
+		if now.Before(e.Date()) {
 			keep = append(keep, e)
-			continue
-		} else if date.Before(oldestIntervalStart) {
-			remove = append(remove, e)
-			continue
+			continue assignEntriesToBuckets
 		}
-
-		iStartTime := now
-		for i := 0; i < len(g.intervals); i++ {
-			iStartTime = iStartTime.Add(-g.intervals[i].Length())
-			if date == iStartTime || dateInInterval(date, iStartTime, g.intervals[i]) {
-				buckets[i].entries = append(buckets[i].entries, e)
+		// add to matching bucket, if any
+		for bi := range buckets {
+			if buckets[bi].AddIfContains(e) {
+				continue assignEntriesToBuckets
 			}
 		}
+		// unconditionally remove entries older than the oldest bucket
+		remove = append(remove, e)
 	}
 
-	for bi, b := range buckets {
-
-		interval := g.intervals[bi]
-
-		sort.SliceStable(b.entries, func(i, j int) bool {
-			return b.entries[i].LessThan((b.entries[j]))
-		})
-
-		i := 0
-		for ; (interval.KeepCount() == RetentionGridKeepCountAll || i < interval.KeepCount()) && i < len(b.entries); i++ {
-			keep = append(keep, b.entries[i])
-		}
-		for ; i < len(b.entries); i++ {
-			remove = append(remove, b.entries[i])
-		}
-
+	// now apply the `KeepCount` per bucket
+	for _, b := range buckets {
+		destroy := b.RemoveYoungerSnapsExceedingKeepCount()
+		remove = append(remove, destroy...)
+		keep = append(keep, b.entries...)
 	}
-
 	return
-
 }

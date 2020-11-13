@@ -30,15 +30,12 @@ The following list may be incomplete, feel free to submit a PR with an update:
     * - Arch Linux
       - ``yay install zrepl``
       - Available on `AUR <https://aur.archlinux.org/packages/zrepl>`_
-    * - Fedora
+    * - Fedora, CentOS, RHEL, OpenSUSE
       - ``dnf install zrepl``
-      - Available on `COPR <https://copr.fedorainfracloud.org/coprs/poettlerric/zrepl/>`_
-    * - CentOS/RHEL
-      - ``yum install zrepl``
-      - Available on `COPR <https://copr.fedorainfracloud.org/coprs/poettlerric/zrepl/>`_
+      - :ref:`RPM repository config <installation-rpm-repos>`
     * - Debian + Ubuntu
       - ``apt install zrepl``
-      - APT repository config :ref:`see below <installation-apt-repos>`
+      - :ref:`APT repository config <installation-apt-repos>`
     * - OmniOS
       - ``pkg install zrepl``
       - Available since `r151030 <https://pkg.omniosce.org/r151030/extra/en/search.shtml?token=zrepl&action=Search>`_

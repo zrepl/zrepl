@@ -1,7 +1,7 @@
 [![GitHub license](https://img.shields.io/github/license/zrepl/zrepl.svg)](https://github.com/zrepl/zrepl/blob/master/LICENSE)
 [![Language: Go](https://img.shields.io/badge/language-Go-6ad7e5.svg)](https://golang.org/)
 [![User Docs](https://img.shields.io/badge/docs-web-blue.svg)](https://zrepl.github.io)
-[![Donate via Patreon](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.herokuapp.com%2Fzrepl%2Fpledges&style=flat&color=yellow)](https://www.patreon.com/zrepl)
+[![Donate via Patreon](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.vercel.app%2Fapi%3Fusername%3Dzrepl%26type%3Dpatrons&style=flat&color=yellow)](https://patreon.com/zrepl)
 [![Donate via GitHub Sponsors](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=yellow)](https://github.com/sponsors/problame)
 [![Donate via Liberapay](https://img.shields.io/liberapay/patrons/zrepl.svg?logo=liberapay)](https://liberapay.com/zrepl/donate)
 [![Donate via PayPal](https://img.shields.io/badge/donate-paypal-yellow.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=R5QSXJVYHGX96)
@@ -30,20 +30,12 @@ zrepl is a one-stop ZFS backup & replication solution.
 The above does not apply if you already implemented everything.
 Check out the *Coding Workflow* section below for details.
 
-## Package Maintainer Information
+## Building, Releasing, Downstream-Packaging
 
-* Follow the steps in `docs/installation.rst -> Compiling from Source` and read the Makefile / shell scripts used in this process.
-* Make sure your distro is compatible with the paths in `docs/installation.rst`.
-* Ship a default config that adheres to your distro's `hier` and logging system.
-* Ship a service manager file and _please_ try to upstream it to this repository.
-  * `dist/systemd` contains a Systemd unit template.
-* Ship other material provided in `./dist`, e.g. in `/usr/share/zrepl/`.
-* Use `make release ZREPL_VERSION='mydistro-1.2.3_1'`
-    * Your distro's name and any versioning supplemental to zrepl's (e.g. package revision) should be in this string
-* Use `sudo make test-platform` **on a test system** to validate that zrepl's abstractions on top of ZFS work with the system ZFS.
-* Make sure you are informed about new zrepl versions, e.g. by subscribing to GitHub's release RSS feed.
+This section provides an overview of the zrepl build & release process.
+Check out `docs/installation/compile-from-source.rst` for build-from-source instructions.
 
-## Developer Documentation
+### Overview
 
 zrepl is written in [Go](https://golang.org) and uses [Go modules](https://github.com/golang/go/wiki/Modules) to manage dependencies.
 The documentation is written in [ReStructured Text](http://docutils.sourceforge.net/rst.html) using the [Sphinx](https://www.sphinx-doc.org) framework.
@@ -60,60 +52,61 @@ An HTML report can be generated using `make cover-html`.
 
 **Code generation** is triggered by `make generate`. Generated code is committed to the source tree.
 
-### Project Structure
+### Build & Release Process
 
-```
-├── artifacts               # build artifcats generate by make
-├── cli                     # wrapper around CLI package cobra
-├── client                  # all subcommands that are not `daemon`
-├── config                  # config data types (=> package yaml-config)
-│   └── samples
-├── daemon                  # the implementation of `zrepl daemon` subcommand
-│   ├── filters
-│   ├── hooks               # snapshot hooks
-│   ├── job                 # job implementations
-│   ├── logging             # logging outlets + formatters
-│   ├── nethelpers
-│   ├── prometheus
-│   ├── pruner              # pruner implementation
-│   ├── snapper             # snapshotter implementation
-├── dist                    # supplemental material for users & package maintainers
-├── docs                    # sphinx-based documentation
-│   ├── **/*.rst            # documentation in reStructuredText
-│   ├── sphinxconf
-│   │   └── conf.py         # sphinx config (see commit 445a280 why its not in docs/)
-│   ├── requirements.txt    # pip3 requirements to build documentation
-│   ├── publish.sh          # shell script for automated rendering & deploy to zrepl.github.io repo
-│   └── public_git          # checkout of zrepl.github.io managed by above shell script
-├── endpoint                # implementation of replication endpoints (=> package replication)
-├── logger                  # our own logger package
-├── platformtest            # test suite for our zfs abstractions (error classification, etc)
-├── pruning                 # pruning rules (the logic, not the actual execution)
-│   └── retentiongrid
-├── replication
-│   ├── driver              # the driver of the replication logic (status reporting, error handling)
-│   ├── logic               # planning & executing replication steps via rpc
-|   |   └── pdu             # the generated gRPC & protobuf code used in replication (and endpoints)
-│   └── report              # the JSON-serializable report datastructures exposed to the client
-├── rpc                     # the hybrid gRPC + ./dataconn RPC client: connects to a remote replication.Endpoint
-│   ├── dataconn            # Bulk data-transfer RPC protocol
-│   ├── grpcclientidentity  # adaptor to inject package transport's 'client identity' concept into gRPC contexts
-│   ├── netadaptor          # adaptor to convert a package transport's Connecter and Listener into net.* primitives
-│   ├── transportmux        # TCP connecter and listener used to split control & data traffic
-│   └── versionhandshake    # replication protocol version handshake perfomed on newly established connections
-├── tlsconf                 # abstraction for Go TLS server + client config
-├── transport               # transport implementations
-│   ├── fromconfig
-│   ├── local
-│   ├── ssh
-│   ├── tcp
-│   └── tls
-├── util
-├── version                 # abstraction for versions (filled during build by Makefile)
-└── zfs                     # zfs(8) wrappers
-```
+**The `Makefile` is catering to the needs of developers & CI, not distro packagers**.
+It provides phony targets for
+* local development (building, running tests, etc)
+* building a release in Docker (used by the CI & release management)
+* building .deb and .rpm packages out of the release artifacts.
 
-### Coding Workflow
+**Build tooling & dependencies** are documented as code in `lazy.sh`.
+Go dependencies are then fetched by the go command and pip dependencies are pinned through a `requirements.txt`.
+
+**We use CircleCI for continuous integration**.
+There are two workflows:
+
+* `ci` runs for every commit / branch / tag pushed to GitHub.
+  It is supposed to run very fast (<5min and provides quick feedback to developers).
+  It runs formatting checks, lints and tests on the most important OSes / architectures.
+  Artifacts are published to minio.cschwarz.com (see GitHub Commit Status).
+
+* `release` runs
+  * on manual triggers through the CircleCI API (in order to produce a release)
+  * periodically on `master`
+  Artifacts are published to minio.cschwarz.com (see GitHub Commit Status).
+
+**Releases** are issued via Git tags + GitHub Releases feature.
+The procedure to issue a release is as follows:
+* Issue the source release:
+  * Git tag the release on the `master` branch.
+  * Push the tag.
+  * Run `./docs/publish.sh` to re-build & push zrepl.github.io.
+* Issue the official binary release:
+  * Run the `release` pipeline (triggered via CircleCI API)
+  * Download the artifacts to the release manager's machine.
+  * Create a GitHub release, edit the changelog, upload all the release artifacts, including .rpm and .deb files.
+  * Issue the GitHub release.
+  * Add the .rpm and .deb files to the official zrepl repos, publish those.
+
+**Official binary releases are not re-built when Go receives an update. If the Go update is critical to zrepl (e.g. a Go security update that affects zrepl), we'd issue a new source release**.
+The rationale for this is that whereas distros provide a mechanism for this (`$zrepl_source_release-$distro_package_revision`), GitHub Releases doesn't which means we'd need to update the existing GitHub release's assets, which nobody would notice (no RSS feed updates, etc.).
+Downstream packagers can read the changelog to determine whether they want to push that minor release into their distro or simply skip it.
+
+### Additional Notes to Distro Package Maintainers
+
+* Use `sudo make test-platform-bin && sudo make test-platform` **on a test system** to validate that zrepl's abstractions on top of ZFS work with the system ZFS.
+* Ship a default config that adheres to your distro's `hier` and logging system.
+* Ship a service manager file and _please_ try to upstream it to this repository.
+  * `dist/systemd` contains a Systemd unit template.
+* Ship other material provided in `./dist`, e.g. in `/usr/share/zrepl/`.
+* Have a look at the `Makefile`'s `ZREPL_VERSION` variable and how it passed to Go's `ldFlags`.
+  This is how `zrepl version` knows what version number to show.
+  Your build system should set the `ldFlags` flags appropriately and add a prefix or suffix that indicates that the given zrepl binary is a distro build, not an official one.
+* Make sure you are informed about new zrepl versions, e.g. by subscribing to GitHub's release RSS feed.
+
+
+## Contributing Code
 
 * Open an issue when starting to hack on a new feature
 * Commits should reference the issue they are related to
@@ -122,9 +115,6 @@ An HTML report can be generated using `make cover-html`.
 ### Breaking Changes
 
 Backward-incompatible changes must be documented in the git commit message and are listed in `docs/changelog.rst`.
-
-* Config-breaking changes must contain a line `BREAK CONFIG` in the commit message
-* Other breaking changes must contain a line `BREAK` in the commit message
 
 ### Glossary & Naming Inconsistencies
 
@@ -142,16 +132,3 @@ variables and types are often named *dataset* when they in fact refer to a *file
 There will not be a big refactoring (an attempt was made, but it's destroying too much history without much gain).
 
 However, new contributions & patches should fix naming without further notice in the commit message.
-
-### RPC debugging
-
-Optionally, there are various RPC-related environment variables, that if set to something != `""` will produce additional debug output on stderr:
-
-https://github.com/zrepl/zrepl/blob/master/rpc/rpc_debug.go#L11
-
-https://github.com/zrepl/zrepl/blob/master/rpc/dataconn/dataconn_debug.go#L11
-
-https://github.com/zrepl/zrepl/blob/master/rpc/dataconn/stream/stream_debug.go#L11
-
-https://github.com/zrepl/zrepl/blob/master/rpc/dataconn/heartbeatconn/heartbeatconn_debug.go#L11
-

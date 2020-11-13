@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 
@@ -14,23 +14,31 @@ step() {
     echo "${bold}$1${normal}"
 }
 
-if ! type go >/dev/null; then
-    step "go binary not installed or not in \$PATH" 1>&2
-    exit 1
-fi
-
-if [ -z "$GOPATH" ]; then
-    step "Make sure you have your GOPATH configured correctly" 1>&2
-    exit 1
-fi
-
-CHECKOUTPATH="${GOPATH}/src/github.com/zrepl/zrepl"
-
 godep() {
     step "install build dependencies (versions pinned in build/go.mod and build/tools.go)"
+
+    if ! type go >/dev/null; then
+        step "go binary not installed or not in \$PATH" 1>&2
+        exit 1
+    fi
+
+    if [ -z "$GOPATH" ]; then
+        step "Your GOPATH is not configured correctly" 1>&2
+        exit 1
+    fi
+
+    if ! (echo "$PATH" | grep "${GOPATH}/bin" > /dev/null); then
+        step "GOPATH/bin is not in your PATH (it should be towards the start of it)"
+        exit 1
+    fi
+
     pushd "$(dirname "${BASH_SOURCE[0]}")"/build
     set -x
     export GO111MODULE=on # otherwise, a checkout of this repo in GOPATH will disable modules on Go 1.12 and earlier
+    source <(go env)
+    export GOOS="$GOHOSTOS"
+    export GOARCH="$GOHOSTARCH"
+    # TODO GOARM=$GOHOSTARM?
     go build -v -mod=readonly -o "$GOPATH/bin/stringer"      golang.org/x/tools/cmd/stringer
     go build -v -mod=readonly -o "$GOPATH/bin/protoc-gen-go" github.com/golang/protobuf/protoc-gen-go
     go build -v -mod=readonly -o "$GOPATH/bin/enumer"        github.com/alvaroloes/enumer
@@ -51,8 +59,9 @@ docdep() {
         exit 1
     fi
     step "Installing doc build dependencies"
-    local reqpath="${CHECKOUTPATH}/docs/requirements.txt"
-    if [ ! -z "$ZREPL_LAZY_DOCS_REQPATH" ]; then
+    # shellcheck disable=SC2155
+    local reqpath="$(dirname "${BASH_SOURCE[0]}")/docs/requirements.txt"
+    if [ -n "$ZREPL_LAZY_DOCS_REQPATH" ]; then
         reqpath="$ZREPL_LAZY_DOCS_REQPATH"
     fi
     pip3 install -r "$reqpath"
@@ -63,9 +72,15 @@ release() {
     make release
 }
 
+# shellcheck disable=SC2198
+if [ -z "$@" ]; then
+    step "No command specified, exiting"
+    exit 1
+fi
+
 for cmd in "$@"; do
     case "$cmd" in
-        godep|docdep|release_bins|docs)
+        godep|docdep|release|docs)
             eval $cmd
             continue
             ;;

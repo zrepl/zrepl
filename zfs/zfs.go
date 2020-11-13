@@ -173,6 +173,8 @@ func ZFSList(ctx context.Context, properties []string, zfsArgs ...string) (res [
 		"-o", strings.Join(properties, ","))
 	args = append(args, zfsArgs...)
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, args...)
 	stdout, stderrBuf, err := cmd.StdoutPipeWithErrorBuf()
 	if err != nil {
@@ -182,6 +184,11 @@ func ZFSList(ctx context.Context, properties []string, zfsArgs ...string) (res [
 	if err = cmd.Start(); err != nil {
 		return
 	}
+	// in case we return early, we want to kill the zfs list process and wait for it to exit
+	defer func() {
+		_ = cmd.Wait()
+	}()
+	defer cancel()
 
 	s := bufio.NewScanner(stdout)
 	buf := make([]byte, 1024)
@@ -244,6 +251,8 @@ func ZFSListChan(ctx context.Context, out chan ZFSListResult, properties []strin
 		}
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, args...)
 	stdout, stderrBuf, err := cmd.StdoutPipeWithErrorBuf()
 	if err != nil {
@@ -259,6 +268,7 @@ func ZFSListChan(ctx context.Context, out chan ZFSListResult, properties []strin
 		// in which case we'll return an 'unexpected output' error and not the exit status
 		_ = cmd.Wait()
 	}()
+	defer cancel() // in case we return before our regular call to cmd.Wait(), kill the zfs list process
 
 	s := bufio.NewScanner(stdout)
 	buf := make([]byte, 1024) // max line length

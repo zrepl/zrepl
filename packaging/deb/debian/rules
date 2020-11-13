@@ -1,0 +1,50 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_strip:
+
+override_dh_auto_build:
+
+override_dh_auto_clean:
+
+	rm -rf debian/renamedir
+
+override_dh_auto_install:
+
+	# install the zrepl.service for
+	# dh_install_systemd and dh_systemd_{start,enable}
+	install dist/systemd/zrepl.service debian/zrepl.service
+	sed -i 's#ExecStart=/usr/local/bin/zrepl #ExecStart=/usr/bin/zrepl #' debian/zrepl.service
+	sed -i 's#ExecStartPre=/usr/local/bin/zrepl #ExecStartPre=/usr/bin/zrepl #' debian/zrepl.service
+
+	mkdir -p debian/renamedir
+
+	# install binary
+	stat artifacts/$(ZREPL_DPKG_ZREPL_BINARY_FILENAME)
+	cp --preserve=all artifacts/$(ZREPL_DPKG_ZREPL_BINARY_FILENAME) debian/renamedir/zrepl
+	dh_install debian/renamedir/zrepl usr/bin
+
+	# install bash completion
+	dh_install artifacts/bash_completion etc/bash_completion.d/zrepl
+	dh_install artifacts/_zrepl.zsh_completion usr/share/zsh/vendor-completions
+
+	# install docs
+	dh_install artifacts/docs/html usr/share/doc/zrepl/docs/
+
+	# install examples
+	dh_install config/samples/* usr/share/doc/zrepl/examples
+
+	# install default config
+	mkdir -p debian/tmp/etc/zrepl
+	chmod 0700 debian/tmp/etc/zrepl
+	sed 's#USR_SHARE_ZREPL#/usr/share/doc/zrepl#' packaging/systemd-default-zrepl.yml > debian/renamedir/zrepl.yml
+	dh_install debian/renamedir/zrepl.yml etc/zrepl
+
+	# save git revision of this packaging repo
+	echo $$(git rev-parse HEAD) > debian/packaging-repo-git-revision
+	dh_install debian/packaging-repo-git-revision usr/share/doc/zrepl
+
+override_dh_auto_test:
+	# don't run tests at this point

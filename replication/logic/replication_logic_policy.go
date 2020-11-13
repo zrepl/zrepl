@@ -2,6 +2,7 @@ package logic
 
 import (
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 )

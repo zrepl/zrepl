@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
