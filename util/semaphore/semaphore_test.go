@@ -2,7 +2,6 @@ package semaphore
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -15,7 +14,7 @@ import (
 
 func TestSemaphore(t *testing.T) {
 	const numGoroutines = 10
-	const concurrentSemaphore = 5
+	const concurrentSemaphore = 6
 	const sleepTime = 1 * time.Second
 
 	begin := time.Now()
@@ -26,29 +25,26 @@ func TestSemaphore(t *testing.T) {
 		beforeT, afterT uint32
 	}
 
-	ctx := context.Background()
-	defer trace.WithTaskFromStackUpdateCtx(&ctx)()
+	rootCtx, endRoot := trace.WithTaskFromStack(context.Background())
+	defer endRoot()
+	_, add, waitEnd := trace.WithTaskGroup(rootCtx, "TestSemaphore")
 
-	var wg sync.WaitGroup
-	wg.Add(numGoroutines)
 	for i := 0; i < numGoroutines; i++ {
-		go func() {
-			ctx, end := trace.WithTaskFromStack(ctx)
-			defer end()
-			defer wg.Done()
+		// not capturing i so no need for local copy
+		add(func(ctx context.Context) {
 			res, err := sem.Acquire(ctx)
 			require.NoError(t, err)
 			defer res.Release()
 			if time.Since(begin) > sleepTime {
-				atomic.AddUint32(&acquisitions.beforeT, 1)
-			} else {
 				atomic.AddUint32(&acquisitions.afterT, 1)
+			} else {
+				atomic.AddUint32(&acquisitions.beforeT, 1)
 			}
 			time.Sleep(sleepTime)
-		}()
+		})
 	}
 
-	wg.Wait()
+	waitEnd()
 
 	assert.True(t, acquisitions.beforeT == concurrentSemaphore)
 	assert.True(t, acquisitions.afterT == numGoroutines-concurrentSemaphore)
