@@ -255,7 +255,7 @@ On your setup, ensure that
 
 * all ``filesystems`` filter specifications are disjoint
 * no ``root_fs`` is a prefix or equal to another ``root_fs``
-* no ``filesystems`` filter maches any ``root_fs``
+* no ``filesystems`` filter matches any ``root_fs``
 
 **Exceptions to the rule**:
 
