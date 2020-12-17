@@ -188,7 +188,7 @@ Encoding the job name in the names ensures that multiple sending jobs can replic
 
 .. _tentative-replication-cursor-bookmarks:
 
-**Tentative replication cursor bookmarks** are short-lived boomkarks that protect the atomic moving-forward of the replication cursor and last-received-hold (see :issue:`this issue <340>`).
+**Tentative replication cursor bookmarks** are short-lived bookmarks that protect the atomic moving-forward of the replication cursor and last-received-hold (see :issue:`this issue <340>`).
 They are only necessary if step holds are not used as per the :ref:`replication.protection <replication-option-protection>` setting.
 The tentative replication cursor has the format ``#zrepl_CUSORTENTATIVE_G_<GUID>_J_<JOBNAME>``.
 The ``zrepl zfs-abstraction list`` command provides a listing of all bookmarks and holds managed by zrepl.
@@ -255,7 +255,7 @@ On your setup, ensure that
 
 * all ``filesystems`` filter specifications are disjoint
 * no ``root_fs`` is a prefix or equal to another ``root_fs``
-* no ``filesystems`` filter maches any ``root_fs``
+* no ``filesystems`` filter matches any ``root_fs``
 
 **Exceptions to the rule**:
 
