@@ -33,6 +33,15 @@ func (c *Client) Status() (s daemon.Status, _ error) {
 	return s, err
 }
 
+func (c *Client) StatusRaw() ([]byte, error) {
+	var r json.RawMessage
+	err := jsonRequestResponse(c.h, daemon.ControlJobEndpointStatus, struct{}{}, &r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 func (c *Client) signal(job, sig string) error {
 	return jsonRequestResponse(c.h, daemon.ControlJobEndpointSignal,
 		struct {

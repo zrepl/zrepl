@@ -7,32 +7,14 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell"
-	"github.com/pkg/errors"
 	"github.com/rivo/tview"
 
-	"github.com/zrepl/zrepl/client/status.v2/client"
 	"github.com/zrepl/zrepl/client/status.v2/viewmodel"
-	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon"
 )
 
-type Client interface {
-	Status() (daemon.Status, error)
-	SignalWakeup(job string) error
-	SignalReset(job string) error
-}
-
-func Main(config *config.Config, args []string) error {
+func interactive(c Client) error {
 
 	// TODO look into https://gitlab.com/tslocum/cview/blob/master/FORK.md
-
-	var err error
-	var c Client
-
-	c, err = client.New("unix", config.Global.Control.SockPath)
-	if err != nil {
-		return errors.Wrapf(err, "connect to daemon socket at %q", config.Global.Control.SockPath)
-	}
 
 	app := tview.NewApplication()
 
