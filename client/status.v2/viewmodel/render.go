@@ -113,7 +113,7 @@ func (j *Job) updateFullDescription(p Params) {
 		IndentMultiplier: 3,
 		Width:            width,
 	})
-	drawJob(b, j.lastStatus, j.byteProgress, p.FSFilter)
+	drawJob(b, j.name, j.lastStatus, j.byteProgress, p.FSFilter)
 	j.fulldescription = b.String()
 }
 
@@ -129,8 +129,9 @@ func (j *Job) Name() string {
 	return j.name
 }
 
-func drawJob(t *stringbuilder.B, v *job.Status, history *bytesProgressHistory, fsfilter FilterFunc) {
+func drawJob(t *stringbuilder.B, name string, v *job.Status, history *bytesProgressHistory, fsfilter FilterFunc) {
 
+	t.Printf("Job: %s\n", name)
 	t.Printf("Type: %s\n\n", v.Type)
 
 	if v.Type == job.TypePush || v.Type == job.TypePull {
