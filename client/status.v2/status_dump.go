@@ -12,10 +12,16 @@ import (
 	"github.com/zrepl/zrepl/client/status.v2/viewmodel"
 )
 
-func dump(c Client) error {
+func dump(c Client, job string) error {
 	s, err := c.Status()
 	if err != nil {
 		return err
+	}
+
+	if job != "" {
+		if _, ok := s.Jobs[job]; !ok {
+			return errors.Errorf("job %q not found", job)
+		}
 	}
 
 	width := 1 << 31
@@ -47,10 +53,17 @@ func dump(c Client) error {
 	}
 	m.Update(params)
 	for _, j := range m.Jobs() {
+		if job != "" && j.Name() != job {
+			continue
+		}
 		params.SelectedJob = j
 		m.Update(params)
 		fmt.Println(m.SelectedJob().FullDescription())
-		fmt.Println(hline)
+		if job != "" {
+			return nil
+		} else {
+			fmt.Println(hline)
+		}
 	}
 
 	return nil

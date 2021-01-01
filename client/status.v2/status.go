@@ -22,9 +22,7 @@ type Client interface {
 
 var statusv2Flags struct {
 	Mode choices.Choices
-	Raw  bool
-
-	Job string
+	Job  string
 }
 
 type statusv2Mode int
@@ -47,7 +45,7 @@ var Subcommand = &cli.Subcommand{
 		statusv2Flags.Mode.SetTypeString("mode")
 		statusv2Flags.Mode.SetDefaultValue(StatusV2ModeInteractive)
 		f.Var(&statusv2Flags.Mode, "mode", statusv2Flags.Mode.Usage())
-		f.StringVar(&statusv2Flags.Job, "job", "", "only dump specified job")
+		f.StringVar(&statusv2Flags.Job, "job", "", "only dump specified job (only works in \"dump\" mode)")
 	},
 	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 		return runStatusV2Command(ctx, subcommand.Config(), args)
@@ -65,7 +63,7 @@ func runStatusV2Command(ctx context.Context, config *config.Config, args []strin
 	case StatusV2ModeInteractive:
 		return interactive(c)
 	case StatusV2ModeDump:
-		return dump(c)
+		return dump(c, statusv2Flags.Job)
 	case StatusV2ModeRaw:
 		return raw(c)
 	default:
