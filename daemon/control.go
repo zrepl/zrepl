@@ -147,6 +147,8 @@ func (j *controlJob) Run(ctx context.Context) {
 				err = j.jobs.wakeup(req.Name)
 			case "reset":
 				err = j.jobs.reset(req.Name)
+			case "snapshot":
+				err = j.jobs.dosnapshot(req.Name)
 			default:
 				err = fmt.Errorf("operation %q is invalid", req.Op)
 			}

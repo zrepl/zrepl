@@ -19,6 +19,7 @@ import (
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
+	"github.com/zrepl/zrepl/daemon/job/dosnapshot"
 	"github.com/zrepl/zrepl/daemon/job/reset"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"github.com/zrepl/zrepl/daemon/logging"
@@ -124,17 +125,19 @@ type jobs struct {
 	wg sync.WaitGroup
 
 	// m protects all fields below it
-	m       sync.RWMutex
-	wakeups map[string]wakeup.Func // by Job.Name
-	resets  map[string]reset.Func  // by Job.Name
-	jobs    map[string]job.Job
+	m           sync.RWMutex
+	wakeups     map[string]wakeup.Func     // by Job.Name
+	resets      map[string]reset.Func      // by Job.Name
+	dosnapshots map[string]dosnapshot.Func // by Job.Name
+	jobs        map[string]job.Job
 }
 
 func newJobs() *jobs {
 	return &jobs{
-		wakeups: make(map[string]wakeup.Func),
-		resets:  make(map[string]reset.Func),
-		jobs:    make(map[string]job.Job),
+		wakeups:     make(map[string]wakeup.Func),
+		resets:      make(map[string]reset.Func),
+		dosnapshots: make(map[string]dosnapshot.Func),
+		jobs:        make(map[string]job.Job),
 	}
 }
 
@@ -205,6 +208,17 @@ func (s *jobs) reset(job string) error {
 	return wu()
 }
 
+func (s *jobs) dosnapshot(job string) error {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	wu, ok := s.dosnapshots[job]
+	if !ok {
+		return errors.Errorf("Job %s does not exist", job)
+	}
+	return wu()
+}
+
 const (
 	jobNamePrometheus = "_prometheus"
 	jobNameControl    = "_control"
@@ -237,8 +251,10 @@ func (s *jobs) start(ctx context.Context, j job.Job, internal bool) {
 	ctx = zfscmd.WithJobID(ctx, j.Name())
 	ctx, wakeup := wakeup.Context(ctx)
 	ctx, resetFunc := reset.Context(ctx)
+	ctx, dosnapshotFunc := dosnapshot.Context(ctx)
 	s.wakeups[jobName] = wakeup
 	s.resets[jobName] = resetFunc
+	s.dosnapshots[jobName] = dosnapshotFunc
 
 	s.wg.Add(1)
 	go func() {
