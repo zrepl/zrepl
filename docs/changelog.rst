@@ -27,6 +27,11 @@ We use the following annotations for classifying changes:
 * |bugfix| Change that fixes a bug, no regressions or incompatibilities expected.
 * |docs| Change to the documentation.
 
+0.4.0
+-----
+
+* |break| Change syntax to trigger a job replication, rename ``zrepl signal wakeup JOB`` to ``zrepl signal replication JOB``
+
 0.3.1
 -----
 
