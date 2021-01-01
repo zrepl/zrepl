@@ -253,6 +253,9 @@ func interactive(c Client) error {
 			sigMod.SetText(fmt.Sprintf("Send a signal to job %q", job.Name()))
 			showModal(sigMod, func(idx int, _ string) {
 				go func() {
+					if idx == -1 {
+						return
+					}
 					err := clientFuncs[idx](job.Name())
 					if err != nil {
 						app.QueueUpdate(func() {
