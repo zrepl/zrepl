@@ -24,7 +24,7 @@ func dump(c Client, job string) error {
 		}
 	}
 
-	width := 1 << 31
+	width := (1 << 31) - 1
 	wrap := false
 	hline := strings.Repeat("-", 80)
 	if isatty.IsTerminal(os.Stdout.Fd()) {
