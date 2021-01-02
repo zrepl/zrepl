@@ -247,8 +247,8 @@ func interactive(c Client) error {
 			if !ok {
 				return nil
 			}
-			signals := []string{"wakeup", "reset"}
-			clientFuncs := []func(job string) error{c.SignalWakeup, c.SignalReset}
+			signals := []string{"wakeup", "snapshot", "reset"}
+			clientFuncs := []func(job string) error{c.SignalWakeup, c.SignalSnapshot, c.SignalReset}
 			sigMod := tview.NewModal().AddButtons(signals)
 			sigMod.SetText(fmt.Sprintf("Send a signal to job %q", job.Name()))
 			showModal(sigMod, func(idx int, _ string) {

@@ -17,6 +17,7 @@ type Client interface {
 	Status() (daemon.Status, error)
 	StatusRaw() ([]byte, error)
 	SignalWakeup(job string) error
+	SignalSnapshot(job string) error
 	SignalReset(job string) error
 }
 
