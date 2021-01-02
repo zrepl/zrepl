@@ -499,8 +499,6 @@ func renderSnapperReport(t *stringbuilder.B, r *snapper.Report, fsfilter FilterF
 		return strings.Compare(r.Progress[i].Path, r.Progress[j].Path) == -1
 	})
 
-	t.AddIndent(1)
-	defer t.AddIndent(-1)
 	dur := func(d time.Duration) string {
 		return d.Round(100 * time.Millisecond).String()
 	}
