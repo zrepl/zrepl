@@ -321,6 +321,10 @@ func renderReplicationReport(t *stringbuilder.B, rep *report.Report, history *by
 
 	t.Printf("Status: %s", latest.State)
 	t.Newline()
+	if !latest.FinishAt.IsZero() {
+		t.Printf("Last Run: %s (lasted %s)\n", latest.FinishAt, latest.FinishAt.Sub(latest.StartAt))
+	}
+
 	if latest.State == report.AttemptPlanningError {
 		t.Printf("Problem: ")
 		t.PrintfDrawIndentedAndWrappedIfMultiline("%s", latest.PlanError)
