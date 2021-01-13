@@ -492,57 +492,37 @@ func (f *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 	// => don't set f.planning.done just yet
 	f.debug("initial len(fs.planned.steps) = %d", len(f.planned.steps))
 
-	// for not-first attempts, only allow fs.planned.steps
-	// up to including the originally planned target snapshot
+	// for not-first attempts that succeeded in planning, only allow fs.planned.steps
+	// up to and including the originally planned target snapshot
 	if prev != nil && prev.planning.done && prev.planning.err == nil {
+		f.debug("attempting to correlate plan with previous attempt to find out what is left to do")
+		// find the highest of the previously uncompleted steps for which we can also find a step
+		// in our current plan
 		prevUncompleted := prev.planned.steps[prev.planned.step:]
-		if len(prevUncompleted) == 0 {
-			f.debug("prevUncompleted is empty")
-			return
-		}
-		if len(f.planned.steps) == 0 {
-			f.debug("fs.planned.steps is empty")
-			return
-		}
-		prevFailed := prevUncompleted[0]
-		curFirst := f.planned.steps[0]
-		// we assume that PlanFS retries prevFailed (using curFirst)
-		if !prevFailed.step.TargetEquals(curFirst.step) {
-			f.debug("Targets don't match")
-			// Two options:
-			// A: planning algorithm is broken
-			// B: manual user intervention inbetween
-			// Neither way will we make progress, so let's error out
-			stepFmt := func(step *step) string {
-				r := step.report()
-				s := r.Info
-				if r.IsIncremental() {
-					return fmt.Sprintf("%s=>%s", s.From, s.To)
-				} else {
-					return fmt.Sprintf("full=>%s", s.To)
+		var target struct{ prev, cur int }
+		target.prev = -1
+		target.cur = -1
+	out:
+		for p := len(prevUncompleted) - 1; p >= 0; p-- {
+			for q := len(f.planned.steps) - 1; q >= 0; q-- {
+				if prevUncompleted[p].step.TargetEquals(f.planned.steps[q].step) {
+					target.prev = p
+					target.cur = q
+					break out
 				}
 			}
-			msg := fmt.Sprintf("last attempt's uncompleted step %s does not correspond to this attempt's first planned step %s",
-				stepFmt(prevFailed), stepFmt(curFirst))
-			f.planned.stepErr = newTimedError(errors.New(msg), time.Now())
+		}
+		if target.prev == -1 || target.cur == -1 {
+			f.debug("no correlation possible between previous attempt and this attempt's plan")
+			f.planning.err = newTimedError(fmt.Errorf("cannot correlate previously failed attempt to current plan"), time.Now())
 			return
 		}
-		// only allow until step targets diverge
-		min := len(prevUncompleted)
-		if min > len(f.planned.steps) {
-			min = len(f.planned.steps)
-		}
-		diverge := 0
-		for ; diverge < min; diverge++ {
-			f.debug("diverge compare iteration %d", diverge)
-			if !f.planned.steps[diverge].step.TargetEquals(prevUncompleted[diverge].step) {
-				break
-			}
-		}
-		f.debug("diverge is %d", diverge)
-		f.planned.steps = f.planned.steps[0:diverge]
+
+		f.planned.steps = f.planned.steps[0:target.cur]
+		f.debug("found correlation, new steps are len(fs.planned.steps) = %d", len(f.planned.steps))
+	} else {
+		f.debug("previous attempt does not exist or did not finish planning, no correlation possible, taking this attempt's plan as is")
 	}
-	f.debug("post-prev-merge len(fs.planned.steps) = %d", len(f.planned.steps))
 
 	// now we are done planning (f.planned.steps won't change from now on)
 	f.planning.done = true
