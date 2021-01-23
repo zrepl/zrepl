@@ -144,6 +144,7 @@ func (c *Conn) ReadStream(frameType uint32, closeConnOnClose bool) (_ *StreamRea
 
 	c.readMtx.Lock()
 	if !c.readClean {
+		c.readMtx.Unlock()
 		return nil, errWriteStreamToErrorUnknownState
 	}
 
