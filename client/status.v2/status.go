@@ -21,10 +21,13 @@ type Client interface {
 	SignalReset(job string) error
 }
 
-var statusv2Flags struct {
-	Mode choices.Choices
-	Job  string
+type statusFlags struct {
+	Mode  choices.Choices
+	Job   string
+	Delay uint
 }
+
+var statusv2Flags statusFlags
 
 type statusv2Mode int
 
@@ -47,6 +50,7 @@ var Subcommand = &cli.Subcommand{
 		statusv2Flags.Mode.SetDefaultValue(StatusV2ModeInteractive)
 		f.Var(&statusv2Flags.Mode, "mode", statusv2Flags.Mode.Usage())
 		f.StringVar(&statusv2Flags.Job, "job", "", "only dump specified job (only works in \"dump\" mode)")
+		f.UintVarP(&statusv2Flags.Delay, "delay", "d", 1, "delay interval")
 	},
 	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 		return runStatusV2Command(ctx, subcommand.Config(), args)
@@ -62,7 +66,7 @@ func runStatusV2Command(ctx context.Context, config *config.Config, args []strin
 
 	switch statusv2Flags.Mode.Value().(statusv2Mode) {
 	case StatusV2ModeInteractive:
-		return interactive(c)
+		return interactive(c, statusv2Flags)
 	case StatusV2ModeDump:
 		return dump(c, statusv2Flags.Job)
 	case StatusV2ModeRaw:
