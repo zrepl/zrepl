@@ -49,7 +49,7 @@ var Subcommand = &cli.Subcommand{
 		statusv2Flags.Mode.SetTypeString("mode")
 		statusv2Flags.Mode.SetDefaultValue(StatusV2ModeInteractive)
 		f.Var(&statusv2Flags.Mode, "mode", statusv2Flags.Mode.Usage())
-		f.StringVar(&statusv2Flags.Job, "job", "", "only dump specified job (only works in \"dump\" mode)")
+		f.StringVar(&statusv2Flags.Job, "job", "", "only show specified job (works in \"dump\" and \"interactive\" mode)")
 		f.UintVarP(&statusv2Flags.Delay, "delay", "d", 1, "delay interval")
 	},
 	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {

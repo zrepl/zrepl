@@ -3,6 +3,7 @@ package status
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -125,6 +126,19 @@ func interactive(c Client, flag statusFlags) error {
 	}
 	redraw = func() {
 		jobs := m.Jobs()
+		if flag.Job != "" {
+			job_found := false
+			for i := range jobs {
+				if strings.Compare(flag.Job, jobs[i].Name()) == 0 {
+					jobs = jobs[i : i+1]
+					job_found = true
+					break
+				}
+			}
+			if !job_found {
+				jobs = nil
+			}
+		}
 		redrawJobsList := false
 		var selectedJobN *tview.TreeNode
 		if len(jobMenuRoot.GetChildren()) == len(jobs) {
