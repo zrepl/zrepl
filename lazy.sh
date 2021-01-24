@@ -42,7 +42,7 @@ godep() {
     cat tools.go | grep _ | awk -F'"' '{print $2}' | tee | xargs -tI '{}' go install '{}'
     set +x
     popd
-    if ! type stringer || ! type protoc-gen-go || ! type enumer || ! type goimports || ! type golangci-lint || ! type gocovmerge; then
+    if ! type stringer || ! type protoc-gen-go || ! type protoc-gen-go-grpc || ! type enumer || ! type goimports || ! type golangci-lint || ! type gocovmerge; then
         echo "Installed dependencies but can't find them in \$PATH, adjust it to contain \$GOPATH/bin" 1>&2
         exit 1
     fi

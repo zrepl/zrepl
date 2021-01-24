@@ -16,7 +16,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -28,12 +27,10 @@ import (
 
 type Logger = logger.Logger
 
-type GRPCDialFunction = func(string, time.Duration) (net.Conn, error)
+type GRPCDialFunction = func(context.Context, string) (net.Conn, error)
 
 func NewDialer(logger Logger, connecter transport.Connecter) GRPCDialFunction {
-	return func(s string, duration time.Duration) (conn net.Conn, e error) {
-		ctx, cancel := context.WithTimeout(context.Background(), duration)
-		defer cancel()
+	return func(ctx context.Context, s string) (conn net.Conn, e error) {
 		nc, err := connecter.Connect(ctx)
 		// TODO find better place (callback from gRPC?) where to log errors
 		// we want the users to know, though

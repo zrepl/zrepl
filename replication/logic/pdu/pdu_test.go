@@ -10,7 +10,7 @@ import (
 func TestFilesystemVersion_RelName(t *testing.T) {
 
 	type TestCase struct {
-		In    FilesystemVersion
+		In    *FilesystemVersion
 		Out   string
 		Panic bool
 	}
@@ -18,7 +18,7 @@ func TestFilesystemVersion_RelName(t *testing.T) {
 	creat := FilesystemVersionCreation(time.Now())
 	tcs := []TestCase{
 		{
-			In: FilesystemVersion{
+			In: &FilesystemVersion{
 				Type:     FilesystemVersion_Snapshot,
 				Name:     "foobar",
 				Creation: creat,
@@ -26,7 +26,7 @@ func TestFilesystemVersion_RelName(t *testing.T) {
 			Out: "@foobar",
 		},
 		{
-			In: FilesystemVersion{
+			In: &FilesystemVersion{
 				Type:     FilesystemVersion_Bookmark,
 				Name:     "foobar",
 				Creation: creat,
@@ -34,7 +34,7 @@ func TestFilesystemVersion_RelName(t *testing.T) {
 			Out: "#foobar",
 		},
 		{
-			In: FilesystemVersion{
+			In: &FilesystemVersion{
 				Type:     2342,
 				Name:     "foobar",
 				Creation: creat,

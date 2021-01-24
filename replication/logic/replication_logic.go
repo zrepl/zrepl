@@ -117,7 +117,7 @@ func (p *Planner) WaitForConnectivity(ctx context.Context) error {
 type Filesystem struct {
 	sender   Sender
 	receiver Receiver
-	policy   PlannerPolicy
+	policy   PlannerPolicy // immutable, it's .ReplicationConfig member is a pointer and copied into messages
 
 	Path                 string             // compat
 	receiverFS, senderFS *pdu.Filesystem    // receiverFS may be nil, senderFS never nil
@@ -569,7 +569,7 @@ func (s *Step) buildSendRequest(dryRun bool) (sr *pdu.SendReq) {
 		Encrypted:         s.encrypt.ToPDU(),
 		ResumeToken:       s.resumeToken,
 		DryRun:            dryRun,
-		ReplicationConfig: &s.parent.policy.ReplicationConfig,
+		ReplicationConfig: s.parent.policy.ReplicationConfig,
 	}
 	return sr
 }
@@ -614,7 +614,7 @@ func (s *Step) doReplication(ctx context.Context) error {
 		Filesystem:        fs,
 		To:                sr.GetTo(),
 		ClearResumeToken:  !sres.UsedResumeToken,
-		ReplicationConfig: &s.parent.policy.ReplicationConfig,
+		ReplicationConfig: s.parent.policy.ReplicationConfig,
 	}
 	log.Debug("initiate receive request")
 	_, err = s.receiver.Receive(ctx, rr, byteCountingStream)

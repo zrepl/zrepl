@@ -286,7 +286,8 @@ cover-full:
 .PHONY: generate formatcheck format
 
 generate: generate-platform-test-list
-	protoc -I=replication/logic/pdu --go_out=plugins=grpc:replication/logic/pdu replication/logic/pdu/pdu.proto
+	protoc -I=replication/logic/pdu --go_out=replication/logic/pdu --go-grpc_out=replication/logic/pdu replication/logic/pdu/pdu.proto
+	protoc -I=rpc/grpcclientidentity/example --go_out=rpc/grpcclientidentity/example/pdu --go-grpc_out=rpc/grpcclientidentity/example/pdu rpc/grpcclientidentity/example/grpcauth.proto
 	$(GO_ENV_VARS) $(GO) generate $(GO_BUILDFLAGS) -x ./...
 
 GOIMPORTS := goimports -srcdir . -local 'github.com/zrepl/zrepl'

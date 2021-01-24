@@ -94,7 +94,7 @@ func server() {
 
 	srv, serve := grpchelper.NewServer(authListener, clientIdentityKey, log, nil)
 
-	svc := &greeter{"hello "}
+	svc := &greeter{prepend: "hello "}
 	pdu.RegisterGreeterServer(srv, svc)
 
 	if err := serve(); err != nil {
@@ -103,6 +103,7 @@ func server() {
 }
 
 type greeter struct {
+	pdu.UnsafeGreeterServer
 	prepend string
 }
 

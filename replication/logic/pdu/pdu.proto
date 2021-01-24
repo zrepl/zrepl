@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "pdu";
+option go_package = ".;pdu";
 
 service Replication {
   rpc Ping(PingReq) returns (PingRes);

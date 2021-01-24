@@ -40,6 +40,8 @@ func (c *SenderConfig) Validate() error {
 
 // Sender implements replication.ReplicationEndpoint for a sending side
 type Sender struct {
+	pdu.UnsafeReplicationServer // prefer compilation errors over default 'method X not implemented' impl
+
 	FSFilter zfs.DatasetFilter
 	encrypt  *zfs.NilBool
 	jobId    JobID
@@ -443,6 +445,8 @@ func (c *ReceiverConfig) Validate() error {
 
 // Receiver implements replication.ReplicationEndpoint for a receiving side
 type Receiver struct {
+	pdu.UnsafeReplicationServer // prefer compilation errors over default 'method X not implemented' impl
+
 	conf ReceiverConfig // validated
 
 	recvParentCreationMtx *chainlock.L

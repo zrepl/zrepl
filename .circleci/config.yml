@@ -172,7 +172,7 @@ workflows:
           matrix: &quickcheck-go-matrix
             alias: quickcheck-go-matrix
             parameters:
-              goversion: [*latest-go-release, "1.11"]
+              goversion: [*latest-go-release, "1.12"]
               goos: ["linux", "freebsd"]
               goarch: ["amd64", "arm64"]
             exclude:
@@ -180,8 +180,8 @@ workflows:
               - goversion: *latest-go-release
                 goos: linux
                 goarch: amd64
-              # not supported by Go 1.11
-              - goversion: "1.11"
+              # not supported by Go 1.12
+              - goversion: "1.12"
                 goos: freebsd
                 goarch: arm64
 

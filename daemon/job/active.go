@@ -160,7 +160,7 @@ func modePushFromConfig(g *config.Global, in *config.PushJob, jobID endpoint.Job
 
 	m.plannerPolicy = &logic.PlannerPolicy{
 		EncryptedSend:     logic.TriFromBool(in.Send.Encrypted),
-		ReplicationConfig: *replicationConfig,
+		ReplicationConfig: replicationConfig,
 	}
 
 	if m.snapper, err = snapper.FromConfig(g, m.senderConfig.FSF, in.Snapshotting); err != nil {
@@ -255,7 +255,7 @@ func modePullFromConfig(g *config.Global, in *config.PullJob, jobID endpoint.Job
 
 	m.plannerPolicy = &logic.PlannerPolicy{
 		EncryptedSend:     logic.DontCare,
-		ReplicationConfig: *replicationConfig,
+		ReplicationConfig: replicationConfig,
 	}
 
 	m.receiverConfig, err = buildReceiverConfig(in, jobID)

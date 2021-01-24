@@ -7,7 +7,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/replication/logic/pdu"

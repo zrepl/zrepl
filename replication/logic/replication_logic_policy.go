@@ -9,7 +9,7 @@ import (
 
 type PlannerPolicy struct {
 	EncryptedSend     tri // all sends must be encrypted (send -w, and encryption!=off)
-	ReplicationConfig pdu.ReplicationConfig
+	ReplicationConfig *pdu.ReplicationConfig
 }
 
 func ReplicationConfigFromConfig(in *config.Replication) (*pdu.ReplicationConfig, error) {

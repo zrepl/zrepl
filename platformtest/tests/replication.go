@@ -35,7 +35,7 @@ type replicationInvocation struct {
 	rfsRoot           string
 	interceptSender   func(e *endpoint.Sender) logic.Sender
 	interceptReceiver func(e *endpoint.Receiver) logic.Receiver
-	guarantee         pdu.ReplicationConfigProtection
+	guarantee         *pdu.ReplicationConfigProtection
 }
 
 func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
@@ -67,8 +67,8 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 	}))
 	plannerPolicy := logic.PlannerPolicy{
 		EncryptedSend: logic.TriFromBool(false),
-		ReplicationConfig: pdu.ReplicationConfig{
-			Protection: &i.guarantee,
+		ReplicationConfig: &pdu.ReplicationConfig{
+			Protection: i.guarantee,
 		},
 	}
 
@@ -106,7 +106,7 @@ func ReplicationIncrementalIsPossibleIfCommonSnapshotIsDestroyed(ctx *platformte
 		rjid:      rjid,
 		sfs:       sfs,
 		rfsRoot:   rfsRoot,
-		guarantee: *pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability),
+		guarantee: pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability),
 	}
 	rfs := rep.ReceiveSideFilesystem()
 
@@ -170,7 +170,7 @@ func implReplicationIncrementalCleansUpStaleAbstractions(ctx *platformtest.Conte
 		rjid:      rjid,
 		sfs:       sfs,
 		rfsRoot:   rfsRoot,
-		guarantee: *pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability),
+		guarantee: pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability),
 	}
 	rfs := rep.ReceiveSideFilesystem()
 
@@ -343,7 +343,7 @@ func (s *PartialSender) Send(ctx context.Context, r *pdu.SendReq) (r1 *pdu.SendR
 func ReplicationIsResumableFullSend__both_GuaranteeResumability(ctx *platformtest.Context) {
 
 	setup := replicationIsResumableFullSendSetup{
-		protection: pdu.ReplicationConfigProtection{
+		protection: &pdu.ReplicationConfigProtection{
 			Initial:     pdu.ReplicationGuaranteeKind_GuaranteeResumability,
 			Incremental: pdu.ReplicationGuaranteeKind_GuaranteeResumability,
 		},
@@ -358,7 +358,7 @@ func ReplicationIsResumableFullSend__both_GuaranteeResumability(ctx *platformtes
 func ReplicationIsResumableFullSend__initial_GuaranteeResumability_incremental_GuaranteeIncrementalReplication(ctx *platformtest.Context) {
 
 	setup := replicationIsResumableFullSendSetup{
-		protection: pdu.ReplicationConfigProtection{
+		protection: &pdu.ReplicationConfigProtection{
 			Initial:     pdu.ReplicationGuaranteeKind_GuaranteeResumability,
 			Incremental: pdu.ReplicationGuaranteeKind_GuaranteeIncrementalReplication,
 		},
@@ -373,7 +373,7 @@ func ReplicationIsResumableFullSend__initial_GuaranteeResumability_incremental_G
 func ReplicationIsResumableFullSend__initial_GuaranteeIncrementalReplication_incremental_GuaranteeIncrementalReplication(ctx *platformtest.Context) {
 
 	setup := replicationIsResumableFullSendSetup{
-		protection: pdu.ReplicationConfigProtection{
+		protection: &pdu.ReplicationConfigProtection{
 			Initial:     pdu.ReplicationGuaranteeKind_GuaranteeIncrementalReplication,
 			Incremental: pdu.ReplicationGuaranteeKind_GuaranteeIncrementalReplication,
 		},
@@ -386,7 +386,7 @@ func ReplicationIsResumableFullSend__initial_GuaranteeIncrementalReplication_inc
 }
 
 type replicationIsResumableFullSendSetup struct {
-	protection                                                          pdu.ReplicationConfigProtection
+	protection                                                          *pdu.ReplicationConfigProtection
 	expectDatasetIsBusyErrorWhenDestroySnapshotWhilePartiallyReplicated bool
 	expectAllThreeSnapshotsToThreeBePresentAfterLoop                    bool
 	expectNoSnapshotsOnReceiverAfterLoop                                bool
@@ -501,7 +501,7 @@ func ReplicationIncrementalDestroysStepHoldsIffIncrementalStepHoldsAreDisabledBu
 			rjid:      rjid,
 			sfs:       sfs,
 			rfsRoot:   rfsRoot,
-			guarantee: *pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability),
+			guarantee: pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability),
 		}
 		rfs := rep.ReceiveSideFilesystem()
 		report := rep.Do(ctx)
@@ -528,7 +528,7 @@ func ReplicationIncrementalDestroysStepHoldsIffIncrementalStepHoldsAreDisabledBu
 			rjid:      rjid,
 			sfs:       sfs,
 			rfsRoot:   rfsRoot,
-			guarantee: *pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability), // !
+			guarantee: pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability), // !
 			interceptSender: func(e *endpoint.Sender) logic.Sender {
 				return &PartialSender{Sender: e, failAfterByteCount: 1 << 20}
 			},
@@ -574,7 +574,7 @@ func ReplicationIncrementalDestroysStepHoldsIffIncrementalStepHoldsAreDisabledBu
 		rjid:      rjid,
 		sfs:       sfs,
 		rfsRoot:   rfsRoot,
-		guarantee: *pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeIncrementalReplication), // !
+		guarantee: pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeIncrementalReplication), // !
 		interceptSender: func(e *endpoint.Sender) logic.Sender {
 			return &PartialSender{Sender: e, failAfterByteCount: 1 << 20}
 		},
@@ -684,7 +684,7 @@ func replicationStepCompletedLostBehavior_impl(ctx *platformtest.Context, guaran
 			rjid:      rjid,
 			sfs:       sfs,
 			rfsRoot:   rfsRoot,
-			guarantee: *pdu.ReplicationConfigProtectionWithKind(guaranteeKind),
+			guarantee: pdu.ReplicationConfigProtectionWithKind(guaranteeKind),
 		}
 		rfs := rep.ReceiveSideFilesystem()
 		report := rep.Do(ctx)
@@ -702,7 +702,7 @@ func replicationStepCompletedLostBehavior_impl(ctx *platformtest.Context, guaran
 		rjid:      rjid,
 		sfs:       sfs,
 		rfsRoot:   rfsRoot,
-		guarantee: *pdu.ReplicationConfigProtectionWithKind(guaranteeKind),
+		guarantee: pdu.ReplicationConfigProtectionWithKind(guaranteeKind),
 		interceptSender: func(e *endpoint.Sender) logic.Sender {
 			return &FailSendCompletedSender{e}
 		},
@@ -750,7 +750,7 @@ func replicationStepCompletedLostBehavior_impl(ctx *platformtest.Context, guaran
 			rjid:      rjid,
 			sfs:       sfs,
 			rfsRoot:   rfsRoot,
-			guarantee: *pdu.ReplicationConfigProtectionWithKind(guaranteeKind),
+			guarantee: pdu.ReplicationConfigProtectionWithKind(guaranteeKind),
 		}
 		report := rep.Do(ctx)
 		ctx.Logf("expecting failure:\n%s", pretty.Sprint(report))
@@ -818,7 +818,7 @@ func ReplicationReceiverErrorWhileStillSending(ctx *platformtest.Context) {
 		rjid:      rjid,
 		sfs:       sfs,
 		rfsRoot:   rfsRoot,
-		guarantee: *pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeNothing),
+		guarantee: pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeNothing),
 		interceptReceiver: func(r *endpoint.Receiver) logic.Receiver {
 			return &ErroringReceiver{recvErr: mockRecvErr, Receiver: r}
 		},
@@ -880,7 +880,7 @@ func ReplicationFailingInitialParentProhibitsChildReplication(ctx *platformtest.
 		rjid:      rjid,
 		sfilter:   sfilter,
 		rfsRoot:   rfsRoot,
-		guarantee: *pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeNothing),
+		guarantee: pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeNothing),
 		interceptReceiver: func(r *endpoint.Receiver) logic.Receiver {
 			return &ErroringReceiver{recvErr: mockRecvErr, Receiver: r}
 		},

@@ -172,14 +172,14 @@ func (c *Client) WaitForConnectivity(ctx context.Context) error {
 	}
 	go func() {
 		defer wg.Done()
-		ctrl, ctrlErr := c.controlClient.Ping(ctx, &req, grpc.FailFast(false))
+		ctrl, ctrlErr := c.controlClient.Ping(ctx, &req, grpc.WaitForReady(true))
 		checkRes(ctrl, ctrlErr, loggers.Control, &ctrlOk)
 	}()
 	go func() {
 		defer wg.Done()
 		for ctx.Err() == nil {
 			data, dataErr := c.dataClient.ReqPing(ctx, &req)
-			// dataClient uses transport.Connecter, which doesn't expose FailFast(false)
+			// dataClient uses transport.Connecter, which doesn't expose WaitForReady(true)
 			// => we need to mask dial timeouts
 			if err, ok := dataErr.(interface{ Temporary() bool }); ok && err.Temporary() {
 				// Rate-limit pings here in case Temporary() is a mis-classification
