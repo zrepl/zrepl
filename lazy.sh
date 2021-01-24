@@ -39,12 +39,7 @@ godep() {
     export GOOS="$GOHOSTOS"
     export GOARCH="$GOHOSTARCH"
     # TODO GOARM=$GOHOSTARM?
-    go build -v -mod=readonly -o "$GOPATH/bin/stringer"      golang.org/x/tools/cmd/stringer
-    go build -v -mod=readonly -o "$GOPATH/bin/protoc-gen-go" github.com/golang/protobuf/protoc-gen-go
-    go build -v -mod=readonly -o "$GOPATH/bin/enumer"        github.com/alvaroloes/enumer
-    go build -v -mod=readonly -o "$GOPATH/bin/goimports"     golang.org/x/tools/cmd/goimports
-    go build -v -mod=readonly -o "$GOPATH/bin/golangci-lint" github.com/golangci/golangci-lint/cmd/golangci-lint
-    go build -v -mod=readonly -o "$GOPATH/bin/gocovmerge"    github.com/wadey/gocovmerge
+    cat tools.go | grep _ | awk -F'"' '{print $2}' | tee | xargs -tI '{}' go install '{}'
     set +x
     popd
     if ! type stringer || ! type protoc-gen-go || ! type enumer || ! type goimports || ! type golangci-lint || ! type gocovmerge; then
