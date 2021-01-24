@@ -68,7 +68,8 @@ func Wrap(conn Wire, idleTimeout time.Duration) *Conn {
 }
 
 // DisableTimeouts disables the idle timeout behavior provided by this package.
-// Existing deadlines are cleared iff the call is the first call to this method.
+// Existing deadlines are cleared iff the call is the first call to this method
+// or if the previous call produced an error.
 func (c *Conn) DisableTimeouts() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
