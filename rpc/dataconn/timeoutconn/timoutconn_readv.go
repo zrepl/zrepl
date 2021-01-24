@@ -29,8 +29,7 @@ func buildIovecs(buffers net.Buffers) (totalLen int64, vecs []syscall.Iovec) {
 	return totalLen, vecs
 }
 
-func (c Conn) readv(buffers net.Buffers) (n int64, err error) {
-
+func (c *Conn) readv(buffers net.Buffers) (n int64, err error) {
 	scc, ok := c.Wire.(SyscallConner)
 	if !ok {
 		return c.readvFallback(buffers)
@@ -62,7 +61,7 @@ func (c Conn) readv(buffers net.Buffers) (n int64, err error) {
 	return n, nil
 }
 
-func (c Conn) doOneReadv(rawConn syscall.RawConn, iovecs *[]syscall.Iovec) (n int64, err error) {
+func (c *Conn) doOneReadv(rawConn syscall.RawConn, iovecs *[]syscall.Iovec) (n int64, err error) {
 	rawReadErr := rawConn.Read(func(fd uintptr) (done bool) {
 		// iovecs, n and err must not be shadowed!
 
