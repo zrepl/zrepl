@@ -52,9 +52,9 @@ func doZabsList(ctx context.Context, sc *cli.Subcommand, args []string) error {
 	var line chainlock.L
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	wg.Add(1)
 
 	// print results
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		enc := json.NewEncoder(os.Stdout)
