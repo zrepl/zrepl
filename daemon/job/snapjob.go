@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -29,7 +30,8 @@ type SnapJob struct {
 
 	promPruneSecs *prometheus.HistogramVec // labels: prune_side
 
-	pruner *pruner.Pruner
+	prunerMtx sync.Mutex
+	pruner    *pruner.Pruner
 }
 
 func (j *SnapJob) Name() string { return j.name.String() }
@@ -77,9 +79,11 @@ type SnapJobStatus struct {
 func (j *SnapJob) Status() *Status {
 	s := &SnapJobStatus{}
 	t := j.Type()
+	j.prunerMtx.Lock()
 	if j.pruner != nil {
 		s.Pruning = j.pruner.Report()
 	}
+	j.prunerMtx.Unlock()
 	s.Snapshotting = j.snapper.Report()
 	return &Status{Type: t, JobSpecific: s}
 }
@@ -177,7 +181,9 @@ func (j *SnapJob) doPrune(ctx context.Context) {
 		// FIXME encryption setting is irrelevant for SnapJob because the endpoint is only used as pruner.Target
 		Encrypt: &zfs.NilBool{B: true},
 	})
+	j.prunerMtx.Lock()
 	j.pruner = j.prunerFactory.BuildLocalPruner(ctx, sender, alwaysUpToDateReplicationCursorHistory{sender})
+	j.prunerMtx.Unlock()
 	log.Info("start pruning")
 	j.pruner.Prune()
 	log.Info("finished pruning")
