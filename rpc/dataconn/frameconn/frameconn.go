@@ -47,7 +47,7 @@ func (f *FrameHeader) Unmarshal(buf []byte) {
 
 type Conn struct {
 	readMtx, writeMtx sync.Mutex
-	nc                timeoutconn.Conn
+	nc                *timeoutconn.Conn
 	readNextValid     bool
 	readNext          FrameHeader
 	nextReadErr       error
@@ -55,7 +55,7 @@ type Conn struct {
 	shutdown          shutdownFSM
 }
 
-func Wrap(nc timeoutconn.Conn) *Conn {
+func Wrap(nc *timeoutconn.Conn) *Conn {
 	return &Conn{
 		nc: nc,
 		//		ncBuf: bufio.NewReadWriter(bufio.NewReaderSize(nc, 1<<23), bufio.NewWriterSize(nc, 1<<23)),
