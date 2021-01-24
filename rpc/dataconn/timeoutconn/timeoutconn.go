@@ -11,7 +11,7 @@ import (
 	"errors"
 	"io"
 	"net"
-	"sync/atomic"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -54,39 +54,60 @@ type Wire interface {
 }
 
 type Conn struct {
+	// immutable state
+
 	Wire
-	renewDeadlinesDisabled int32
-	idleTimeout            time.Duration
+	idleTimeout time.Duration
+
+	// mutable state (protected by mtx)
+
+	mtx                    sync.RWMutex
+	renewDeadlinesDisabled bool
 }
 
-func Wrap(conn Wire, idleTimeout time.Duration) Conn {
-	return Conn{Wire: conn, idleTimeout: idleTimeout}
+func Wrap(conn Wire, idleTimeout time.Duration) *Conn {
+	return &Conn{
+		Wire:        conn,
+		idleTimeout: idleTimeout,
+	}
 }
 
 // DisableTimeouts disables the idle timeout behavior provided by this package.
-// Existing deadlines are cleared iff the call is the first call to this method.
+// Existing deadlines are cleared iff the call is the first call to this method
+// or if the previous call produced an error.
 func (c *Conn) DisableTimeouts() error {
-	if atomic.CompareAndSwapInt32(&c.renewDeadlinesDisabled, 0, 1) {
-		return c.SetDeadline(time.Time{})
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	if c.renewDeadlinesDisabled {
+		return nil
 	}
+	err := c.SetDeadline(time.Time{})
+	if err != nil {
+		return err
+	}
+	c.renewDeadlinesDisabled = true
 	return nil
 }
 
 func (c *Conn) renewReadDeadline() error {
-	if atomic.LoadInt32(&c.renewDeadlinesDisabled) != 0 {
+	c.mtx.RLock()
+	defer c.mtx.RUnlock()
+	if c.renewDeadlinesDisabled {
 		return nil
 	}
 	return c.SetReadDeadline(time.Now().Add(c.idleTimeout))
 }
 
 func (c *Conn) RenewWriteDeadline() error {
-	if atomic.LoadInt32(&c.renewDeadlinesDisabled) != 0 {
+	c.mtx.RLock()
+	defer c.mtx.RUnlock()
+	if c.renewDeadlinesDisabled {
 		return nil
 	}
 	return c.SetWriteDeadline(time.Now().Add(c.idleTimeout))
 }
 
-func (c Conn) Read(p []byte) (n int, err error) {
+func (c *Conn) Read(p []byte) (n int, err error) {
 	n = 0
 	err = nil
 restart:
@@ -103,7 +124,7 @@ restart:
 	return n, err
 }
 
-func (c Conn) Write(p []byte) (n int, err error) {
+func (c *Conn) Write(p []byte) (n int, err error) {
 	n = 0
 restart:
 	if err := c.RenewWriteDeadline(); err != nil {
@@ -123,7 +144,7 @@ restart:
 // but is guaranteed to use the writev system call if the wrapped Wire
 // support it.
 // Note the Conn does not support writev through io.Copy(aConn, aNetBuffers).
-func (c Conn) WritevFull(bufs net.Buffers) (n int64, err error) {
+func (c *Conn) WritevFull(bufs net.Buffers) (n int64, err error) {
 	n = 0
 restart:
 	if err := c.RenewWriteDeadline(); err != nil {
@@ -163,12 +184,12 @@ var _ SyscallConner = (*net.TCPConn)(nil)
 // If the connection returned io.EOF, the number of bytes written until
 // then + io.EOF is returned. This behavior is different to io.ReadFull
 // which returns io.ErrUnexpectedEOF.
-func (c Conn) ReadvFull(buffers net.Buffers) (n int64, err error) {
+func (c *Conn) ReadvFull(buffers net.Buffers) (n int64, err error) {
 	return c.readv(buffers)
 }
 
 // invoked by c.readv if readv system call cannot be used
-func (c Conn) readvFallback(nbuffers net.Buffers) (n int64, err error) {
+func (c *Conn) readvFallback(nbuffers net.Buffers) (n int64, err error) {
 	buffers := [][]byte(nbuffers)
 	for i := range buffers {
 		curBuf := buffers[i]
