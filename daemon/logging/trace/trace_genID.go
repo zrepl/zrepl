@@ -3,19 +3,10 @@ package trace
 import (
 	"encoding/base64"
 	"math/rand"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/zrepl/zrepl/util/envconst"
 )
-
-var genIdPRNG = rand.New(rand.NewSource(1))
-
-func init() {
-	genIdPRNG.Seed(time.Now().UnixNano())
-	genIdPRNG.Seed(int64(os.Getpid()))
-}
 
 var genIdNumBytes = envconst.Int("ZREPL_TRACE_ID_NUM_BYTES", 3)
 
@@ -30,7 +21,7 @@ func genID() string {
 	enc := base64.NewEncoder(base64.RawStdEncoding, &out)
 	buf := make([]byte, genIdNumBytes)
 	for i := 0; i < len(buf); {
-		n, err := genIdPRNG.Read(buf[i:])
+		n, err := rand.Read(buf[i:])
 		if err != nil {
 			panic(err)
 		}
