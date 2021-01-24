@@ -256,14 +256,14 @@ nextLine:
 
 		case string(DestroyRoot):
 			if comps.Scan() {
-				return nil, &LineError{scan.Text(), fmt.Sprintf("unexpected tokens at EOL")}
+				return nil, &LineError{scan.Text(), "unexpected tokens at EOL"}
 			}
 			stmts = append(stmts, &DestroyRootOp{rootds})
 			continue nextLine
 
 		case string(CreateRoot):
 			if comps.Scan() {
-				return nil, &LineError{scan.Text(), fmt.Sprintf("unexpected tokens at EOL")}
+				return nil, &LineError{scan.Text(), "unexpected tokens at EOL"}
 			}
 			stmts = append(stmts, &FSOp{Op: Add, Path: rootds})
 			continue nextLine
@@ -319,7 +319,7 @@ nextLine:
 		}
 
 		if comps.Scan() {
-			return nil, &LineError{scan.Text(), fmt.Sprintf("unexpected tokens at EOL")}
+			return nil, &LineError{scan.Text(), "unexpected tokens at EOL"}
 		}
 	}
 	return stmts, nil

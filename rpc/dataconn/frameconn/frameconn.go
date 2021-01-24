@@ -39,7 +39,7 @@ func assertPublicFrameType(frameType uint32) {
 
 func (f *FrameHeader) Unmarshal(buf []byte) {
 	if len(buf) != 8 {
-		panic(fmt.Sprintf("frame header is 8 bytes long"))
+		panic("frame header is 8 bytes long")
 	}
 	f.Type = binary.BigEndian.Uint32(buf[0:4])
 	f.PayloadLen = binary.BigEndian.Uint32(buf[4:8])

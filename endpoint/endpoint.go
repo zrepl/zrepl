@@ -484,7 +484,7 @@ func (s *Receiver) clientRootFromCtx(ctx context.Context) *zfs.DatasetPath {
 
 	clientIdentity, ok := ctx.Value(ClientIdentityKey).(string)
 	if !ok {
-		panic(fmt.Sprintf("ClientIdentityKey context value must be set"))
+		panic("ClientIdentityKey context value must be set")
 	}
 
 	clientRoot, err := clientRoot(s.conf.RootWithoutClientComponent, clientIdentity)

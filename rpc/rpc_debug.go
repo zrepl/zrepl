@@ -5,6 +5,7 @@ import (
 	"os"
 )
 
+//nolint:unused
 var debugEnabled bool = false
 
 func init() {

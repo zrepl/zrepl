@@ -93,8 +93,12 @@ func TestContextWithOptionalDeadlineParentCancellation(t *testing.T) {
 
 }
 
+type testContextKey string
+
+const testContextKeyKey testContextKey = "key"
+
 func TestContextWithOptionalDeadlineValue(t *testing.T) {
-	pctx := context.WithValue(context.Background(), "key", "value")
+	pctx := context.WithValue(context.Background(), testContextKeyKey, "value")
 	cctx, _ := ContextWithOptionalDeadline(pctx)
-	assert.Equal(t, "value", cctx.Value("key"))
+	assert.Equal(t, "value", cctx.Value(testContextKeyKey))
 }
