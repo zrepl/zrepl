@@ -72,10 +72,14 @@ func Wrap(conn Wire, idleTimeout time.Duration) *Conn {
 func (c *Conn) DisableTimeouts() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if !c.renewDeadlinesDisabled {
-		c.renewDeadlinesDisabled = true
-		return c.SetDeadline(time.Time{})
+	if c.renewDeadlinesDisabled {
+		return nil
 	}
+	err := c.SetDeadline(time.Time{})
+	if err != nil {
+		return err
+	}
+	c.renewDeadlinesDisabled = true
 	return nil
 }
 
