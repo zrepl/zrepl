@@ -73,9 +73,9 @@ func (c *Conn) DisableTimeouts() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if !c.renewDeadlinesDisabled {
+		c.renewDeadlinesDisabled = true
 		return c.SetDeadline(time.Time{})
 	}
-	c.renewDeadlinesDisabled = true
 	return nil
 }
 
