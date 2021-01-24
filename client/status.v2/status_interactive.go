@@ -78,7 +78,7 @@ func interactive(c Client, flag statusFlags) error {
 		if setJobMenuVisible {
 			jobDetailSplit.RemoveItem(jobTextDetail)
 			jobDetailSplit.AddItem(jobMenu, 0, 1, true)
-			jobDetailSplit.AddItem(jobTextDetail, 0, 8, false)
+			jobDetailSplit.AddItem(jobTextDetail, 0, 5, false)
 			tabbable = tabbableWithJobMenu
 		} else {
 			jobDetailSplit.RemoveItem(jobMenu)
