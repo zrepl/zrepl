@@ -128,9 +128,9 @@ func interactive(c Client, flag statusFlags) error {
 		jobs := m.Jobs()
 		if flag.Job != "" {
 			job_found := false
-			for i := range jobs {
-				if strings.Compare(flag.Job, jobs[i].Name()) == 0 {
-					jobs = jobs[i : i+1]
+			for _, job := range jobs {
+				if strings.Compare(flag.Job, job.Name()) == 0 {
+					jobs = []*viewmodel.Job{job}
 					job_found = true
 					break
 				}
