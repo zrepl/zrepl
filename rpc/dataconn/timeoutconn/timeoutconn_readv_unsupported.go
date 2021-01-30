@@ -1,5 +1,3 @@
-// +build illumos solaris
-
 package timeoutconn
 
 import "net"
