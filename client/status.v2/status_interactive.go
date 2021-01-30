@@ -213,7 +213,7 @@ func interactive(c Client, flag statusFlags) error {
 			})
 			app.QueueUpdateDraw(redraw)
 
-			time.Sleep(time.Duration(flag.Delay) * time.Second)
+			time.Sleep(flag.Delay)
 		}
 	}()
 

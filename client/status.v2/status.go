@@ -2,6 +2,7 @@ package status
 
 import (
 	"context"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
@@ -24,7 +25,7 @@ type Client interface {
 type statusFlags struct {
 	Mode  choices.Choices
 	Job   string
-	Delay uint
+	Delay time.Duration
 }
 
 var statusv2Flags statusFlags
@@ -50,7 +51,7 @@ var Subcommand = &cli.Subcommand{
 		statusv2Flags.Mode.SetDefaultValue(StatusV2ModeInteractive)
 		f.Var(&statusv2Flags.Mode, "mode", statusv2Flags.Mode.Usage())
 		f.StringVar(&statusv2Flags.Job, "job", "", "only show specified job (works in \"dump\" and \"interactive\" mode)")
-		f.UintVarP(&statusv2Flags.Delay, "delay", "d", 1, "delay interval")
+		f.DurationVarP(&statusv2Flags.Delay, "delay", "d", 1*time.Second, "-d 3s (for 3 seconds delay)")
 	},
 	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 		return runStatusV2Command(ctx, subcommand.Config(), args)
