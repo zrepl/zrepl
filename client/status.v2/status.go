@@ -51,7 +51,7 @@ var Subcommand = &cli.Subcommand{
 		statusv2Flags.Mode.SetDefaultValue(StatusV2ModeInteractive)
 		f.Var(&statusv2Flags.Mode, "mode", statusv2Flags.Mode.Usage())
 		f.StringVar(&statusv2Flags.Job, "job", "", "only show specified job (works in \"dump\" and \"interactive\" mode)")
-		f.DurationVarP(&statusv2Flags.Delay, "delay", "d", 1*time.Second, "-d 3s (for 3 seconds delay)")
+		f.DurationVarP(&statusv2Flags.Delay, "delay", "d", 1*time.Second, "use -d 3s for 3 seconds delay (minimum delay is 1s)")
 	},
 	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 		return runStatusV2Command(ctx, subcommand.Config(), args)
