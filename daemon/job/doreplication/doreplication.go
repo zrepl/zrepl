@@ -1,4 +1,4 @@
-package wakeup
+package doreplication
 
 import (
 	"context"
@@ -7,10 +7,10 @@ import (
 
 type contextKey int
 
-const contextKeyWakeup contextKey = iota
+const contextKeyReplication contextKey = iota
 
 func Wait(ctx context.Context) <-chan struct{} {
-	wc, ok := ctx.Value(contextKeyWakeup).(chan struct{})
+	wc, ok := ctx.Value(contextKeyReplication).(chan struct{})
 	if !ok {
 		wc = make(chan struct{})
 	}
@@ -19,7 +19,7 @@ func Wait(ctx context.Context) <-chan struct{} {
 
 type Func func() error
 
-var AlreadyWokenUp = errors.New("already woken up")
+var AlreadyReplicating = errors.New("already replicating")
 
 func Context(ctx context.Context) (context.Context, Func) {
 	wc := make(chan struct{})
@@ -28,8 +28,8 @@ func Context(ctx context.Context) (context.Context, Func) {
 		case wc <- struct{}{}:
 			return nil
 		default:
-			return AlreadyWokenUp
+			return AlreadyReplicating
 		}
 	}
-	return context.WithValue(ctx, contextKeyWakeup, wc), wuf
+	return context.WithValue(ctx, contextKeyReplication, wc), wuf
 }

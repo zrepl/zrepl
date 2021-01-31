@@ -78,7 +78,7 @@ Job Type ``pull``
         ``$root_fs/$source_path``
     * - ``interval``
       - | Interval at which to pull from the source job (e.g. ``10m``).
-        | ``manual`` disables periodic pulling, replication then only happens on :ref:`wakeup <cli-signal-wakeup>`.
+        | ``manual`` disables periodic pulling, replication then only happens on :ref:`replication <cli-signal-replication>`.
     * - ``pruning``
       - |pruning-spec|
 

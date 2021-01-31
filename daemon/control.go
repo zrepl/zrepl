@@ -143,8 +143,8 @@ func (j *controlJob) Run(ctx context.Context) {
 
 			var err error
 			switch req.Op {
-			case "wakeup":
-				err = j.jobs.wakeup(req.Name)
+			case "replication":
+				err = j.jobs.doreplication(req.Name)
 			case "reset":
 				err = j.jobs.reset(req.Name)
 			case "snapshot":

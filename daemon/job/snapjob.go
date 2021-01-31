@@ -8,11 +8,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/zrepl/zrepl/daemon/job/doreplication"
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
-	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/endpoint"
@@ -107,13 +107,13 @@ func (j *SnapJob) Run(ctx context.Context) {
 	invocationCount := 0
 outer:
 	for {
-		log.Info("wait for wakeups")
+		log.Info("wait for replications")
 		select {
 		case <-ctx.Done():
 			log.WithError(ctx.Err()).Info("context")
 			break outer
 
-		case <-wakeup.Wait(ctx):
+		case <-doreplication.Wait(ctx):
 		case <-periodicDone:
 		}
 		invocationCount++
