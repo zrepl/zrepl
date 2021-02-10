@@ -205,10 +205,6 @@ func interactive(c Client, flag statusFlags) error {
 				})
 			}
 		}()
-		if flag.Delay < time.Second*1 {
-			// minimum delay 1 sec to avoid high cpu usage
-			flag.Delay = time.Second * 1
-		}
 		for {
 			st, err := c.Status()
 			viewmodelupdate(func(p *viewmodel.Params) {
