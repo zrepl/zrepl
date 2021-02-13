@@ -1,0 +1,14 @@
+[Unit]
+Description=zrepl job %i wakeup
+After=zrepl.service
+
+# Don't do this to yourself
+# unless you want job units to keep starting zrepl while you're trying to keep the daemon stopped for a moment...
+# Requires=zrepl.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/zrepl signal wakeup %i
+
+[Install]
+WantedBy=multi-user.target

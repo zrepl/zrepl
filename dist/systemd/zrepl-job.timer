@@ -1,0 +1,20 @@
+[Unit]
+Description=zrepl - timer for job %i
+After=zrepl.service
+
+[Timer]
+Unit=zrepl-job@%i.service
+
+# Set an irrelevant default trigger to make systemd happy
+OnStartupSec=100y
+
+# Extend your job's timer unit to bring your own intervals!
+# See the systemd.timer(5) and systemd.time(7) man pages
+# $ systemctl edit zrepl-job@example_job.timer
+# [Timer]
+# #OnUnitActiveSec=
+# # or
+# #OnCalendar=
+
+[Install]
+WantedBy=zrepl_timers.target
