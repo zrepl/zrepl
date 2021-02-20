@@ -150,7 +150,7 @@ parameters:
 
   release_docker_baseimage_tag:
     type: string
-    default: "1.15"
+    default: "1.16"
 
 workflows:
   version: 2
@@ -160,15 +160,15 @@ workflows:
     jobs:
       - quickcheck-docs
       - quickcheck-go: &quickcheck-go-smoketest
-          name: quickcheck-go-amd64-linux-1.15
-          goversion: &latest-go-release "1.15"
+          name: quickcheck-go-amd64-linux-1.16
+          goversion: &latest-go-release "1.16"
           goos: linux
           goarch: amd64
       - test-go-on-latest-go-release:
           goversion: *latest-go-release
       - quickcheck-go:
           requires:
-            - quickcheck-go-amd64-linux-1.15 #quickcheck-go-smoketest.name
+            - quickcheck-go-amd64-linux-1.16 #quickcheck-go-smoketest.name
           matrix: &quickcheck-go-matrix
             alias: quickcheck-go-matrix
             parameters:
