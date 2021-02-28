@@ -144,3 +144,113 @@ func TestSampleConfigsAreBuiltWithoutErrors(t *testing.T) {
 	}
 
 }
+
+func TestReplicationOptions(t *testing.T) {
+	tmpl := `
+jobs:
+- name: foo
+  type: push
+  connect:
+    type: local
+    listener_name: foo
+    client_identity: bar
+  filesystems: {"<": true}
+  %s
+  snapshotting:
+    type: manual
+  pruning:
+    keep_sender:
+    - type: last_n
+      count: 10
+    keep_receiver:
+    - type: last_n
+      count: 10
+`
+
+	type Test struct {
+		name        string
+		input       string
+		expectOk    func(t *testing.T, a *ActiveSide, m *modePush)
+		expectError bool
+	}
+
+	tests := []Test{
+		{
+			name: "defaults",
+			input: `
+  replication: {}
+`,
+			expectOk: func(t *testing.T, a *ActiveSide, m *modePush) {},
+		},
+		{
+			name: "steps_zero",
+			input: `
+  replication:
+    concurrency:
+      steps: 0
+`,
+			expectError: true,
+		},
+		{
+			name: "size_estimates_zero",
+			input: `
+  replication:
+    concurrency:
+      size_estimates: 0
+`,
+			expectError: true,
+		},
+		{
+			name: "custom_values",
+			input: `
+  replication:
+    concurrency:
+      steps: 23
+      size_estimates: 42
+`,
+			expectOk: func(t *testing.T, a *ActiveSide, m *modePush) {
+				assert.Equal(t, 23, a.replicationDriverConfig.StepQueueConcurrency)
+				assert.Equal(t, 42, m.plannerPolicy.SizeEstimationConcurrency)
+			},
+		},
+		{
+			name: "negative_values_forbidden",
+			input: `
+  replication:
+    concurrency:
+      steps: -23
+      size_estimates: -42
+`,
+			expectError: true,
+		},
+	}
+
+	fill := func(s string) string { return fmt.Sprintf(tmpl, s) }
+
+	for _, ts := range tests {
+		t.Run(ts.name, func(t *testing.T) {
+			assert.True(t, (ts.expectError) != (ts.expectOk != nil))
+
+			cstr := fill(ts.input)
+			t.Logf("testing config:\n%s", cstr)
+			c, err := config.ParseConfigBytes([]byte(cstr))
+			require.NoError(t, err)
+			jobs, err := JobsFromConfig(c)
+			if ts.expectOk != nil {
+				require.NoError(t, err)
+				require.NotNil(t, c)
+				require.NoError(t, err)
+				require.Len(t, jobs, 1)
+				a := jobs[0].(*ActiveSide)
+				m := a.mode.(*modePush)
+				ts.expectOk(t, a, m)
+			} else if ts.expectError {
+				require.Error(t, err)
+			} else {
+				t.Fatalf("test must define expectOk or expectError")
+			}
+
+		})
+	}
+
+}

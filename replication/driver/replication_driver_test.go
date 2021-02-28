@@ -154,7 +154,12 @@ func TestReplication(t *testing.T) {
 	defer trace.WithTaskFromStackUpdateCtx(&ctx)()
 
 	mp := &mockPlanner{}
-	getReport, wait := Do(ctx, mp)
+	driverConfig := Config{
+		StepQueueConcurrency:     1,
+		MaxAttempts:              1,
+		ReconnectHardFailTimeout: 1 * time.Second,
+	}
+	getReport, wait := Do(ctx, driverConfig, mp)
 	begin := time.Now()
 	fireAt := []time.Duration{
 		// the following values are relative to the start

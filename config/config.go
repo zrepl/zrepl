@@ -99,12 +99,18 @@ type RecvOptions struct {
 }
 
 type Replication struct {
-	Protection *ReplicationOptionsProtection `yaml:"protection,optional,fromdefaults"`
+	Protection  *ReplicationOptionsProtection  `yaml:"protection,optional,fromdefaults"`
+	Concurrency *ReplicationOptionsConcurrency `yaml:"concurrency,optional,fromdefaults"`
 }
 
 type ReplicationOptionsProtection struct {
 	Initial     string `yaml:"initial,optional,default=guarantee_resumability"`
 	Incremental string `yaml:"incremental,optional,default=guarantee_resumability"`
+}
+
+type ReplicationOptionsConcurrency struct {
+	Steps         int `yaml:"steps,optional,default=1"`
+	SizeEstimates int `yaml:"size_estimates,optional,default=4"`
 }
 
 func (l *RecvOptions) SetDefault() {

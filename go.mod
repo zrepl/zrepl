@@ -7,12 +7,15 @@ require (
 	github.com/gdamore/tcell v1.2.0
 	github.com/gitchander/permutation v0.0.0-20181107151852-9e56b92e9909
 	github.com/go-logfmt/logfmt v0.4.0
+	github.com/go-playground/universal-translator v0.17.0 // indirect
+	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/go-sql-driver/mysql v1.4.1-0.20190907122137-b2c03bcae3d4
 	github.com/golang/protobuf v1.4.3
 	github.com/google/uuid v1.1.2
 	github.com/jinzhu/copier v0.0.0-20170922082739-db4671f3a9b8
 	github.com/kisielk/gotool v1.0.0 // indirect
 	github.com/kr/pretty v0.1.0
+	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/lib/pq v1.2.0
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/mattn/go-isatty v0.0.8
@@ -29,7 +32,7 @@ require (
 	github.com/sergi/go-diff v1.0.1-0.20180205163309-da645544ed44 // go1.12 thinks it needs this
 	github.com/spf13/cobra v0.0.2
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.5.1
+	github.com/stretchr/testify v1.6.1
 	github.com/willf/bitset v1.1.10
 	github.com/yudai/gojsondiff v0.0.0-20170107030110-7b1b7adf999d
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // go1.12 thinks it needs this

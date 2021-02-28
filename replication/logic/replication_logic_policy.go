@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"github.com/go-playground/validator"
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/config"
@@ -8,8 +9,15 @@ import (
 )
 
 type PlannerPolicy struct {
-	EncryptedSend     tri // all sends must be encrypted (send -w, and encryption!=off)
-	ReplicationConfig *pdu.ReplicationConfig
+	EncryptedSend             tri // all sends must be encrypted (send -w, and encryption!=off)
+	ReplicationConfig         *pdu.ReplicationConfig
+	SizeEstimationConcurrency int `validate:"gte=1"`
+}
+
+var validate = validator.New()
+
+func (p PlannerPolicy) Validate() error {
+	return validate.Struct(p)
 }
 
 func ReplicationConfigFromConfig(in *config.Replication) (*pdu.ReplicationConfig, error) {

@@ -18,7 +18,6 @@ import (
 	"github.com/zrepl/zrepl/util/chainlock"
 	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/util/nodefault"
-	"github.com/zrepl/zrepl/util/semaphore"
 	"github.com/zrepl/zrepl/zfs"
 	zfsprop "github.com/zrepl/zrepl/zfs/property"
 )
@@ -130,9 +129,6 @@ func (s *Sender) ListFilesystemVersions(ctx context.Context, r *pdu.ListFilesyst
 
 }
 
-var maxConcurrentZFSSend = envconst.Int64("ZREPL_ENDPOINT_MAX_CONCURRENT_SEND", 10)
-var maxConcurrentZFSSendSemaphore = semaphore.New(maxConcurrentZFSSend)
-
 func uncheckedSendArgsFromPDU(fsv *pdu.FilesystemVersion) *zfs.ZFSSendArgVersion {
 	if fsv == nil {
 		return nil
@@ -198,16 +194,6 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "validate send arguments")
 	}
-
-	getLogger(ctx).Debug("acquire concurrent send semaphore")
-	// TODO use try-acquire and fail with resource-exhaustion rpc status
-	// => would require handling on the client-side
-	// => this is a dataconn endpoint, doesn't have the status code semantics of gRPC
-	guard, err := maxConcurrentZFSSendSemaphore.Acquire(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer guard.Release()
 
 	si, err := zfs.ZFSSendDry(ctx, sendArgs)
 	if err != nil {
@@ -682,8 +668,6 @@ func (s *Receiver) Send(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, io
 	return nil, nil, fmt.Errorf("receiver does not implement Send()")
 }
 
-var maxConcurrentZFSRecvSemaphore = semaphore.New(envconst.Int64("ZREPL_ENDPOINT_MAX_CONCURRENT_RECV", 10))
-
 func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.ReadCloser) (*pdu.ReceiveRes, error) {
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
@@ -802,16 +786,6 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot determine whether we can use resumable send & recv")
 	}
-
-	log.Debug("acquire concurrent recv semaphore")
-	// TODO use try-acquire and fail with resource-exhaustion rpc status
-	// => would require handling on the client-side
-	// => this is a dataconn endpoint, doesn't have the status code semantics of gRPC
-	guard, err := maxConcurrentZFSRecvSemaphore.Acquire(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer guard.Release()
 
 	var peek bytes.Buffer
 	var MaxPeek = envconst.Int64("ZREPL_ENDPOINT_RECV_PEEK_SIZE", 1<<20)

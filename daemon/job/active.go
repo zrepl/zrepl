@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/common/log"
 
 	"github.com/zrepl/zrepl/daemon/logging/trace"
+	"github.com/zrepl/zrepl/util/envconst"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job/reset"
@@ -32,6 +33,8 @@ type ActiveSide struct {
 	mode      activeMode
 	name      endpoint.JobID
 	connecter transport.Connecter
+
+	replicationDriverConfig driver.Config
 
 	prunerFactory *pruner.PrunerFactory
 
@@ -159,8 +162,12 @@ func modePushFromConfig(g *config.Global, in *config.PushJob, jobID endpoint.Job
 	}
 
 	m.plannerPolicy = &logic.PlannerPolicy{
-		EncryptedSend:     logic.TriFromBool(in.Send.Encrypted),
-		ReplicationConfig: replicationConfig,
+		EncryptedSend:             logic.TriFromBool(in.Send.Encrypted),
+		ReplicationConfig:         replicationConfig,
+		SizeEstimationConcurrency: in.Replication.Concurrency.SizeEstimates,
+	}
+	if err := m.plannerPolicy.Validate(); err != nil {
+		return nil, errors.Wrap(err, "cannot build planner policy")
 	}
 
 	if m.snapper, err = snapper.FromConfig(g, m.senderConfig.FSF, in.Snapshotting); err != nil {
@@ -254,8 +261,12 @@ func modePullFromConfig(g *config.Global, in *config.PullJob, jobID endpoint.Job
 	}
 
 	m.plannerPolicy = &logic.PlannerPolicy{
-		EncryptedSend:     logic.DontCare,
-		ReplicationConfig: replicationConfig,
+		EncryptedSend:             logic.DontCare,
+		ReplicationConfig:         replicationConfig,
+		SizeEstimationConcurrency: in.Replication.Concurrency.SizeEstimates,
+	}
+	if err := m.plannerPolicy.Validate(); err != nil {
+		return nil, errors.Wrap(err, "cannot build planner policy")
 	}
 
 	m.receiverConfig, err = buildReceiverConfig(in, jobID)
@@ -264,6 +275,16 @@ func modePullFromConfig(g *config.Global, in *config.PullJob, jobID endpoint.Job
 	}
 
 	return m, nil
+}
+
+func replicationDriverConfigFromConfig(in *config.Replication) (c driver.Config, err error) {
+	c = driver.Config{
+		StepQueueConcurrency:     in.Concurrency.Steps,
+		MaxAttempts:              envconst.Int("ZREPL_REPLICATION_MAX_ATTEMPTS", 3),
+		ReconnectHardFailTimeout: envconst.Duration("ZREPL_REPLICATION_RECONNECT_HARD_FAIL_TIMEOUT", 10*time.Minute),
+	}
+	err = c.Validate()
+	return c, err
 }
 
 func activeSide(g *config.Global, in *config.ActiveJob, configJob interface{}) (j *ActiveSide, err error) {
@@ -324,6 +345,11 @@ func activeSide(g *config.Global, in *config.ActiveJob, configJob interface{}) (
 	j.prunerFactory, err = pruner.NewPrunerFactory(in.Pruning, j.promPruneSecs)
 	if err != nil {
 		return nil, err
+	}
+
+	j.replicationDriverConfig, err = replicationDriverConfigFromConfig(in.Replication)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot build replication driver config")
 	}
 
 	return j, nil
@@ -459,7 +485,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 			*tasks = activeSideTasks{}
 			tasks.replicationCancel = func() { repCancel(); endSpan() }
 			tasks.replicationReport, repWait = replication.Do(
-				ctx, logic.NewPlanner(j.promRepStateSecs, j.promBytesReplicated, sender, receiver, j.mode.PlannerPolicy()),
+				ctx, j.replicationDriverConfig, logic.NewPlanner(j.promRepStateSecs, j.promBytesReplicated, sender, receiver, j.mode.PlannerPolicy()),
 			)
 			tasks.state = ActiveSideReplicating
 		})

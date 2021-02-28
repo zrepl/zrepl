@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-playground/validator"
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
@@ -19,7 +20,6 @@ import (
 
 	"github.com/zrepl/zrepl/replication/report"
 	"github.com/zrepl/zrepl/util/chainlock"
-	"github.com/zrepl/zrepl/util/envconst"
 )
 
 type interval struct {
@@ -84,6 +84,7 @@ type Planner interface {
 // an attempt represents a single planning & execution of fs replications
 type attempt struct {
 	planner Planner
+	config  Config
 
 	l *chainlock.L
 
@@ -181,10 +182,25 @@ type step struct {
 type ReportFunc func() *report.Report
 type WaitFunc func(block bool) (done bool)
 
-var maxAttempts = envconst.Int64("ZREPL_REPLICATION_MAX_ATTEMPTS", 3)
-var reconnectHardFailTimeout = envconst.Duration("ZREPL_REPLICATION_RECONNECT_HARD_FAIL_TIMEOUT", 10*time.Minute)
+type Config struct {
+	StepQueueConcurrency     int           `validate:"gte=1"`
+	MaxAttempts              int           `validate:"eq=-1|gt=0"`
+	ReconnectHardFailTimeout time.Duration `validate:"gt=0"`
+}
 
-func Do(ctx context.Context, planner Planner) (ReportFunc, WaitFunc) {
+var validate = validator.New()
+
+func (c Config) Validate() error {
+	return validate.Struct(c)
+}
+
+// caller must ensure config.Validate() == nil
+func Do(ctx context.Context, config Config, planner Planner) (ReportFunc, WaitFunc) {
+
+	if err := config.Validate(); err != nil {
+		panic(err)
+	}
+
 	log := getLog(ctx)
 	l := chainlock.New()
 	run := &run{
@@ -201,7 +217,7 @@ func Do(ctx context.Context, planner Planner) (ReportFunc, WaitFunc) {
 		defer log.Debug("run ended")
 		var prev *attempt
 		mainLog := log
-		for ano := 0; ano < int(maxAttempts) || maxAttempts == 0; ano++ {
+		for ano := 0; ano < int(config.MaxAttempts); ano++ {
 			log := mainLog.WithField("attempt_number", ano)
 			log.Debug("start attempt")
 
@@ -213,6 +229,7 @@ func Do(ctx context.Context, planner Planner) (ReportFunc, WaitFunc) {
 				l:         l,
 				startedAt: time.Now(),
 				planner:   planner,
+				config:    config,
 			}
 			run.attempts = append(run.attempts, cur)
 			run.l.DropWhile(func() {
@@ -248,7 +265,7 @@ func Do(ctx context.Context, planner Planner) (ReportFunc, WaitFunc) {
 			shouldReconnect := mostRecentErrClass == errorClassTemporaryConnectivityRelated
 			log.WithField("reconnect_decision", shouldReconnect).Debug("reconnect decision made")
 			if shouldReconnect {
-				run.waitReconnect.Set(time.Now(), reconnectHardFailTimeout)
+				run.waitReconnect.Set(time.Now(), config.ReconnectHardFailTimeout)
 				log.WithField("deadline", run.waitReconnect.End()).Error("temporary connectivity-related error identified, start waiting for reconnect")
 				var connectErr error
 				var connectErrTime time.Time
@@ -421,7 +438,7 @@ func (a *attempt) doFilesystems(ctx context.Context, prevs map[*fs]*fs) {
 	defer a.l.Lock().Unlock()
 
 	stepQueue := newStepQueue()
-	defer stepQueue.Start(envconst.Int("ZREPL_REPLICATION_EXPERIMENTAL_REPLICATION_CONCURRENCY", 1))() // TODO parallel replication
+	defer stepQueue.Start(a.config.StepQueueConcurrency)()
 	var fssesDone sync.WaitGroup
 	for _, f := range a.fss {
 		fssesDone.Add(1)

@@ -19,7 +19,6 @@ import (
 	"github.com/zrepl/zrepl/replication/report"
 	"github.com/zrepl/zrepl/util/bytecounter"
 	"github.com/zrepl/zrepl/util/chainlock"
-	"github.com/zrepl/zrepl/util/envconst"
 	"github.com/zrepl/zrepl/util/semaphore"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -222,7 +221,11 @@ func (s *Step) ReportInfo() *report.StepInfo {
 	}
 }
 
+// caller must ensure policy.Validate() == nil
 func NewPlanner(secsPerState *prometheus.HistogramVec, bytesReplicated *prometheus.CounterVec, sender Sender, receiver Receiver, policy PlannerPolicy) *Planner {
+	if err := policy.Validate(); err != nil {
+		panic(err)
+	}
 	return &Planner{
 		sender:              sender,
 		receiver:            receiver,
@@ -272,7 +275,7 @@ func (p *Planner) doPlanning(ctx context.Context) ([]*Filesystem, error) {
 	}
 	rfss := rlfssres.GetFilesystems()
 
-	sizeEstimateRequestSem := semaphore.New(envconst.Int64("ZREPL_REPLICATION_MAX_CONCURRENT_SIZE_ESTIMATE", 4))
+	sizeEstimateRequestSem := semaphore.New(int64(p.policy.SizeEstimationConcurrency))
 
 	q := make([]*Filesystem, 0, len(sfss))
 	for _, fs := range sfss {

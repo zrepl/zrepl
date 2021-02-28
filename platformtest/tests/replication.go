@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"time"
 
 	"github.com/kr/pretty"
 	"github.com/stretchr/testify/require"
@@ -15,6 +16,7 @@ import (
 	"github.com/zrepl/zrepl/endpoint"
 	"github.com/zrepl/zrepl/platformtest"
 	"github.com/zrepl/zrepl/replication"
+	"github.com/zrepl/zrepl/replication/driver"
 	"github.com/zrepl/zrepl/replication/logic"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/replication/report"
@@ -92,6 +94,11 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 
 	report, wait := replication.Do(
 		ctx,
+		driver.Config{
+			MaxAttempts:              1,
+			StepQueueConcurrency:     1,
+			ReconnectHardFailTimeout: 1 * time.Second,
+		},
 		logic.NewPlanner(nil, nil, sender, receiver, plannerPolicy),
 	)
 	wait(true)
