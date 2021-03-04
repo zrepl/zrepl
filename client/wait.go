@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gdamore/tcell/termbox"
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/cli"
@@ -20,7 +19,6 @@ import (
 type wui struct {
 	//lock      sync.Mutex //For report and error
 	report map[string]*job.Status
-	cancel bool
 
 	jobName string
 }
@@ -47,30 +45,8 @@ func runWaitCmd(config *config.Config, args []string) error {
 
 	t := wui{
 		report:  nil,
-		cancel:  false,
 		jobName: args[0],
 	}
-
-	// wait for cancellation by user
-	err = termbox.Init()
-	if err != nil {
-		return err
-	}
-	defer termbox.Close()
-	go func() {
-	loop:
-		for {
-			switch ev := termbox.PollEvent(); ev.Type {
-			case termbox.EventKey:
-				switch ev.Key {
-				case termbox.KeyCtrlC:
-					// TODO: needs locking?
-					t.cancel = true
-					break loop
-				}
-			}
-		}
-	}()
 
 	updateAndEvaluate := func() (bool, error) {
 		var m daemon.Status
@@ -93,10 +69,6 @@ func runWaitCmd(config *config.Config, args []string) error {
 	defer ticker.Stop()
 ticker:
 	for range ticker.C {
-		if t.cancel {
-			break ticker
-		}
-
 		done, err := updateAndEvaluate()
 		if err != nil {
 			return err
