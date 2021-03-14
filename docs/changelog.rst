@@ -49,6 +49,11 @@ We use the following annotations for classifying changes:
 * |bugfix| Data races conditions in the dataconn rpc stack.
 * |maint| Update to protobuf v1.25 and grpc 1.35.
 
+For users who skipped the 0.3.1 update: please make sure your pruning grid config is correct.
+The following bugfix in 0.3.1 :issue:`caused problems for some users <400>`:
+
+* |bugfix| pruning: ``grid``:  add all snapshots that do not match the regex to the rule's destroy list.
+
 .. NOTE::
   |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
   |  You can support maintenance and feature development through one of the following services:
