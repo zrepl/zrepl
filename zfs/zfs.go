@@ -1446,7 +1446,7 @@ func tryDatasetDoesNotExist(expectPath string, stderr []byte) *DatasetDoesNotExi
 }
 
 //go:generate enumer -type=PropertySource -trimprefix=Source
-type PropertySource uint
+type PropertySource uint32
 
 const (
 	SourceLocal PropertySource = 1 << iota

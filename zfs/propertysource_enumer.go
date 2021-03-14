@@ -38,14 +38,14 @@ func (i PropertySource) String() string {
 		return _PropertySourceName_3
 	case i == 32:
 		return _PropertySourceName_4
-	case i == 18446744073709551615:
+	case i == 4294967295:
 		return _PropertySourceName_5
 	default:
 		return fmt.Sprintf("PropertySource(%d)", i)
 	}
 }
 
-var _PropertySourceValues = []PropertySource{1, 2, 4, 8, 16, 32, 18446744073709551615}
+var _PropertySourceValues = []PropertySource{1, 2, 4, 8, 16, 32, 4294967295}
 
 var _PropertySourceNameToValueMap = map[string]PropertySource{
 	_PropertySourceName_0[0:5]:  1,
@@ -54,7 +54,7 @@ var _PropertySourceNameToValueMap = map[string]PropertySource{
 	_PropertySourceName_2[0:4]:  8,
 	_PropertySourceName_3[0:9]:  16,
 	_PropertySourceName_4[0:8]:  32,
-	_PropertySourceName_5[0:3]:  18446744073709551615,
+	_PropertySourceName_5[0:3]:  4294967295,
 }
 
 // PropertySourceString retrieves an enum value from the enum constants string name.
