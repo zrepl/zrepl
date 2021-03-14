@@ -186,6 +186,12 @@ Mount behaviour
 * ``canmount``
 * ``overlay``
 
+Note: inheriting or overriding the ``mountpoint`` property on ZVOLs fails in ``zfs recv``.
+This is an `issue in OpenZFS <https://github.com/openzfs/zfs/issues/11416>`_ .
+As a workaround, consider creating separate zrepl jobs for your ZVOL and filesystem datasets.
+Please comment at zrepl :issue:`430` if you encounter this issue and/or would like zrepl to automatically work around it.
+
+
 Systemd
 -------
 
