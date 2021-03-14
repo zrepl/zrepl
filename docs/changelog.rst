@@ -6,6 +6,7 @@
 .. |docs| replace:: [DOCS]
 .. |feature| replace:: [FEATURE]
 .. |mig| replace:: **[MIGRATION]**
+.. |maint| replace:: [MAINT]
 
 .. _changelog:
 
@@ -26,17 +27,34 @@ We use the following annotations for classifying changes:
 * |feature| Change that introduces new functionality.
 * |bugfix| Change that fixes a bug, no regressions or incompatibilities expected.
 * |docs| Change to the documentation.
+* |maint| Maintenance changes.
 
 0.4.0
 -----
 
 * |break| Change syntax to trigger a job replication, rename ``zrepl signal wakeup JOB`` to ``zrepl signal replication JOB``
+* |feature| support setting zfs send / recv flags in the config (send: ``-wLcepbS`` , recv: ``-ox`` ).
+  Config docs :ref:`here <job-send-options>` and :ref:`here <job-recv-options>` .
+* |feature| parallel replication is now configurable (disabled by default, :ref:`config docs here <replication-option-concurrency>` ).
 * |feature| New ``zrepl status`` UI:
 
   * Interactive job selection.
   * Interactively ``zrepl signal`` jobs.
   * Filter filesystems in the job view by name.
   * An approximation of the old UI is still included as `--mode legacy` but will be removed in a future release of zrepl.
+
+* |bugfix| Actually use concurrency when listing zrepl abstractions & doing size estimation.
+  These operations were accidentally made sequential in zrepl 0.3.
+* |bugfix| Job hang-up during second replication attempt.
+* |bugfix| Data races conditions in the dataconn rpc stack.
+* |maint| Update to protobuf v1.25 and grpc 1.35.
+
+.. NOTE::
+  |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
+  |  You can support maintenance and feature development through one of the following services:
+  |  |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
+  |  Note that PayPal processing fees are relatively high for small donations.
+  |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
 
 0.3.1
 -----
@@ -55,13 +73,6 @@ Mostly a bugfix release for :ref:`zrepl 0.3 <release-0.3>`.
 * RPM Packaging
 * CI infrastructure rework
 * Continuous deployment of that new `stable` branch to zrepl.github.io.
-
-.. NOTE::
-   |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
-   |  You can support maintenance and feature development through one of the following services:
-   |  |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
-   |  Note that PayPal processing fees are relatively high for small donations.
-   |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
 
 .. _release-0.3:
 
