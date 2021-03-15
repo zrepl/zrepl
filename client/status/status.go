@@ -71,12 +71,16 @@ func runStatusV2Command(ctx context.Context, config *config.Config, args []strin
 
 	mode := statusv2Flags.Mode.Value().(statusv2Mode)
 
-	if !isatty.IsTerminal(os.Stdout.Fd()) && mode != StatusV2ModeDump {
-		usemode, err := statusv2Flags.Mode.InputForChoice(StatusV2ModeDump)
+	if !isatty.IsTerminal(os.Stdout.Fd()) && mode != StatusV2ModeDump && mode != StatusV2ModeRaw {
+		dumpmode, err := statusv2Flags.Mode.InputForChoice(StatusV2ModeDump)
 		if err != nil {
 			panic(err)
 		}
-		return errors.Errorf("error: stdout is not a tty, please use --mode %s", usemode)
+		rawmode, err := statusv2Flags.Mode.InputForChoice(StatusV2ModeRaw)
+		if err != nil {
+			panic(err)
+		}
+		return errors.Errorf("error: stdout is not a tty, please use --mode %s or --mode %s", dumpmode, rawmode)
 	}
 
 	switch mode {
