@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"regexp"
@@ -24,11 +25,6 @@ import (
 	"github.com/zrepl/zrepl/util/nodefault"
 	zfsprop "github.com/zrepl/zrepl/zfs/property"
 	"github.com/zrepl/zrepl/zfs/zfscmd"
-)
-
-var (
-	ZFSSendPipeCapacityHint = int(envconst.Int64("ZFS_SEND_PIPE_CAPACITY_HINT", 1<<25))
-	ZFSRecvPipeCapacityHint = int(envconst.Int64("ZFS_RECV_PIPE_CAPACITY_HINT", 1<<25))
 )
 
 type DatasetPath struct {
@@ -825,6 +821,20 @@ var zfsSendStderrCaptureMaxSize = envconst.Int("ZREPL_ZFS_SEND_STDERR_MAX_CAPTUR
 
 var ErrEncryptedSendNotSupported = fmt.Errorf("raw sends which are required for encrypted zfs send are not supported")
 
+func getPipeCapacityHint(envvar string) int {
+	var capacity int64 = 1 << 25
+
+	if _, err := os.Stat("/proc/sys/fs/pipe-max-size"); err == nil {
+		if dat, err := ioutil.ReadFile("/proc/sys/fs/pipe-max-size"); err == nil {
+			if capacity, err = strconv.ParseInt(strings.TrimSpace(string(dat)), 10, 64); err != nil {
+				capacity = 1 << 25
+			}
+		}
+	}
+
+	return int(envconst.Int64(envvar, capacity))
+}
+
 // if token != "", then send -t token is used
 // otherwise send [-i from] to is used
 // (if from is "" a full ZFS send is done)
@@ -858,7 +868,7 @@ func ZFSSend(ctx context.Context, sendArgs ZFSSendArgsValidated) (*SendStream, e
 	ctx, cancel := context.WithCancel(ctx)
 
 	// setup stdout with an os.Pipe to control pipe buffer size
-	stdoutReader, stdoutWriter, err := pipeWithCapacityHint(ZFSSendPipeCapacityHint)
+	stdoutReader, stdoutWriter, err := pipeWithCapacityHint(getPipeCapacityHint("ZFS_SEND_PIPE_CAPACITY_HINT"))
 	if err != nil {
 		cancel()
 		return nil, err
@@ -1160,7 +1170,7 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, stream io.Rea
 
 	stderr := bytes.NewBuffer(make([]byte, 0, RecvStderrBufSiz))
 
-	stdin, stdinWriter, err := pipeWithCapacityHint(ZFSRecvPipeCapacityHint)
+	stdin, stdinWriter, err := pipeWithCapacityHint(getPipeCapacityHint("ZFS_RECV_PIPE_CAPACITY_HINT"))
 	if err != nil {
 		return err
 	}
