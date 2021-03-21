@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/daemon/job/dosnapshot"
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
@@ -211,10 +210,10 @@ func syncUp(a args, u updater) state {
 		return u(func(s *Snapper) {
 			s.state = Planning
 		}).sf()
-	case <-dosnapshot.Wait(a.ctx):
-		return u(func(s *Snapper) {
-			s.state = Planning
-		}).sf()
+	// case <-dosnapshot.Wait(a.ctx):
+	// 	return u(func(s *Snapper) {
+	// 		s.state = Planning
+	// 	}).sf()
 	case <-a.ctx.Done():
 		return onMainCtxDone(a.ctx, u)
 	}
@@ -383,10 +382,10 @@ func wait(a args, u updater) state {
 		return u(func(snapper *Snapper) {
 			snapper.state = Planning
 		}).sf()
-	case <-dosnapshot.Wait(a.ctx):
-		return u(func(snapper *Snapper) {
-			snapper.state = Planning
-		}).sf()
+	// case <-dosnapshot.Wait(a.ctx):
+	// 	return u(func(snapper *Snapper) {
+	// 		snapper.state = Planning
+	// 	}).sf()
 	case <-a.ctx.Done():
 		return onMainCtxDone(a.ctx, u)
 	}

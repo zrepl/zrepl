@@ -44,13 +44,13 @@ func (c *Client) StatusRaw() ([]byte, error) {
 }
 
 func (c *Client) signal(jobName, sig string) error {
-	return jsonRequestResponse(c.h, daemon.ControlJobEndpointSignalActive,
+	return jsonRequestResponse(c.h, daemon.ControlJobEndpointTriggerActive,
 		struct {
 			Job string
-			job.ActiveSideSignalRequest
+			job.ActiveSideTriggerRequest
 		}{
 			Job: jobName,
-			ActiveSideSignalRequest: job.ActiveSideSignalRequest{
+			ActiveSideTriggerRequest: job.ActiveSideTriggerRequest{
 				What: sig,
 			},
 		},

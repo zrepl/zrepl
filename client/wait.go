@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -24,7 +23,7 @@ var waitCmdArgs struct {
 }
 
 var WaitCmd = &cli.Subcommand{
-	Use:   "wait [-t TOKEN | [replication|snapshotting|prune_sender|prune_receiver JOB]]",
+	Use:   "wait [-t TOKEN | JOB INVOCATION [replication|snapshotting|prune_sender|prune_receiver]]",
 	Short: "",
 	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 		return runWaitCmd(subcommand.Config(), args)
@@ -43,21 +42,15 @@ func runWaitCmd(config *config.Config, args []string) error {
 		return err
 	}
 
-	var pollRequest daemon.ControlJobEndpointSignalActiveRequest
+	var req daemon.ControlJobEndpointWaitActiveRequest
 	if waitCmdArgs.token != "" {
-		if len(args) != 0 {
-			return fmt.Errorf("-t and regular usage is mutually exclusive")
-		}
-		err := json.Unmarshal([]byte(waitCmdArgs.token), &pollRequest)
+		var token TriggerToken
+		err := token.Decode(resetCmdArgs.token)
 		if err != nil {
-			return errors.Wrap(err, "cannot unmarshal token")
+			return errors.Wrap(err, "cannot decode token")
 		}
+		req = token.ToWait()
 	} else {
-
-		if args[0] != "active" {
-			panic(args)
-		}
-		args = args[1:]
 
 		jobName := args[0]
 
@@ -66,14 +59,11 @@ func runWaitCmd(config *config.Config, args []string) error {
 			return errors.Wrap(err, "parse invocation id")
 		}
 
-		waitWhat := args[2]
-
 		// updated by subsequent requests
-		pollRequest = daemon.ControlJobEndpointSignalActiveRequest{
+		req = daemon.ControlJobEndpointWaitActiveRequest{
 			Job: jobName,
 			ActiveSidePollRequest: job.ActiveSidePollRequest{
 				InvocationId: invocationId,
-				What:         waitWhat,
 			},
 		}
 	}
@@ -83,10 +73,10 @@ func runWaitCmd(config *config.Config, args []string) error {
 	pollOnce := func() error {
 		var res job.ActiveSidePollResponse
 		if waitCmdArgs.verbose {
-			pretty.Println("making poll request", pollRequest)
+			pretty.Println("making poll request", req)
 		}
 		err = jsonRequestResponse(httpc, daemon.ControlJobEndpointPollActive,
-			pollRequest,
+			req,
 			&res,
 		)
 		if err != nil {
@@ -101,7 +91,7 @@ func runWaitCmd(config *config.Config, args []string) error {
 			return doneErr
 		}
 
-		pollRequest.InvocationId = res.InvocationId
+		req.InvocationId = res.InvocationId
 
 		return nil
 	}

@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/zrepl/zrepl/daemon/job/doreplication"
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 	"github.com/zrepl/zrepl/util/nodefault"
 
@@ -118,7 +117,7 @@ outer:
 			log.WithError(ctx.Err()).Info("context")
 			break outer
 
-		case <-doreplication.Wait(ctx):
+		// case <-doreplication.Wait(ctx):
 		case <-periodicDone:
 		}
 		invocationCount++

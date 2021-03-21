@@ -73,14 +73,25 @@ func (j *controlJob) RegisterMetrics(registerer prometheus.Registerer) {
 }
 
 const (
-	ControlJobEndpointPProf        string = "/debug/pprof"
-	ControlJobEndpointVersion      string = "/version"
-	ControlJobEndpointStatus       string = "/status"
-	ControlJobEndpointSignalActive string = "/signal/active"
-	ControlJobEndpointPollActive   string = "/poll/active"
+	ControlJobEndpointPProf         string = "/debug/pprof"
+	ControlJobEndpointVersion       string = "/version"
+	ControlJobEndpointStatus        string = "/status"
+	ControlJobEndpointTriggerActive string = "/signal/active"
+	ControlJobEndpointPollActive    string = "/poll/active"
+	ControlJobEndpointResetActive   string = "/reset/active"
 )
 
-type ControlJobEndpointSignalActiveRequest struct {
+type ControlJobEndpointTriggerActiveRequest struct {
+	Job string
+	job.ActiveSideTriggerRequest
+}
+
+type ControlJobEndpointResetActiveRequest struct {
+	Job string
+	job.ActiveSideResetRequest
+}
+
+type ControlJobEndpointWaitActiveRequest struct {
 	Job string
 	job.ActiveSidePollRequest
 }
@@ -137,7 +148,7 @@ func (j *controlJob) Run(ctx context.Context) {
 		}})
 
 	mux.Handle(ControlJobEndpointPollActive, requestLogger{log: log, handler: jsonRequestResponder{log, func(decoder jsonDecoder) (v interface{}, err error) {
-		var req ControlJobEndpointSignalActiveRequest
+		var req ControlJobEndpointWaitActiveRequest
 		if decoder(&req) != nil {
 			return nil, errors.Errorf("decode failed")
 		}
@@ -164,11 +175,11 @@ func (j *controlJob) Run(ctx context.Context) {
 		return res, err
 	}}})
 
-	mux.Handle(ControlJobEndpointSignalActive,
+	mux.Handle(ControlJobEndpointTriggerActive,
 		requestLogger{log: log, handler: jsonRequestResponder{log, func(decoder jsonDecoder) (v interface{}, err error) {
 			type reqT struct {
 				Job string
-				job.ActiveSideSignalRequest
+				job.ActiveSideTriggerRequest
 			}
 			var req reqT
 			if decoder(&req) != nil {
@@ -192,7 +203,43 @@ func (j *controlJob) Run(ctx context.Context) {
 				return v, err
 			}
 
-			res, err := ajo.Signal(req.ActiveSideSignalRequest)
+			res, err := ajo.Trigger(req.ActiveSideTriggerRequest)
+
+			j.jobs.m.RUnlock()
+
+			return res, err
+
+		}}})
+
+	mux.Handle(ControlJobEndpointResetActive,
+		requestLogger{log: log, handler: jsonRequestResponder{log, func(decoder jsonDecoder) (v interface{}, err error) {
+			type reqT struct {
+				Job string
+				job.ActiveSideResetRequest
+			}
+			var req reqT
+			if decoder(&req) != nil {
+				return nil, errors.Errorf("decode failed")
+			}
+
+			// FIXME dedup the following code with ControlJobEndpointPollActive
+
+			j.jobs.m.RLock()
+
+			jo, ok := j.jobs.jobs[req.Job]
+			if !ok {
+				j.jobs.m.RUnlock()
+				return struct{}{}, fmt.Errorf("unknown job name %q", req.Job)
+			}
+
+			ajo, ok := jo.(*job.ActiveSide)
+			if !ok {
+				v, err = struct{}{}, fmt.Errorf("job %q is not an active side (it's a %T)", jo.Name(), jo)
+				j.jobs.m.RUnlock()
+				return v, err
+			}
+
+			res, err := ajo.Reset(req.ActiveSideResetRequest)
 
 			j.jobs.m.RUnlock()
 

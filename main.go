@@ -11,7 +11,8 @@ import (
 func init() {
 	cli.AddSubcommand(daemon.DaemonCmd)
 	cli.AddSubcommand(status.Subcommand)
-	cli.AddSubcommand(client.SignalCmd)
+	cli.AddSubcommand(client.TriggerCmd)
+	cli.AddSubcommand(client.ResetCmd)
 	cli.AddSubcommand(client.WaitCmd)
 	cli.AddSubcommand(client.StdinserverCmd)
 	cli.AddSubcommand(client.ConfigcheckCmd)

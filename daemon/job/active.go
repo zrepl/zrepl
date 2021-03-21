@@ -8,13 +8,11 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/log"
 
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 	"github.com/zrepl/zrepl/util/envconst"
 
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/job/reset"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/endpoint"
@@ -46,7 +44,8 @@ type ActiveSide struct {
 	tasks              activeSideTasks
 	nextInvocationId   uint64
 	activeInvocationId uint64 // 0 <=> inactive
-	signal             chan struct{}
+	trigger            chan struct{}
+	reset              chan uint64
 }
 
 //go:generate enumer -type=ActiveSideState
@@ -437,7 +436,8 @@ func (j *ActiveSide) Run(ctx context.Context) {
 	wakePeriodic := make(chan struct{})
 	go j.mode.RunPeriodic(periodicCtx, wakePeriodic, periodicDone)
 
-	j.signal = make(chan struct{})
+	j.trigger = make(chan struct{})
+	j.reset = make(chan uint64)
 	j.nextInvocationId = 1
 
 outer:
@@ -448,7 +448,7 @@ outer:
 			log.WithError(ctx.Err()).Info("context")
 			break outer
 
-		case <-j.signal:
+		case <-j.trigger:
 			j.mode.ResetConnectBackoff()
 		case <-periodicDone:
 		}
@@ -456,10 +456,38 @@ outer:
 		j.tasksMtx.Lock()
 		j.activeInvocationId = j.nextInvocationId
 		j.nextInvocationId++
+		thisInvocation := j.activeInvocationId // stack-local, for use in reset-handler goroutine below
 		j.tasksMtx.Unlock()
 
+		// setup the invocation context
 		invocationCtx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("invocation-%d", j.nextInvocationId))
+		invocationCtx, cancelInvocation := context.WithCancel(invocationCtx)
+
+		// setup the goroutine that waits for task resets
+		// Task resets are converted into cancellations of the invocation context.
+		waitForResetCtx, stopWaitForReset := context.WithCancel(ctx)
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case <-waitForResetCtx.Done():
+				return
+			case reqResetInvocation := <-j.reset:
+				l := log.WithField("requested_invocation_id", reqResetInvocation).
+					WithField("this_invocation_id", thisInvocation)
+				if reqResetInvocation == thisInvocation {
+					l.Info("reset received, cancelling current invocation")
+					cancelInvocation()
+				} else {
+					l.Debug("received reset for invocation id that is not us, discarding request")
+				}
+			}
+		}()
+
 		j.do(invocationCtx)
+		stopWaitForReset()
+		wg.Wait()
 
 		j.tasksMtx.Lock()
 		j.activeInvocationId = 0
@@ -471,7 +499,6 @@ outer:
 
 type ActiveSidePollRequest struct {
 	InvocationId uint64
-	What         string
 }
 
 type ActiveSidePollResponse struct {
@@ -493,22 +520,52 @@ func (j *ActiveSide) Poll(req ActiveSidePollRequest) (*ActiveSidePollResponse, e
 		}
 	}
 
-	switch req.What {
-	case "invocation":
-		var done bool
-		if j.activeInvocationId == 0 {
-			done = waitForId < j.nextInvocationId
-		} else {
-			done = waitForId < j.activeInvocationId
-		}
-		res := &ActiveSidePollResponse{Done: done, InvocationId: waitForId}
-		return res, nil
-	default:
-		return nil, fmt.Errorf("unknown wait target %q", req.What)
+	var done bool
+	if j.activeInvocationId == 0 {
+		done = waitForId < j.nextInvocationId
+	} else {
+		done = waitForId < j.activeInvocationId
 	}
+	res := &ActiveSidePollResponse{Done: done, InvocationId: waitForId}
+	return res, nil
 }
 
-type ActiveSideSignalRequest struct {
+type ActiveSideResetRequest struct {
+	InvocationId uint64
+}
+
+type ActiveSideResetResponse struct {
+	InvocationId uint64
+}
+
+func (j *ActiveSide) Reset(req ActiveSideResetRequest) (*ActiveSideResetResponse, error) {
+	j.tasksMtx.Lock()
+	defer j.tasksMtx.Unlock()
+
+	resetId := req.InvocationId
+	if req.InvocationId == 0 {
+		// handle the case where the client doesn't know what the current invocation id is
+		resetId = j.activeInvocationId
+	}
+
+	if resetId == 0 {
+		return nil, fmt.Errorf("no active invocation")
+	}
+
+	if resetId != j.activeInvocationId {
+		return nil, fmt.Errorf("active invocation (%d) is not the invocation requested for reset (%d); (active invocation '0' indicates no active invocation)", j.activeInvocationId, resetId)
+	}
+
+	// non-blocking send (.Run() must not hold mutex while waiting for resets)
+	select {
+	case j.reset <- resetId:
+	default:
+	}
+
+	return &ActiveSideResetResponse{InvocationId: resetId}, nil
+}
+
+type ActiveSideTriggerRequest struct {
 	What string
 }
 
@@ -516,7 +573,7 @@ type ActiveSideSignalResponse struct {
 	InvocationId uint64
 }
 
-func (j *ActiveSide) Signal(req ActiveSideSignalRequest) (*ActiveSideSignalResponse, error) {
+func (j *ActiveSide) Trigger(req ActiveSideTriggerRequest) (*ActiveSideSignalResponse, error) {
 	// switch req.What {
 	// case "replication":
 	// 	invocationId, err = j.jobs.doreplication(req.Name)
@@ -539,7 +596,7 @@ func (j *ActiveSide) Signal(req ActiveSideSignalRequest) (*ActiveSideSignalRespo
 		}
 		// non-blocking send (.Run() must not hold mutex while waiting for signals)
 		select {
-		case j.signal <- struct{}{}:
+		case j.trigger <- struct{}{}:
 		default:
 		}
 		j.tasksMtx.Unlock()
@@ -553,18 +610,6 @@ func (j *ActiveSide) do(ctx context.Context) {
 
 	j.mode.ConnectEndpoints(ctx, j.connecter)
 	defer j.mode.DisconnectEndpoints()
-
-	// allow cancellation of an invocation (this function)
-	ctx, cancelThisRun := context.WithCancel(ctx)
-	defer cancelThisRun()
-	go func() {
-		select {
-		case <-reset.Wait(ctx):
-			log.Info("reset received, cancelling current invocation")
-			cancelThisRun()
-		case <-ctx.Done():
-		}
-	}()
 
 	sender, receiver := j.mode.SenderReceiver()
 
