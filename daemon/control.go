@@ -77,7 +77,7 @@ const (
 	ControlJobEndpointVersion    string = "/version"
 	ControlJobEndpointStatus     string = "/status"
 	ControlJobEndpointSignal     string = "/signal"
-	ControlJobEndpointWaitActive string = "/wait/active"
+	ControlJobEndpointPollActive string = "/poll/active"
 )
 
 func (j *controlJob) Run(ctx context.Context) {
@@ -131,11 +131,10 @@ func (j *controlJob) Run(ctx context.Context) {
 			return s, nil
 		}})
 
-	mux.Handle(ControlJobEndpointWaitActive, requestLogger{log: log, handler: jsonRequestResponder{log, func(decoder jsonDecoder) (v interface{}, err error) {
+	mux.Handle(ControlJobEndpointPollActive, requestLogger{log: log, handler: jsonRequestResponder{log, func(decoder jsonDecoder) (v interface{}, err error) {
 		type reqT struct {
 			Job          string
-			InvocationId uint64
-			What         string
+			job.ActiveSidePollRequest
 		}
 		var req reqT
 		if decoder(&req) != nil {
@@ -157,24 +156,11 @@ func (j *controlJob) Run(ctx context.Context) {
 			return v, err
 		}
 
-		cbCalled := make(chan struct{})
-		err = ajo.AddActiveSideWaiter(req.InvocationId, req.What, func() {
-			log.WithField("request", req).Debug("active side waiter done")
-			close(cbCalled)
-		})
+		res, err := ajo.Poll(req.ActiveSidePollRequest)
 
-		j.jobs.m.RUnlock() // unlock before waiting!
+		j.jobs.m.RUnlock()
 
-		if err != nil {
-			return struct{}{}, err
-		}
-
-		select {
-		// TODO ctx with timeout!
-		case <-cbCalled:
-			return struct{}{}, nil
-		}
-
+		return res, err
 	}}})
 
 	mux.Handle(ControlJobEndpointSignal,

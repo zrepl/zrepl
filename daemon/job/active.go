@@ -43,10 +43,10 @@ type ActiveSide struct {
 	promBytesReplicated   *prometheus.CounterVec   // labels: filesystem
 	promReplicationErrors prometheus.Gauge
 
-	tasksMtx                 sync.Mutex
-	tasks                    activeSideTasks
-	activeInvocationId       uint64 // 0 <=> inactive
-	doneWaiters, nextWaiters []func()
+	tasksMtx           sync.Mutex
+	tasks              activeSideTasks
+	nextInvocationId   uint64
+	activeInvocationId uint64 // 0 <=> inactive
 }
 
 //go:generate enumer -type=ActiveSideState
@@ -434,7 +434,7 @@ func (j *ActiveSide) Run(ctx context.Context) {
 	defer endTask()
 	go j.mode.RunPeriodic(periodicCtx, periodicDone)
 
-	invocationCount := 0
+	j.nextInvocationId = 1
 
 outer:
 	for {
@@ -448,58 +448,60 @@ outer:
 			j.mode.ResetConnectBackoff()
 		case <-periodicDone:
 		}
-		invocationCount++
 
 		j.tasksMtx.Lock()
-		j.activeInvocationId = uint64(invocationCount)
-		j.doneWaiters = j.nextWaiters
-		j.nextWaiters = nil
+		j.activeInvocationId = j.nextInvocationId
+		j.nextInvocationId++
 		j.tasksMtx.Unlock()
 
-		invocationCtx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("invocation-%d", invocationCount))
+		invocationCtx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("invocation-%d", j.nextInvocationId))
 		j.do(invocationCtx)
 
 		j.tasksMtx.Lock()
 		j.activeInvocationId = 0
-		for _, f := range j.doneWaiters {
-			go f()
-		}
-		j.doneWaiters = nil
 		j.tasksMtx.Unlock()
 
 		endSpan()
 	}
 }
 
-type AddActiveSideWaiterRequest struct {
+type ActiveSidePollRequest struct {
 	InvocationId uint64
 	What         string
 }
 
-func (j *ActiveSide) AddActiveSideWaiter(invocationId uint64, what string, cb func()) error {
+type ActiveSidePollResponse struct {
+	Done         bool
+	InvocationId uint64
+}
+
+func (j *ActiveSide) Poll(req ActiveSidePollRequest) (*ActiveSidePollResponse, error) {
 	j.tasksMtx.Lock()
 	defer j.tasksMtx.Unlock()
 
-	var targetQueue *[]func()
-	if invocationId == 0 {
+	waitForId := req.InvocationId
+	if req.InvocationId == 0 {
+		// handle the case where the client doesn't know what the current invocation id is
 		if j.activeInvocationId != 0 {
-			targetQueue = &j.doneWaiters
+			waitForId = j.activeInvocationId
 		} else {
-			targetQueue = &j.nextWaiters
+			waitForId = j.nextInvocationId
 		}
-	} else if j.activeInvocationId == invocationId {
-		targetQueue = &j.nextWaiters
-	} else {
-		return fmt.Errorf("invocation %d is not the current invocation, current invocation is %d (0 means no active invocation); pass id '0' to wait for the next invocation", invocationId, j.activeInvocationId)
 	}
 
-	switch what {
+	switch req.What {
 	case "invocation-done":
-		*targetQueue = append(*targetQueue, cb)
+		var done bool
+		if j.activeInvocationId == 0 {
+			done = waitForId < j.nextInvocationId
+		} else {
+			done = waitForId < j.activeInvocationId
+		}
+		res := &ActiveSidePollResponse{Done: done, InvocationId: waitForId}
+		return res, nil
 	default:
-		return fmt.Errorf("unknown wait target %q", what)
+		return nil, fmt.Errorf("unknown wait target %q", req.What)
 	}
-	return nil
 }
 
 func (j *ActiveSide) do(ctx context.Context) {
