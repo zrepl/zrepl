@@ -2,16 +2,19 @@ package client
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/cli"
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon"
+	"github.com/zrepl/zrepl/daemon/job"
 )
 
 var SignalCmd = &cli.Subcommand{
-	Use:   "signal [replication|reset|snapshot] JOB",
+	Use:   "signal JOB [replication|reset|snapshot]",
 	Short: "run a job replication, abort its current invocation, run a snapshot job",
 	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 		return runSignalCmd(subcommand.Config(), args)
@@ -28,15 +31,35 @@ func runSignalCmd(config *config.Config, args []string) error {
 		return err
 	}
 
-	err = jsonRequestResponse(httpc, daemon.ControlJobEndpointSignal,
+	jobName := args[0]
+	what := args[1]
+
+	var res job.ActiveSideSignalResponse
+	err = jsonRequestResponse(httpc, daemon.ControlJobEndpointSignalActive,
 		struct {
-			Name string
-			Op   string
+			Job string
+			job.ActiveSideSignalRequest
 		}{
-			Name: args[1],
-			Op:   args[0],
+			Job: jobName,
+			ActiveSideSignalRequest: job.ActiveSideSignalRequest{
+				What: what,
+			},
 		},
-		struct{}{},
+		&res,
 	)
+
+	pollRequest := daemon.ControlJobEndpointSignalActiveRequest{
+		Job: jobName,
+		ActiveSidePollRequest: job.ActiveSidePollRequest{
+			InvocationId: res.InvocationId,
+			What:         what,
+		},
+	}
+
+	j, err := json.Marshal(pollRequest)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(j))
 	return err
 }

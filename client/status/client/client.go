@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/daemon"
+	"github.com/zrepl/zrepl/daemon/job"
 )
 
 type Client struct {
@@ -42,14 +43,16 @@ func (c *Client) StatusRaw() ([]byte, error) {
 	return r, nil
 }
 
-func (c *Client) signal(job, sig string) error {
-	return jsonRequestResponse(c.h, daemon.ControlJobEndpointSignal,
+func (c *Client) signal(jobName, sig string) error {
+	return jsonRequestResponse(c.h, daemon.ControlJobEndpointSignalActive,
 		struct {
-			Name string
-			Op   string
+			Job string
+			job.ActiveSideSignalRequest
 		}{
-			Name: job,
-			Op:   sig,
+			Job: jobName,
+			ActiveSideSignalRequest: job.ActiveSideSignalRequest{
+				What: sig,
+			},
 		},
 		struct{}{},
 	)

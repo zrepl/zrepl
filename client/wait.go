@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -17,12 +18,13 @@ import (
 )
 
 var waitCmdArgs struct {
-	verbose bool
+	verbose  bool
 	interval time.Duration
+	token    string
 }
 
 var WaitCmd = &cli.Subcommand{
-	Use:   "wait [active JOB INVOCATION_ID WHAT]",
+	Use:   "wait [-t TOKEN | [replication|snapshotting|prune_sender|prune_receiver JOB]]",
 	Short: "",
 	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 		return runWaitCmd(subcommand.Config(), args)
@@ -30,6 +32,7 @@ var WaitCmd = &cli.Subcommand{
 	SetupFlags: func(f *pflag.FlagSet) {
 		f.BoolVarP(&waitCmdArgs.verbose, "verbose", "v", false, "verbose output")
 		f.DurationVarP(&waitCmdArgs.interval, "poll-interval", "i", 100*time.Millisecond, "poll interval")
+		f.StringVarP(&waitCmdArgs.token, "token", "t", "", "token produced by 'signal' subcommand")
 	},
 }
 
@@ -40,29 +43,42 @@ func runWaitCmd(config *config.Config, args []string) error {
 		return err
 	}
 
-	if args[0] != "active" {
-		panic(args)
+	var pollRequest daemon.ControlJobEndpointSignalActiveRequest
+	if waitCmdArgs.token != "" {
+		if len(args) != 0 {
+			return fmt.Errorf("-t and regular usage is mutually exclusive")
+		}
+		err := json.Unmarshal([]byte(waitCmdArgs.token), &pollRequest)
+		if err != nil {
+			return errors.Wrap(err, "cannot unmarshal token")
+		}
+	} else {
+
+		if args[0] != "active" {
+			panic(args)
+		}
+		args = args[1:]
+
+		jobName := args[0]
+
+		invocationId, err := strconv.ParseUint(args[1], 10, 64)
+		if err != nil {
+			return errors.Wrap(err, "parse invocation id")
+		}
+
+		waitWhat := args[2]
+
+		// updated by subsequent requests
+		pollRequest = daemon.ControlJobEndpointSignalActiveRequest{
+			Job: jobName,
+			ActiveSidePollRequest: job.ActiveSidePollRequest{
+				InvocationId: invocationId,
+				What:         waitWhat,
+			},
+		}
 	}
-	args = args[1:]
-
-	jobName := args[0]
-
-	invocationId, err := strconv.ParseUint(args[1], 10, 64)
-	if err != nil {
-		return errors.Wrap(err, "parse invocation id")
-	}
-
-	waitWhat := args[2]
 
 	doneErr := fmt.Errorf("done")
-
-	var pollRequest job.ActiveSidePollRequest
-
-	// updated by subsequent requests
-	pollRequest = job.ActiveSidePollRequest{
-		InvocationId: invocationId,
-		What:         waitWhat,
-	}
 
 	pollOnce := func() error {
 		var res job.ActiveSidePollResponse
@@ -70,13 +86,7 @@ func runWaitCmd(config *config.Config, args []string) error {
 			pretty.Println("making poll request", pollRequest)
 		}
 		err = jsonRequestResponse(httpc, daemon.ControlJobEndpointPollActive,
-			struct {
-				Job string
-				job.ActiveSidePollRequest
-			}{
-				Job:                   jobName,
-				ActiveSidePollRequest: pollRequest,
-			},
+			pollRequest,
 			&res,
 		)
 		if err != nil {

@@ -73,12 +73,17 @@ func (j *controlJob) RegisterMetrics(registerer prometheus.Registerer) {
 }
 
 const (
-	ControlJobEndpointPProf      string = "/debug/pprof"
-	ControlJobEndpointVersion    string = "/version"
-	ControlJobEndpointStatus     string = "/status"
-	ControlJobEndpointSignal     string = "/signal"
-	ControlJobEndpointPollActive string = "/poll/active"
+	ControlJobEndpointPProf        string = "/debug/pprof"
+	ControlJobEndpointVersion      string = "/version"
+	ControlJobEndpointStatus       string = "/status"
+	ControlJobEndpointSignalActive string = "/signal/active"
+	ControlJobEndpointPollActive   string = "/poll/active"
 )
+
+type ControlJobEndpointSignalActiveRequest struct {
+	Job string
+	job.ActiveSidePollRequest
+}
 
 func (j *controlJob) Run(ctx context.Context) {
 
@@ -132,11 +137,7 @@ func (j *controlJob) Run(ctx context.Context) {
 		}})
 
 	mux.Handle(ControlJobEndpointPollActive, requestLogger{log: log, handler: jsonRequestResponder{log, func(decoder jsonDecoder) (v interface{}, err error) {
-		type reqT struct {
-			Job          string
-			job.ActiveSidePollRequest
-		}
-		var req reqT
+		var req ControlJobEndpointSignalActiveRequest
 		if decoder(&req) != nil {
 			return nil, errors.Errorf("decode failed")
 		}
@@ -163,30 +164,40 @@ func (j *controlJob) Run(ctx context.Context) {
 		return res, err
 	}}})
 
-	mux.Handle(ControlJobEndpointSignal,
-		requestLogger{log: log, handler: jsonRequestResponder{log, func(decoder jsonDecoder) (interface{}, error) {
+	mux.Handle(ControlJobEndpointSignalActive,
+		requestLogger{log: log, handler: jsonRequestResponder{log, func(decoder jsonDecoder) (v interface{}, err error) {
 			type reqT struct {
-				Name string
-				Op   string
+				Job string
+				job.ActiveSideSignalRequest
 			}
 			var req reqT
 			if decoder(&req) != nil {
 				return nil, errors.Errorf("decode failed")
 			}
 
-			var err error
-			switch req.Op {
-			case "replication":
-				err = j.jobs.doreplication(req.Name)
-			case "reset":
-				err = j.jobs.reset(req.Name)
-			case "snapshot":
-				err = j.jobs.dosnapshot(req.Name)
-			default:
-				err = fmt.Errorf("operation %q is invalid", req.Op)
+			// FIXME dedup the following code with ControlJobEndpointPollActive
+
+			j.jobs.m.RLock()
+
+			jo, ok := j.jobs.jobs[req.Job]
+			if !ok {
+				j.jobs.m.RUnlock()
+				return struct{}{}, fmt.Errorf("unknown job name %q", req.Job)
 			}
 
-			return struct{}{}, err
+			ajo, ok := jo.(*job.ActiveSide)
+			if !ok {
+				v, err = struct{}{}, fmt.Errorf("job %q is not an active side (it's a %T)", jo.Name(), jo)
+				j.jobs.m.RUnlock()
+				return v, err
+			}
+
+			res, err := ajo.Signal(req.ActiveSideSignalRequest)
+
+			j.jobs.m.RUnlock()
+
+			return res, err
+
 		}}})
 
 	server := http.Server{

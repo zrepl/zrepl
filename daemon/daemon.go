@@ -20,9 +20,6 @@ import (
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
-	"github.com/zrepl/zrepl/daemon/job/doreplication"
-	"github.com/zrepl/zrepl/daemon/job/dosnapshot"
-	"github.com/zrepl/zrepl/daemon/job/reset"
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/version"
@@ -132,19 +129,13 @@ type jobs struct {
 	wg sync.WaitGroup
 
 	// m protects all fields below it
-	m              sync.RWMutex
-	doreplications map[string]doreplication.Func // by Job.Name
-	resets         map[string]reset.Func         // by Job.Name
-	dosnapshots    map[string]dosnapshot.Func    // by Job.Name
-	jobs           map[string]job.Job
+	m    sync.RWMutex
+	jobs map[string]job.Job
 }
 
 func newJobs() *jobs {
 	return &jobs{
-		doreplications: make(map[string]doreplication.Func),
-		resets:         make(map[string]reset.Func),
-		dosnapshots:    make(map[string]dosnapshot.Func),
-		jobs:           make(map[string]job.Job),
+		jobs: make(map[string]job.Job),
 	}
 }
 
@@ -193,39 +184,6 @@ func (s *jobs) status() map[string]*job.Status {
 	return ret
 }
 
-func (s *jobs) doreplication(job string) error {
-	s.m.RLock()
-	defer s.m.RUnlock()
-
-	wu, ok := s.doreplications[job]
-	if !ok {
-		return errors.Errorf("Job %s does not exist", job)
-	}
-	return wu()
-}
-
-func (s *jobs) reset(job string) error {
-	s.m.RLock()
-	defer s.m.RUnlock()
-
-	wu, ok := s.resets[job]
-	if !ok {
-		return errors.Errorf("Job %s does not exist", job)
-	}
-	return wu()
-}
-
-func (s *jobs) dosnapshot(job string) error {
-	s.m.RLock()
-	defer s.m.RUnlock()
-
-	wu, ok := s.dosnapshots[job]
-	if !ok {
-		return errors.Errorf("Job %s does not exist", job)
-	}
-	return wu()
-}
-
 const (
 	jobNamePrometheus = "_prometheus"
 	jobNameControl    = "_control"
@@ -256,12 +214,6 @@ func (s *jobs) start(ctx context.Context, j job.Job, internal bool) {
 
 	s.jobs[jobName] = j
 	ctx = zfscmd.WithJobID(ctx, j.Name())
-	ctx, doreplication := doreplication.Context(ctx)
-	ctx, resetFunc := reset.Context(ctx)
-	ctx, dosnapshotFunc := dosnapshot.Context(ctx)
-	s.doreplications[jobName] = doreplication
-	s.resets[jobName] = resetFunc
-	s.dosnapshots[jobName] = dosnapshotFunc
 
 	s.wg.Add(1)
 	go func() {

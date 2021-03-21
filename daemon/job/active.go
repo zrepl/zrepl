@@ -14,7 +14,6 @@ import (
 	"github.com/zrepl/zrepl/util/envconst"
 
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/job/doreplication"
 	"github.com/zrepl/zrepl/daemon/job/reset"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
@@ -47,6 +46,7 @@ type ActiveSide struct {
 	tasks              activeSideTasks
 	nextInvocationId   uint64
 	activeInvocationId uint64 // 0 <=> inactive
+	signal             chan struct{}
 }
 
 //go:generate enumer -type=ActiveSideState
@@ -65,6 +65,7 @@ type activeSideTasks struct {
 	// valid for state ActiveSideReplicating, ActiveSidePruneSender, ActiveSidePruneReceiver, ActiveSideDone
 	replicationReport driver.ReportFunc
 	replicationCancel context.CancelFunc
+	replicationDone   *report.Report
 
 	// valid for state ActiveSidePruneSender, ActiveSidePruneReceiver, ActiveSideDone
 	prunerSender, prunerReceiver *pruner.Pruner
@@ -91,7 +92,7 @@ type activeMode interface {
 	SenderReceiver() (logic.Sender, logic.Receiver)
 	Type() Type
 	PlannerPolicy() logic.PlannerPolicy
-	RunPeriodic(ctx context.Context, replicationCommon chan<- struct{})
+	RunPeriodic(ctx context.Context, wakePeriodic <-chan struct{}, replicationCommon chan<- struct{})
 	SnapperReport() *snapper.Report
 	ResetConnectBackoff()
 }
@@ -133,7 +134,7 @@ func (m *modePush) Type() Type { return TypePush }
 
 func (m *modePush) PlannerPolicy() logic.PlannerPolicy { return *m.plannerPolicy }
 
-func (m *modePush) RunPeriodic(ctx context.Context, replicationCommon chan<- struct{}) {
+func (m *modePush) RunPeriodic(ctx context.Context, wakePeriodic <-chan struct{}, replicationCommon chan<- struct{}) {
 	m.snapper.Run(ctx, replicationCommon)
 }
 
@@ -216,7 +217,7 @@ func (*modePull) Type() Type { return TypePull }
 
 func (m *modePull) PlannerPolicy() logic.PlannerPolicy { return *m.plannerPolicy }
 
-func (m *modePull) RunPeriodic(ctx context.Context, replicationCommon chan<- struct{}) {
+func (m *modePull) RunPeriodic(ctx context.Context, wakePeriodic <-chan struct{}, replicationCommon chan<- struct{}) {
 	if m.interval.Manual {
 		GetLogger(ctx).Info("manual pull configured, periodic pull disabled")
 		// "waiting for wakeup replications" is printed in common ActiveSide.do
@@ -432,8 +433,11 @@ func (j *ActiveSide) Run(ctx context.Context) {
 	defer cancel()
 	periodicCtx, endTask := trace.WithTask(ctx, "periodic")
 	defer endTask()
-	go j.mode.RunPeriodic(periodicCtx, periodicDone)
 
+	wakePeriodic := make(chan struct{})
+	go j.mode.RunPeriodic(periodicCtx, wakePeriodic, periodicDone)
+
+	j.signal = make(chan struct{})
 	j.nextInvocationId = 1
 
 outer:
@@ -444,7 +448,7 @@ outer:
 			log.WithError(ctx.Err()).Info("context")
 			break outer
 
-		case <-doreplication.Wait(ctx):
+		case <-j.signal:
 			j.mode.ResetConnectBackoff()
 		case <-periodicDone:
 		}
@@ -490,7 +494,7 @@ func (j *ActiveSide) Poll(req ActiveSidePollRequest) (*ActiveSidePollResponse, e
 	}
 
 	switch req.What {
-	case "invocation-done":
+	case "invocation":
 		var done bool
 		if j.activeInvocationId == 0 {
 			done = waitForId < j.nextInvocationId
@@ -501,6 +505,47 @@ func (j *ActiveSide) Poll(req ActiveSidePollRequest) (*ActiveSidePollResponse, e
 		return res, nil
 	default:
 		return nil, fmt.Errorf("unknown wait target %q", req.What)
+	}
+}
+
+type ActiveSideSignalRequest struct {
+	What string
+}
+
+type ActiveSideSignalResponse struct {
+	InvocationId uint64
+}
+
+func (j *ActiveSide) Signal(req ActiveSideSignalRequest) (*ActiveSideSignalResponse, error) {
+	// switch req.What {
+	// case "replication":
+	// 	invocationId, err = j.jobs.doreplication(req.Name)
+	// case "reset":
+	// 	err = j.jobs.reset(req.Name)
+	// case "snapshot":
+	// 	err = j.jobs.dosnapshot(req.Name)
+	// default:
+	// 	err = fmt.Errorf("operation %q is invalid", req.Op)
+	// }
+
+	switch req.What {
+	case "invocation":
+		j.tasksMtx.Lock()
+		var invocationId uint64
+		if j.activeInvocationId != 0 {
+			invocationId = j.activeInvocationId
+		} else {
+			invocationId = j.nextInvocationId
+		}
+		// non-blocking send (.Run() must not hold mutex while waiting for signals)
+		select {
+		case j.signal <- struct{}{}:
+		default:
+		}
+		j.tasksMtx.Unlock()
+		return &ActiveSideSignalResponse{InvocationId: invocationId}, nil
+	default:
+		return nil, fmt.Errorf("unknown signal %q", req.What)
 	}
 }
 
@@ -546,7 +591,9 @@ func (j *ActiveSide) do(ctx context.Context) {
 		repCancel()   // always cancel to free up context resources
 		replicationReport := j.tasks.replicationReport()
 		j.promReplicationErrors.Set(float64(replicationReport.GetFailedFilesystemsCountInLatestAttempt()))
-
+		j.updateTasks(func(tasks *activeSideTasks) {
+			tasks.replicationDone = replicationReport
+		})
 		endSpan()
 	}
 
