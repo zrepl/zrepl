@@ -43,8 +43,10 @@ type ActiveSide struct {
 	promBytesReplicated   *prometheus.CounterVec   // labels: filesystem
 	promReplicationErrors prometheus.Gauge
 
-	tasksMtx sync.Mutex
-	tasks    activeSideTasks
+	tasksMtx                 sync.Mutex
+	tasks                    activeSideTasks
+	activeInvocationId       uint64 // 0 <=> inactive
+	doneWaiters, nextWaiters []func()
 }
 
 //go:generate enumer -type=ActiveSideState
@@ -433,6 +435,7 @@ func (j *ActiveSide) Run(ctx context.Context) {
 	go j.mode.RunPeriodic(periodicCtx, periodicDone)
 
 	invocationCount := 0
+
 outer:
 	for {
 		log.Info("wait for replications")
@@ -446,10 +449,57 @@ outer:
 		case <-periodicDone:
 		}
 		invocationCount++
+
+		j.tasksMtx.Lock()
+		j.activeInvocationId = uint64(invocationCount)
+		j.doneWaiters = j.nextWaiters
+		j.nextWaiters = nil
+		j.tasksMtx.Unlock()
+
 		invocationCtx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("invocation-%d", invocationCount))
 		j.do(invocationCtx)
+
+		j.tasksMtx.Lock()
+		j.activeInvocationId = 0
+		for _, f := range j.doneWaiters {
+			go f()
+		}
+		j.doneWaiters = nil
+		j.tasksMtx.Unlock()
+
 		endSpan()
 	}
+}
+
+type AddActiveSideWaiterRequest struct {
+	InvocationId uint64
+	What         string
+}
+
+func (j *ActiveSide) AddActiveSideWaiter(invocationId uint64, what string, cb func()) error {
+	j.tasksMtx.Lock()
+	defer j.tasksMtx.Unlock()
+
+	var targetQueue *[]func()
+	if invocationId == 0 {
+		if j.activeInvocationId != 0 {
+			targetQueue = &j.doneWaiters
+		} else {
+			targetQueue = &j.nextWaiters
+		}
+	} else if j.activeInvocationId == invocationId {
+		targetQueue = &j.nextWaiters
+	} else {
+		return fmt.Errorf("invocation %d is not the current invocation, current invocation is %d (0 means no active invocation); pass id '0' to wait for the next invocation", invocationId, j.activeInvocationId)
+	}
+
+	switch what {
+	case "invocation-done":
+		*targetQueue = append(*targetQueue, cb)
+	default:
+		return fmt.Errorf("unknown wait target %q", what)
+	}
+	return nil
 }
 
 func (j *ActiveSide) do(ctx context.Context) {
@@ -492,7 +542,6 @@ func (j *ActiveSide) do(ctx context.Context) {
 		GetLogger(ctx).Info("start replication")
 		repWait(true) // wait blocking
 		repCancel()   // always cancel to free up context resources
-
 		replicationReport := j.tasks.replicationReport()
 		j.promReplicationErrors.Set(float64(replicationReport.GetFailedFilesystemsCountInLatestAttempt()))
 

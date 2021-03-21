@@ -73,10 +73,11 @@ func (j *controlJob) RegisterMetrics(registerer prometheus.Registerer) {
 }
 
 const (
-	ControlJobEndpointPProf   string = "/debug/pprof"
-	ControlJobEndpointVersion string = "/version"
-	ControlJobEndpointStatus  string = "/status"
-	ControlJobEndpointSignal  string = "/signal"
+	ControlJobEndpointPProf      string = "/debug/pprof"
+	ControlJobEndpointVersion    string = "/version"
+	ControlJobEndpointStatus     string = "/status"
+	ControlJobEndpointSignal     string = "/signal"
+	ControlJobEndpointWaitActive string = "/wait/active"
 )
 
 func (j *controlJob) Run(ctx context.Context) {
@@ -130,6 +131,52 @@ func (j *controlJob) Run(ctx context.Context) {
 			return s, nil
 		}})
 
+	mux.Handle(ControlJobEndpointWaitActive, requestLogger{log: log, handler: jsonRequestResponder{log, func(decoder jsonDecoder) (v interface{}, err error) {
+		type reqT struct {
+			Job          string
+			InvocationId uint64
+			What         string
+		}
+		var req reqT
+		if decoder(&req) != nil {
+			return nil, errors.Errorf("decode failed")
+		}
+
+		j.jobs.m.RLock()
+
+		jo, ok := j.jobs.jobs[req.Job]
+		if !ok {
+			j.jobs.m.RUnlock()
+			return struct{}{}, fmt.Errorf("unknown job name %q", req.Job)
+		}
+
+		ajo, ok := jo.(*job.ActiveSide)
+		if !ok {
+			v, err = struct{}{}, fmt.Errorf("job %q is not an active side (it's a %T)", jo.Name(), jo)
+			j.jobs.m.RUnlock()
+			return v, err
+		}
+
+		cbCalled := make(chan struct{})
+		err = ajo.AddActiveSideWaiter(req.InvocationId, req.What, func() {
+			log.WithField("request", req).Debug("active side waiter done")
+			close(cbCalled)
+		})
+
+		j.jobs.m.RUnlock() // unlock before waiting!
+
+		if err != nil {
+			return struct{}{}, err
+		}
+
+		select {
+		// TODO ctx with timeout!
+		case <-cbCalled:
+			return struct{}{}, nil
+		}
+
+	}}})
+
 	mux.Handle(ControlJobEndpointSignal,
 		requestLogger{log: log, handler: jsonRequestResponder{log, func(decoder jsonDecoder) (interface{}, error) {
 			type reqT struct {
@@ -155,6 +202,7 @@ func (j *controlJob) Run(ctx context.Context) {
 
 			return struct{}{}, err
 		}}})
+
 	server := http.Server{
 		Handler: mux,
 		// control socket is local, 1s timeout should be more than sufficient, even on a loaded system

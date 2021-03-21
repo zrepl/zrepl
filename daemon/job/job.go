@@ -19,6 +19,7 @@ func GetLogger(ctx context.Context) Logger {
 	return logging.GetLogger(ctx, logging.SubsysJob)
 }
 
+
 type Job interface {
 	Name() string
 	Run(ctx context.Context)
