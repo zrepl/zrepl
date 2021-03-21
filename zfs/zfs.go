@@ -26,11 +26,6 @@ import (
 	"github.com/zrepl/zrepl/zfs/zfscmd"
 )
 
-var (
-	ZFSSendPipeCapacityHint = int(envconst.Int64("ZFS_SEND_PIPE_CAPACITY_HINT", 1<<25))
-	ZFSRecvPipeCapacityHint = int(envconst.Int64("ZFS_RECV_PIPE_CAPACITY_HINT", 1<<25))
-)
-
 type DatasetPath struct {
 	comps []string
 }
@@ -328,8 +323,8 @@ func absVersion(fs string, v *ZFSSendArgVersion) (full string, err error) {
 }
 
 func pipeWithCapacityHint(capacity int) (r, w *os.File, err error) {
-	if capacity <= 0 {
-		panic(fmt.Sprintf("capacity must be positive %v", capacity))
+	if capacity < 0 {
+		panic(fmt.Sprintf("capacity must be non-negative, got %v", capacity))
 	}
 	stdoutReader, stdoutWriter, err := os.Pipe()
 	if err != nil {
@@ -858,7 +853,7 @@ func ZFSSend(ctx context.Context, sendArgs ZFSSendArgsValidated) (*SendStream, e
 	ctx, cancel := context.WithCancel(ctx)
 
 	// setup stdout with an os.Pipe to control pipe buffer size
-	stdoutReader, stdoutWriter, err := pipeWithCapacityHint(ZFSSendPipeCapacityHint)
+	stdoutReader, stdoutWriter, err := pipeWithCapacityHint(getPipeCapacityHint("ZFS_SEND_PIPE_CAPACITY_HINT"))
 	if err != nil {
 		cancel()
 		return nil, err
@@ -1160,7 +1155,7 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, stream io.Rea
 
 	stderr := bytes.NewBuffer(make([]byte, 0, RecvStderrBufSiz))
 
-	stdin, stdinWriter, err := pipeWithCapacityHint(ZFSRecvPipeCapacityHint)
+	stdin, stdinWriter, err := pipeWithCapacityHint(getPipeCapacityHint("ZFS_RECV_PIPE_CAPACITY_HINT"))
 	if err != nil {
 		return err
 	}
