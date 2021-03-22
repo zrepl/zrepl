@@ -18,19 +18,17 @@ import (
 
 var WaitJobCmd = &cli.Subcommand{
 	Use:   "wait-job JOB",
-	Short: "block and wait until the specified job is done or has failed",
+	Short: "block and wait until the specified job finishes successfully or fails",
 	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 		return runWaitJobCmd(subcommand.Config(), args)
 	},
 }
 
-// adapted from status.go
 func runWaitJobCmd(config *config.Config, args []string) error {
 	if len(args) != 1 {
 		return errors.Errorf("Expected 1 argument: JOB")
 	}
 
-	// TODO: poll status until done or error
 	c, err := client.New("unix", config.Global.Control.SockPath)
 	if err != nil {
 		return errors.Wrapf(err, "connect to daemon socket at %q", config.Global.Control.SockPath)
@@ -74,7 +72,6 @@ ticker:
 }
 
 func evaluateJobStatus(j *job.Status) (bool, error) {
-
 	if j.Type == job.TypePush || j.Type == job.TypePull {
 		activeStatus, ok := j.JobSpecific.(*job.ActiveSideStatus)
 		if !ok || activeStatus == nil {
@@ -82,7 +79,6 @@ func evaluateJobStatus(j *job.Status) (bool, error) {
 			return true, nil //error.New("ActiveSideStatus is null")
 		}
 
-		//t.renderReplicationReport(activeStatus.Replication, t.getReplicationProgressHistory(k))
 		replicationDone, err := evaluateReplicationStatus(activeStatus.Replication)
 		if err != nil {
 			return true, err
