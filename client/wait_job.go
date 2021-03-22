@@ -8,60 +8,52 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/cli"
+	"github.com/zrepl/zrepl/client/status/client"
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon"
 	"github.com/zrepl/zrepl/daemon/job"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/replication/report"
 )
 
-type wui struct {
-	//lock      sync.Mutex //For report and error
-	report map[string]*job.Status
-
-	jobName string
-}
-
-var WaitCmd = &cli.Subcommand{
-	Use:   "wait JOB",
+var WaitJobCmd = &cli.Subcommand{
+	Use:   "wait-job JOB",
 	Short: "block and wait until the specified job is done or has failed",
 	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
-		return runWaitCmd(subcommand.Config(), args)
+		return runWaitJobCmd(subcommand.Config(), args)
 	},
 }
 
 // adapted from status.go
-func runWaitCmd(config *config.Config, args []string) error {
+func runWaitJobCmd(config *config.Config, args []string) error {
 	if len(args) != 1 {
 		return errors.Errorf("Expected 1 argument: JOB")
 	}
 
 	// TODO: poll status until done or error
-	httpc, err := controlHttpClient(config.Global.Control.SockPath)
+	c, err := client.New("unix", config.Global.Control.SockPath)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "connect to daemon socket at %q", config.Global.Control.SockPath)
 	}
 
-	t := wui{
-		report:  nil,
-		jobName: args[0],
-	}
+	jobName := args[0]
 
 	updateAndEvaluate := func() (bool, error) {
-		var m daemon.Status
+		s, err := c.Status()
+		if err != nil {
+			return true, err
+		}
 
-		err := jsonRequestResponse(httpc, daemon.ControlJobEndpointStatus,
-			struct{}{},
-			&m,
-		)
 		if err != nil {
 			return true, fmt.Errorf("can't get status from daemon: %w", err)
 		}
 
-		t.report = m.Jobs
+		job, ok := s.Jobs[jobName]
+		if !ok {
+			return true, fmt.Errorf("job not in status: %v", jobName)
+		}
 
-		return t.evaluate()
+		return evaluateJobStatus(job)
 	}
 	updateAndEvaluate()
 
@@ -81,38 +73,34 @@ ticker:
 	return nil
 }
 
-func (t *wui) evaluate() (bool, error) {
-	v, ok := t.report[t.jobName]
-	if !ok {
-		return true, fmt.Errorf("job not in status: %v", t.jobName)
-	}
+func evaluateJobStatus(j *job.Status) (bool, error) {
 
-	if v.Type == job.TypePush || v.Type == job.TypePull {
-		activeStatus, ok := v.JobSpecific.(*job.ActiveSideStatus)
+	if j.Type == job.TypePush || j.Type == job.TypePull {
+		activeStatus, ok := j.JobSpecific.(*job.ActiveSideStatus)
 		if !ok || activeStatus == nil {
 			// TODO: ignore?
 			return true, nil //error.New("ActiveSideStatus is null")
 		}
 
 		//t.renderReplicationReport(activeStatus.Replication, t.getReplicationProgressHistory(k))
-		replicationDone, err := evaluateReplicationReport(activeStatus.Replication)
+		replicationDone, err := evaluateReplicationStatus(activeStatus.Replication)
 		if err != nil {
 			return true, err
 		}
 
-		senderPruningDone, err := evaluatePruningReport(activeStatus.PruningSender)
+		senderPruningDone, err := evaluatePruningStatus(activeStatus.PruningSender)
 		if err != nil {
 			return true, fmt.Errorf("sender %w", err)
 		}
-		receiverPruningDone, err := evaluatePruningReport(activeStatus.PruningReceiver)
+		receiverPruningDone, err := evaluatePruningStatus(activeStatus.PruningReceiver)
 		if err != nil {
 			return true, fmt.Errorf("receiver %w", err)
 		}
 
 		done := replicationDone && senderPruningDone && receiverPruningDone
 
-		if v.Type == job.TypePush {
-			snapperDone, err := evaluateSnapperReport(activeStatus.Snapshotting)
+		if j.Type == job.TypePush {
+			snapperDone, err := evaluateSnapperStatus(activeStatus.Snapshotting)
 			if err != nil {
 				return true, err
 			}
@@ -121,32 +109,32 @@ func (t *wui) evaluate() (bool, error) {
 		}
 
 		return done, nil
-	} else if v.Type == job.TypeSnap {
-		snapStatus, ok := v.JobSpecific.(*job.SnapJobStatus)
+	} else if j.Type == job.TypeSnap {
+		snapStatus, ok := j.JobSpecific.(*job.SnapJobStatus)
 		if !ok || snapStatus == nil {
 			// TODO: ignore?
 			return true, nil //error.Error("SnapJobStatus is null")
 		}
 
-		pruningDone, err := evaluatePruningReport(snapStatus.Pruning)
+		pruningDone, err := evaluatePruningStatus(snapStatus.Pruning)
 		if err != nil {
 			return true, err
 		}
 
-		snapperDone, err := evaluateSnapperReport(snapStatus.Snapshotting)
+		snapperDone, err := evaluateSnapperStatus(snapStatus.Snapshotting)
 		if err != nil {
 			return true, err
 		}
 
 		return pruningDone && snapperDone, nil
-	} else if v.Type == job.TypeSource || v.Type == job.TypeSink {
-		snapStatus, ok := v.JobSpecific.(*job.PassiveStatus)
+	} else if j.Type == job.TypeSource /*|| j.Type == job.TypeSink*/ {
+		snapStatus, ok := j.JobSpecific.(*job.PassiveStatus)
 		if !ok || snapStatus == nil {
 			// TODO: ignore?
 			return true, nil //error.Error("SnapJobStatus is null")
 		}
 
-		snapperDone, err := evaluateSnapperReport(snapStatus.Snapper)
+		snapperDone, err := evaluateSnapperStatus(snapStatus.Snapper)
 		if err != nil {
 			return true, err
 		}
@@ -158,7 +146,7 @@ func (t *wui) evaluate() (bool, error) {
 	}
 }
 
-func evaluatePruningReport(r *pruner.Report) (bool, error) {
+func evaluatePruningStatus(r *pruner.Report) (bool, error) {
 	if r == nil {
 		// ignore
 		return true, nil
@@ -173,20 +161,18 @@ func evaluatePruningReport(r *pruner.Report) (bool, error) {
 		return true, fmt.Errorf("parsing pruning state %v: %w", r.State, err)
 	}
 
-	switch prunerState {
-	case pruner.PlanErr:
-		fallthrough
-	case pruner.ExecErr:
+	if prunerState.IsError() {
 		return true, fmt.Errorf("pruning failed with state: %v", prunerState)
-	case pruner.Done:
-		return true, nil
-	default:
-		// no errros, but still not finished
-		return false, nil
 	}
+	if prunerState.IsTerminal() {
+		return true, nil
+	}
+
+	// no errros, but still not finished
+	return false, nil
 }
 
-func evaluateReplicationReport(rep *report.Report) (bool, error) {
+func evaluateReplicationStatus(rep *report.Report) (bool, error) {
 	if rep == nil {
 		// ignore
 		return true, nil
@@ -209,20 +195,18 @@ func evaluateReplicationReport(rep *report.Report) (bool, error) {
 	}
 
 	latest := rep.Attempts[len(rep.Attempts)-1]
-	switch latest.State {
-	case report.AttemptPlanningError:
-		fallthrough
-	case report.AttemptFanOutError:
+	if latest.State.IsError() {
 		return true, fmt.Errorf("last replication attept failed with state %v", latest.State)
-	case report.AttemptDone:
-		return true, nil
-	default:
-		// no errros, but still not finished
-		return false, nil
 	}
+	if latest.State.IsTerminal() {
+		return true, nil
+	}
+
+	// no errros, but still not finished
+	return false, nil
 }
 
-func evaluateSnapperReport(r *snapper.Report) (bool, error) {
+func evaluateSnapperStatus(r *snapper.Report) (bool, error) {
 	if r == nil {
 		// ignore
 		return true, nil
@@ -232,17 +216,14 @@ func evaluateSnapperReport(r *snapper.Report) (bool, error) {
 		return true, fmt.Errorf("snapshotting error: %v", r.Error)
 	}
 
-	switch r.State {
-	case snapper.SyncUpErrWait:
-		fallthrough
-	case snapper.ErrorWait:
+	if r.State.IsError() {
 		// some filesystems had an error
 		return true, fmt.Errorf("snapshotting failed with state: %v", r.State)
-	case snapper.Waiting:
-		// TODO: also snapper.Stopped
-		return true, nil
-	default:
-		// no errros, but still not finished
-		return false, nil
 	}
+	if r.State.IsTerminal() {
+		return true, nil
+	}
+
+	// no errros, but still not finished
+	return false, nil
 }
