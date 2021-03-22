@@ -52,6 +52,26 @@ const (
 	AttemptDone          AttemptState = "done"
 )
 
+func (s AttemptState) IsError() bool {
+	switch s {
+	case AttemptPlanningError:
+		fallthrough
+	case AttemptFanOutError:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s AttemptState) IsTerminal() bool {
+	switch s {
+	case AttemptDone:
+		return true
+	default:
+		return false
+	}
+}
+
 type FilesystemState string
 
 const (

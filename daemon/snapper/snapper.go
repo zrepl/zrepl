@@ -101,6 +101,27 @@ func (s State) sf() state {
 	return m[s]
 }
 
+func (s State) IsError() bool {
+	switch s {
+	case SyncUpErrWait:
+		fallthrough
+	case ErrorWait:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s State) IsTerminal() bool {
+	switch s {
+	case Waiting:
+		// FIXME: also Stopped?
+		return true
+	default:
+		return false
+	}
+}
+
 type updater func(u func(*Snapper)) State
 type state func(a args, u updater) state
 

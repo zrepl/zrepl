@@ -191,6 +191,26 @@ const (
 	Done
 )
 
+func (s State) IsError() bool {
+	switch s {
+	case PlanErr:
+		fallthrough
+	case ExecErr:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s State) IsTerminal() bool {
+	switch s {
+	case Done:
+		return true
+	default:
+		return false
+	}
+}
+
 type updater func(func(*Pruner))
 
 func (p *Pruner) Prune() {
