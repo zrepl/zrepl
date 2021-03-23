@@ -32,7 +32,6 @@ We use the following annotations for classifying changes:
 0.4.0
 -----
 
-* |break| Change syntax to trigger a job replication, rename ``zrepl signal wakeup JOB`` to ``zrepl signal replication JOB``
 * |feature| support setting zfs send / recv flags in the config (send: ``-wLcepbS`` , recv: ``-ox`` ).
   Config docs :ref:`here <job-send-options>` and :ref:`here <job-recv-options>` .
 * |feature| parallel replication is now configurable (disabled by default, :ref:`config docs here <replication-option-concurrency>` ).
