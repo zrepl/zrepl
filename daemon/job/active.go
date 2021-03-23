@@ -440,58 +440,67 @@ func (j *ActiveSide) Run(ctx context.Context) {
 	j.reset = make(chan uint64)
 	j.nextInvocationId = 1
 
-outer:
-	for {
-		log.Info("wait for replications")
-		select {
-		case <-ctx.Done():
-			log.WithError(ctx.Err()).Info("context")
-			break outer
+	type WaitTriggerResult interface {
+		
+	}
+	var t interface{
+		WaitForTrigger(context.Context) (context.Context, <-chan WaitTriggerResult)
+	}
 
-		case <-j.trigger:
-			j.mode.ResetConnectBackoff()
-		case <-periodicDone:
+	for {
+		log.Info("wait for triggers")
+
+			// j.tasksMtx.Lock()
+		// j.activeInvocationId = j.nextInvocationId
+		// j.nextInvocationId++
+		// thisInvocation := j.activeInvocationId // stack-local, for use in reset-handler goroutine below
+		// j.tasksMtx.Unlock()
+		
+		// // setup the goroutine that waits for task resets
+		// // Task resets are converted into cancellations of the invocation context.
+		
+		invocationCtx, cancelInvocation := context.WithCancel(invocationCtx)
+		// waitForResetCtx, stopWaitForReset := context.WithCancel(ctx)
+		// var wg sync.WaitGroup
+		// wg.Add(1)
+		// go func() {
+		// 	defer wg.Done()
+		// 	select {
+		// 	case <-waitForResetCtx.Done():
+		// 		return
+		// 	case reqResetInvocation := <-j.reset:
+		// 		l := log.WithField("requested_invocation_id", reqResetInvocation).
+		// 			WithField("this_invocation_id", thisInvocation)
+		// 		if reqResetInvocation == thisInvocation {
+		// 			l.Info("reset received, cancelling current invocation")
+		// 			cancelInvocation()
+		// 		} else {
+		// 			l.Debug("received reset for invocation id that is not us, discarding request")
+		// 		}
+		// 	}
+		// }()
+
+		// j.tasksMtx.Lock()
+		// j.activeInvocationId = 0
+		// j.tasksMtx.Unlock()
+
+		invocationCtx, err := t.WaitForTrigger(ctx)
+		if err != nil {
+			log.WithError(ctx.Err()).Info("error waiting for trigger")
+			break
 		}
 
-		j.tasksMtx.Lock()
-		j.activeInvocationId = j.nextInvocationId
-		j.nextInvocationId++
-		thisInvocation := j.activeInvocationId // stack-local, for use in reset-handler goroutine below
-		j.tasksMtx.Unlock()
+		j.mode.ResetConnectBackoff()
 
 		// setup the invocation context
-		invocationCtx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("invocation-%d", j.nextInvocationId))
-		invocationCtx, cancelInvocation := context.WithCancel(invocationCtx)
-
-		// setup the goroutine that waits for task resets
-		// Task resets are converted into cancellations of the invocation context.
-		waitForResetCtx, stopWaitForReset := context.WithCancel(ctx)
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			select {
-			case <-waitForResetCtx.Done():
-				return
-			case reqResetInvocation := <-j.reset:
-				l := log.WithField("requested_invocation_id", reqResetInvocation).
-					WithField("this_invocation_id", thisInvocation)
-				if reqResetInvocation == thisInvocation {
-					l.Info("reset received, cancelling current invocation")
-					cancelInvocation()
-				} else {
-					l.Debug("received reset for invocation id that is not us, discarding request")
-				}
-			}
-		}()
+		invocationCtx, endSpan := trace.WithSpan(invocationCtx, fmt.Sprintf("invocation-%d", j.nextInvocationId))
+		
 
 		j.do(invocationCtx)
 		stopWaitForReset()
 		wg.Wait()
 
-		j.tasksMtx.Lock()
-		j.activeInvocationId = 0
-		j.tasksMtx.Unlock()
+	
 
 		endSpan()
 	}
@@ -566,11 +575,11 @@ func (j *ActiveSide) Reset(req ActiveSideResetRequest) (*ActiveSideResetResponse
 }
 
 type ActiveSideTriggerRequest struct {
-	What string
 }
 
 type ActiveSideSignalResponse struct {
 	InvocationId uint64
+	
 }
 
 func (j *ActiveSide) Trigger(req ActiveSideTriggerRequest) (*ActiveSideSignalResponse, error) {
@@ -585,25 +594,20 @@ func (j *ActiveSide) Trigger(req ActiveSideTriggerRequest) (*ActiveSideSignalRes
 	// 	err = fmt.Errorf("operation %q is invalid", req.Op)
 	// }
 
-	switch req.What {
-	case "invocation":
-		j.tasksMtx.Lock()
-		var invocationId uint64
-		if j.activeInvocationId != 0 {
-			invocationId = j.activeInvocationId
-		} else {
-			invocationId = j.nextInvocationId
-		}
-		// non-blocking send (.Run() must not hold mutex while waiting for signals)
-		select {
-		case j.trigger <- struct{}{}:
-		default:
-		}
-		j.tasksMtx.Unlock()
-		return &ActiveSideSignalResponse{InvocationId: invocationId}, nil
-	default:
-		return nil, fmt.Errorf("unknown signal %q", req.What)
+	j.tasksMtx.Lock()
+	var invocationId uint64
+	if j.activeInvocationId != 0 {
+		invocationId = j.activeInvocationId
+	} else {
+		invocationId = j.nextInvocationId
 	}
+	// non-blocking send (.Run() must not hold mutex while waiting for signals)
+	select {
+	case j.trigger <- struct{}{}:
+	default:
+	}
+	j.tasksMtx.Unlock()
+	return &ActiveSideSignalResponse{InvocationId: invocationId}, nil
 }
 
 func (j *ActiveSide) do(ctx context.Context) {
