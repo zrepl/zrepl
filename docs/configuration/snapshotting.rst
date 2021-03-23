@@ -15,7 +15,7 @@ A filesystem that does not have snapshots by the snapshotter has lower priority 
 
 For ``push`` jobs, replication is automatically triggered after all filesystems have been snapshotted.
 
-Note that the ``zrepl signal replication JOB`` subcommand does not trigger snapshotting.
+Note that the ``zrepl signal wakeup JOB`` subcommand does not trigger snapshotting.
 
 
 ::
@@ -38,7 +38,7 @@ There is also a ``manual`` snapshotting type, which covers the following use cas
 * Existing infrastructure for automatic snapshots: you only want to use this zrepl job for replication.
 * Handling snapshotting through a separate ``snap`` job.
 
-Note that you will have to trigger replication manually using the ``zrepl signal replication JOB`` subcommand in that case.
+Note that you will have to trigger replication manually using the ``zrepl signal wakeup JOB`` subcommand in that case.
 
 ::
 

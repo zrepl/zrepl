@@ -18,9 +18,9 @@ type PeriodicOrManual struct {
 	s *Snapper
 }
 
-func (s *PeriodicOrManual) Run(ctx context.Context, replicationCommon chan<- struct{}) {
+func (s *PeriodicOrManual) Run(ctx context.Context, wakeUpCommon chan<- struct{}) {
 	if s.s != nil {
-		s.s.Run(ctx, replicationCommon)
+		s.s.Run(ctx, wakeUpCommon)
 	}
 }
 

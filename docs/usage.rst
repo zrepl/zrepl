@@ -13,7 +13,7 @@ CLI Overview
     The zrepl binary is self-documenting:
     run ``zrepl help`` for an overview of the available subcommands or ``zrepl SUBCOMMAND --help`` for information on available flags, etc.
 
-.. _cli-signal-replication:
+.. _cli-signal-wakeup:
 
 .. list-table::
     :widths: 30 70
@@ -29,7 +29,7 @@ CLI Overview
       - show job activity, or with ``--raw`` for JSON output
     * - ``zrepl stdinserver``
       - see :ref:`transport-ssh+stdinserver`
-    * - ``zrepl signal replication JOB``
+    * - ``zrepl signal wakeup JOB``
       - manually trigger replication + pruning of JOB
     * - ``zrepl signal reset JOB``
       - manually abort current replication + pruning of JOB

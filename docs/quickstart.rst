@@ -55,8 +55,8 @@ Watch it Work
 =============
 
 Run ``zrepl status`` on the active side of the replication setup to monitor snaphotting, replication and pruning activity.
-To re-trigger replication (snapshots are separate!), use ``zrepl signal replication JOBNAME``.
-(refer to the example use case document if you are uncertain which job you want to start replication).
+To re-trigger replication (snapshots are separate!), use ``zrepl signal wakeup JOBNAME``.
+(refer to the example use case document if you are uncertain which job you want to wake up).
 
 You can also use basic UNIX tools to inspect see what's going on.
 If you like tmux, here is a handy script that works on FreeBSD: ::

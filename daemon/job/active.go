@@ -14,8 +14,8 @@ import (
 	"github.com/zrepl/zrepl/util/envconst"
 
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/job/doreplication"
 	"github.com/zrepl/zrepl/daemon/job/reset"
+	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/endpoint"
@@ -89,7 +89,7 @@ type activeMode interface {
 	SenderReceiver() (logic.Sender, logic.Receiver)
 	Type() Type
 	PlannerPolicy() logic.PlannerPolicy
-	RunPeriodic(ctx context.Context, replicationCommon chan<- struct{})
+	RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{})
 	SnapperReport() *snapper.Report
 	ResetConnectBackoff()
 }
@@ -131,8 +131,8 @@ func (m *modePush) Type() Type { return TypePush }
 
 func (m *modePush) PlannerPolicy() logic.PlannerPolicy { return *m.plannerPolicy }
 
-func (m *modePush) RunPeriodic(ctx context.Context, replicationCommon chan<- struct{}) {
-	m.snapper.Run(ctx, replicationCommon)
+func (m *modePush) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}) {
+	m.snapper.Run(ctx, wakeUpCommon)
 }
 
 func (m *modePush) SnapperReport() *snapper.Report {
@@ -214,10 +214,10 @@ func (*modePull) Type() Type { return TypePull }
 
 func (m *modePull) PlannerPolicy() logic.PlannerPolicy { return *m.plannerPolicy }
 
-func (m *modePull) RunPeriodic(ctx context.Context, replicationCommon chan<- struct{}) {
+func (m *modePull) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}) {
 	if m.interval.Manual {
 		GetLogger(ctx).Info("manual pull configured, periodic pull disabled")
-		// "waiting for wakeup replications" is printed in common ActiveSide.do
+		// "waiting for wakeups" is printed in common ActiveSide.do
 		return
 	}
 	t := time.NewTicker(m.interval.Interval)
@@ -226,12 +226,12 @@ func (m *modePull) RunPeriodic(ctx context.Context, replicationCommon chan<- str
 		select {
 		case <-t.C:
 			select {
-			case replicationCommon <- struct{}{}:
+			case wakeUpCommon <- struct{}{}:
 			default:
 				GetLogger(ctx).
 					WithField("pull_interval", m.interval).
 					Warn("pull job took longer than pull interval")
-				replicationCommon <- struct{}{} // block anyways, to queue up the wakeup replication
+				wakeUpCommon <- struct{}{} // block anyways, to queue up the wakeup
 			}
 		case <-ctx.Done():
 			return
@@ -435,13 +435,13 @@ func (j *ActiveSide) Run(ctx context.Context) {
 	invocationCount := 0
 outer:
 	for {
-		log.Info("wait for replications")
+		log.Info("wait for wakeups")
 		select {
 		case <-ctx.Done():
 			log.WithError(ctx.Err()).Info("context")
 			break outer
 
-		case <-doreplication.Wait(ctx):
+		case <-wakeup.Wait(ctx):
 			j.mode.ResetConnectBackoff()
 		case <-periodicDone:
 		}
