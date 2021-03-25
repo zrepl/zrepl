@@ -57,6 +57,11 @@ func (k KeepLastN) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 		// then lexicographically descending (e.g. b, a)
 		return strings.Compare(matching[i].Name(), matching[j].Name()) == 1
 	})
-	destroyList = append(destroyList, matching[k.n:]...)
+
+	n := k.n
+	if n > len(matching) {
+		n = len(matching)
+	}
+	destroyList = append(destroyList, matching[n:]...)
 	return destroyList
 }

@@ -83,6 +83,19 @@ func TestKeepLastN(t *testing.T) {
 				"b1": true,
 			},
 		},
+		"keep_more_than_matching": {
+			inputs: []Snapshot{
+				stubSnap{"a1", false, o(10)},
+				stubSnap{"b1", false, o(11)},
+				stubSnap{"a2", false, o(12)},
+			},
+			rules: []KeepRule{
+				MustKeepLastN(3, "a"),
+			},
+			expDestroy: map[string]bool{
+				"b1": true,
+			},
+		},
 	}
 
 	testTable(tcs, t)
