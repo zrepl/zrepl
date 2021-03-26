@@ -30,7 +30,7 @@ The dashboard also contains some advice on which metrics are important to monito
     global:
       monitoring:
         - type: prometheus
-          listen: ':9091'
+          listen: ':9811'
           listen_freebind: true # optional, default false
 
 

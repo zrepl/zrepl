@@ -70,9 +70,9 @@ func TestPrometheusMonitoring(t *testing.T) {
 global:
   monitoring:
     - type: prometheus
-      listen: ':9091'
+      listen: ':9811'
 `)
-	assert.Equal(t, ":9091", conf.Global.Monitoring[0].Ret.(*PrometheusMonitoring).Listen)
+	assert.Equal(t, ":9811", conf.Global.Monitoring[0].Ret.(*PrometheusMonitoring).Listen)
 }
 
 func TestSyslogLoggingOutletFacility(t *testing.T) {
