@@ -23,8 +23,9 @@ import (
 )
 
 type SenderConfig struct {
-	FSF   zfs.DatasetFilter
-	JobID JobID
+	FSF           zfs.DatasetFilter
+	JobID         JobID
+	JobSnapPrefix string
 
 	Encrypt              *nodefault.Bool
 	SendRaw              bool
@@ -116,7 +117,11 @@ func (s *Sender) ListFilesystemVersions(ctx context.Context, r *pdu.ListFilesyst
 	if err != nil {
 		return nil, err
 	}
-	fsvs, err := zfs.ZFSListFilesystemVersions(ctx, lp, zfs.ListFilesystemVersionsOptions{})
+
+	fsvs, err := zfs.ZFSListFilesystemVersions(ctx, lp, zfs.ListFilesystemVersionsOptions{
+		ShortnamePrefix: s.config.JobSnapPrefix,
+	})
+
 	if err != nil {
 		return nil, err
 	}

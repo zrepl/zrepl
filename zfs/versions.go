@@ -211,6 +211,13 @@ func (o *ListFilesystemVersionsOptions) typesFlagArgs() string {
 }
 
 func (o *ListFilesystemVersionsOptions) matches(v FilesystemVersion) bool {
+	// Workaround when using JobSnapPrefix because bookmarks are not following
+	// the snapshotting prefix but they have fixed prefix:
+	// replicationCursorBookmarkNamePrefix = "zrepl_CURSOR"
+	if len(o.ShortnamePrefix) > 0 && len(o.Types) == 0 && v.Type == Bookmark && strings.HasPrefix(v.Name, "zrepl_CURSOR") {
+		return true
+	}
+
 	return (len(o.Types) == 0 || o.Types[v.Type]) && strings.HasPrefix(v.Name, o.ShortnamePrefix)
 }
 

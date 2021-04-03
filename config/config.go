@@ -123,14 +123,16 @@ type PropertyRecvOptions struct {
 }
 
 type PushJob struct {
-	ActiveJob    `yaml:",inline"`
-	Snapshotting SnapshottingEnum  `yaml:"snapshotting"`
-	Filesystems  FilesystemsFilter `yaml:"filesystems"`
-	Send         *SendOptions      `yaml:"send,fromdefaults,optional"`
+	ActiveJob     `yaml:",inline"`
+	Snapshotting  SnapshottingEnum  `yaml:"snapshotting"`
+	Filesystems   FilesystemsFilter `yaml:"filesystems"`
+	Send          *SendOptions      `yaml:"send,fromdefaults,optional"`
+	JobSnapPrefix string            `yaml:"replication_snapshots_prefix,optional"`
 }
 
 func (j *PushJob) GetFilesystems() FilesystemsFilter { return j.Filesystems }
 func (j *PushJob) GetSendOptions() *SendOptions      { return j.Send }
+func (j *PushJob) GetJobSnapPrefix() string          { return j.JobSnapPrefix }
 
 type PullJob struct {
 	ActiveJob `yaml:",inline"`
@@ -185,14 +187,16 @@ func (j *SinkJob) GetAppendClientIdentity() bool { return true }
 func (j *SinkJob) GetRecvOptions() *RecvOptions  { return j.Recv }
 
 type SourceJob struct {
-	PassiveJob   `yaml:",inline"`
-	Snapshotting SnapshottingEnum  `yaml:"snapshotting"`
-	Filesystems  FilesystemsFilter `yaml:"filesystems"`
-	Send         *SendOptions      `yaml:"send,optional,fromdefaults"`
+	PassiveJob    `yaml:",inline"`
+	Snapshotting  SnapshottingEnum  `yaml:"snapshotting"`
+	Filesystems   FilesystemsFilter `yaml:"filesystems"`
+	Send          *SendOptions      `yaml:"send,optional,fromdefaults"`
+	JobSnapPrefix string            `yaml:"replication_snapshots_prefix,optional"`
 }
 
 func (j *SourceJob) GetFilesystems() FilesystemsFilter { return j.Filesystems }
 func (j *SourceJob) GetSendOptions() *SendOptions      { return j.Send }
+func (j *SourceJob) GetJobSnapPrefix() string          { return j.JobSnapPrefix }
 
 type FilesystemsFilter map[string]bool
 
