@@ -16,8 +16,8 @@ import (
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job/doprune"
+	"github.com/zrepl/zrepl/daemon/job/doreplicate"
 	"github.com/zrepl/zrepl/daemon/job/reset"
-	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/endpoint"
@@ -448,7 +448,7 @@ outer:
 			j.doPrune(invocationCtx)
 			endSpan()
 
-		case <-wakeup.Wait(ctx):
+		case <-doreplicate.Wait(ctx):
 			j.mode.ResetConnectBackoff()
 
 			invocationCount++

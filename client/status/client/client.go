@@ -55,8 +55,8 @@ func (c *Client) signal(job, sig string) error {
 	)
 }
 
-func (c *Client) SignalWakeup(job string) error {
-	return c.signal(job, "wakeup")
+func (c *Client) SignalReplicate(job string) error {
+	return c.signal(job, "replicate")
 }
 
 func (c *Client) SignalSnapshot(job string) error {
