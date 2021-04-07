@@ -281,8 +281,8 @@ func interactive(c Client, flag statusFlags) error {
 			if !ok {
 				return nil
 			}
-			signals := []string{"wakeup", "snapshot", "reset"}
-			clientFuncs := []func(job string) error{c.SignalWakeup, c.SignalSnapshot, c.SignalReset}
+			signals := []string{"wakeup", "snapshot", "prune", "reset"}
+			clientFuncs := []func(job string) error{c.SignalWakeup, c.SignalSnapshot, c.SignalPrune, c.SignalReset}
 			sigMod := tview.NewModal()
 			sigMod.SetBackgroundColor(tcell.ColorDefault)
 			sigMod.SetBorder(true)

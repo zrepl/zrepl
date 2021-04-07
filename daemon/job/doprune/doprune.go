@@ -1,4 +1,4 @@
-package wakeup
+package doprune
 
 import (
 	"context"
@@ -7,10 +7,10 @@ import (
 
 type contextKey int
 
-const contextKeyWakeup contextKey = iota
+const contextKeyDoprune contextKey = iota
 
 func Wait(ctx context.Context) <-chan struct{} {
-	wc, ok := ctx.Value(contextKeyWakeup).(chan struct{})
+	wc, ok := ctx.Value(contextKeyDoprune).(chan struct{})
 	if !ok {
 		wc = make(chan struct{})
 	}
@@ -19,7 +19,7 @@ func Wait(ctx context.Context) <-chan struct{} {
 
 type Func func() error
 
-var AlreadyWokenUp = errors.New("Cannot wakeup")
+var AlreadyDoprune = errors.New("Cannot start pruning")
 
 func Context(ctx context.Context) (context.Context, Func) {
 	wc := make(chan struct{})
@@ -28,8 +28,8 @@ func Context(ctx context.Context) (context.Context, Func) {
 		case wc <- struct{}{}:
 			return nil
 		default:
-			return AlreadyWokenUp
+			return AlreadyDoprune
 		}
 	}
-	return context.WithValue(ctx, contextKeyWakeup, wc), wuf
+	return context.WithValue(ctx, contextKeyDoprune, wc), wuf
 }

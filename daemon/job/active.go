@@ -11,15 +11,16 @@ import (
 	"github.com/prometheus/common/log"
 
 	"github.com/zrepl/zrepl/daemon/logging/trace"
+	"github.com/zrepl/zrepl/replication"
 	"github.com/zrepl/zrepl/util/envconst"
 
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/job/doprune"
 	"github.com/zrepl/zrepl/daemon/job/reset"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/endpoint"
-	"github.com/zrepl/zrepl/replication"
 	"github.com/zrepl/zrepl/replication/driver"
 	"github.com/zrepl/zrepl/replication/logic"
 	"github.com/zrepl/zrepl/replication/report"
@@ -441,14 +442,28 @@ outer:
 			log.WithError(ctx.Err()).Info("context")
 			break outer
 
+		case <-doprune.Wait(ctx):
+			invocationCount++
+			invocationCtx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("invocation-%d", invocationCount))
+			j.doPrune(invocationCtx)
+			endSpan()
+
 		case <-wakeup.Wait(ctx):
 			j.mode.ResetConnectBackoff()
+
+			invocationCount++
+			invocationCtx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("invocation-%d", invocationCount))
+			j.do(invocationCtx)
+			endSpan()
+
 		case <-periodicDone:
+			invocationCount++
+			invocationCtx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("invocation-%d", invocationCount))
+			j.do(invocationCtx)
+			j.doPrune(invocationCtx)
+			endSpan()
 		}
-		invocationCount++
-		invocationCtx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("invocation-%d", invocationCount))
-		j.do(invocationCtx)
-		endSpan()
+
 	}
 }
 
@@ -482,7 +497,9 @@ func (j *ActiveSide) do(ctx context.Context) {
 		var repWait driver.WaitFunc
 		j.updateTasks(func(tasks *activeSideTasks) {
 			// reset it
-			*tasks = activeSideTasks{}
+			//*tasks = activeSideTasks{} // reset Pruning Sender/Receiver: in zrepl status
+			tasks.replicationReport = nil // just reset the Replication:
+
 			tasks.replicationCancel = func() { repCancel(); endSpan() }
 			tasks.replicationReport, repWait = replication.Do(
 				ctx, j.replicationDriverConfig, logic.NewPlanner(j.promRepStateSecs, j.promBytesReplicated, sender, receiver, j.mode.PlannerPolicy()),
@@ -498,6 +515,29 @@ func (j *ActiveSide) do(ctx context.Context) {
 
 		endSpan()
 	}
+	j.updateTasks(func(tasks *activeSideTasks) {
+		tasks.state = ActiveSideDone
+	})
+}
+
+func (j *ActiveSide) doPrune(ctx context.Context) {
+
+	j.mode.ConnectEndpoints(ctx, j.connecter)
+	defer j.mode.DisconnectEndpoints()
+
+	// allow cancellation of an invocation (this function)
+	ctx, cancelThisRun := context.WithCancel(ctx)
+	defer cancelThisRun()
+	go func() {
+		select {
+		case <-reset.Wait(ctx):
+			log.Info("reset received, cancelling current invocation")
+			cancelThisRun()
+		case <-ctx.Done():
+		}
+	}()
+
+	sender, receiver := j.mode.SenderReceiver()
 
 	{
 		select {

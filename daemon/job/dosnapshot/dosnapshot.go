@@ -19,7 +19,7 @@ func Wait(ctx context.Context) <-chan struct{} {
 
 type Func func() error
 
-var AlreadyDosnapshot = errors.New("already snapshotting")
+var AlreadyDosnapshot = errors.New("Cannot start snapshotting")
 
 func Context(ctx context.Context) (context.Context, Func) {
 	wc := make(chan struct{})

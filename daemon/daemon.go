@@ -20,6 +20,7 @@ import (
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job"
+	"github.com/zrepl/zrepl/daemon/job/doprune"
 	"github.com/zrepl/zrepl/daemon/job/dosnapshot"
 	"github.com/zrepl/zrepl/daemon/job/reset"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
@@ -136,6 +137,7 @@ type jobs struct {
 	wakeups     map[string]wakeup.Func     // by Job.Name
 	resets      map[string]reset.Func      // by Job.Name
 	dosnapshots map[string]dosnapshot.Func // by Job.Name
+	doprunes    map[string]doprune.Func    // by Job.Name
 	jobs        map[string]job.Job
 }
 
@@ -144,6 +146,7 @@ func newJobs() *jobs {
 		wakeups:     make(map[string]wakeup.Func),
 		resets:      make(map[string]reset.Func),
 		dosnapshots: make(map[string]dosnapshot.Func),
+		doprunes:    make(map[string]doprune.Func),
 		jobs:        make(map[string]job.Job),
 	}
 }
@@ -226,6 +229,17 @@ func (s *jobs) dosnapshot(job string) error {
 	return wu()
 }
 
+func (s *jobs) doprune(job string) error {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	wu, ok := s.doprunes[job]
+	if !ok {
+		return errors.Errorf("Job %s does not exist", job)
+	}
+	return wu()
+}
+
 const (
 	jobNamePrometheus = "_prometheus"
 	jobNameControl    = "_control"
@@ -259,9 +273,11 @@ func (s *jobs) start(ctx context.Context, j job.Job, internal bool) {
 	ctx, wakeup := wakeup.Context(ctx)
 	ctx, resetFunc := reset.Context(ctx)
 	ctx, dosnapshotFunc := dosnapshot.Context(ctx)
+	ctx, dopruneFunc := doprune.Context(ctx)
 	s.wakeups[jobName] = wakeup
 	s.resets[jobName] = resetFunc
 	s.dosnapshots[jobName] = dosnapshotFunc
+	s.doprunes[jobName] = dopruneFunc
 
 	s.wg.Add(1)
 	go func() {

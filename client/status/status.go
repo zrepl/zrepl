@@ -21,6 +21,7 @@ type Client interface {
 	StatusRaw() ([]byte, error)
 	SignalWakeup(job string) error
 	SignalSnapshot(job string) error
+	SignalPrune(job string) error
 	SignalReset(job string) error
 }
 

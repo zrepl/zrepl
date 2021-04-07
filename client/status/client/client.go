@@ -63,6 +63,10 @@ func (c *Client) SignalSnapshot(job string) error {
 	return c.signal(job, "snapshot")
 }
 
+func (c *Client) SignalPrune(job string) error {
+	return c.signal(job, "prune")
+}
+
 func (c *Client) SignalReset(job string) error {
 	return c.signal(job, "reset")
 }

@@ -19,7 +19,7 @@ func Wait(ctx context.Context) <-chan struct{} {
 
 type Func func() error
 
-var AlreadyReset = errors.New("already reset")
+var AlreadyReset = errors.New("Cannot reset")
 
 func Context(ctx context.Context) (context.Context, Func) {
 	wc := make(chan struct{})

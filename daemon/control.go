@@ -149,6 +149,8 @@ func (j *controlJob) Run(ctx context.Context) {
 				err = j.jobs.reset(req.Name)
 			case "snapshot":
 				err = j.jobs.dosnapshot(req.Name)
+			case "prune":
+				err = j.jobs.doprune(req.Name)
 			default:
 				err = fmt.Errorf("operation %q is invalid", req.Op)
 			}
