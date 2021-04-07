@@ -13,13 +13,13 @@ The following snippet configure the repository for your Debian or Ubuntu release
 
 ::
 
-    apt update && apt install curl gnupg lsb-release; \
+    sudo apt update && sudo apt install curl gnupg lsb-release; \
     ARCH="$(dpkg --print-architecture)"; \
     CODENAME="$(lsb_release -i -s | tr '[:upper:]' '[:lower:]') $(lsb_release -c -s | tr '[:upper:]' '[:lower:]')"; \
     echo "Using Distro and Codename: $CODENAME"; \
-    (curl https://zrepl.cschwarz.com/apt/apt-key.asc | apt-key add -) && \
-    (echo "deb [arch=$ARCH] https://zrepl.cschwarz.com/apt/$CODENAME main" > /etc/apt/sources.list.d/zrepl.list) && \
-    apt update
+    (curl https://zrepl.cschwarz.com/apt/apt-key.asc | sudo apt-key add -) && \
+    (echo "deb [arch=$ARCH] https://zrepl.cschwarz.com/apt/$CODENAME main" | sudo tee /etc/apt/sources.list.d/zrepl.list) && \
+    sudo apt update
 
 
 .. NOTE::
