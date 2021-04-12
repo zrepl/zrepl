@@ -6,7 +6,7 @@ Taking Snaphots
 ===============
 
 The ``push``, ``source`` and ``snap`` jobs can automatically take periodic snapshots of the filesystems matched by the ``filesystems`` filter field.
-The snapshot names are composed of a user-defined prefix followed by a UTC date formatted like ``20060102_150405_000``.
+The snapshot names are composed of a user-defined prefix followed by a UTC date, ISO 8691 formatted like ``2006-01-02T150405.000Z``.
 We use UTC because it will avoid name conflicts when switching time zones or between summer and winter time.
 
 When a job is started, the snapshotter attempts to get the snapshotting rhythms of the matched ``filesystems`` in sync because snapshotting all filesystems at the same time results in a more consistent backup.
