@@ -54,12 +54,21 @@ func (j JobEnum) Name() string {
 }
 
 type ActiveJob struct {
-	Type        string                `yaml:"type"`
-	Name        string                `yaml:"name"`
-	Connect     ConnectEnum           `yaml:"connect"`
-	Pruning     PruningSenderReceiver `yaml:"pruning"`
-	Debug       JobDebugSettings      `yaml:"debug,optional"`
-	Replication *Replication          `yaml:"replication,optional,fromdefaults"`
+	Type               string                `yaml:"type"`
+	Name               string                `yaml:"name"`
+	Connect            ConnectEnum           `yaml:"connect"`
+	Pruning            PruningSenderReceiver `yaml:"pruning"`
+	Debug              JobDebugSettings      `yaml:"debug,optional"`
+	Replication        *Replication          `yaml:"replication,optional,fromdefaults"`
+	ConflictResolution *ConflictResolution   `yaml:"conflict_resolution,optional,fromdefaults"`
+}
+
+type ConflictResolution struct {
+	InitialReplication *ConflictResolutionOptionsInitialReplication `yaml:"initial_replication,optional,fromdefaults"`
+}
+
+type ConflictResolutionOptionsInitialReplication struct {
+	ReplicateAllSnapshots bool `yaml:"replicate_all_snapshots,optional,default=false"`
 }
 
 type PassiveJob struct {

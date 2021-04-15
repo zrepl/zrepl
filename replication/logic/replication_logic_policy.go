@@ -10,6 +10,7 @@ import (
 
 type PlannerPolicy struct {
 	EncryptedSend             tri // all sends must be encrypted (send -w, and encryption!=off)
+	InitiallyAllSnapshots     bool
 	ReplicationConfig         *pdu.ReplicationConfig
 	SizeEstimationConcurrency int `validate:"gte=1"`
 }
