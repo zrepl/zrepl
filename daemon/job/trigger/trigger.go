@@ -7,7 +7,7 @@
 //	    Poll(PollRequest, chan PollResponse),
 //	    Reset(ResetRequest, chan (ResetResponse, error)),
 //	}
-//	
+//
 //	enum State {
 //	    Running{
 //	        invocationId: u32,
@@ -17,7 +17,7 @@
 //	        nextInvocationId: u32,
 //	    }
 //	}
-//	
+//
 //	for msg := <- t.internalMsgs {
 //	    match (msg, state) {
 //	        ...
@@ -30,9 +30,6 @@ import (
 	"fmt"
 	"math"
 	"sync"
-
-	"github.com/zrepl/zrepl/daemon/logging"
-	"github.com/zrepl/zrepl/logger"
 )
 
 type T struct {

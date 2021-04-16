@@ -58,7 +58,7 @@ const (
 	ActiveSideDone // also errors
 )
 
-type activeSideTasks struct {
+type activeSideReplicationAndTriggerRemotePruneSequence struct {
 	state ActiveSideState
 
 	// valid for state ActiveSideReplicating, ActiveSidePruneSender, ActiveSidePruneReceiver, ActiveSideDone
@@ -67,10 +67,8 @@ type activeSideTasks struct {
 	replicationDone   *report.Report
 
 	// valid for state ActiveSidePruneSender, ActiveSidePruneReceiver, ActiveSideDone
-	prunerSender, prunerReceiver *pruner.Pruner
-
-	// valid for state ActiveSidePruneReceiver, ActiveSideDone
-	prunerSenderCancel, prunerReceiverCancel context.CancelFunc
+	pruneRemote *pruner.Pruner
+	pruneRemoteCancel context.CancelFunc
 }
 
 func (a *ActiveSide) updateTasks(u func(*activeSideTasks)) activeSideTasks {
@@ -427,6 +425,13 @@ func (j *ActiveSide) Run(ctx context.Context) {
 
 	defer log.Info("job exiting")
 
+	type Activity interface {
+		Trigger() (interface{}, error)
+	}
+
+	var periodicActivity Activity
+	var replicationActivity Activity
+	
 	periodicDone := make(chan struct{})
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -608,6 +613,10 @@ func (j *ActiveSide) Trigger(req ActiveSideTriggerRequest) (*ActiveSideSignalRes
 	}
 	j.tasksMtx.Unlock()
 	return &ActiveSideSignalResponse{InvocationId: invocationId}, nil
+}
+
+type ReplicationPlusRemotePruneSequence struct {
+
 }
 
 func (j *ActiveSide) do(ctx context.Context) {
