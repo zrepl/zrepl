@@ -5,7 +5,7 @@
 # quick start section which inlines this example.
 #
 # CUSTOMIZATIONS YOU WILL LIKELY WANT TO APPLY:
-# - adjust the name of the production pool `system` in the `filesystems` filter of jobs `snapjob` and `push_to_derive`
+# - adjust the name of the production pool `system` in the `filesystems` filter of jobs `snapjob` and `push_to_drive`
 # - adjust the name of the backup pool `backuppool` in the `backuppool_sink` job
 # - adjust the occurences of `myhostname` to the name of the system you are backing up (cannot be easily changed once you start replicating)
 # - make sure the `zrepl_` prefix is not being used by any other zfs tools you might have installed (it likely isn't)
