@@ -195,7 +195,7 @@ func ParseFilesystemVersion(args ParseFilesystemVersionArgs) (v FilesystemVersio
 type ListFilesystemVersionsOptions struct {
 	// the prefix of the version name, without the delimiter char
 	// empty means any prefix matches
-	ShortnamePrefix string
+	SnapPrefix string
 
 	// which types should be returned
 	// nil or len(0) means any prefix matches
@@ -211,14 +211,11 @@ func (o *ListFilesystemVersionsOptions) typesFlagArgs() string {
 }
 
 func (o *ListFilesystemVersionsOptions) matches(v FilesystemVersion) bool {
-	// Workaround when using JobSnapPrefix because bookmarks are not following
-	// the snapshotting prefix but they have fixed prefix:
-	// replicationCursorBookmarkNamePrefix = "zrepl_CURSOR"
-	if len(o.ShortnamePrefix) > 0 && len(o.Types) == 0 && v.Type == Bookmark && strings.HasPrefix(v.Name, "zrepl_CURSOR") {
+	if v.Type == Bookmark {
 		return true
 	}
 
-	return (len(o.Types) == 0 || o.Types[v.Type]) && strings.HasPrefix(v.Name, o.ShortnamePrefix)
+	return (len(o.Types) == 0 || o.Types[v.Type]) && strings.HasPrefix(v.Name, o.SnapPrefix)
 }
 
 // returned versions are sorted by createtxg FIXME drop sort by createtxg requirement

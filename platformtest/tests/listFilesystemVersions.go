@@ -66,7 +66,7 @@ func ListFilesystemVersionsTypeFilteringAndPrefix(t *platformtest.Context) {
 
 	// just with prefix foo
 	vs, err = zfs.ZFSListFilesystemVersions(t, mustDatasetPath(fs), zfs.ListFilesystemVersionsOptions{
-		ShortnamePrefix: "foo",
+		SnapPrefix: "foo",
 	})
 	require.NoError(t, err)
 	require.Equal(t, []string{"#foo 1", "#foo 2", "@foo 1", "@foo 2"}, versionRelnamesSorted(vs))

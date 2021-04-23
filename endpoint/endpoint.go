@@ -119,7 +119,7 @@ func (s *Sender) ListFilesystemVersions(ctx context.Context, r *pdu.ListFilesyst
 	}
 
 	fsvs, err := zfs.ZFSListFilesystemVersions(ctx, lp, zfs.ListFilesystemVersionsOptions{
-		ShortnamePrefix: s.config.JobSnapPrefix,
+		SnapPrefix: s.config.JobSnapPrefix,
 	})
 
 	if err != nil {
