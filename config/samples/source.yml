@@ -1,6 +1,7 @@
 jobs:
 - name: pull_source
   type: source
+  replication_snapshots_prefix: zrepl_
   serve:
     type: tcp
     listen: "0.0.0.0:8888"

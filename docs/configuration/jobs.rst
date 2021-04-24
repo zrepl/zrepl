@@ -28,6 +28,8 @@ Job Type ``push``
       - |send-options| 
     * - ``snapshotting``
       - |snapshotting-spec|
+    * - ``replication_snapshots_prefix``
+      - |replication-snapshots-prefix|
     * - ``pruning``
       - |pruning-spec|
 
@@ -107,6 +109,9 @@ Job Type ``source``
       - |send-options| 
     * - ``snapshotting``
       - |snapshotting-spec|
+    * - ``replication_snapshots_prefix``
+      - |replication-snapshots-prefix|
+
 
 Example config: :sampleconf:`/source.yml`
 

@@ -1,6 +1,7 @@
 jobs:
   - type: push
     name: "push"
+    replication_snapshots_prefix: zrepl_
     filesystems: {
       "<": true,
       "tmp": false

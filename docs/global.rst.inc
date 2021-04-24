@@ -28,6 +28,7 @@
 .. |snapshotting-spec| replace:: :ref:`snapshotting specification <job-snapshotting-spec>`
 .. |pruning-spec| replace:: :ref:`pruning specification <prune>`
 .. |filter-spec| replace:: :ref:`filter specification<pattern-filter>`
+.. |replication-snapshots-prefix| replace:: :ref:`filters the snapshots to be replicate based on the provided prefix. Matching this prefix with the snapshotting<job-snapshotting-spec> prefix could allow to replicate only the snapshots created by zrepl`
 
 .. |br| raw:: html
 
