@@ -124,43 +124,51 @@ The syntax to describe the bucket list is as follows:
 
 ::
 
-          This grid spec produces the following list of adjacent buckets. For the sake of simplicity,
-          we subject all snapshots to the grid pruning policy by settings `regex: .*`.
+   Assume the following grid spec:
 
-          `
-           grid: 1x1h(keep=all) | 2x2h | 1x3h
-           regex: .*
-          `
+      grid: 1x1h(keep=all) | 2x2h | 1x3h
 
-          0h        1h        2h        3h        4h        5h        6h        7h        8h        9h
-          |         |         |         |         |         |         |         |         |         |
-          |-Bucket1-|-----Bucket 2------|------Bucket 3-----|-----------Bucket 4----------|
-          | keep=all|      keep=1       |       keep=1      |            keep=1           |
+   This grid spec produces the following constellation of buckets:
+
+   0h        1h        2h        3h        4h        5h        6h        7h        8h        9h
+   |         |         |         |         |         |         |         |         |         |
+   |-Bucket1-|-----Bucket2-------|------Bucket3------|-----------Bucket4-----------|
+   | keep=all|      keep=1       |       keep=1      |            keep=1           |
 
 
 
-          Let us consider the following set of snapshots @a-zA-C:
+   Now assume that we have a set of snapshots @a, @b, ..., @D.
+   Snapshot @a is the most recent snapshot.
+   Snapshot @D is the oldest snapshot, it is almost 9 hours older than snapshot @a.
+   We place the snapshots on the same timeline as the buckets:
 
 
-          |  a  b  c  d  e  f  g  h  i  j  k  l  m  n  o  p  q  r  s  t  u  v  w  x  y  z  A  B  C  D        |
+   0h        1h        2h        3h        4h        5h        6h        7h        8h        9h
+   |         |         |         |         |         |         |         |         |         |
+   |-Bucket1-|-----Bucket2-------|------Bucket3------|-----------Bucket4-----------|
+   | keep=all|      keep=1       |       keep=1      |            keep=1           |
+   |         |                   |                   |                             |
+   |  a  b  c| d  e  f  g  h  i  j  k  l  m  n  o  p |q  r  s  t  u  v  w  x  y  z |A  B  C  D
 
-          The `grid` algorithm maps them to their respective buckets:
+   The result is the following mapping of snapshots to buckets:
 
-          Bucket 1: a, b, c
-          Bucket 2: d,e,f,g,h,i,j
-          Bucket 3: k,l,m,n,o,p
-          Bucket 4: q,r, q,r,s,t,u,v,w,x,y,z
-          None:     A,B,C,D
+   Bucket1:   a, b, c
+   Bucket2:   d,e,f,g,h,i,j
+   Bucket3:   k,l,m,n,o,p
+   Bucket4:   q,r,s,t,u,v,w,x,y,z
+   No bucket: A,B,C,D
 
-          It then applies the per-bucket pruning logic described above which resulting in the
-          following list of remaining snapshots.
+   For each bucket, we now prune snapshots until it only contains `keep` snapshots.
+   Newer snapshots are destroyed first.
+   Snapshots that do not fall into a bucket are always destroyed.
 
-          |  a  b  c                    j                 p                             z                    |
+   Result after pruning:
 
-          Note that it only makes sense to grow (not shorten) the interval duration for buckets
-          further in the past since each bucket acts like a low-pass filter for incoming snapshots
-          and adding a less-low-pass-filter after a low-pass one has no effect.
-
+   0h        1h        2h        3h        4h        5h        6h        7h        8h        9h
+   |         |         |         |         |         |         |         |         |         |
+   |-Bucket1-|-----Bucket2-------|------Bucket3------|-----------Bucket4-----------|
+   |         |                   |                   |                             |
+   |  a  b  c|                   j                 p |                           z  |
 
 .. _prune-keep-last-n:
 
