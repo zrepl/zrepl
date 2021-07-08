@@ -1,6 +1,5 @@
 #!/bin/bash
-set -eo pipefail
-
+set -euo pipefail
 
 NON_INTERACTIVE=false
 DO_CLONE=false
@@ -13,7 +12,7 @@ while getopts "ca" arg; do
             DO_CLONE=true
             ;;
         *)
-            echo invalid option
+            echo "invalid option '-$arg'"
             exit 1
             ;;
     esac
@@ -26,11 +25,6 @@ PUBLICDIR="${SCRIPTDIR}/public_git"
 checkout_repo_msg() {
     echo "clone ${GHPAGESREPO} to ${PUBLICDIR}:"
 }
-
-exit_msg() {
-    echo "error, exiting..."
-}
-trap exit_msg EXIT
 
 if ! type sphinx-versioning >/dev/null; then
     echo "install sphinx-versioning and come back"
@@ -71,6 +65,9 @@ git reset --hard origin/master
 
 echo "cleaning GitHub pages repo"
 git rm -rf .
+cat > .gitignore <<EOF
+**/.doctrees
+EOF
 
 popd
 
@@ -96,7 +93,13 @@ COMMIT_MSG="sphinx-versioning render from publish.sh - $(date -u) - ${CURRENT_CO
 pushd "$PUBLICDIR"
 
 echo "adding and commiting all changes in GitHub pages repo"
+git add .gitignore
 git add -A
-git commit -m "$COMMIT_MSG"
+if [ "$(git status --porcelain)" != "" ]; then
+    git commit -m "$COMMIT_MSG"
+else
+    echo "nothing to commit"
+fi
+echo "pushing to GitHub pages repo"
 git push origin master
 

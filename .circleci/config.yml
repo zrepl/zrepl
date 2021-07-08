@@ -358,7 +358,7 @@ jobs:
           subcommand: docdep
       - run:
           command: |
-            git config --global user.email "me@cschwarz.com"
+            git config --global user.email "zreplbot@cschwarz.com"
             git config --global user.name "zrepl-github-io-ci"
 
       # https://circleci.com/docs/2.0/add-ssh-key/#adding-multiple-keys-with-blank-hostnames
