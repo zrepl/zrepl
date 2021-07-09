@@ -1,0 +1,41 @@
+
+jobs:
+  - type: sink
+    name: "limited_sink"
+    root_fs: "fs0"
+    recv:
+      bandwidth_limit:
+        max: 12345 B
+    serve:
+      type: local
+      listener_name: localsink
+
+  - type: push
+    name: "limited_push"
+    connect:
+      type: local
+      listener_name: localsink
+      client_identity: local_backup
+    filesystems: {
+      "root<": true,
+    }
+    send:
+      bandwidth_limit:
+        max: 54321 B
+        bucket_capacity: 1024 B
+    snapshotting:
+      type: manual
+    pruning:
+      keep_sender:
+        - type: last_n
+          count: 1
+      keep_receiver:
+        - type: last_n
+          count: 1
+
+  - type: sink
+    name: "nolimit_sink"
+    root_fs: "fs1"
+    serve:
+      type: local
+      listener_name: localsink

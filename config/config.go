@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zrepl/yaml-config"
 
+	"github.com/zrepl/zrepl/util/datasizeunit"
 	zfsprop "github.com/zrepl/zrepl/zfs/property"
 )
 
@@ -87,6 +88,8 @@ type SendOptions struct {
 	Compressed       bool `yaml:"compressed,optional,default=false"`
 	EmbeddedData     bool `yaml:"embbeded_data,optional,default=false"`
 	Saved            bool `yaml:"saved,optional,default=false"`
+
+	BandwidthLimit *BandwidthLimit `yaml:"bandwidth_limit,optional,fromdefaults"`
 }
 
 type RecvOptions struct {
@@ -96,6 +99,15 @@ type RecvOptions struct {
 	// Reencrypt bool `yaml:"reencrypt"`
 
 	Properties *PropertyRecvOptions `yaml:"properties,fromdefaults"`
+
+	BandwidthLimit *BandwidthLimit `yaml:"bandwidth_limit,optional,fromdefaults"`
+}
+
+var _ yaml.Unmarshaler = &datasizeunit.Bits{}
+
+type BandwidthLimit struct {
+	Max            datasizeunit.Bits `yaml:"max,default=-1 B"`
+	BucketCapacity datasizeunit.Bits `yaml:"bucket_capacity,default=128 KiB"`
 }
 
 type Replication struct {
@@ -111,10 +123,6 @@ type ReplicationOptionsProtection struct {
 type ReplicationOptionsConcurrency struct {
 	Steps         int `yaml:"steps,optional,default=1"`
 	SizeEstimates int `yaml:"size_estimates,optional,default=4"`
-}
-
-func (l *RecvOptions) SetDefault() {
-	*l = RecvOptions{Properties: &PropertyRecvOptions{}}
 }
 
 type PropertyRecvOptions struct {

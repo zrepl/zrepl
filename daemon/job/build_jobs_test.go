@@ -119,6 +119,14 @@ func TestSampleConfigsAreBuiltWithoutErrors(t *testing.T) {
 		t.Errorf("glob failed: %+v", err)
 	}
 
+	type additionalCheck struct {
+		state int
+		test  func(t *testing.T, jobs []Job)
+	}
+	additionalChecks := map[string]*additionalCheck{
+		"bandwidth_limit.yml": {test: testSampleConfig_BandwidthLimit},
+	}
+
 	for _, p := range paths {
 
 		if path.Ext(p) != ".yml" {
@@ -126,10 +134,20 @@ func TestSampleConfigsAreBuiltWithoutErrors(t *testing.T) {
 			continue
 		}
 
+		filename := path.Base(p)
+		t.Logf("checking for presence additonal checks for file %q", filename)
+		additionalCheck := additionalChecks[filename]
+		if additionalCheck == nil {
+			t.Logf("no additional checks")
+		} else {
+			t.Logf("additional check present")
+			additionalCheck.state = 1
+		}
+
 		t.Run(p, func(t *testing.T) {
 			c, err := config.ParseConfig(p)
 			if err != nil {
-				t.Errorf("error parsing %s:\n%+v", p, err)
+				t.Fatalf("error parsing %s:\n%+v", p, err)
 			}
 
 			t.Logf("file: %s", p)
@@ -138,9 +156,55 @@ func TestSampleConfigsAreBuiltWithoutErrors(t *testing.T) {
 			tls.FakeCertificateLoading(t)
 			jobs, err := JobsFromConfig(c)
 			t.Logf("jobs: %#v", jobs)
-			assert.NoError(t, err)
+			require.NoError(t, err)
+
+			if additionalCheck != nil {
+				additionalCheck.test(t, jobs)
+				additionalCheck.state = 2
+			}
 		})
 
+	}
+
+	for basename, c := range additionalChecks {
+		if c.state == 0 {
+			panic("univisited additional check " + basename)
+		}
+	}
+
+}
+
+func testSampleConfig_BandwidthLimit(t *testing.T, jobs []Job) {
+	require.Len(t, jobs, 3)
+
+	{
+		limitedSink, ok := jobs[0].(*PassiveSide)
+		require.True(t, ok, "%T", jobs[0])
+		limitedSinkMode, ok := limitedSink.mode.(*modeSink)
+		require.True(t, ok, "%T", limitedSink)
+
+		assert.Equal(t, int64(12345), limitedSinkMode.receiverConfig.BandwidthLimit.Max)
+		assert.Equal(t, int64(1<<17), limitedSinkMode.receiverConfig.BandwidthLimit.BucketCapacity)
+	}
+
+	{
+		limitedPush, ok := jobs[1].(*ActiveSide)
+		require.True(t, ok, "%T", jobs[1])
+		limitedPushMode, ok := limitedPush.mode.(*modePush)
+		require.True(t, ok, "%T", limitedPush)
+
+		assert.Equal(t, int64(54321), limitedPushMode.senderConfig.BandwidthLimit.Max)
+		assert.Equal(t, int64(1024), limitedPushMode.senderConfig.BandwidthLimit.BucketCapacity)
+	}
+
+	{
+		unlimitedSink, ok := jobs[2].(*PassiveSide)
+		require.True(t, ok, "%T", jobs[2])
+		unlimitedSinkMode, ok := unlimitedSink.mode.(*modeSink)
+		require.True(t, ok, "%T", unlimitedSink)
+
+		max := unlimitedSinkMode.receiverConfig.BandwidthLimit.Max
+		assert.Less(t, max, int64(0), max, "unlimited mode <=> negative value for .Max, see bandwidthlimit.Config")
 	}
 
 }

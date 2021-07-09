@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/util/bandwidthlimit"
 )
 
 func JobsFromConfig(c *config.Config) ([]Job, error) {
@@ -106,4 +107,14 @@ func validateReceivingSidesDoNotOverlap(receivingRootFSs []string) error {
 		}
 	}
 	return nil
+}
+
+func buildBandwidthLimitConfig(in *config.BandwidthLimit) (c bandwidthlimit.Config, _ error) {
+	if in.Max.ToBytes() > 0 && int64(in.Max.ToBytes()) == 0 {
+		return c, fmt.Errorf("bandwidth limit `max` is too small, must at least specify one byte")
+	}
+	return bandwidthlimit.Config{
+		Max:            int64(in.Max.ToBytes()),
+		BucketCapacity: int64(in.BucketCapacity.ToBytes()),
+	}, nil
 }

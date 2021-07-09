@@ -15,6 +15,7 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/google/uuid v1.1.2
 	github.com/jinzhu/copier v0.0.0-20170922082739-db4671f3a9b8
+	github.com/juju/ratelimit v1.0.1
 	github.com/kisielk/gotool v1.0.0 // indirect
 	github.com/kr/pretty v0.1.0
 	github.com/leodido/go-urn v1.2.1 // indirect

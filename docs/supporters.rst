@@ -32,6 +32,7 @@ We would like to thank the following people and organizations for supporting zre
 
    <div class="fa fa-code" style="width: 1em;"></div>
 
+* |supporter-gold| Prominic.NET, Inc.
 * |supporter-std| Torsten Blum
 * |supporter-gold| Cyberiada GmbH
 * |supporter-std| `Gordon Schulz <https://github.com/azmodude>`_

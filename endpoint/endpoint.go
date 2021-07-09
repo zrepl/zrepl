@@ -14,6 +14,7 @@ import (
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/replication/logic/pdu"
+	"github.com/zrepl/zrepl/util/bandwidthlimit"
 	"github.com/zrepl/zrepl/util/chainedio"
 	"github.com/zrepl/zrepl/util/chainlock"
 	"github.com/zrepl/zrepl/util/envconst"
@@ -34,6 +35,8 @@ type SenderConfig struct {
 	SendCompressed       bool
 	SendEmbeddedData     bool
 	SendSaved            bool
+
+	BandwidthLimit bandwidthlimit.Config
 }
 
 func (c *SenderConfig) Validate() error {
@@ -43,6 +46,9 @@ func (c *SenderConfig) Validate() error {
 	}
 	if _, err := StepHoldTag(c.JobID); err != nil {
 		return fmt.Errorf("JobID cannot be used for hold tag: %s", err)
+	}
+	if err := bandwidthlimit.ValidateConfig(c.BandwidthLimit); err != nil {
+		return errors.Wrap(err, "`Ratelimit` field invalid")
 	}
 	return nil
 }
@@ -54,16 +60,21 @@ type Sender struct {
 	FSFilter zfs.DatasetFilter
 	jobId    JobID
 	config   SenderConfig
+	bwLimit  bandwidthlimit.Wrapper
 }
 
 func NewSender(conf SenderConfig) *Sender {
 	if err := conf.Validate(); err != nil {
 		panic("invalid config" + err.Error())
 	}
+
+	ratelimiter := bandwidthlimit.WrapperFromConfig(conf.BandwidthLimit)
+
 	return &Sender{
 		FSFilter: conf.FSF,
 		jobId:    conf.JobID,
 		config:   conf,
+		bwLimit:  ratelimiter,
 	}
 }
 
@@ -301,11 +312,15 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 		abstractionsCacheSingleton.TryBatchDestroy(ctx, s.jobId, sendArgs.FS, destroyTypes, keep, check)
 	}()
 
-	sendStream, err := zfs.ZFSSend(ctx, sendArgs)
+	var sendStream io.ReadCloser
+	sendStream, err = zfs.ZFSSend(ctx, sendArgs)
 	if err != nil {
 		// it's ok to not destroy the abstractions we just created here, a new send attempt will take care of it
 		return nil, nil, errors.Wrap(err, "zfs send failed")
 	}
+
+	// apply rate limit
+	sendStream = s.bwLimit.WrapReadCloser(sendStream)
 
 	return res, sendStream, nil
 }
@@ -439,6 +454,8 @@ type ReceiverConfig struct {
 
 	InheritProperties  []zfsprop.Property
 	OverrideProperties map[zfsprop.Property]string
+
+	BandwidthLimit bandwidthlimit.Config
 }
 
 func (c *ReceiverConfig) copyIn() {
@@ -475,6 +492,11 @@ func (c *ReceiverConfig) Validate() error {
 	if c.RootWithoutClientComponent.Length() <= 0 {
 		return errors.New("RootWithoutClientComponent must not be an empty dataset path")
 	}
+
+	if err := bandwidthlimit.ValidateConfig(c.BandwidthLimit); err != nil {
+		return errors.Wrap(err, "`Ratelimit` field invalid")
+	}
+
 	return nil
 }
 
@@ -483,6 +505,8 @@ type Receiver struct {
 	pdu.UnsafeReplicationServer // prefer compilation errors over default 'method X not implemented' impl
 
 	conf ReceiverConfig // validated
+
+	bwLimit bandwidthlimit.Wrapper
 
 	recvParentCreationMtx *chainlock.L
 }
@@ -495,6 +519,7 @@ func NewReceiver(config ReceiverConfig) *Receiver {
 	return &Receiver{
 		conf:                  config,
 		recvParentCreationMtx: chainlock.New(),
+		bwLimit:               bandwidthlimit.WrapperFromConfig(config.BandwidthLimit),
 	}
 }
 
@@ -786,6 +811,9 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot determine whether we can use resumable send & recv")
 	}
+
+	// apply rate limit
+	receive = s.bwLimit.WrapReadCloser(receive)
 
 	var peek bytes.Buffer
 	var MaxPeek = envconst.Int64("ZREPL_ENDPOINT_RECV_PEEK_SIZE", 1<<20)

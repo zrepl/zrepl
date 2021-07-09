@@ -36,6 +36,9 @@ See the `upstream man page <https://openzfs.github.io/openzfs-docs/man/8/zfs-sen
     * - ``encrypted``
       -
       - Specific to zrepl, :ref:`see below <job-send-options-encrypted>`.
+    * - ``bandwidth_limit``
+      -
+      - Specific to zrepl, :ref:`see below <job-send-recv-options-bandwidth-limit>`.
     * - ``raw``
       - ``-w``
       - Use ``encrypted`` to only allow encrypted sends.
@@ -138,6 +141,7 @@ Recv Options
          override: {
            "org.openzfs.systemd:ignore": "on"
          }
+       bandwidth_limit: ... # see below
      ...
 
 .. _job-recv-options--inherit-and-override:
@@ -212,3 +216,25 @@ and property replication is enabled, the receiver must :ref:`inherit the followi
 * ``keylocation``
 * ``keyformat``
 * ``encryption``
+
+Common Options
+~~~~~~~~~~~~~~
+
+.. _job-send-recv-options-bandwidth-limit:
+
+Bandwidth Limit (send & recv)
+-----------------------------
+
+::
+
+   bandwidth_limit:
+     max: 23.5 MiB # -1 is the default and disabled rate limiting
+     bucket_capacity: # token bucket capacity in bytes; defaults to 128KiB
+
+Both ``send`` and ``recv`` can be limited to a maximum bandwidth through ``bandwidth_limit``.
+For most users, it should be sufficient to just set ``bandwidth_limit.max``.
+The ``bandwidth_limit.bucket_capacity`` refers to the `token bucket size <https://github.com/juju/ratelimit>`_.
+
+The bandwidth limit only applies to the payload data, i.e., the ZFS send stream.
+It does not account for transport protocol overheads.
+The scope is the job level, i.e., all :ref:`concurrent <replication-option-concurrency>` sends or incoming receives of a job share the bandwidth limit.

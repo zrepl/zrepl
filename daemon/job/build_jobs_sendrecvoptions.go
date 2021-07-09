@@ -22,7 +22,12 @@ func buildSenderConfig(in SendingJobConfig, jobID endpoint.JobID) (*endpoint.Sen
 		return nil, errors.Wrap(err, "cannot build filesystem filter")
 	}
 	sendOpts := in.GetSendOptions()
-	return &endpoint.SenderConfig{
+	bwlim, err := buildBandwidthLimitConfig(sendOpts.BandwidthLimit)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot build bandwith limit config")
+	}
+
+	sc := &endpoint.SenderConfig{
 		FSF:   fsf,
 		JobID: jobID,
 
@@ -34,7 +39,15 @@ func buildSenderConfig(in SendingJobConfig, jobID endpoint.JobID) (*endpoint.Sen
 		SendCompressed:       sendOpts.Compressed,
 		SendEmbeddedData:     sendOpts.EmbeddedData,
 		SendSaved:            sendOpts.Saved,
-	}, nil
+
+		BandwidthLimit: bwlim,
+	}
+
+	if err := sc.Validate(); err != nil {
+		return nil, errors.Wrap(err, "cannot build sender config")
+	}
+
+	return sc, nil
 }
 
 type ReceivingJobConfig interface {
@@ -53,6 +66,12 @@ func buildReceiverConfig(in ReceivingJobConfig, jobID endpoint.JobID) (rc endpoi
 	}
 
 	recvOpts := in.GetRecvOptions()
+
+	bwlim, err := buildBandwidthLimitConfig(recvOpts.BandwidthLimit)
+	if err != nil {
+		return rc, errors.Wrap(err, "cannot build bandwith limit config")
+	}
+
 	rc = endpoint.ReceiverConfig{
 		JobID:                      jobID,
 		RootWithoutClientComponent: rootFs,
@@ -60,6 +79,8 @@ func buildReceiverConfig(in ReceivingJobConfig, jobID endpoint.JobID) (rc endpoi
 
 		InheritProperties:  recvOpts.Properties.Inherit,
 		OverrideProperties: recvOpts.Properties.Override,
+
+		BandwidthLimit: bwlim,
 	}
 	if err := rc.Validate(); err != nil {
 		return rc, errors.Wrap(err, "cannot build receiver config")
