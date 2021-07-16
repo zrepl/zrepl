@@ -234,25 +234,38 @@ func NewPlanner(secsPerState *prometheus.HistogramVec, bytesReplicated *promethe
 		promBytesReplicated: bytesReplicated,
 	}
 }
-func resolveConflict(conflict error) (path []*pdu.FilesystemVersion, msg string) {
+func resolveConflict(conflict error, policy PlannerPolicy) (initialSend bool, path []*pdu.FilesystemVersion, msg string) {
 	if noCommonAncestor, ok := conflict.(*ConflictNoCommonAncestor); ok {
 		if len(noCommonAncestor.SortedReceiverVersions) == 0 {
-			// TODO this is hard-coded replication policy: most recent snapshot as source
+			// NOTE: I did not keep this in sync with listStaleFiltering, it isn't clear to me what the right thing to do is.
 			// NOTE: Keep in sync with listStaleFiltering, it depends on this hard-coded assumption
-			var mostRecentSnap *pdu.FilesystemVersion
-			for n := len(noCommonAncestor.SortedSenderVersions) - 1; n >= 0; n-- {
-				if noCommonAncestor.SortedSenderVersions[n].Type == pdu.FilesystemVersion_Snapshot {
-					mostRecentSnap = noCommonAncestor.SortedSenderVersions[n]
-					break
+			if policy.InitiallyAllSnapshots {
+				var allSnapshots []*pdu.FilesystemVersion
+				for n := 0; n < len(noCommonAncestor.SortedSenderVersions); n++ {
+					if noCommonAncestor.SortedSenderVersions[n].Type == pdu.FilesystemVersion_Snapshot {
+						allSnapshots = append(allSnapshots, noCommonAncestor.SortedSenderVersions[n])
+					}
 				}
+				if len(allSnapshots) == 0 {
+					return true, nil, "no snapshots available on sender side"
+				}
+				return true, allSnapshots, "start replication at the oldest snapshot"
+			} else {
+				var mostRecentSnap *pdu.FilesystemVersion
+				for n := len(noCommonAncestor.SortedSenderVersions) - 1; n >= 0; n-- {
+					if noCommonAncestor.SortedSenderVersions[n].Type == pdu.FilesystemVersion_Snapshot {
+						mostRecentSnap = noCommonAncestor.SortedSenderVersions[n]
+						break
+					}
+				}
+				if mostRecentSnap == nil {
+					return true, nil, "no snapshots available on sender side"
+				}
+				return true, []*pdu.FilesystemVersion{mostRecentSnap}, fmt.Sprintf("start replication at most recent snapshot %s", mostRecentSnap.RelName())
 			}
-			if mostRecentSnap == nil {
-				return nil, "no snapshots available on sender side"
-			}
-			return []*pdu.FilesystemVersion{mostRecentSnap}, fmt.Sprintf("start replication at most recent snapshot %s", mostRecentSnap.RelName())
 		}
 	}
-	return nil, "no automated way to handle conflict type"
+	return false, nil, "no automated way to handle conflict type"
 }
 
 func (p *Planner) doPlanning(ctx context.Context) ([]*Filesystem, error) {
@@ -453,10 +466,11 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 			})
 		}
 	} else { // resumeToken == nil
+		var initialSend = false
 		path, conflict := IncrementalPath(rfsvs, sfsvs)
 		if conflict != nil {
 			var msg string
-			path, msg = resolveConflict(conflict) // no shadowing allowed!
+			initialSend, path, msg = resolveConflict(conflict, fs.policy) // no shadowing allowed!
 			if path != nil {
 				log(ctx).WithField("conflict", conflict).Info("conflict")
 				log(ctx).WithField("resolution", msg).Info("automatically resolved")
@@ -469,29 +483,23 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 			return nil, conflict
 		}
 
+		if initialSend {
+			// Add a nil path to the beginning so our loop over each step starts with a nil...FIRSTSNAPSHOT step.
+			// The nil `from` is what indicates the send is not incremental.
+			path = append([]*pdu.FilesystemVersion{nil}, path...)
+		}
+
 		steps = make([]*Step, 0, len(path)) // shadow
-		if len(path) == 1 {
+		for i := 0; i < len(path)-1; i++ {
 			steps = append(steps, &Step{
 				parent:   fs,
 				sender:   fs.sender,
 				receiver: fs.receiver,
 
-				from:    nil,
-				to:      path[0],
+				from:    path[i],
+				to:      path[i+1],
 				encrypt: fs.policy.EncryptedSend,
 			})
-		} else {
-			for i := 0; i < len(path)-1; i++ {
-				steps = append(steps, &Step{
-					parent:   fs,
-					sender:   fs.sender,
-					receiver: fs.receiver,
-
-					from:    path[i],
-					to:      path[i+1],
-					encrypt: fs.policy.EncryptedSend,
-				})
-			}
 		}
 	}
 
