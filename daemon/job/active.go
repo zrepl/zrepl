@@ -38,10 +38,11 @@ type ActiveSide struct {
 
 	prunerFactory *pruner.PrunerFactory
 
-	promRepStateSecs      *prometheus.HistogramVec // labels: state
-	promPruneSecs         *prometheus.HistogramVec // labels: prune_side
-	promBytesReplicated   *prometheus.CounterVec   // labels: filesystem
-	promReplicationErrors prometheus.Gauge
+	promRepStateSecs       *prometheus.HistogramVec // labels: state
+	promPruneSecs          *prometheus.HistogramVec // labels: prune_side
+	promBytesReplicated    *prometheus.CounterVec   // labels: filesystem
+	promReplicationErrors  prometheus.Gauge
+	promPerFilesystemError *prometheus.GaugeVec // labels: filesystem
 
 	tasksMtx sync.Mutex
 	tasks    activeSideTasks
@@ -330,6 +331,14 @@ func activeSide(g *config.Global, in *config.ActiveJob, configJob interface{}) (
 		ConstLabels: prometheus.Labels{"zrepl_job": j.name.String()},
 	})
 
+	j.promPerFilesystemError = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace:   "zrepl",
+		Subsystem:   "replication",
+		Name:        "per_filesystem_error",
+		Help:        "last error state per filesystem, replication error occurred when 1",
+		ConstLabels: prometheus.Labels{"zrepl_job": j.name.String()},
+	}, []string{"filesystem"})
+
 	j.connecter, err = fromconfig.ConnecterFromConfig(g, in.Connect)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot build client")
@@ -360,6 +369,7 @@ func (j *ActiveSide) RegisterMetrics(registerer prometheus.Registerer) {
 	registerer.MustRegister(j.promPruneSecs)
 	registerer.MustRegister(j.promBytesReplicated)
 	registerer.MustRegister(j.promReplicationErrors)
+	registerer.MustRegister(j.promPerFilesystemError)
 }
 
 func (j *ActiveSide) Name() string { return j.name.String() }
@@ -495,6 +505,19 @@ func (j *ActiveSide) do(ctx context.Context) {
 
 		replicationReport := j.tasks.replicationReport()
 		j.promReplicationErrors.Set(float64(replicationReport.GetFailedFilesystemsCountInLatestAttempt()))
+
+		for _, attempt := range replicationReport.Attempts {
+			for _, filesystem := range attempt.Filesystems {
+				if filesystem.Info == nil {
+					continue
+				}
+				state := 0
+				if filesystem.Error() != nil {
+					state = 1
+				}
+				j.promPerFilesystemError.WithLabelValues(filesystem.Info.Name).Set(float64(state))
+			}
+		}
 
 		endSpan()
 	}
