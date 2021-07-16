@@ -250,7 +250,7 @@ func snapshot(a args, u updater) state {
 	anyFsHadErr := false
 	// TODO channel programs -> allow a little jitter?
 	for fs, progress := range plan {
-		suffix := time.Now().In(time.UTC).Format("20060102_150405_000")
+		suffix := time.Now().In(time.UTC).Format("2006-01-02T150405.000Z")
 		snapname := fmt.Sprintf("%s%s", a.prefix, suffix)
 
 		ctx := logging.WithInjectedField(a.ctx, "fs", fs.ToString())
