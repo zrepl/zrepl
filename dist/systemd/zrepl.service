@@ -4,6 +4,7 @@ Documentation=https://zrepl.github.io
 
 [Service]
 Type=simple
+Restart=always
 ExecStartPre=/usr/local/bin/zrepl --config /etc/zrepl/zrepl.yml configcheck
 ExecStart=/usr/local/bin/zrepl --config /etc/zrepl/zrepl.yml daemon
 RuntimeDirectory=zrepl zrepl/stdinserver
