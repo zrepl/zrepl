@@ -40,7 +40,7 @@ jobs:
 
 # This job pushes to the local sink defined in job `backuppool_sink`.
 # We trigger replication manually from the command line / udev rules using
-#  `zrepl signal wakeup push_to_drive`
+#  `zrepl signal replicate push_to_drive`
 - type: push
   name: push_to_drive
   connect:

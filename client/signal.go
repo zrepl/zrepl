@@ -11,8 +11,8 @@ import (
 )
 
 var SignalCmd = &cli.Subcommand{
-	Use:   "signal [wakeup|reset] JOB",
-	Short: "wake up a job from wait state or abort its current invocation",
+	Use:   "signal [snapshot|replicate|prune|reset] JOB",
+	Short: "run a snapshot job, replicate a job, run a prune job, abort its current invocation",
 	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 		return runSignalCmd(subcommand.Config(), args)
 	},
@@ -20,7 +20,7 @@ var SignalCmd = &cli.Subcommand{
 
 func runSignalCmd(config *config.Config, args []string) error {
 	if len(args) != 2 {
-		return errors.Errorf("Expected 2 arguments: [wakeup|reset] JOB")
+		return errors.Errorf("Expected 2 arguments: [snapshot|replicate|prune|reset] JOB")
 	}
 
 	httpc, err := controlHttpClient(config.Global.Control.SockPath)
