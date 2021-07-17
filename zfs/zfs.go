@@ -799,18 +799,9 @@ func (a ZFSSendArgsUnvalidated) validateEncryptionFlagsCorrespondToResumeToken(c
 		return gen.fmt("resume token `toguid` != expected: %v != %v", t.ToGUID, a.To.GUID)
 	}
 
-	if a.Encrypted.B {
-		if !(t.RawOK && t.CompressOK) {
-			return ZFSSendArgsResumeTokenMismatchEncryptionNotSet.fmt(
-				"resume token must have `rawok` and `compressok` = true but got %v %v", t.RawOK, t.CompressOK)
-		}
-		// fallthrough
-	} else {
-		if t.RawOK || t.CompressOK {
-			return ZFSSendArgsResumeTokenMismatchEncryptionSet.fmt(
-				"resume token must not have `rawok` or `compressok` set but got %v %v", t.RawOK, t.CompressOK)
-		}
-		// fallthrough
+	if a.Encrypted.B && !(t.RawOK && t.CompressOK) {
+		return ZFSSendArgsResumeTokenMismatchEncryptionNotSet.fmt(
+			"resume token must have `rawok` and `compressok` = true but got %v %v", t.RawOK, t.CompressOK)
 	}
 
 	return nil
