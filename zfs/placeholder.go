@@ -90,6 +90,40 @@ func ZFSCreatePlaceholderFilesystem(ctx context.Context, fs *DatasetPath, parent
 		"-o", fmt.Sprintf("%s=%s", PlaceholderPropertyName, placeholderPropertyOn),
 		"-o", "mountpoint=none",
 	}
+
+	// xxx handle encryption not supported
+	props, err := zfsGet(ctx, parent.ToString(), []string{"keystatus"}, SourceAny)
+	if err != nil {
+		return errors.Wrap(err, "cannot determine key status")
+	}
+	keystatus := props.Get("keystatus") // xxx ability to distringuish `-` from ``
+	if keystatus == "" {
+		// parent is unencrypted => placeholder inherits encryption
+	} else if keystatus == "available" {
+		// parent is encrypted but since the key is loaded we can create an encrypted placeholder dataset
+		// without `-o encryption=off`
+	} else if keystatus == "unavailable" {
+		// parent is encrypted but keys are not loaded, either because
+		//  1) it's a send-encrypted dataset, or because
+		//  2) the user forgot to zfs load-key the root_fs or above
+		// In both cases we can't create an encrypted placeholder dataset.
+		// In case 1), we want to create an unencrypted placeholder through `-o encryption=off`.
+		// In case 2), `-o encryption=off` is harmful security-wise because it breaks the encrypt-on-receiver use case (https://github.com/zrepl/zrepl/issues/504)
+		// 			   I.e., all children of the placeholder won't be encrypted because they inherit encryption=off
+		//
+		// => we could attempt to distinguish the cases by being more context sensitive
+		//    (i.e., check whether the encryption root is root_fs or a parent thereof)
+		//    However, that's always going to be imprecise, and a wrong decision there is harmful security-wise.
+		//
+		// => thus the safe choice is to never use `-o encryption=off` by default
+		//    only if we know for sure that the stream is encrypted should we create placeholders with `-o encryption=off`
+		//    => this knowledge can be achieved through one of the following means:
+		//		a) have the sender indicate it to us in the RPC request (it's ok to trust them in this particular case since lying only hurts _their_ data's confidentiality)
+		// 		b) have the user acknowledge it in the receiver config
+	} else {
+		return errors.Errorf("unknown keystatus value %q for dataset %q", keystatus, parent.ToString())
+	}
+
 	if parentEncrypted, err := ZFSGetEncryptionEnabled(ctx, parent.ToString()); err != nil {
 		return errors.Wrap(err, "cannot determine encryption support")
 	} else if parentEncrypted {
