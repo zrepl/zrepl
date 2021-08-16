@@ -8,6 +8,7 @@ service Replication {
       returns (ListFilesystemVersionsRes);
   rpc DestroySnapshots(DestroySnapshotsReq) returns (DestroySnapshotsRes);
   rpc ReplicationCursor(ReplicationCursorReq) returns (ReplicationCursorRes);
+  rpc SendDry(SendReq) returns (SendRes);
   rpc SendCompleted(SendCompletedReq) returns (SendCompletedRes);
   // for Send and Recv, see package rpc
 }
@@ -60,9 +61,7 @@ message SendReq {
   string ResumeToken = 4;
   Tri Encrypted = 5;
 
-  bool DryRun = 6;
-
-  ReplicationConfig ReplicationConfig = 7;
+  ReplicationConfig ReplicationConfig = 6;
 }
 
 message ReplicationConfig {
@@ -89,14 +88,12 @@ message Property {
 
 message SendRes {
   // Whether the resume token provided in the request has been used or not.
-  // If the SendReq.ResumeToken == "", this field has no meaning.
-  bool UsedResumeToken = 2;
+  // If the SendReq.ResumeToken == "", this field MUST be false.
+  bool UsedResumeToken = 1;
 
   // Expected stream size determined by dry run, not exact.
   // 0 indicates that for the given SendReq, no size estimate could be made.
-  int64 ExpectedSize = 3;
-
-  repeated Property Properties = 4;
+  uint64 ExpectedSize = 2;
 }
 
 message SendCompletedReq {

@@ -108,6 +108,13 @@ func (c *Client) Receive(ctx context.Context, req *pdu.ReceiveReq, stream io.Rea
 	return c.dataClient.ReqRecv(ctx, req, stream)
 }
 
+func (c *Client) SendDry(ctx context.Context, in *pdu.SendReq) (*pdu.SendRes, error) {
+	ctx, endSpan := trace.WithSpan(ctx, "rpc.client.SendDry")
+	defer endSpan()
+
+	return c.controlClient.SendDry(ctx, in)
+}
+
 func (c *Client) ListFilesystems(ctx context.Context, in *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error) {
 	ctx, endSpan := trace.WithSpan(ctx, "rpc.client.ListFilesystems")
 	defer endSpan()

@@ -9,7 +9,7 @@ import (
 // its interface and counting the bytes written to during copying.
 type ReadCloser interface {
 	io.ReadCloser
-	Count() int64
+	Count() uint64
 }
 
 // NewReadCloser wraps rc.
@@ -19,11 +19,11 @@ func NewReadCloser(rc io.ReadCloser) ReadCloser {
 
 type readCloser struct {
 	rc    io.ReadCloser
-	count int64
+	count uint64
 }
 
-func (r *readCloser) Count() int64 {
-	return atomic.LoadInt64(&r.count)
+func (r *readCloser) Count() uint64 {
+	return atomic.LoadUint64(&r.count)
 }
 
 var _ io.ReadCloser = &readCloser{}
@@ -34,6 +34,9 @@ func (r *readCloser) Close() error {
 
 func (r *readCloser) Read(p []byte) (int, error) {
 	n, err := r.rc.Read(p)
-	atomic.AddInt64(&r.count, int64(n))
+	if n < 0 {
+		panic("expecting n >= 0")
+	}
+	atomic.AddUint64(&r.count, uint64(n))
 	return n, err
 }

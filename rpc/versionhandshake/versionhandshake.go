@@ -152,7 +152,7 @@ func (m *HandshakeMessage) DecodeReader(r io.Reader, maxLen int) error {
 
 func DoHandshakeCurrentVersion(conn net.Conn, deadline time.Time) *HandshakeError {
 	// current protocol version is hardcoded here
-	return DoHandshakeVersion(conn, deadline, 5)
+	return DoHandshakeVersion(conn, deadline, 6)
 }
 
 const HandshakeMessageMaxLen = 16 * 4096

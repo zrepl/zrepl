@@ -114,12 +114,6 @@ func (c *Client) ReqSend(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, i
 	if err != nil {
 		return nil, nil, err
 	}
-	putWireOnReturn := true
-	defer func() {
-		if putWireOnReturn {
-			c.putWire(conn)
-		}
-	}()
 
 	if err := c.send(ctx, conn, EndpointSend, req, nil); err != nil {
 		return nil, nil, err
@@ -131,14 +125,10 @@ func (c *Client) ReqSend(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, i
 	}
 
 	var stream io.ReadCloser
-	if !req.DryRun {
-		putWireOnReturn = false
-		stream, err = conn.ReadStream(ZFSStream, true) // no shadow
-		if err != nil {
-			return nil, nil, err
-		}
+	stream, err = conn.ReadStream(ZFSStream, true) // no shadow
+	if err != nil {
+		return nil, nil, err
 	}
-
 	return &res, stream, nil
 }
 

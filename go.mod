@@ -8,7 +8,6 @@ require (
 	github.com/gdamore/tcell/v2 v2.2.0
 	github.com/gitchander/permutation v0.0.0-20181107151852-9e56b92e9909
 	github.com/go-logfmt/logfmt v0.4.0
-	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/go-playground/validator/v10 v10.4.1
 	github.com/go-sql-driver/mysql v1.4.1-0.20190907122137-b2c03bcae3d4
@@ -44,7 +43,6 @@ require (
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c
-	golang.org/x/text v0.3.5 // indirect
 	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
 	gonum.org/v1/gonum v0.7.0 // indirect
 	google.golang.org/genproto v0.0.0-20210122163508-8081c04a3579 // indirect

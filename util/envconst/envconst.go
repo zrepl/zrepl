@@ -73,6 +73,24 @@ func Int64(varname string, def int64) (d int64) {
 	return d
 }
 
+func Uint64(varname string, def uint64) (d uint64) {
+	var err error
+	if v, ok := cache.Load(varname); ok {
+		return v.(uint64)
+	}
+	e := os.Getenv(varname)
+	if e == "" {
+		d = def
+	} else {
+		d, err = strconv.ParseUint(e, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+	}
+	cache.Store(varname, d)
+	return d
+}
+
 func Bool(varname string, def bool) (d bool) {
 	var err error
 	if v, ok := cache.Load(varname); ok {
