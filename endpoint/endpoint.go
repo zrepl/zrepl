@@ -159,12 +159,11 @@ func sendArgsFromPDUAndValidateExistsAndGetVersion(ctx context.Context, fs strin
 	return version, nil
 }
 
-func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
-	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
+func (s *Sender) sendMakeArgs(ctx context.Context, r *pdu.SendReq) (sendArgs zfs.ZFSSendArgsValidated, _ error) {
 
 	_, err := s.filterCheckFS(r.Filesystem)
 	if err != nil {
-		return nil, nil, err
+		return sendArgs, err
 	}
 	switch r.Encrypted {
 	case pdu.Tri_DontCare:
@@ -172,16 +171,16 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 		// ok, fallthrough outer
 	case pdu.Tri_False:
 		if s.config.Encrypt.B {
-			return nil, nil, errors.New("only encrypted sends allowed (send -w + encryption!= off), but unencrypted send requested")
+			return sendArgs, errors.New("only encrypted sends allowed (send -w + encryption!= off), but unencrypted send requested")
 		}
 		// fallthrough outer
 	case pdu.Tri_True:
 		if !s.config.Encrypt.B {
-			return nil, nil, errors.New("only unencrypted sends allowed, but encrypted send requested")
+			return sendArgs, errors.New("only unencrypted sends allowed, but encrypted send requested")
 		}
 		// fallthrough outer
 	default:
-		return nil, nil, fmt.Errorf("unknown pdu.Tri variant %q", r.Encrypted)
+		return sendArgs, fmt.Errorf("unknown pdu.Tri variant %q", r.Encrypted)
 	}
 
 	sendArgsUnvalidated := zfs.ZFSSendArgsUnvalidated{
@@ -201,30 +200,19 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 		},
 	}
 
-	sendArgs, err := sendArgsUnvalidated.Validate(ctx)
+	sendArgs, err = sendArgsUnvalidated.Validate(ctx)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "validate send arguments")
+		return sendArgs, errors.Wrap(err, "validate send arguments")
 	}
+	return sendArgs, nil
+}
 
-	si, err := zfs.ZFSSendDry(ctx, sendArgs)
+func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
+
+	sendArgs, err := s.sendMakeArgs(ctx, r)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "zfs send dry failed")
-	}
-
-	// From now on, assume that sendArgs has been validated by ZFSSendDry
-	// (because validation involves shelling out, it's actually a little expensive)
-
-	var expSize int64 = 0      // protocol says 0 means no estimate
-	if si.SizeEstimate != -1 { // but si returns -1 for no size estimate
-		expSize = si.SizeEstimate
-	}
-	res := &pdu.SendRes{
-		ExpectedSize:    expSize,
-		UsedResumeToken: r.ResumeToken != "",
-	}
-
-	if r.DryRun {
-		return res, nil, nil
+		return nil, nil, err
 	}
 
 	// create holds or bookmarks of `From` and `To` to guarantee one of the following:
@@ -322,7 +310,35 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 	// apply rate limit
 	sendStream = s.bwLimit.WrapReadCloser(sendStream)
 
+	res := &pdu.SendRes{
+		ExpectedSize:    0,
+		UsedResumeToken: r.ResumeToken != "",
+	}
+
 	return res, sendStream, nil
+}
+
+func (s *Sender) SendDry(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, error) {
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
+
+	sendArgs, err := s.sendMakeArgs(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+
+	si, err := zfs.ZFSSendDry(ctx, sendArgs)
+	if err != nil {
+		return nil, errors.Wrap(err, "zfs send dry failed")
+	}
+
+	// From now on, assume that sendArgs has been validated by ZFSSendDry
+	// (because validation involves shelling out, it's actually a little expensive)
+
+	res := &pdu.SendRes{
+		ExpectedSize:    si.SizeEstimate,
+		UsedResumeToken: r.ResumeToken != "",
+	}
+	return res, nil
 }
 
 func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*pdu.SendCompletedRes, error) {
@@ -691,6 +707,11 @@ func (s *Receiver) ReplicationCursor(ctx context.Context, _ *pdu.ReplicationCurs
 func (s *Receiver) Send(ctx context.Context, req *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error) {
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 	return nil, nil, fmt.Errorf("receiver does not implement Send()")
+}
+
+func (s *Receiver) SendDry(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, error) {
+	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
+	return nil, fmt.Errorf("receiver does not implement SendDry()")
 }
 
 func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.ReadCloser) (*pdu.ReceiveRes, error) {

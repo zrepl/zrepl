@@ -809,13 +809,22 @@ type NeverEndingSender struct {
 	*endpoint.Sender
 }
 
+func (s *NeverEndingSender) SendDry(ctx context.Context, req *pdu.SendReq) (r *pdu.SendRes, err error) {
+	r, _, err = s.sendImpl(ctx, req, true)
+	return r, err
+}
+
 func (s *NeverEndingSender) Send(ctx context.Context, req *pdu.SendReq) (r *pdu.SendRes, stream io.ReadCloser, _ error) {
+	return s.sendImpl(ctx, req, false)
+}
+
+func (s *NeverEndingSender) sendImpl(ctx context.Context, req *pdu.SendReq, dry bool) (r *pdu.SendRes, stream io.ReadCloser, _ error) {
 	stream = nil
 	r = &pdu.SendRes{
 		UsedResumeToken: false,
 		ExpectedSize:    1 << 30,
 	}
-	if req.DryRun {
+	if dry {
 		return r, stream, nil
 	}
 	dz, err := os.Open("/dev/zero")

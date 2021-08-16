@@ -4,7 +4,7 @@ import "time"
 
 type byteProgressMeasurement struct {
 	time time.Time
-	val  int64
+	val  uint64
 }
 
 type bytesProgressHistory struct {
@@ -13,7 +13,7 @@ type bytesProgressHistory struct {
 	lastChange  time.Time
 }
 
-func (p *bytesProgressHistory) Update(currentVal int64) (bytesPerSecondAvg int64, changeCount int) {
+func (p *bytesProgressHistory) Update(currentVal uint64) (bytesPerSecondAvg int64, changeCount int) {
 
 	if p.last == nil {
 		p.last = &byteProgressMeasurement{
@@ -33,7 +33,12 @@ func (p *bytesProgressHistory) Update(currentVal int64) (bytesPerSecondAvg int64
 		return 0, 0
 	}
 
-	deltaV := currentVal - p.last.val
+	var deltaV int64
+	if currentVal >= p.last.val {
+		deltaV = int64(currentVal - p.last.val)
+	} else {
+		deltaV = -int64(p.last.val - currentVal)
+	}
 	deltaT := time.Since(p.last.time)
 	rate := float64(deltaV) / deltaT.Seconds()
 

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"regexp"
@@ -960,7 +961,7 @@ type DrySendInfo struct {
 	Type         DrySendType
 	Filesystem   string // parsed from To field
 	From, To     string // direct copy from ZFS output
-	SizeEstimate int64  // -1 if size estimate is not possible
+	SizeEstimate uint64 // 0 if size estimate is not possible
 }
 
 var (
@@ -1033,11 +1034,10 @@ func (s *DrySendInfo) unmarshalInfoLine(l string) (regexMatched bool, err error)
 		// see https://github.com/zrepl/zrepl/issues/289
 		fields["size"] = "0"
 	}
-	s.SizeEstimate, err = strconv.ParseInt(fields["size"], 10, 64)
+	s.SizeEstimate, err = strconv.ParseUint(fields["size"], 10, 64)
 	if err != nil {
 		return true, fmt.Errorf("cannot not parse size: %s", err)
 	}
-
 	return true, nil
 }
 
@@ -1047,6 +1047,7 @@ func ZFSSendDry(ctx context.Context, sendArgs ZFSSendArgsValidated) (_ *DrySendI
 
 	if sendArgs.From != nil && strings.Contains(sendArgs.From.RelName, "#") {
 		/* TODO:
+		 * XXX feature check & support this as well
 		 * ZFS at the time of writing does not support dry-run send because size-estimation
 		 * uses fromSnap's deadlist. However, for a bookmark, that deadlist no longer exists.
 		 * Redacted send & recv will bring this functionality, see
@@ -1065,7 +1066,7 @@ func ZFSSendDry(ctx context.Context, sendArgs ZFSSendArgsValidated) (_ *DrySendI
 			Filesystem:   sendArgs.FS,
 			From:         fromAbs,
 			To:           toAbs,
-			SizeEstimate: -1}, nil
+			SizeEstimate: 0}, nil
 	}
 
 	args := make([]string, 0)
@@ -1085,6 +1086,19 @@ func ZFSSendDry(ctx context.Context, sendArgs ZFSSendArgsValidated) (_ *DrySendI
 	if err := si.unmarshalZFSOutput(output); err != nil {
 		return nil, fmt.Errorf("could not parse zfs send -n output: %s", err)
 	}
+
+	// There is a bug in OpenZFS where it estimates the size incorrectly.
+	// - zrepl: https://github.com/zrepl/zrepl/issues/463
+	// - resulting upstream bug: https://github.com/openzfs/zfs/issues/12265
+	//
+	// The wrong estimates are easy to detect because they are absurdly large.
+	// NB: we're doing the workaround for this late so that the test cases are not affected.
+	sizeEstimateThreshold := envconst.Uint64("ZREPL_ZFS_SEND_SIZE_ESTIMATE_INCORRECT_THRESHOLD", math.MaxInt64)
+	if sizeEstimateThreshold != 0 && si.SizeEstimate >= sizeEstimateThreshold {
+		debug("size estimate exceeds threshold %v, working around it: %#v %q", sizeEstimateThreshold, si, args)
+		si.SizeEstimate = 0
+	}
+
 	return &si, nil
 }
 

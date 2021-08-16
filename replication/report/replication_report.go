@@ -97,11 +97,11 @@ type StepInfo struct {
 	From, To        string
 	Resumed         bool
 	Encrypted       EncryptedEnum
-	BytesExpected   int64
-	BytesReplicated int64
+	BytesExpected   uint64
+	BytesReplicated uint64
 }
 
-func (a *AttemptReport) BytesSum() (expected, replicated int64, containsInvalidSizeEstimates bool) {
+func (a *AttemptReport) BytesSum() (expected, replicated uint64, containsInvalidSizeEstimates bool) {
 	for _, fs := range a.Filesystems {
 		e, r, fsContainsInvalidEstimate := fs.BytesSum()
 		containsInvalidSizeEstimates = containsInvalidSizeEstimates || fsContainsInvalidEstimate
@@ -111,7 +111,7 @@ func (a *AttemptReport) BytesSum() (expected, replicated int64, containsInvalidS
 	return expected, replicated, containsInvalidSizeEstimates
 }
 
-func (f *FilesystemReport) BytesSum() (expected, replicated int64, containsInvalidSizeEstimates bool) {
+func (f *FilesystemReport) BytesSum() (expected, replicated uint64, containsInvalidSizeEstimates bool) {
 	for _, step := range f.Steps {
 		expected += step.Info.BytesExpected
 		replicated += step.Info.BytesReplicated

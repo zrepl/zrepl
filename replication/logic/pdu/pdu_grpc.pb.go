@@ -23,6 +23,7 @@ type ReplicationClient interface {
 	ListFilesystemVersions(ctx context.Context, in *ListFilesystemVersionsReq, opts ...grpc.CallOption) (*ListFilesystemVersionsRes, error)
 	DestroySnapshots(ctx context.Context, in *DestroySnapshotsReq, opts ...grpc.CallOption) (*DestroySnapshotsRes, error)
 	ReplicationCursor(ctx context.Context, in *ReplicationCursorReq, opts ...grpc.CallOption) (*ReplicationCursorRes, error)
+	SendDry(ctx context.Context, in *SendReq, opts ...grpc.CallOption) (*SendRes, error)
 	SendCompleted(ctx context.Context, in *SendCompletedReq, opts ...grpc.CallOption) (*SendCompletedRes, error)
 }
 
@@ -79,6 +80,15 @@ func (c *replicationClient) ReplicationCursor(ctx context.Context, in *Replicati
 	return out, nil
 }
 
+func (c *replicationClient) SendDry(ctx context.Context, in *SendReq, opts ...grpc.CallOption) (*SendRes, error) {
+	out := new(SendRes)
+	err := c.cc.Invoke(ctx, "/Replication/SendDry", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *replicationClient) SendCompleted(ctx context.Context, in *SendCompletedReq, opts ...grpc.CallOption) (*SendCompletedRes, error) {
 	out := new(SendCompletedRes)
 	err := c.cc.Invoke(ctx, "/Replication/SendCompleted", in, out, opts...)
@@ -97,6 +107,7 @@ type ReplicationServer interface {
 	ListFilesystemVersions(context.Context, *ListFilesystemVersionsReq) (*ListFilesystemVersionsRes, error)
 	DestroySnapshots(context.Context, *DestroySnapshotsReq) (*DestroySnapshotsRes, error)
 	ReplicationCursor(context.Context, *ReplicationCursorReq) (*ReplicationCursorRes, error)
+	SendDry(context.Context, *SendReq) (*SendRes, error)
 	SendCompleted(context.Context, *SendCompletedReq) (*SendCompletedRes, error)
 	mustEmbedUnimplementedReplicationServer()
 }
@@ -119,6 +130,9 @@ func (UnimplementedReplicationServer) DestroySnapshots(context.Context, *Destroy
 }
 func (UnimplementedReplicationServer) ReplicationCursor(context.Context, *ReplicationCursorReq) (*ReplicationCursorRes, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReplicationCursor not implemented")
+}
+func (UnimplementedReplicationServer) SendDry(context.Context, *SendReq) (*SendRes, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendDry not implemented")
 }
 func (UnimplementedReplicationServer) SendCompleted(context.Context, *SendCompletedReq) (*SendCompletedRes, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendCompleted not implemented")
@@ -226,6 +240,24 @@ func _Replication_ReplicationCursor_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Replication_SendDry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplicationServer).SendDry(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Replication/SendDry",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplicationServer).SendDry(ctx, req.(*SendReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Replication_SendCompleted_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SendCompletedReq)
 	if err := dec(in); err != nil {
@@ -270,6 +302,10 @@ var Replication_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReplicationCursor",
 			Handler:    _Replication_ReplicationCursor_Handler,
+		},
+		{
+			MethodName: "SendDry",
+			Handler:    _Replication_SendDry_Handler,
 		},
 		{
 			MethodName: "SendCompleted",

@@ -99,11 +99,11 @@ func RightPad(str string, length int, pad string) string {
 }
 
 // changeCount = 0 indicates stall / no progress
-func (w *B) DrawBar(length int, bytes, totalBytes int64, changeCount int) {
+func (w *B) DrawBar(length int, bytes, totalBytes uint64, changeCount int) {
 	const arrowPositions = `>\|/`
 	var completedLength int
 	if totalBytes > 0 {
-		completedLength = int(int64(length) * bytes / totalBytes)
+		completedLength = int(uint64(length) * bytes / totalBytes)
 		if completedLength > length {
 			completedLength = length
 		}

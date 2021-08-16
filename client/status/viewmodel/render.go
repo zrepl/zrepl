@@ -230,7 +230,7 @@ func printFilesystemStatus(t *stringbuilder.B, rep *report.FilesystemReport, act
 	status := fmt.Sprintf("%s (step %d/%d, %s/%s)%s",
 		strings.ToUpper(string(rep.State)),
 		rep.CurrentStep, len(rep.Steps),
-		ByteCountBinary(replicated), ByteCountBinary(expected),
+		ByteCountBinaryUint(replicated), ByteCountBinaryUint(expected),
 		sizeEstimationImpreciseNotice,
 	)
 
@@ -358,12 +358,12 @@ func renderReplicationReport(t *stringbuilder.B, rep *report.Report, history *by
 		rate, changeCount := history.Update(replicated)
 		eta := time.Duration(0)
 		if rate > 0 {
-			eta = time.Duration((expected-replicated)/rate) * time.Second
+			eta = time.Duration((float64(expected)-float64(replicated))/float64(rate)) * time.Second
 		}
 
 		t.Write("Progress: ")
 		t.DrawBar(50, replicated, expected, changeCount)
-		t.Write(fmt.Sprintf(" %s / %s @ %s/s", ByteCountBinary(replicated), ByteCountBinary(expected), ByteCountBinary(rate)))
+		t.Write(fmt.Sprintf(" %s / %s @ %s/s", ByteCountBinaryUint(replicated), ByteCountBinaryUint(expected), ByteCountBinary(rate)))
 		if eta != 0 {
 			t.Write(fmt.Sprintf(" (%s remaining)", humanizeDuration(eta)))
 		}

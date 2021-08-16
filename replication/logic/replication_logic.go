@@ -41,6 +41,7 @@ type Sender interface {
 	// any next call to the parent github.com/zrepl/zrepl/replication.Endpoint.
 	// If the send request is for dry run the io.ReadCloser will be nil
 	Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error)
+	SendDry(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, error)
 	SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*pdu.SendCompletedRes, error)
 	ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error)
 }
@@ -158,7 +159,7 @@ type Step struct {
 	encrypt     tri
 	resumeToken string // empty means no resume token shall be used
 
-	expectedSize int64 // 0 means no size estimate present / possible
+	expectedSize uint64 // 0 means no size estimate present / possible
 
 	// byteCounter is nil initially, and set later in Step.doReplication
 	// => concurrent read of that pointer from Step.ReportInfo must be protected
@@ -189,7 +190,7 @@ func (s *Step) Step(ctx context.Context) error {
 func (s *Step) ReportInfo() *report.StepInfo {
 
 	// get current byteCounter value
-	var byteCounter int64
+	var byteCounter uint64
 	s.byteCounterMtx.Lock()
 	if s.byteCounter != nil {
 		byteCounter = s.byteCounter.Count()
@@ -546,10 +547,10 @@ func (s *Step) updateSizeEstimate(ctx context.Context) error {
 
 	log := getLogger(ctx)
 
-	sr := s.buildSendRequest(true)
+	sr := s.buildSendRequest()
 
 	log.Debug("initiate dry run send request")
-	sres, _, err := s.sender.Send(ctx, sr)
+	sres, err := s.sender.SendDry(ctx, sr)
 	if err != nil {
 		log.WithError(err).Error("dry run send request failed")
 		return err
@@ -563,7 +564,7 @@ func (s *Step) updateSizeEstimate(ctx context.Context) error {
 	return nil
 }
 
-func (s *Step) buildSendRequest(dryRun bool) (sr *pdu.SendReq) {
+func (s *Step) buildSendRequest() (sr *pdu.SendReq) {
 	fs := s.parent.Path
 	sr = &pdu.SendReq{
 		Filesystem:        fs,
@@ -571,7 +572,6 @@ func (s *Step) buildSendRequest(dryRun bool) (sr *pdu.SendReq) {
 		To:                s.to,
 		Encrypted:         s.encrypt.ToPDU(),
 		ResumeToken:       s.resumeToken,
-		DryRun:            dryRun,
 		ReplicationConfig: s.parent.policy.ReplicationConfig,
 	}
 	return sr
@@ -582,7 +582,7 @@ func (s *Step) doReplication(ctx context.Context) error {
 	fs := s.parent.Path
 
 	log := getLogger(ctx).WithField("filesystem", fs)
-	sr := s.buildSendRequest(false)
+	sr := s.buildSendRequest()
 
 	log.Debug("initiate send request")
 	sres, stream, err := s.sender.Send(ctx, sr)
