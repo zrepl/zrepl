@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -334,60 +333,122 @@ func pipeWithCapacityHint(capacity int) (r, w *os.File, err error) {
 	return stdoutReader, stdoutWriter, nil
 }
 
-type SendStream struct {
-	cmd  *zfscmd.Cmd
-	kill context.CancelFunc
+type sendStreamState int
 
-	closeMtx     sync.Mutex
-	stdoutReader *os.File
+const (
+	sendStreamOpen sendStreamState = iota
+	sendStreamClosed
+)
+
+type SendStream struct {
+	cmd          *zfscmd.Cmd
+	kill         context.CancelFunc
+	stdoutReader io.ReadCloser // not *os.File for mocking during platformtest
 	stderrBuf    *circlog.CircularLog
-	opErr        error
+
+	mtx     sync.Mutex
+	state   sendStreamState
+	exitErr *ZFSError
 }
 
-func (s *SendStream) Read(p []byte) (n int, err error) {
-	s.closeMtx.Lock()
-	opErr := s.opErr
-	s.closeMtx.Unlock()
-	if opErr != nil {
-		return 0, opErr
-	}
+func (s *SendStream) Read(p []byte) (n int, _ error) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 
-	n, err = s.stdoutReader.Read(p)
-	if err != nil {
-		debug("sendStream: read err: %T %s", err, err)
-		// TODO we assume here that any read error is permanent
-		// which is most likely the case for a local zfs send
-		kwerr := s.killAndWait(err)
-		debug("sendStream: killAndWait n=%v err= %T %s", n, kwerr, kwerr)
-		// TODO we assume here that any read error is permanent
-		return n, kwerr
+	switch s.state {
+	case sendStreamClosed:
+		return 0, os.ErrClosed
+
+	case sendStreamOpen:
+		n, readErr := s.stdoutReader.Read(p)
+		if readErr != nil {
+			debug("sendStream: read: readErr=%T %s", readErr, readErr)
+			if readErr == io.EOF {
+				// io.EOF must be bubbled up as is so that consumers can handle it properly.
+				return n, readErr
+			}
+			// Assume that the error is not retryable.
+			// Try to kill now so that we can return a nice *ZFSError with captured stderr.
+			// If the kill doesn't work, it doesn't matter because the caller must by contract call Close() anyways.
+			killErr := s.killAndWait()
+			debug("sendStream: read: killErr=%T %s", killErr, killErr)
+			if killErr == nil {
+				s.state = sendStreamClosed
+				return n, s.exitErr // return the nice error
+			} else {
+				// we remain open so that we retry
+				return n, readErr // return the normal error
+			}
+		}
+		return n, readErr
+
+	default:
+		panic("unreachable")
 	}
-	return n, err
 }
 
 func (s *SendStream) Close() error {
 	debug("sendStream: close called")
-	return s.killAndWait(nil)
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	switch s.state {
+	case sendStreamOpen:
+		err := s.killAndWait()
+		if err != nil {
+			return err
+		} else {
+			s.state = sendStreamClosed
+			return nil
+		}
+	case sendStreamClosed:
+		return os.ErrClosed
+	default:
+		panic("unreachable")
+	}
 }
 
-func (s *SendStream) killAndWait(precedingReadErr error) error {
+// returns nil iff the child process is gone (has been successfully waited upon)
+// in that case, s.exitErr is set
+func (s *SendStream) killAndWait() error {
 
 	debug("sendStream: killAndWait enter")
 	defer debug("sendStream: killAndWait leave")
-	if precedingReadErr == io.EOF {
-		// give the zfs process a little bit of time to terminate itself
-		// if it holds this deadline, exitErr will be nil
-		time.AfterFunc(200*time.Millisecond, s.kill)
-	} else {
-		s.kill()
-	}
 
-	// allow async kills from Close(), that's why we only take the mutex here
-	s.closeMtx.Lock()
-	defer s.closeMtx.Unlock()
+	// send SIGKILL
+	s.kill()
 
-	if s.opErr != nil {
-		return s.opErr
+	// Close our read-end of the pipe.
+	//
+	// We must do this before .Wait() because in some (not all) versions/build configs of ZFS,
+	// `zfs send` uses a separate kernel thread (taskq) to write the send stream (function `dump_bytes`).
+	// The `zfs send` thread then waits uinterruptably for the taskq thread to finish the write.
+	// And signalling the `zfs send` thread doesn't propagate to the taskq thread.
+	// So we end up in a state where we .Wait() forever.
+	// (See https://github.com/openzfs/zfs/issues/12500 and
+	//  https://github.com/zrepl/zrepl/issues/495#issuecomment-902530043)
+	//
+	// By closing our read end of the pipe before .Wait(), we unblock the taskq thread if there is any.
+	// If there is no separate taskq thread, the SIGKILL to `zfs end` would suffice and be most precise,
+	// but due to the circumstances above, there is no other portable & robust way.
+	//
+	// However, the fallout from closing the pipe is that (in non-taskq builds) `zfs sends` will get a SIGPIPE.
+	// And on Linux, that SIGPIPE appears to win over the previously issued SIGKILL.
+	// And thus, on Linux, the `zfs send` will be killed by the default SIGPIPE handler.
+	// We can observe this in the WaitStatus below.
+	// This behavior is slightly annoying because the *exec.ExitError's message ("signal: broken pipe")
+	// isn't as clear as ("signal: killed").
+	// However, it seems like we just have to live with that. (covered by platformtest)
+	var closePipeErr error
+	if s.stdoutReader != nil {
+		closePipeErr = s.stdoutReader.Close()
+		if closePipeErr == nil {
+			// avoid double-closes in case waiting below doesn't work
+			// and someone attempts Close again
+			s.stdoutReader = nil
+		} else {
+			return closePipeErr
+		}
 	}
 
 	waitErr := s.cmd.Wait()
@@ -402,38 +463,29 @@ func (s *SendStream) killAndWait(precedingReadErr error) error {
 		}
 	}
 
-	// now, after we know the program exited do we close the pipe
-	var closePipeErr error
-	if s.stdoutReader != nil {
-		closePipeErr = s.stdoutReader.Close()
-		if closePipeErr == nil {
-			// avoid double-closes in case anything below doesn't work
-			// and someone calls Close again
-			s.stdoutReader = nil
-		} else {
-			return closePipeErr
-		}
-	}
+	// invariant: at this point, the child is gone and we cleaned up everything related to the SendStream
 
-	// we managed to tear things down, no let's give the user some pretty *ZFSError
 	if exitErr != nil {
-		s.opErr = &ZFSError{
+		// zfs send exited with an error or was killed by a signal.
+		s.exitErr = &ZFSError{
 			Stderr:  []byte(s.stderrBuf.String()),
 			WaitErr: exitErr,
 		}
 	} else {
-		s.opErr = precedingReadErr
+		// zfs send exited successfully (we know that since waitErr was either nil or wasn't an *exec.ExitError)
+		s.exitErr = nil
 	}
 
-	// detect the edge where we're called from s.Read
-	// after the pipe EOFed and zfs send exited without errors
-	// this is actually the "hot" / nice path
-	if exitErr == nil && precedingReadErr == io.EOF {
-		return precedingReadErr
-	}
-
-	return s.opErr
+	return nil
 }
+
+func (s *SendStream) TestOnly_ReplaceStdoutReader(f io.ReadCloser) (prev io.ReadCloser) {
+	prev = s.stdoutReader
+	s.stdoutReader = f
+	return prev
+}
+
+func (s *SendStream) TestOnly_ExitErr() *ZFSError { return s.exitErr }
 
 // NOTE: When updating this struct, make sure to update funcs Validate ValidateCorrespondsToResumeToken
 type ZFSSendArgVersion struct {

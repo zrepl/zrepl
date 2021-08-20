@@ -209,3 +209,7 @@ func (c *Cmd) Runtime() time.Duration {
 	}
 	return c.waitReturnedAt.Sub(c.startedAt)
 }
+
+func (c *Cmd) TestOnly_ExecCmd() *exec.Cmd {
+	return c.cmd
+}
