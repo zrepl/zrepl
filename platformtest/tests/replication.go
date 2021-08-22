@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/kr/pretty"
@@ -1057,6 +1058,9 @@ func ReplicationPropertyReplicationWorks(ctx *platformtest.Context) {
 		rep := fsByName[fs]
 		require.Len(ctx, rep.Steps, 1)
 		require.Nil(ctx, rep.PlanError)
+		if rep.StepError != nil && strings.Contains(rep.StepError.Error(), "invalid option 'x'") {
+			ctx.SkipNow() // XXX feature detection
+		}
 		require.Nil(ctx, rep.StepError)
 		require.Len(ctx, rep.Steps, 1)
 		require.Equal(ctx, 1, rep.CurrentStep)
