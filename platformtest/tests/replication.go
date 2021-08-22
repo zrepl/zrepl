@@ -91,6 +91,7 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 		ReplicationConfig: &pdu.ReplicationConfig{
 			Protection: i.guarantee,
 		},
+		SizeEstimationConcurrency: 1,
 	}
 
 	report, wait := replication.Do(
