@@ -40,6 +40,7 @@ func ReceiveForceRollbackWorksUnencrypted(ctx *platformtest.Context) {
 
 	sendStream, err := zfs.ZFSSend(ctx, sendArgs)
 	require.NoError(ctx, err)
+	defer sendStream.Close()
 
 	recvOpts := zfs.RecvOptions{
 		RollbackAndForceRecv: true,
