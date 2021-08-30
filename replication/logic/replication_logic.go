@@ -396,9 +396,7 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 		switch fs.policy.EncryptedSend {
 		case True:
 			encryptionMatches = resumeToken.RawOK && resumeToken.CompressOK
-		case False:
-			encryptionMatches = !resumeToken.RawOK && !resumeToken.CompressOK
-		case DontCare:
+		case False, DontCare:
 			encryptionMatches = true
 		}
 
