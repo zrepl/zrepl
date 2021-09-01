@@ -195,7 +195,7 @@ func ParseFilesystemVersion(args ParseFilesystemVersionArgs) (v FilesystemVersio
 type ListFilesystemVersionsOptions struct {
 	// the prefix of the version name, without the delimiter char
 	// empty means any prefix matches
-	ShortnamePrefix string
+	SnapPrefix string
 
 	// which types should be returned
 	// nil or len(0) means any prefix matches
@@ -211,7 +211,11 @@ func (o *ListFilesystemVersionsOptions) typesFlagArgs() string {
 }
 
 func (o *ListFilesystemVersionsOptions) matches(v FilesystemVersion) bool {
-	return (len(o.Types) == 0 || o.Types[v.Type]) && strings.HasPrefix(v.Name, o.ShortnamePrefix)
+	if v.Type == Bookmark {
+		return true
+	}
+
+	return (len(o.Types) == 0 || o.Types[v.Type]) && strings.HasPrefix(v.Name, o.SnapPrefix)
 }
 
 // returned versions are sorted by createtxg FIXME drop sort by createtxg requirement

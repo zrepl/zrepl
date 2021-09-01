@@ -13,6 +13,7 @@ import (
 type SendingJobConfig interface {
 	GetFilesystems() config.FilesystemsFilter
 	GetSendOptions() *config.SendOptions // must not be nil
+	GetJobSnapPrefix() string
 }
 
 func buildSenderConfig(in SendingJobConfig, jobID endpoint.JobID) (*endpoint.SenderConfig, error) {
@@ -23,8 +24,9 @@ func buildSenderConfig(in SendingJobConfig, jobID endpoint.JobID) (*endpoint.Sen
 	}
 	sendOpts := in.GetSendOptions()
 	return &endpoint.SenderConfig{
-		FSF:   fsf,
-		JobID: jobID,
+		FSF:           fsf,
+		JobID:         jobID,
+		JobSnapPrefix: in.GetJobSnapPrefix(),
 
 		Encrypt:              &nodefault.Bool{B: sendOpts.Encrypted},
 		SendRaw:              sendOpts.Raw,
