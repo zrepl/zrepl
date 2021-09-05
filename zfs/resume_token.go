@@ -28,9 +28,8 @@ type ResumeToken struct {
 	HasSavedOk, SavedOk           bool
 }
 
-var resumeTokenNVListRE = regexp.MustCompile(`\t(\S+) = (.*)`)
+var resumeTokenNVListRE = regexp.MustCompile(` *(\S+): (.*)`)
 
-var resumeTokenContentsRE = regexp.MustCompile(`resume token contents:\nnvlist version: 0`)
 var resumeTokenIsCorruptRE = regexp.MustCompile(`resume token is corrupt`)
 
 var ResumeTokenCorruptError = errors.New("resume token is corrupt")
@@ -154,7 +153,7 @@ func ResumeRecvSupported(ctx context.Context, fs *DatasetPath) (bool, error) {
 	return poolSup.supported, nil
 }
 
-// Abuse 'zfs send' to decode the resume token
+// Abuse 'zstream token' to decode the resume token
 //
 // FIXME: implement nvlist unpacking in Go and read through libzfs_sendrecv.c
 func ParseResumeToken(ctx context.Context, token string) (*ResumeToken, error) {
@@ -173,38 +172,30 @@ func ParseResumeToken(ctx context.Context, token string) (*ResumeToken, error) {
 	// From an incremental send
 	// 1-c49b979a2-e0-789c636064000310a501c49c50360710a715e5e7a69766a63040c1eabb735735ce8f8d5400b2d991d4e52765a5269740f82080219f96569c5ac2000720793624f9a4ca92d46206547964fd25f91057f09e37babb88c9bf5503499e132c9f97989bcac050909f9f63a80f34abc421096616007c881d4c
 
-	// Resulting output of zfs send -nvt <token>
+	// Resulting output of zstream token <token>
 	//
-	//resume token contents:
-	//nvlist version: 0
-	//	fromguid = 0x595d9f81aa9dddab
-	//	object = 0x1
-	//	offset = 0x0
-	//	bytes = 0x0
-	//	toguid = 0x854f02a2dd32cf0d
-	//	toname = pool1/test@b
-	//cannot resume send: 'pool1/test@b' used in the initial send no longer exists
+	//     fromguid: 6439478421471747499
+	//     object: 1
+	//     offset: 0
+	//     bytes: 0
+	//     toguid: 9605899428723609357
+	//     toname: 'pool1/test@b'
 
-	cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, "send", "-nvt", string(token))
+	cmd := zfscmd.CommandContext(ctx, "zstream", "token", string(token))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			if !exitErr.Exited() {
 				return nil, err
 			}
-			// we abuse zfs send for decoding, the exit error may be due to
-			// a) the token being from a third machine
-			// b) it no longer exists on the machine where
 		} else {
 			return nil, err
 		}
 	}
 
-	if !resumeTokenContentsRE.Match(output) {
-		if resumeTokenIsCorruptRE.Match(output) {
-			return nil, ResumeTokenCorruptError
-		}
-		return nil, ResumeTokenDecodingNotSupported
+	// zstream token doesn't really HAVE a normal starting string to regex against, thus why I'm only checking for a corrupt token.
+	if resumeTokenIsCorruptRE.Match(output) {
+		return nil, ResumeTokenCorruptError
 	}
 
 	matches := resumeTokenNVListRE.FindAllStringSubmatch(string(output), -1)
@@ -231,6 +222,7 @@ func ParseResumeToken(ctx context.Context, token string) (*ResumeToken, error) {
 			rt.HasToGUID = true
 		case "toname":
 			rt.ToName = val
+		/*
 		case "rawok":
 			rt.HasRawOk = true
 			rt.RawOK, err = strconv.ParseBool(val)
@@ -261,6 +253,7 @@ func ParseResumeToken(ctx context.Context, token string) (*ResumeToken, error) {
 			if err != nil {
 				return nil, ResumeTokenParsingError
 			}
+		*/
 		}
 	}
 
