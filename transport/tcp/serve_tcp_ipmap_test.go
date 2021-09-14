@@ -91,15 +91,12 @@ func TestIPMap(t *testing.T) {
 				"fde4:8dba:82e1::/64": "sub64-*",
 			},
 			expect: map[string]testCaseExpect{
-				"10.1.2.3":        {expectNoMapping: true},
-				"192.168.23.1":    {expectIdent: "db-192.168.23.1"},
-				"192.168.23.23":   {expectIdent: "db-twentythree"},
-				"192.168.023.001": {expectIdent: "db-192.168.23.1"},
-				"10.1.4.5":        {expectIdent: "my-10.1.4.5-server"},
+				"10.1.2.3":      {expectNoMapping: true},
+				"192.168.23.1":  {expectIdent: "db-192.168.23.1"},
+				"192.168.42.1":  {expectIdent: "web-192.168.42.1"},
+				"192.168.23.23": {expectIdent: "db-twentythree"},
+				"10.1.4.5":      {expectIdent: "my-10.1.4.5-server"},
 
-				// normalization
-				"192.168.42.1":    {expectIdent: "web-192.168.42.1"},
-				"192.168.042.001": {expectIdent: "web-192.168.42.1"},
 				// v6 matching
 				"fe80::23:42%eth1": {expectIdent: "san-fe80::23:42-eth1"},
 				"fe80::23:42%eth2": {expectNoMapping: true},
@@ -179,7 +176,8 @@ func TestIPMap(t *testing.T) {
 			for input, expect := range c.expect {
 				// reuse newIPMapEntry to parse test case input
 				// "test" is not used during testing but must not be empty.
-				ipMapEntry, _ := newIPMapEntry(input, "test")
+				ipMapEntry, err := newIPMapEntry(input, "test")
+				require.NoError(t, err)
 				ones, bits := ipMapEntry.subnet.Mask.Size()
 				require.Equal(t, bits, net.IPv6len*8, "and we know ipMapEntry always expands its IPs to 16bytes")
 				require.Equal(t, ones, net.IPv6len*8, "test case addresses must be fully specified")
