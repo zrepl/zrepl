@@ -48,7 +48,7 @@ func (c *SenderConfig) Validate() error {
 		return fmt.Errorf("JobID cannot be used for hold tag: %s", err)
 	}
 	if err := bandwidthlimit.ValidateConfig(c.BandwidthLimit); err != nil {
-		return errors.Wrap(err, "`Ratelimit` field invalid")
+		return errors.Wrap(err, "`BandwidthLimit` field invalid")
 	}
 	return nil
 }
@@ -494,7 +494,7 @@ func (c *ReceiverConfig) Validate() error {
 	}
 
 	if err := bandwidthlimit.ValidateConfig(c.BandwidthLimit); err != nil {
-		return errors.Wrap(err, "`Ratelimit` field invalid")
+		return errors.Wrap(err, "`BandwidthLimit` field invalid")
 	}
 
 	return nil
