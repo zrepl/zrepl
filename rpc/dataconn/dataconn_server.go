@@ -172,6 +172,15 @@ func (s *Server) serveConnRequest(ctx context.Context, endpoint string, c *strea
 			return
 		}
 		res, sendStream, handlerErr = s.h.Send(ctx, &req) // SHADOWING
+		// ensure that we always close the sendStream
+		if sendStream != nil {
+			defer func() {
+				err := sendStream.Close()
+				if err != nil {
+					s.log.WithError(err).Error("cannot close send stream")
+				}
+			}()
+		}
 	case EndpointRecv:
 		var req pdu.ReceiveReq
 		if err := proto.Unmarshal(reqStructured, &req); err != nil {
@@ -239,12 +248,9 @@ func (s *Server) serveConnRequest(ctx context.Context, endpoint string, c *strea
 
 	if sendStream != nil {
 		err := c.SendStream(ctx, sendStream, ZFSStream)
-		closeErr := sendStream.Close()
-		if closeErr != nil {
-			s.log.WithError(closeErr).Error("cannot close send stream")
-		}
 		if err != nil {
 			s.log.WithError(err).Error("cannot write send stream")
 		}
+		// sendStream.Close() done via defer above
 	}
 }
