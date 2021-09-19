@@ -18,6 +18,13 @@ type Config struct {
 	BucketCapacity int64
 }
 
+func NoLimitConfig() Config {
+	return Config{
+		Max:            -1,
+		BucketCapacity: -1,
+	}
+}
+
 func ValidateConfig(conf Config) error {
 	if conf.BucketCapacity == 0 {
 		return errors.New("BucketCapacity must not be zero")

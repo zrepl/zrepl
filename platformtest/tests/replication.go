@@ -20,6 +20,7 @@ import (
 	"github.com/zrepl/zrepl/replication/logic"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/replication/report"
+	"github.com/zrepl/zrepl/util/bandwidthlimit"
 	"github.com/zrepl/zrepl/util/limitio"
 	"github.com/zrepl/zrepl/util/nodefault"
 	"github.com/zrepl/zrepl/zfs"
@@ -63,9 +64,10 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 	}
 
 	senderConfig := endpoint.SenderConfig{
-		FSF:     i.sfilter.AsFilter(),
-		Encrypt: &nodefault.Bool{B: false},
-		JobID:   i.sjid,
+		FSF:            i.sfilter.AsFilter(),
+		Encrypt:        &nodefault.Bool{B: false},
+		JobID:          i.sjid,
+		BandwidthLimit: bandwidthlimit.NoLimitConfig(),
 	}
 	if i.senderConfigHook != nil {
 		i.senderConfigHook(&senderConfig)
@@ -75,6 +77,7 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 		JobID:                      i.rjid,
 		AppendClientIdentity:       false,
 		RootWithoutClientComponent: mustDatasetPath(i.rfsRoot),
+		BandwidthLimit:             bandwidthlimit.NoLimitConfig(),
 	}
 	if i.receiverConfigHook != nil {
 		i.receiverConfigHook(&receiverConfig)
