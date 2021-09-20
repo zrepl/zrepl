@@ -7,6 +7,7 @@ package transportmux
 
 import (
 	"context"
+	"os"
 	"sync/atomic"
 	"syscall"
 
@@ -15,6 +16,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/kr/pretty"
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/logger"
 	"github.com/zrepl/zrepl/transport"
@@ -151,6 +153,7 @@ func Demux(ctx context.Context, rawListener transport.AuthenticatedListener, lab
 
 			rawConn, err := rawListener.Accept(ctx)
 			if err != nil {
+				fmt.Fprintf(os.Stderr, "transportmux.Demux: rawListener.Accept() returned error: %T %s\n%s\n", err, err, pretty.Sprint(err))
 				if ctx.Err() != nil {
 					return
 				}

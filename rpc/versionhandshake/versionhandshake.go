@@ -10,9 +10,12 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/kr/pretty"
 )
 
 type HandshakeMessage struct {
@@ -93,6 +96,7 @@ func (m *HandshakeMessage) Encode() ([]byte, error) {
 func (m *HandshakeMessage) DecodeReader(r io.Reader, maxLen int) error {
 	var lenAndSpace [11]byte
 	if _, err := io.ReadFull(r, lenAndSpace[:]); err != nil {
+		fmt.Fprintf(os.Stderr, "HandshakeMessage.DecodeReader error: %T\n%s", err, pretty.Sprint(err))
 		return hsIOErr(err, "error reading protocol banner length: %s", err)
 	}
 	if !utf8.Valid(lenAndSpace[:]) {

@@ -2,7 +2,9 @@ package versionhandshake
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"os"
 	"time"
 
 	"github.com/zrepl/zrepl/transport"
@@ -23,6 +25,7 @@ func (c HandshakeConnecter) Connect(ctx context.Context) (transport.Wire, error)
 		dl = time.Now().Add(c.timeout)
 	}
 	if err := DoHandshakeCurrentVersion(conn, dl); err != nil {
+		fmt.Fprintf(os.Stderr, "HandshakeConnecter error: %T\n\t%s\n\t%v\n\t%#v\n\n", err, err, err, err)
 		conn.Close()
 		return nil, err
 	}

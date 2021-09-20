@@ -3,7 +3,9 @@ package tls
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
+	"os"
 
 	"github.com/pkg/errors"
 
@@ -48,6 +50,7 @@ func TLSConnecterFromConfig(in *config.TLSConnect) (*TLSConnecter, error) {
 func (c *TLSConnecter) Connect(dialCtx context.Context) (transport.Wire, error) {
 	conn, err := c.dialer.DialContext(dialCtx, "tcp", c.Address)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "tls connecter error %T\n\t%s\n\t%v\n\t%#v\n\n", err, err, err, err)
 		return nil, err
 	}
 	tcpConn := conn.(*net.TCPConn)

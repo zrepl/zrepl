@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/config"
@@ -68,6 +70,7 @@ type tlsAuthListener struct {
 func (l tlsAuthListener) Accept(ctx context.Context) (*transport.AuthConn, error) {
 	tcpConn, tlsConn, cn, err := l.ClientAuthListener.Accept()
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "tlsAuthListener.Accept: l.ClientAuthListener.Accept returned error %T %s\n%s\n", err, err, pretty.Sprint(err))
 		return nil, err
 	}
 	if _, ok := l.clientCNs[cn]; !ok {
