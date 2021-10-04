@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/zrepl/zrepl/daemon/logging/trace"
+	"github.com/zrepl/zrepl/util/bandwidthlimit"
 	"github.com/zrepl/zrepl/util/nodefault"
 
 	"github.com/zrepl/zrepl/config"
@@ -179,8 +180,11 @@ func (j *SnapJob) doPrune(ctx context.Context) {
 	sender := endpoint.NewSender(endpoint.SenderConfig{
 		JobID: j.name,
 		FSF:   j.fsfilter,
-		// FIXME encryption setting is irrelevant for SnapJob because the endpoint is only used as pruner.Target
-		Encrypt: &nodefault.Bool{B: true},
+		// FIXME the following config fields are irrelevant for SnapJob
+		// because the endpoint is only used as pruner.Target.
+		// However, the implementation requires them to be set.
+		Encrypt:        &nodefault.Bool{B: true},
+		BandwidthLimit: bandwidthlimit.NoLimitConfig(),
 	})
 	j.prunerMtx.Lock()
 	j.pruner = j.prunerFactory.BuildLocalPruner(ctx, sender, alwaysUpToDateReplicationCursorHistory{sender})
