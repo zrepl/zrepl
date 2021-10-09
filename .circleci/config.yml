@@ -231,8 +231,6 @@ jobs:
       - install-docdep
       - run: make docs
 
-      - store_artifacts:
-          path: artifacts
       - download-and-install-minio-client
       - upload-minio:
           src: artifacts
