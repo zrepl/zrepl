@@ -1,3 +1,4 @@
+//go:build illumos || solaris
 // +build illumos solaris
 
 package timeoutconn

@@ -1,5 +1,5 @@
-// +build !illumos
-// +build !solaris
+//go:build !illumos && !solaris
+// +build !illumos,!solaris
 
 package timeoutconn
 
