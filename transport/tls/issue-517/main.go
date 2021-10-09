@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/transport/tls"
@@ -16,6 +17,7 @@ var servConf = config.TLSServe{
 	ServeCommon: config.ServeCommon{
 		Type: "tls",
 	},
+	HandshakeTimeout: 10 * time.Second,
 }
 
 var clientConf = config.TLSConnect{
@@ -27,7 +29,7 @@ var clientConf = config.TLSConnect{
 	Cert:        "",
 	Key:         "",
 	ServerCN:    "",
-	DialTimeout: 0,
+	DialTimeout: 10 * time.Second,
 }
 
 var ca string
@@ -91,22 +93,27 @@ func server() {
 		go func() {
 			defer conn.Close()
 
-			log.Printf("handling connection %s", conn)
+			log.Printf("handling connection %s", conn.RemoteAddr())
 			_, err = io.Copy(conn, strings.NewReader("here is the server\n"))
 			if err != nil {
-				log.Printf("%s: respond to client error: %s", conn, err)
+				log.Printf("%s: respond to client error: %s", conn.RemoteAddr(), err)
 				return
 			}
 
-			log.Printf("%s: waiting for client to close connection", conn)
+			err = conn.CloseWrite()
+			if err != nil {
+				log.Printf("%s: failed to close write connection: err", conn.RemoteAddr(), err)
+			}
+
+			log.Printf("%s: waiting for client to close connection", conn.RemoteAddr())
 
 			_, err = io.Copy(io.Discard, conn)
 			if err != nil {
-				log.Printf("%s: error draining client connection: %s", conn, err)
+				log.Printf("%s: error draining client connection: %s", conn.RemoteAddr(), err)
 				return
 			}
 
-			log.Printf("%s: done", conn)
+			log.Printf("%s: done", conn.RemoteAddr())
 			return
 		}()
 	}
