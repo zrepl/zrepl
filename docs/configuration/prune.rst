@@ -67,8 +67,9 @@ Policy ``not_replicated``
      ...
 
 ``not_replicated`` keeps all snapshots that have not been replicated to the receiving side.
-It only makes sense to specify this rule on a sender (source or push job).
-The state required to evaluate this rule is stored in the :ref:`replication cursor bookmark <replication-cursor-and-last-received-hold>` on the sending side.
+It only makes sense to specify this rule for the ``keep_sender``.
+The reason is that, by definition, all snapshots on the receiver have already been replicated to there from the sender.
+To determine whether a sender-side snapshot has already been replicated, zrepl uses the :ref:`replication cursor bookmark <replication-cursor-and-last-received-hold>` which corresponds to the most recent successfully replicated snapshot.
 
 .. _prune-keep-retention-grid:
 

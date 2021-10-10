@@ -19,12 +19,20 @@ import (
 	"github.com/zrepl/zrepl/util/envconst"
 )
 
+// The sender in the replication setup.
+// The pruner uses the Sender to determine which of the Target's filesystems need to be pruned.
+// Also, it asks the Sender about the replication cursor of each filesystem
+// to enable the 'not_replicated' pruning rule.
+//
 // Try to keep it compatible with github.com/zrepl/zrepl/endpoint.Endpoint
-type History interface {
+type Sender interface {
 	ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error)
 	ListFilesystems(ctx context.Context, req *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error)
 }
 
+// The pruning target, i.e., on which snapshots are destroyed.
+// This can be a replication sender or receiver.
+//
 // Try to keep it compatible with github.com/zrepl/zrepl/endpoint.Endpoint
 type Target interface {
 	ListFilesystems(ctx context.Context, req *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error)
@@ -48,7 +56,7 @@ func GetLogger(ctx context.Context) Logger {
 type args struct {
 	ctx                            context.Context
 	target                         Target
-	receiver                       History
+	sender                         Sender
 	rules                          []pruning.KeepRule
 	retryWait                      time.Duration
 	considerSnapAtCursorReplicated bool
@@ -132,12 +140,12 @@ func NewPrunerFactory(in config.PruningSenderReceiver, promPruneSecs *prometheus
 	return f, nil
 }
 
-func (f *PrunerFactory) BuildSenderPruner(ctx context.Context, target Target, receiver History) *Pruner {
+func (f *PrunerFactory) BuildSenderPruner(ctx context.Context, target Target, sender Sender) *Pruner {
 	p := &Pruner{
 		args: args{
 			context.WithValue(ctx, contextKeyPruneSide, "sender"),
 			target,
-			receiver,
+			sender,
 			f.senderRules,
 			f.retryWait,
 			f.considerSnapAtCursorReplicated,
@@ -148,12 +156,12 @@ func (f *PrunerFactory) BuildSenderPruner(ctx context.Context, target Target, re
 	return p
 }
 
-func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, target Target, receiver History) *Pruner {
+func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, target Target, sender Sender) *Pruner {
 	p := &Pruner{
 		args: args{
 			context.WithValue(ctx, contextKeyPruneSide, "receiver"),
 			target,
-			receiver,
+			sender,
 			f.receiverRules,
 			f.retryWait,
 			false, // senseless here anyways
@@ -164,12 +172,12 @@ func (f *PrunerFactory) BuildReceiverPruner(ctx context.Context, target Target, 
 	return p
 }
 
-func (f *LocalPrunerFactory) BuildLocalPruner(ctx context.Context, target Target, receiver History) *Pruner {
+func (f *LocalPrunerFactory) BuildLocalPruner(ctx context.Context, target Target, history Sender) *Pruner {
 	p := &Pruner{
 		args: args{
 			context.WithValue(ctx, contextKeyPruneSide, "local"),
 			target,
-			receiver,
+			history,
 			f.keepRules,
 			f.retryWait,
 			false, // considerSnapAtCursorReplicated is not relevant for local pruning
@@ -343,9 +351,9 @@ func (s snapshot) Date() time.Time { return s.date }
 
 func doOneAttempt(a *args, u updater) {
 
-	ctx, target, receiver := a.ctx, a.target, a.receiver
+	ctx, target, sender := a.ctx, a.target, a.sender
 
-	sfssres, err := receiver.ListFilesystems(ctx, &pdu.ListFilesystemReq{})
+	sfssres, err := sender.ListFilesystems(ctx, &pdu.ListFilesystemReq{})
 	if err != nil {
 		u(func(p *Pruner) {
 			p.state = PlanErr
@@ -410,7 +418,7 @@ tfss_loop:
 		rcReq := &pdu.ReplicationCursorReq{
 			Filesystem: tfs.Path,
 		}
-		rc, err := receiver.ReplicationCursor(ctx, rcReq)
+		rc, err := sender.ReplicationCursor(ctx, rcReq)
 		if err != nil {
 			pfsPlanErrAndLog(err, "cannot get replication cursor bookmark")
 			continue tfss_loop
@@ -456,7 +464,7 @@ tfss_loop:
 			})
 		}
 		if preCursor {
-			pfsPlanErrAndLog(fmt.Errorf("replication cursor not found in prune target filesystem versions"), "")
+			pfsPlanErrAndLog(fmt.Errorf("prune target has no snapshot that corresponds to sender replication cursor bookmark"), "")
 			continue tfss_loop
 		}
 

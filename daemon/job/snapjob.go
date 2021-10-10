@@ -147,7 +147,7 @@ type alwaysUpToDateReplicationCursorHistory struct {
 	target pruner.Target
 }
 
-var _ pruner.History = (*alwaysUpToDateReplicationCursorHistory)(nil)
+var _ pruner.Sender = (*alwaysUpToDateReplicationCursorHistory)(nil)
 
 func (h alwaysUpToDateReplicationCursorHistory) ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
 	fsvReq := &pdu.ListFilesystemVersionsReq{
