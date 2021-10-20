@@ -42,6 +42,7 @@ type ActiveSide struct {
 	promPruneSecs         *prometheus.HistogramVec // labels: prune_side
 	promBytesReplicated   *prometheus.CounterVec   // labels: filesystem
 	promReplicationErrors prometheus.Gauge
+	promReplicationLastComplete prometheus.Gauge
 
 	tasksMtx sync.Mutex
 	tasks    activeSideTasks
@@ -321,12 +322,18 @@ func activeSide(g *config.Global, in *config.ActiveJob, configJob interface{}) (
 		Help:        "number of bytes replicated from sender to receiver per filesystem",
 		ConstLabels: prometheus.Labels{"zrepl_job": j.name.String()},
 	}, []string{"filesystem"})
-
 	j.promReplicationErrors = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace:   "zrepl",
 		Subsystem:   "replication",
 		Name:        "filesystem_errors",
 		Help:        "number of filesystems that failed replication in the latest replication attempt, or -1 if the job failed before enumerating the filesystems",
+		ConstLabels: prometheus.Labels{"zrepl_job": j.name.String()},
+	})
+	j.promReplicationLastComplete = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace:   "zrepl",
+		Subsystem:   "replication",
+		Name:        "filesystem_last_complete",
+		Help:        "timestamp of last correctly completed replication",
 		ConstLabels: prometheus.Labels{"zrepl_job": j.name.String()},
 	})
 
@@ -360,6 +367,7 @@ func (j *ActiveSide) RegisterMetrics(registerer prometheus.Registerer) {
 	registerer.MustRegister(j.promPruneSecs)
 	registerer.MustRegister(j.promBytesReplicated)
 	registerer.MustRegister(j.promReplicationErrors)
+	registerer.MustRegister(j.promReplicationLastComplete)
 }
 
 func (j *ActiveSide) Name() string { return j.name.String() }
@@ -494,7 +502,11 @@ func (j *ActiveSide) do(ctx context.Context) {
 		repCancel()   // always cancel to free up context resources
 
 		replicationReport := j.tasks.replicationReport()
-		j.promReplicationErrors.Set(float64(replicationReport.GetFailedFilesystemsCountInLatestAttempt()))
+		var numErrors = replicationReport.GetFailedFilesystemsCountInLatestAttempt()
+		j.promReplicationErrors.Set(float64(numErrors))
+		if numErrors == 0 {
+			j.promReplicationLastComplete.SetToCurrentTime()
+		}
 
 		endSpan()
 	}
