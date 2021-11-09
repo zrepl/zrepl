@@ -42,7 +42,7 @@ type ActiveSide struct {
 	promPruneSecs         *prometheus.HistogramVec // labels: prune_side
 	promBytesReplicated   *prometheus.CounterVec   // labels: filesystem
 	promReplicationErrors prometheus.Gauge
-	promReplicationLastSuccessful prometheus.Gauge
+	promLastSuccessful    prometheus.Gauge
 
 	tasksMtx sync.Mutex
 	tasks    activeSideTasks
@@ -329,10 +329,10 @@ func activeSide(g *config.Global, in *config.ActiveJob, configJob interface{}) (
 		Help:        "number of filesystems that failed replication in the latest replication attempt, or -1 if the job failed before enumerating the filesystems",
 		ConstLabels: prometheus.Labels{"zrepl_job": j.name.String()},
 	})
-	j.promReplicationLastSuccessful = prometheus.NewGauge(prometheus.GaugeOpts{
+	j.promLastSuccessful = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace:   "zrepl",
 		Subsystem:   "replication",
-		Name:        "filesystem_last_successful",
+		Name:        "last_successful",
 		Help:        "timestamp of last successful replication",
 		ConstLabels: prometheus.Labels{"zrepl_job": j.name.String()},
 	})
@@ -367,7 +367,7 @@ func (j *ActiveSide) RegisterMetrics(registerer prometheus.Registerer) {
 	registerer.MustRegister(j.promPruneSecs)
 	registerer.MustRegister(j.promBytesReplicated)
 	registerer.MustRegister(j.promReplicationErrors)
-	registerer.MustRegister(j.promReplicationLastSuccessful)
+	registerer.MustRegister(j.promLastSuccessful)
 }
 
 func (j *ActiveSide) Name() string { return j.name.String() }
@@ -505,7 +505,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 		var numErrors = replicationReport.GetFailedFilesystemsCountInLatestAttempt()
 		j.promReplicationErrors.Set(float64(numErrors))
 		if numErrors == 0 {
-			j.promReplicationLastSuccessful.SetToCurrentTime()
+			j.promLastSuccessful.SetToCurrentTime()
 		}
 
 		endSpan()
