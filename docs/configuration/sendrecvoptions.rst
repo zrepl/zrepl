@@ -54,7 +54,7 @@ See the `upstream man page <https://openzfs.github.io/openzfs-docs/man/8/zfs-sen
     * - ``compressed``
       - ``-c``
       -
-    * - ``embbeded_data``
+    * - ``embedded_data``
       - ``-e``
       -
     * - ``saved``

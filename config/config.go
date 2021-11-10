@@ -86,7 +86,7 @@ type SendOptions struct {
 	BackupProperties bool `yaml:"backup_properties,optional,default=false"`
 	LargeBlocks      bool `yaml:"large_blocks,optional,default=false"`
 	Compressed       bool `yaml:"compressed,optional,default=false"`
-	EmbeddedData     bool `yaml:"embbeded_data,optional,default=false"`
+	EmbeddedData     bool `yaml:"embedded_data,optional,default=false"`
 	Saved            bool `yaml:"saved,optional,default=false"`
 
 	BandwidthLimit *BandwidthLimit `yaml:"bandwidth_limit,optional,fromdefaults"`

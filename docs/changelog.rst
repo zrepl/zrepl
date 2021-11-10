@@ -29,6 +29,11 @@ We use the following annotations for classifying changes:
 * |docs| Change to the documentation.
 * |maint| Maintenance changes.
 
+0.5
+---
+
+* |break_config| |bugfix| Rename mis-spelled :ref:`send option <job-send-options>` ``embbeded_data`` to ``embedded_data``.
+
 0.4.0
 -----
 
