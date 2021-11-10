@@ -160,8 +160,9 @@ type Status struct {
 }
 
 type GlobalStatus struct {
-	ZFSCmds  *zfscmd.Report
-	Envconst *envconst.Report
+	ZFSCmds   *zfscmd.Report
+	Envconst  *envconst.Report
+	OsEnviron []string
 }
 
 func (s *jobs) status() map[string]*job.Status {

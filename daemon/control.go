@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/pkg/errors"
@@ -124,8 +125,9 @@ func (j *controlJob) Run(ctx context.Context) {
 			s := Status{
 				Jobs: jobs,
 				Global: GlobalStatus{
-					ZFSCmds:  globalZFS,
-					Envconst: envconstReport,
+					ZFSCmds:   globalZFS,
+					Envconst:  envconstReport,
+					OsEnviron: os.Environ(),
 				}}
 			return s, nil
 		}})
