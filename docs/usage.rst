@@ -78,3 +78,14 @@ Systemd Unit File
 A systemd service definition template is available in :repomasterlink:`dist/systemd`.
 Note that some of the options only work on recent versions of systemd.
 Any help & improvements are very welcome, see :issue:`145`.
+
+
+
+============
+Ops Runbooks
+============
+
+
+.. toctree::
+
+   usage/runbooks/migrating_sending_side_to_new_zpool.rst
