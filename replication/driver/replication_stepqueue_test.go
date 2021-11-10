@@ -14,11 +14,12 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/zrepl/zrepl/daemon/logging/trace"
+	"github.com/zrepl/zrepl/util/zreplcircleci"
 )
 
-// FIXME: this test relies on timing and is thus rather flaky
-// (relies on scheduler responsiveness of < 500ms)
 func TestPqNotconcurrent(t *testing.T) {
+	zreplcircleci.SkipOnCircleCI(t, "because it relies on scheduler responsiveness < 500ms")
+
 	ctx, end := trace.WithTaskFromStack(context.Background())
 	defer end()
 	var ctr uint32
@@ -90,6 +91,8 @@ func (r record) String() string {
 // Hence, perform some statistics on the wakeup times and assert that the mean wakeup
 // times for each step are close together.
 func TestPqConcurrent(t *testing.T) {
+	zreplcircleci.SkipOnCircleCI(t, "because it relies on scheduler responsiveness < 500ms")
+
 	ctx, end := trace.WithTaskFromStack(context.Background())
 	defer end()
 
