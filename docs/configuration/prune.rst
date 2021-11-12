@@ -106,7 +106,7 @@ The following procedure happens during pruning:
 #. All subsequent buckets are placed adjacent to their predecessor bucket.
 #. Now each snapshot on the axis either falls into one bucket or it is older than our rightmost bucket.
    Buckets are left-inclusive and right-exclusive which means that a snapshot on the edge of bucket will always 'fall into the right one'.
-#. Snapshots older than the rightmost bucket are **not kept** by this gridspec.
+#. Snapshots older than the rightmost bucket are **not kept** by the grid specification.
 #. For each bucket, we only keep the ``keep`` oldest snapshots.
 
 The syntax to describe the bucket list is as follows:
@@ -124,11 +124,11 @@ The syntax to describe the bucket list is as follows:
 
 ::
 
-   Assume the following grid spec:
+   Assume the following grid specification:
 
       grid: 1x1h(keep=all) | 2x2h | 1x3h
 
-   This grid spec produces the following constellation of buckets:
+   This grid specification produces the following constellation of buckets:
 
    0h        1h        2h        3h        4h        5h        6h        7h        8h        9h
    |         |         |         |         |         |         |         |         |         |
