@@ -148,11 +148,11 @@ The syntax to describe the bucket list is as follows:
    |-Bucket1-|-----Bucket2-------|------Bucket3------|-----------Bucket4-----------|
    | keep=all|      keep=1       |       keep=1      |            keep=1           |
    |         |                   |                   |                             |
-   |  a  b  c| d  e  f  g  h  i  j  k  l  m  n  o  p |q  r  s  t  u  v  w  x  y  z |A  B  C  D
+   | a  b  c | d  e  f  g  h  i  j  k  l  m  n  o  p |q  r  s  t  u  v  w  x  y  z |A  B  C  D
 
    The result is the following mapping of snapshots to buckets:
 
-   Bucket1:   a, b, c
+   Bucket1:   a,b,c
    Bucket2:   d,e,f,g,h,i,j
    Bucket3:   k,l,m,n,o,p
    Bucket4:   q,r,s,t,u,v,w,x,y,z
@@ -168,7 +168,7 @@ The syntax to describe the bucket list is as follows:
    |         |         |         |         |         |         |         |         |         |
    |-Bucket1-|-----Bucket2-------|------Bucket3------|-----------Bucket4-----------|
    |         |                   |                   |                             |
-   |  a  b  c|                   j                 p |                           z  |
+   | a  b  c |                   j                 p |                           z |
 
 .. _prune-keep-last-n:
 
