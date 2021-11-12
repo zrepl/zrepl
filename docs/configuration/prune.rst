@@ -107,7 +107,7 @@ The following procedure happens during pruning:
 #. All subsequent buckets are placed adjacent to their predecessor bucket.
 #. Now each snapshot on the axis either falls into one bucket or it is older than our rightmost bucket.
    Buckets are left-inclusive and right-exclusive which means that a snapshot on the edge of bucket will always 'fall into the right one'.
-#. Snapshots older than the rightmost bucket **not kept** by this gridspec.
+#. Snapshots older than the rightmost bucket are **not kept** by the grid specification.
 #. For each bucket, we only keep the ``keep`` oldest snapshots.
 
 The syntax to describe the bucket list is as follows:
@@ -125,11 +125,11 @@ The syntax to describe the bucket list is as follows:
 
 ::
 
-   Assume the following grid spec:
+   Assume the following grid specification:
 
       grid: 1x1h(keep=all) | 2x2h | 1x3h
 
-   This grid spec produces the following constellation of buckets:
+   This grid specification produces the following constellation of buckets:
 
    0h        1h        2h        3h        4h        5h        6h        7h        8h        9h
    |         |         |         |         |         |         |         |         |         |
@@ -149,13 +149,13 @@ The syntax to describe the bucket list is as follows:
    |-Bucket1-|-----Bucket2-------|------Bucket3------|-----------Bucket4-----------|
    | keep=all|      keep=1       |       keep=1      |            keep=1           |
    |         |                   |                   |                             |
-   |  a  b  c| d  e  f  g  h  i  j  k  l  m  n  o  p |q  r  s  t  u  v  w  x  y  z |A  B  C  D
+   | a  b  c | d  e  f  g  h  i  j  k  l  m  n  o  p |q  r  s  t  u  v  w  x  y  z |A  B  C  D
 
-   The result is the following mapping of snapshots to buckets:
+   We obtain the following mapping of snapshots to buckets:
 
-   Bucket1:   a, b, c
-   Bucket2:   d,e,f,g,h,i,j
-   Bucket3:   k,l,m,n,o,p
+   Bucket1:   a,b,c
+   Bucket2:   d,e,f,g,h,i
+   Bucket3:   j,k,l,m,n,o,p
    Bucket4:   q,r,s,t,u,v,w,x,y,z
    No bucket: A,B,C,D
 
@@ -169,7 +169,7 @@ The syntax to describe the bucket list is as follows:
    |         |         |         |         |         |         |         |         |         |
    |-Bucket1-|-----Bucket2-------|------Bucket3------|-----------Bucket4-----------|
    |         |                   |                   |                             |
-   |  a  b  c|                   j                 p |                           z  |
+   | a  b  c |                i  |                 p |                           z |
 
 .. _prune-keep-last-n:
 
