@@ -106,7 +106,7 @@ The following procedure happens during pruning:
 #. All subsequent buckets are placed adjacent to their predecessor bucket.
 #. Now each snapshot on the axis either falls into one bucket or it is older than our rightmost bucket.
    Buckets are left-inclusive and right-exclusive which means that a snapshot on the edge of bucket will always 'fall into the right one'.
-#. Snapshots older than the rightmost bucket **not kept** by this gridspec.
+#. Snapshots older than the rightmost bucket are **not kept** by this gridspec.
 #. For each bucket, we only keep the ``keep`` oldest snapshots.
 
 The syntax to describe the bucket list is as follows:
