@@ -150,11 +150,11 @@ The syntax to describe the bucket list is as follows:
    |         |                   |                   |                             |
    | a  b  c | d  e  f  g  h  i  j  k  l  m  n  o  p |q  r  s  t  u  v  w  x  y  z |A  B  C  D
 
-   The result is the following mapping of snapshots to buckets:
+   We obtain the following mapping of snapshots to buckets:
 
    Bucket1:   a,b,c
-   Bucket2:   d,e,f,g,h,i,j
-   Bucket3:   k,l,m,n,o,p
+   Bucket2:   d,e,f,g,h,i
+   Bucket3:   j,k,l,m,n,o,p
    Bucket4:   q,r,s,t,u,v,w,x,y,z
    No bucket: A,B,C,D
 
@@ -168,7 +168,7 @@ The syntax to describe the bucket list is as follows:
    |         |         |         |         |         |         |         |         |         |
    |-Bucket1-|-----Bucket2-------|------Bucket3------|-----------Bucket4-----------|
    |         |                   |                   |                             |
-   | a  b  c |                   j                 p |                           z |
+   | a  b  c |                i  |                 p |                           z |
 
 .. _prune-keep-last-n:
 
