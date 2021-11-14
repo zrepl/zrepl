@@ -62,10 +62,22 @@ const (
 	FilesystemDone            FilesystemState = "done"
 )
 
+type FsBlockedOn string
+
+const (
+	FsBlockedOnNothing           FsBlockedOn = "nothing"
+	FsBlockedOnPlanningStepQueue FsBlockedOn = "plan-queue"
+	FsBlockedOnParentInitialRepl FsBlockedOn = "parent-initial-repl"
+	FsBlockedOnReplStepQueue     FsBlockedOn = "repl-queue"
+)
+
 type FilesystemReport struct {
 	Info *FilesystemInfo
 
 	State FilesystemState
+
+	// Always valid.
+	BlockedOn FsBlockedOn
 
 	// Valid in State = FilesystemPlanningErrored
 	PlanError *TimedError

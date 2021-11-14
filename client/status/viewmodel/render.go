@@ -216,7 +216,7 @@ func drawJob(t *stringbuilder.B, name string, v *job.Status, history *bytesProgr
 	}
 }
 
-func printFilesystemStatus(t *stringbuilder.B, rep *report.FilesystemReport, active bool, maxFS int) {
+func printFilesystemStatus(t *stringbuilder.B, rep *report.FilesystemReport, maxFS int) {
 
 	expected, replicated, containsInvalidSizeEstimates := rep.BytesSum()
 	sizeEstimationImpreciseNotice := ""
@@ -235,7 +235,8 @@ func printFilesystemStatus(t *stringbuilder.B, rep *report.FilesystemReport, act
 	)
 
 	activeIndicator := " "
-	if active {
+	if rep.BlockedOn == report.FsBlockedOnNothing &&
+		(rep.State == report.FilesystemPlanning || rep.State == report.FilesystemStepping) {
 		activeIndicator = "*"
 	}
 	t.AddIndent(1)
@@ -385,7 +386,7 @@ func renderReplicationReport(t *stringbuilder.B, rep *report.Report, history *by
 			}
 		}
 		for _, fs := range latest.Filesystems {
-			printFilesystemStatus(t, fs, false, maxFSLen) // FIXME bring 'active' flag back
+			printFilesystemStatus(t, fs, maxFSLen)
 		}
 
 	}
