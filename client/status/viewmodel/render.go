@@ -227,9 +227,13 @@ func printFilesystemStatus(t *stringbuilder.B, rep *report.FilesystemReport, max
 		sizeEstimationImpreciseNotice = " (step lacks size estimation)"
 	}
 
+	userVisisbleCurrentStep, userVisibleTotalSteps := rep.CurrentStep, len(rep.Steps)
+	if len(rep.Steps) > 0 {
+		userVisisbleCurrentStep = rep.CurrentStep + 1 // CurrentStep is an index that starts at 0
+	}
 	status := fmt.Sprintf("%s (step %d/%d, %s/%s)%s",
 		strings.ToUpper(string(rep.State)),
-		rep.CurrentStep, len(rep.Steps),
+		userVisisbleCurrentStep, userVisibleTotalSteps,
 		ByteCountBinaryUint(replicated), ByteCountBinaryUint(expected),
 		sizeEstimationImpreciseNotice,
 	)
