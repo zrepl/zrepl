@@ -101,6 +101,8 @@ type RecvOptions struct {
 	Properties *PropertyRecvOptions `yaml:"properties,fromdefaults"`
 
 	BandwidthLimit *BandwidthLimit `yaml:"bandwidth_limit,optional,fromdefaults"`
+
+	Placeholder *PlaceholderRecvOptions `yaml:"placeholder,fromdefaults"`
 }
 
 var _ yaml.Unmarshaler = &datasizeunit.Bits{}
@@ -128,6 +130,10 @@ type ReplicationOptionsConcurrency struct {
 type PropertyRecvOptions struct {
 	Inherit  []zfsprop.Property          `yaml:"inherit,optional"`
 	Override map[zfsprop.Property]string `yaml:"override,optional"`
+}
+
+type PlaceholderRecvOptions struct {
+	Encryption string `yaml:"encryption,default=unspecified"`
 }
 
 type PushJob struct {

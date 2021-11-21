@@ -472,7 +472,19 @@ type ReceiverConfig struct {
 	OverrideProperties map[zfsprop.Property]string
 
 	BandwidthLimit bandwidthlimit.Config
+
+	PlaceholderEncryption PlaceholderCreationEncryptionProperty
 }
+
+//go:generate enumer -type=PlaceholderCreationEncryptionProperty -transform=kebab -trimprefix=PlaceholderCreationEncryptionProperty
+type PlaceholderCreationEncryptionProperty int
+
+// Note: the constant names, transformed through enumer, are part of the config format!
+const (
+	PlaceholderCreationEncryptionPropertyUnspecified PlaceholderCreationEncryptionProperty = 1 << iota
+	PlaceholderCreationEncryptionPropertyInherit
+	PlaceholderCreationEncryptionPropertyOff
+)
 
 func (c *ReceiverConfig) copyIn() {
 	c.RootWithoutClientComponent = c.RootWithoutClientComponent.Copy()
@@ -513,6 +525,10 @@ func (c *ReceiverConfig) Validate() error {
 		return errors.Wrap(err, "`BandwidthLimit` field invalid")
 	}
 
+	if !c.PlaceholderEncryption.IsAPlaceholderCreationEncryptionProperty() {
+		return errors.Errorf("`PlaceholderEncryption` field is invalid")
+	}
+
 	return nil
 }
 
@@ -525,6 +541,8 @@ type Receiver struct {
 	bwLimit bandwidthlimit.Wrapper
 
 	recvParentCreationMtx *chainlock.L
+
+	Test_OverrideClientIdentityFunc func() string // for use by platformtest
 }
 
 func NewReceiver(config ReceiverConfig) *Receiver {
@@ -562,9 +580,15 @@ func (s *Receiver) clientRootFromCtx(ctx context.Context) *zfs.DatasetPath {
 		return s.conf.RootWithoutClientComponent.Copy()
 	}
 
-	clientIdentity, ok := ctx.Value(ClientIdentityKey).(string)
-	if !ok {
-		panic("ClientIdentityKey context value must be set")
+	var clientIdentity string
+	if s.Test_OverrideClientIdentityFunc != nil {
+		clientIdentity = s.Test_OverrideClientIdentityFunc()
+	} else {
+		var ok bool
+		clientIdentity, ok = ctx.Value(ClientIdentityKey).(string) // no shadow
+		if !ok {
+			panic("ClientIdentityKey context value must be set")
+		}
 	}
 
 	clientRoot, err := clientRoot(s.conf.RootWithoutClientComponent, clientIdentity)
@@ -605,7 +629,8 @@ func (s *Receiver) ListFilesystems(ctx context.Context, req *pdu.ListFilesystemR
 	if rphs, err := zfs.ZFSGetFilesystemPlaceholderState(ctx, s.conf.RootWithoutClientComponent); err != nil {
 		return nil, errors.Wrap(err, "cannot determine whether root_fs exists")
 	} else if !rphs.FSExists {
-		return nil, errors.New("root_fs does not exist")
+		getLogger(ctx).WithField("root_fs", s.conf.RootWithoutClientComponent).Error("root_fs does not exist")
+		return nil, errors.Errorf("root_fs does not exist")
 	}
 
 	root := s.clientRootFromCtx(ctx)
@@ -714,6 +739,33 @@ func (s *Receiver) SendDry(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, e
 	return nil, fmt.Errorf("receiver does not implement SendDry()")
 }
 
+func (s *Receiver) receive_GetPlaceholderCreationEncryptionValue(client_root, path *zfs.DatasetPath) (zfs.FilesystemPlaceholderCreateEncryptionValue, error) {
+	if !s.conf.PlaceholderEncryption.IsAPlaceholderCreationEncryptionProperty() {
+		panic(s.conf.PlaceholderEncryption)
+	}
+
+	if client_root.Equal(path) && s.conf.PlaceholderEncryption == PlaceholderCreationEncryptionPropertyUnspecified {
+		// If our Receiver is configured to append a client component to s.conf.RootWithoutClientComponent
+		// then that dataset is always going to be a placeholder.
+		// We don't want to burden users with the concept of placeholders if their `filesystems` filter on the sender
+		// doesn't introduce any gaps.
+		// Since the dataset hierarchy up to and including that client component dataset is still fully controlled by us,
+		// using `inherit` is going to make it work in all expected use cases.
+		return zfs.FilesystemPlaceholderCreateEncryptionInherit, nil
+	}
+
+	switch s.conf.PlaceholderEncryption {
+	case PlaceholderCreationEncryptionPropertyUnspecified:
+		return 0, fmt.Errorf("placeholder filesystem encryption handling is unspecified in receiver config")
+	case PlaceholderCreationEncryptionPropertyInherit:
+		return zfs.FilesystemPlaceholderCreateEncryptionInherit, nil
+	case PlaceholderCreationEncryptionPropertyOff:
+		return zfs.FilesystemPlaceholderCreateEncryptionOff, nil
+	default:
+		panic(s.conf.PlaceholderEncryption)
+	}
+}
+
 func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.ReadCloser) (*pdu.ReceiveRes, error) {
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
@@ -754,15 +806,18 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.
 			if v.Path.Equal(lp) {
 				return false
 			}
+
+			l := getLogger(ctx).
+				WithField("placeholder_fs", v.Path.ToString()).
+				WithField("receive_fs", lp.ToString())
+
 			ph, err := zfs.ZFSGetFilesystemPlaceholderState(ctx, v.Path)
-			getLogger(ctx).
-				WithField("fs", v.Path.ToString()).
-				WithField("placeholder_state", fmt.Sprintf("%#v", ph)).
+			l.WithField("placeholder_state", fmt.Sprintf("%#v", ph)).
 				WithField("err", fmt.Sprintf("%s", err)).
 				WithField("errType", fmt.Sprintf("%T", err)).
-				Debug("placeholder state for filesystem")
+				Debug("get placeholder state for filesystem")
 			if err != nil {
-				visitErr = err
+				visitErr = errors.Wrapf(err, "cannot get placeholder state of %s", v.Path.ToString())
 				return false
 			}
 
@@ -773,21 +828,34 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.
 					} else {
 						visitErr = fmt.Errorf("root_fs %q does not exist", s.conf.RootWithoutClientComponent.ToString())
 					}
-					getLogger(ctx).WithError(visitErr).Error("placeholders are only created automatically below root_fs")
+					l.WithError(visitErr).Error("placeholders are only created automatically below root_fs")
 					return false
 				}
-				l := getLogger(ctx).WithField("placeholder_fs", v.Path)
-				l.Debug("create placeholder filesystem")
-				err := zfs.ZFSCreatePlaceholderFilesystem(ctx, v.Path, v.Parent.Path)
+
+				// compute the value lazily so that users who don't rely on
+				// placeholders can use the default value PlaceholderCreationEncryptionPropertyUnspecified
+				placeholderEncryption, err := s.receive_GetPlaceholderCreationEncryptionValue(root, v.Path)
 				if err != nil {
-					l.WithError(err).Error("cannot create placeholder filesystem")
-					visitErr = err
+					l.WithError(err).Error("cannot create placeholder filesystem") // logger already contains path
+					visitErr = errors.Wrapf(err, "cannot create placeholder filesystem %s", v.Path.ToString())
 					return false
 				}
+
+				l := l.WithField("encryption", placeholderEncryption)
+
+				l.Debug("creating placeholder filesystem")
+				err = zfs.ZFSCreatePlaceholderFilesystem(ctx, v.Path, v.Parent.Path, placeholderEncryption)
+				if err != nil {
+					l.WithError(err).Error("cannot create placeholder filesystem") // logger already contains path
+					visitErr = errors.Wrapf(err, "cannot create placeholder filesystem %s", v.Path.ToString())
+					return false
+				}
+				l.Info("created placeholder filesystem")
 				return true
+			} else {
+				l.Debug("filesystem exists")
+				return true // leave this fs as is
 			}
-			getLogger(ctx).WithField("filesystem", v.Path.ToString()).Debug("exists")
-			return true // leave this fs as is
 		})
 	}()
 	getLogger(ctx).WithField("visitErr", visitErr).Debug("complete tree-walk")

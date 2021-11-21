@@ -79,6 +79,7 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 		AppendClientIdentity:       false,
 		RootWithoutClientComponent: mustDatasetPath(i.rfsRoot),
 		BandwidthLimit:             bandwidthlimit.NoLimitConfig(),
+		PlaceholderEncryption:      endpoint.PlaceholderCreationEncryptionPropertyUnspecified,
 	}
 	if i.receiverConfigHook != nil {
 		i.receiverConfigHook(&receiverConfig)
@@ -903,13 +904,9 @@ func ReplicationFailingInitialParentProhibitsChildReplication(ctx *platformtest.
 	fsAA := ctx.RootDataset + "/sender/aa"
 
 	sfilter := filters.NewDatasetMapFilter(3, true)
-	mustAddToSFilter := func(fs string) {
-		err := sfilter.Add(fs, "ok")
-		require.NoError(ctx, err)
-	}
-	mustAddToSFilter(fsA)
-	mustAddToSFilter(fsAChild)
-	mustAddToSFilter(fsAA)
+	mustAddToSFilter(ctx, sfilter, fsA)
+	mustAddToSFilter(ctx, sfilter, fsAChild)
+	mustAddToSFilter(ctx, sfilter, fsAA)
 	rfsRoot := ctx.RootDataset + "/receiver"
 
 	mockRecvErr := fmt.Errorf("yifae4ohPhaquaes0hohghiep9oufie4roo7quoWooluaj2ee8")
@@ -965,6 +962,7 @@ func ReplicationPropertyReplicationWorks(ctx *platformtest.Context) {
 		+  "sender/a/child"
 		+  "sender/a/child@1"
 		+  "receiver"
+		R  zfs create -p "${ROOTDS}/receiver/${ROOTDS}/sender"
 	`)
 
 	sjid := endpoint.MustMakeJobID("sender-job")
@@ -974,12 +972,8 @@ func ReplicationPropertyReplicationWorks(ctx *platformtest.Context) {
 	fsAChild := ctx.RootDataset + "/sender/a/child"
 
 	sfilter := filters.NewDatasetMapFilter(2, true)
-	mustAddToSFilter := func(fs string) {
-		err := sfilter.Add(fs, "ok")
-		require.NoError(ctx, err)
-	}
-	mustAddToSFilter(fsA)
-	mustAddToSFilter(fsAChild)
+	mustAddToSFilter(ctx, sfilter, fsA)
+	mustAddToSFilter(ctx, sfilter, fsAChild)
 	rfsRoot := ctx.RootDataset + "/receiver"
 
 	type testPropExpectation struct {
@@ -1106,4 +1100,209 @@ func ReplicationPropertyReplicationWorks(ctx *platformtest.Context) {
 			}
 		}
 	}
+}
+
+func ReplicationPlaceholderEncryption__UnspecifiedLeadsToFailureAtRuntimeWhenCreatingPlaceholders(ctx *platformtest.Context) {
+
+	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
+		CREATEROOT
+		+  "sender"
+		+  "sender/a"
+		+  "sender/a/child"
+		+  "receiver"
+		R  zfs snapshot -r ${ROOTDS}/sender@initial
+	`)
+
+	sjid := endpoint.MustMakeJobID("sender-job")
+	rjid := endpoint.MustMakeJobID("receiver-job")
+
+	childfs := ctx.RootDataset + "/sender/a/child"
+
+	sfilter := filters.NewDatasetMapFilter(3, true)
+
+	mustAddToSFilter(ctx, sfilter, childfs)
+	rfsRoot := ctx.RootDataset + "/receiver"
+
+	rep := replicationInvocation{
+		sjid:      sjid,
+		rjid:      rjid,
+		sfilter:   sfilter,
+		rfsRoot:   rfsRoot,
+		guarantee: pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability),
+		receiverConfigHook: func(rc *endpoint.ReceiverConfig) {
+			rc.PlaceholderEncryption = endpoint.PlaceholderCreationEncryptionPropertyUnspecified
+		},
+	}
+
+	r := rep.Do(ctx)
+	ctx.Logf("\n%s", pretty.Sprint(r))
+
+	require.Len(ctx, r.Attempts, 1)
+	attempt := r.Attempts[0]
+	require.Nil(ctx, attempt.PlanError)
+	require.Len(ctx, attempt.Filesystems, 1)
+
+	afs := attempt.Filesystems[0]
+	require.Equal(ctx, childfs, afs.Info.Name)
+
+	require.Equal(ctx, 1, len(afs.Steps))
+	require.Equal(ctx, 0, afs.CurrentStep)
+
+	require.Equal(ctx, report.FilesystemSteppingErrored, afs.State)
+
+	childfsFirstComponent := strings.Split(childfs, "/")[0]
+	require.Contains(ctx, afs.StepError.Err, "cannot create placeholder filesystem "+rfsRoot+"/"+childfsFirstComponent+": placeholder filesystem encryption handling is unspecified in receiver config")
+}
+
+type ClientIdentityReceiver struct {
+	clientIdentity string
+	*endpoint.Receiver
+}
+
+func (r *ClientIdentityReceiver) Receive(ctx context.Context, req *pdu.ReceiveReq, stream io.ReadCloser) (*pdu.ReceiveRes, error) {
+	ctx = context.WithValue(ctx, endpoint.ClientIdentityKey, r.clientIdentity)
+	return r.Receiver.Receive(ctx, req, stream)
+}
+
+func ReplicationPlaceholderEncryption__UnspecifiedIsOkForClientIdentityPlaceholder(ctx *platformtest.Context) {
+	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
+		CREATEROOT
+		+  "receiver"
+	`)
+
+	sjid := endpoint.MustMakeJobID("sender-job")
+	rjid := endpoint.MustMakeJobID("receiver-job")
+
+	sfilter := filters.NewDatasetMapFilter(1, true)
+
+	// hacky...
+	comps := strings.Split(ctx.RootDataset, "/")
+	require.GreaterOrEqual(ctx, len(comps), 2)
+	pool := comps[0]
+	require.Contains(ctx, pool, "zreplplatformtest", "don't want to cause accidents")
+	poolchild := pool + "/" + comps[1]
+
+	err := zfs.ZFSSnapshot(ctx, mustDatasetPath(pool), "testsnap", false)
+	require.NoError(ctx, err)
+
+	err = zfs.ZFSSnapshot(ctx, mustDatasetPath(poolchild), "testsnap", false)
+	require.NoError(ctx, err)
+
+	mustAddToSFilter(ctx, sfilter, pool)
+	mustAddToSFilter(ctx, sfilter, poolchild)
+
+	clientIdentity := "testclientid"
+
+	rfsRoot := ctx.RootDataset + "/receiver"
+
+	rep := replicationInvocation{
+		sjid:      sjid,
+		rjid:      rjid,
+		sfilter:   sfilter,
+		rfsRoot:   rfsRoot,
+		guarantee: pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability),
+		receiverConfigHook: func(rc *endpoint.ReceiverConfig) {
+			rc.PlaceholderEncryption = endpoint.PlaceholderCreationEncryptionPropertyUnspecified
+			rc.AppendClientIdentity = true
+		},
+		interceptReceiver: func(r *endpoint.Receiver) logic.Receiver {
+			r.Test_OverrideClientIdentityFunc = func() string { return clientIdentity }
+			return r
+		},
+	}
+
+	r := rep.Do(ctx)
+	ctx.Logf("\n%s", pretty.Sprint(r))
+
+	require.Len(ctx, r.Attempts, 1)
+	attempt := r.Attempts[0]
+	require.Nil(ctx, attempt.PlanError)
+	require.Len(ctx, attempt.Filesystems, 2)
+
+	filesystemsByName := make(map[string]*report.FilesystemReport)
+	for _, fs := range attempt.Filesystems {
+		filesystemsByName[fs.Info.Name] = fs
+	}
+	require.Len(ctx, filesystemsByName, len(attempt.Filesystems))
+
+	afs, ok := filesystemsByName[pool]
+	require.True(ctx, ok)
+	require.Nil(ctx, afs.PlanError)
+	require.Nil(ctx, afs.StepError)
+	require.Equal(ctx, report.FilesystemDone, afs.State)
+
+	afs, ok = filesystemsByName[poolchild]
+	require.True(ctx, ok)
+	require.Nil(ctx, afs.PlanError)
+	require.Nil(ctx, afs.StepError)
+	require.Equal(ctx, report.FilesystemDone, afs.State)
+
+	mustGetFilesystemVersion(ctx, rfsRoot+"/"+clientIdentity+"/"+pool+"@testsnap")
+	mustGetFilesystemVersion(ctx, rfsRoot+"/"+clientIdentity+"/"+poolchild+"@testsnap")
+
+}
+
+func replicationPlaceholderEncryption__EncryptOnReceiverUseCase__impl(ctx *platformtest.Context, placeholderEncryption endpoint.PlaceholderCreationEncryptionProperty) {
+
+	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
+		CREATEROOT
+		+  "sender"
+		+  "sender/a"
+		+  "sender/a/child"
+		+  "receiver" encrypted
+		R  zfs snapshot -r ${ROOTDS}/sender@initial
+	`)
+
+	sjid := endpoint.MustMakeJobID("sender-job")
+	rjid := endpoint.MustMakeJobID("receiver-job")
+
+	childfs := ctx.RootDataset + "/sender/a/child"
+
+	sfilter := filters.NewDatasetMapFilter(3, true)
+
+	mustAddToSFilter(ctx, sfilter, childfs)
+	rfsRoot := ctx.RootDataset + "/receiver"
+
+	rep := replicationInvocation{
+		sjid:      sjid,
+		rjid:      rjid,
+		sfilter:   sfilter,
+		rfsRoot:   rfsRoot,
+		guarantee: pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability),
+		receiverConfigHook: func(rc *endpoint.ReceiverConfig) {
+			rc.PlaceholderEncryption = placeholderEncryption
+			rc.AppendClientIdentity = false
+		},
+	}
+
+	r := rep.Do(ctx)
+	ctx.Logf("\n%s", pretty.Sprint(r))
+
+	require.Len(ctx, r.Attempts, 1)
+	attempt := r.Attempts[0]
+	require.Equal(ctx, report.AttemptDone, attempt.State)
+	require.Len(ctx, attempt.Filesystems, 1)
+	afs := attempt.Filesystems[0]
+	require.Equal(ctx, childfs, afs.Info.Name)
+
+	require.Equal(ctx, 1, len(afs.Steps))
+
+	rfs := mustDatasetPath(rfsRoot + "/" + childfs)
+	mustGetFilesystemVersion(ctx, rfs.ToString()+"@initial")
+}
+
+func ReplicationPlaceholderEncryption__EncryptOnReceiverUseCase__WorksIfConfiguredWithInherit(ctx *platformtest.Context) {
+	placeholderEncryption := endpoint.PlaceholderCreationEncryptionPropertyInherit
+
+	replicationPlaceholderEncryption__EncryptOnReceiverUseCase__impl(ctx, placeholderEncryption)
+	childfs := ctx.RootDataset + "/sender/a/child"
+	rfsRoot := ctx.RootDataset + "/receiver"
+	rfs := mustDatasetPath(rfsRoot + "/" + childfs)
+
+	// The leaf child dataset should be inhering from rfsRoot.
+	// If we had replicated with PlaceholderCreationEncryptionPropertyOff
+	// then it would be unencrypted and inherit from the placeholder.
+	props, err := zfs.ZFSGet(ctx, rfs, []string{"encryptionroot"})
+	require.NoError(ctx, err)
+	require.Equal(ctx, rfsRoot, props.Get("encryptionroot"))
 }

@@ -80,7 +80,15 @@ func ZFSGetFilesystemPlaceholderState(ctx context.Context, p *DatasetPath) (stat
 	return state, nil
 }
 
-func ZFSCreatePlaceholderFilesystem(ctx context.Context, fs *DatasetPath, parent *DatasetPath) (err error) {
+//go:generate enumer -type=FilesystemPlaceholderCreateEncryptionValue -trimprefix=FilesystemPlaceholderCreateEncryption
+type FilesystemPlaceholderCreateEncryptionValue int
+
+const (
+	FilesystemPlaceholderCreateEncryptionInherit FilesystemPlaceholderCreateEncryptionValue = 1 << iota
+	FilesystemPlaceholderCreateEncryptionOff
+)
+
+func ZFSCreatePlaceholderFilesystem(ctx context.Context, fs *DatasetPath, parent *DatasetPath, encryption FilesystemPlaceholderCreateEncryptionValue) (err error) {
 	if fs.Length() == 1 {
 		return fmt.Errorf("cannot create %q: pools cannot be created with zfs create", fs.ToString())
 	}
@@ -90,11 +98,19 @@ func ZFSCreatePlaceholderFilesystem(ctx context.Context, fs *DatasetPath, parent
 		"-o", fmt.Sprintf("%s=%s", PlaceholderPropertyName, placeholderPropertyOn),
 		"-o", "mountpoint=none",
 	}
-	if parentEncrypted, err := ZFSGetEncryptionEnabled(ctx, parent.ToString()); err != nil {
-		return errors.Wrap(err, "cannot determine encryption support")
-	} else if parentEncrypted {
-		cmdline = append(cmdline, "-o", "encryption=off")
+
+	if !encryption.IsAFilesystemPlaceholderCreateEncryptionValue() {
+		panic(encryption)
 	}
+	switch encryption {
+	case FilesystemPlaceholderCreateEncryptionInherit:
+		// no-op
+	case FilesystemPlaceholderCreateEncryptionOff:
+		cmdline = append(cmdline, "-o", "encryption=off")
+	default:
+		panic(encryption)
+	}
+
 	cmdline = append(cmdline, fs.ToString())
 	cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, cmdline...)
 
@@ -147,4 +163,35 @@ func ZFSMigrateHashBasedPlaceholderToCurrent(ctx context.Context, fs *DatasetPat
 		return nil, fmt.Errorf("error re-writing placeholder property: %s", err)
 	}
 	return &report, nil
+}
+
+func ZFSListPlaceholderFilesystemsWithAdditionalProps(ctx context.Context, root string, additionalProps []string) (map[string]*ZFSProperties, error) {
+
+	props := []string{PlaceholderPropertyName}
+	if len(additionalProps) > 0 {
+		props = append(props, additionalProps...)
+	}
+
+	propsByFS, err := zfsGetRecursive(ctx, root, -1, []string{"filesystem", "volume"}, props, SourceAny)
+	if err != nil {
+		return nil, errors.Wrapf(err, "cannot get placeholder filesystems under %q", root)
+	}
+
+	filtered := make(map[string]*ZFSProperties)
+	for fs, props := range propsByFS {
+		details := props.GetDetails(PlaceholderPropertyName)
+		if details.Source != SourceLocal {
+			continue
+		}
+		fsp, err := NewDatasetPath(fs)
+		if err != nil {
+			return nil, errors.Wrapf(err, "zfs get returned invalid dataset path %q", fs)
+		}
+		if !isLocalPlaceholderPropertyValuePlaceholder(fsp, details.Value) {
+			continue
+		}
+		filtered[fs] = props
+	}
+
+	return filtered, nil
 }

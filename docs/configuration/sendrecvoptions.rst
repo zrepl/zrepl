@@ -38,10 +38,10 @@ See the `upstream man page <https://openzfs.github.io/openzfs-docs/man/8/zfs-sen
       - Specific to zrepl, :ref:`see below <job-send-options-encrypted>`.
     * - ``bandwidth_limit``
       -
-      - Specific to zrepl, :ref:`see below <job-send-recv-options-bandwidth-limit>`.
+      - Specific to zrepl, :ref:`see below <job-send-recv-options--bandwidth-limit>`.
     * - ``raw``
       - ``-w``
-      - Use ``encrypted`` to only allow encrypted sends.
+      - Use ``encrypted`` to only allow encrypted sends. Mixed sends are not supported.
     * - ``send_properties``
       - ``-p``
       - **Be careful**, read the :ref:`note on property replication below <job-note-property-replication>`.
@@ -141,8 +141,15 @@ Recv Options
          override: {
            "org.openzfs.systemd:ignore": "on"
          }
-       bandwidth_limit: ... # see below
+       bandwidth_limit: ...
+       placeholder:
+         encryption: unspecified | off | inherit
      ...
+
+Jump to
+:ref:`properties <job-recv-options--inherit-and-override>` ,
+:ref:`bandwidth_limit <job-send-recv-options--bandwidth-limit>` , and
+:ref:`bandwidth_limit <job-recv-options--placeholder>`.
 
 .. _job-recv-options--inherit-and-override:
 
@@ -217,10 +224,40 @@ and property replication is enabled, the receiver must :ref:`inherit the followi
 * ``keyformat``
 * ``encryption``
 
+.. _job-recv-options--placeholder:
+
+Placeholders
+------------
+
+During replication, zrepl :ref:`creates placeholder datasets <replication-placeholder-property>` on the receiving side if the sending side's ``filesystems`` filter creates gaps in the dataset hierarchy.
+This is generally fully transparent to the user.
+However, with OpenZFS Native Encryption, placeholders require zrepl user attention.
+Specifically, the problem is that, when zrepl attempts to create the placeholder dataset on the receiver, and that placeholder's parent dataset is encrypted, ZFS wants to inherit encryption to the placeholder.
+This is relevant to two use cases that zrepl supports:
+
+1. **encrypted-send-to-untrusted-receiver** In this use case, the sender sends an :ref:`encrypted send stream <job-send-options-encrypted>` and the receiver doesn't have the key loaded.
+2. **send-plain-encrypt-on-receive** The receive-side ``root_fs`` dataset is encrypted, and the senders are unencrypted.
+   The key of ``root_fs`` is loaded, and the goal is that the plain sends (e.g., from production) are encrypted on-the-fly during receive, with ``root_fs``'s key.
+
+For **encrypted-send-to-untrusted-receiver**, the placeholder datasets need to be created with ``-o encryption=off``.
+Without it, creation would fail with an error, indicating that the placeholder's parent dataset's key needs to be loaded.
+But we don't trust the receiver, so we can't expect that to ever happen.
+
+However, for **send-plain-encrypt-on-receive**, we cannot set ``-o encryption=off``.
+The reason is that if we did, any of the (non-placeholder) child datasets below the placeholder would inherit ``encryption=off``, thereby silently breaking our encrypt-on-receive use case.
+So, to cover this use case, we need to create placeholders without specifying ``-o encryption``.
+This will make ``zfs create`` inherit the encryption mode from the parent dataset, and thereby transitively from ``root_fs``.
+
+The zrepl config provides the `recv.placeholder.encryption` knob to control this behavior.
+In ``undefined`` mode (default), placeholder creation bails out and asks the user to configure a behavior.
+In ``off`` mode, the placeholder is created with ``encryption=off``, i.e., **encrypted-send-to-untrusted-rceiver** use case.
+In ``inherit`` mode, the placeholder is created without specifying ``-o encryption`` at all, i.e., the **send-plain-encrypt-on-receive** use case.
+
+
 Common Options
 ~~~~~~~~~~~~~~
 
-.. _job-send-recv-options-bandwidth-limit:
+.. _job-send-recv-options--bandwidth-limit:
 
 Bandwidth Limit (send & recv)
 -----------------------------

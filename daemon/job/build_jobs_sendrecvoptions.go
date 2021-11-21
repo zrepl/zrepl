@@ -72,6 +72,16 @@ func buildReceiverConfig(in ReceivingJobConfig, jobID endpoint.JobID) (rc endpoi
 		return rc, errors.Wrap(err, "cannot build bandwith limit config")
 	}
 
+	placeholderEncryption, err := endpoint.PlaceholderCreationEncryptionPropertyString(recvOpts.Placeholder.Encryption)
+	if err != nil {
+		options := []string{}
+		for _, v := range endpoint.PlaceholderCreationEncryptionPropertyValues() {
+			options = append(options, endpoint.PlaceholderCreationEncryptionProperty(v).String())
+		}
+		return rc, errors.Errorf("placeholder encryption value %q is invalid, must be one of %s",
+			recvOpts.Placeholder.Encryption, options)
+	}
+
 	rc = endpoint.ReceiverConfig{
 		JobID:                      jobID,
 		RootWithoutClientComponent: rootFs,
@@ -81,6 +91,8 @@ func buildReceiverConfig(in ReceivingJobConfig, jobID endpoint.JobID) (rc endpoi
 		OverrideProperties: recvOpts.Properties.Override,
 
 		BandwidthLimit: bwlim,
+
+		PlaceholderEncryption: placeholderEncryption,
 	}
 	if err := rc.Validate(); err != nil {
 		return rc, errors.Wrap(err, "cannot build receiver config")

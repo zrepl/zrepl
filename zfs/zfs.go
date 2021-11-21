@@ -1567,8 +1567,18 @@ func (s PropertySource) zfsGetSourceFieldPrefixes() []string {
 	return prefixes
 }
 
-func zfsGet(ctx context.Context, path string, props []string, allowedSources PropertySource) (*ZFSProperties, error) {
-	args := []string{"get", "-Hp", "-o", "property,value,source", strings.Join(props, ","), path}
+func zfsGetRecursive(ctx context.Context, path string, depth int, dstypes []string, props []string, allowedSources PropertySource) (map[string]*ZFSProperties, error) {
+	args := []string{"get", "-Hp", "-o", "name,property,value,source"}
+	if depth != 0 {
+		args = append(args, "-r")
+		if depth != -1 {
+			args = append(args, "-d", fmt.Sprintf("%d", depth))
+		}
+	}
+	if len(dstypes) > 0 {
+		args = append(args, "-t", strings.Join(dstypes, ","))
+	}
+	args = append(args, strings.Join(props, ","), path)
 	cmd := zfscmd.CommandContext(ctx, ZFS_BINARY, args...)
 	stdout, err := cmd.Output()
 	if err != nil {
@@ -1588,35 +1598,66 @@ func zfsGet(ctx context.Context, path string, props []string, allowedSources Pro
 	}
 	o := string(stdout)
 	lines := strings.Split(o, "\n")
-	if len(lines) < 1 || // account for newlines
-		len(lines)-1 != len(props) {
-		return nil, fmt.Errorf("zfs get did not return the number of expected property values")
-	}
-	res := &ZFSProperties{
-		make(map[string]PropertyValue, len(lines)),
-	}
+	propsByFS := make(map[string]*ZFSProperties)
 	allowedPrefixes := allowedSources.zfsGetSourceFieldPrefixes()
-	for _, line := range lines[:len(lines)-1] {
+	for _, line := range lines[:len(lines)-1] { // last line is an empty line due to how strings.Split works
 		fields := strings.FieldsFunc(line, func(r rune) bool {
 			return r == '\t'
 		})
-		if len(fields) != 3 {
-			return nil, fmt.Errorf("zfs get did not return property,value,source tuples")
+		if len(fields) != 4 {
+			return nil, fmt.Errorf("zfs get did not return name,property,value,source tuples")
 		}
 		for _, p := range allowedPrefixes {
 			// prefix-match so that SourceAny (= "") works
-			if strings.HasPrefix(fields[2], p) {
-				source, err := parsePropertySource(fields[2])
+			if strings.HasPrefix(fields[3], p) {
+				source, err := parsePropertySource(fields[3])
 				if err != nil {
 					return nil, errors.Wrap(err, "parse property source")
 				}
-				res.m[fields[0]] = PropertyValue{
-					Value:  fields[1],
+				fsProps, ok := propsByFS[fields[0]]
+				if !ok {
+					fsProps = &ZFSProperties{
+						make(map[string]PropertyValue),
+					}
+				}
+				if _, ok := fsProps.m[fields[1]]; ok {
+					return nil, errors.Errorf("duplicate property %q for dataset %q", fields[1], fields[0])
+				}
+				fsProps.m[fields[1]] = PropertyValue{
+					Value:  fields[2],
 					Source: source,
 				}
+				propsByFS[fields[0]] = fsProps
 				break
 			}
 		}
+	}
+	// validate we got expected output
+	for fs, fsProps := range propsByFS {
+		if len(fsProps.m) != len(props) {
+			return nil, errors.Errorf("zfs get did not return all requested values for dataset %q\noutput was:\n%s", fs, o)
+		}
+	}
+	return propsByFS, nil
+}
+
+func zfsGet(ctx context.Context, path string, props []string, allowedSources PropertySource) (*ZFSProperties, error) {
+	propMap, err := zfsGetRecursive(ctx, path, 0, nil, props, allowedSources)
+	if err != nil {
+		return nil, err
+	}
+	if len(propMap) == 0 {
+		// XXX callers expect to always get a result here
+		// They will observe props.Get("propname") == ""
+		// We should change .Get to return a tuple, or an error, or whatever.
+		return &ZFSProperties{make(map[string]PropertyValue)}, nil
+	}
+	if len(propMap) != 1 {
+		return nil, errors.Errorf("zfs get unexpectedly returned properties for multiple datasets")
+	}
+	res, ok := propMap[path]
+	if !ok {
+		return nil, errors.Errorf("zfs get returned properties for a different dataset that requested")
 	}
 	return res, nil
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/platformtest"
 	"github.com/zrepl/zrepl/util/limitio"
 	"github.com/zrepl/zrepl/zfs"
@@ -173,4 +174,9 @@ func datasetToStringSortedTrimPrefix(prefix *zfs.DatasetPath, paths []*zfs.Datas
 	}
 	sort.Strings(pstrs)
 	return pstrs
+}
+
+func mustAddToSFilter(ctx *platformtest.Context, f *filters.DatasetMapFilter, fs string) {
+	err := f.Add(fs, "ok")
+	require.NoError(ctx, err)
 }
