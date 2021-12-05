@@ -34,6 +34,9 @@ We use the following annotations for classifying changes:
 
 * |break_config| |bugfix| Rename mis-spelled :ref:`send option <job-send-options>` ``embbeded_data`` to ``embedded_data``.
 
+Note to all users: please read up on the following OpenZFS bug, as you might be affected:
+`ZFS send/recv with ashift 9->12 leads to data corruption <https://github.com/openzfs/zfs/issues/12762>`_.
+
 0.4.0
 -----
 
