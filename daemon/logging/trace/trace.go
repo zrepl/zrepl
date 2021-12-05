@@ -246,7 +246,7 @@ func WithTask(ctx context.Context, taskName string) (context.Context, DoneFunc) 
 					// the debugString can be quite long and panic won't print it completely
 					fmt.Fprintf(os.Stderr, "going to panic due to activeChildTasks:\n%s\n", this.debugString())
 				}
-				panic(errors.WithMessagef(ErrTaskStillHasActiveChildTasks, "end task: %v active child tasks\n", this.activeChildTasks))
+				panic(errors.WithMessagef(ErrTaskStillHasActiveChildTasks, "end task: %v active child tasks (run daemon with env var %s=1 for more details)\n", this.activeChildTasks, debugEnabledEnvVar))
 			}
 
 			// support idempotent task ends

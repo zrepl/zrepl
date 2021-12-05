@@ -7,7 +7,9 @@ import (
 	"github.com/zrepl/zrepl/util/envconst"
 )
 
-var debugEnabled = envconst.Bool("ZREPL_TRACE_DEBUG_ENABLED", false)
+const debugEnabledEnvVar = "ZREPL_TRACE_DEBUG_ENABLED"
+
+var debugEnabled = envconst.Bool(debugEnabledEnvVar, false)
 
 func debug(format string, args ...interface{}) {
 	if !debugEnabled {
