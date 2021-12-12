@@ -9,18 +9,29 @@ The fingerprint of the signing key is ``E101 418F D3D6 FBCB 9D65  A62D 7086 99FC
 It is available at `<https://zrepl.cschwarz.com/apt/apt-key.asc>`_ .
 Please open an issue in on GitHub if you encounter any issues with the repository.
 
-The following snippet configure the repository for your Debian or Ubuntu release:
-
 ::
 
-    sudo apt update && sudo apt install curl gnupg lsb-release; \
-    ARCH="$(dpkg --print-architecture)"; \
-    CODENAME="$(lsb_release -i -s | tr '[:upper:]' '[:lower:]') $(lsb_release -c -s | tr '[:upper:]' '[:lower:]')"; \
-    echo "Using Distro and Codename: $CODENAME"; \
-    (curl https://zrepl.cschwarz.com/apt/apt-key.asc | sudo apt-key add -) && \
-    (echo "deb [arch=$ARCH] https://zrepl.cschwarz.com/apt/$CODENAME main" | sudo tee /etc/apt/sources.list.d/zrepl.list) && \
-    sudo apt update
+    (
+    set -ex
+    zrepl_apt_key_url=https://zrepl.cschwarz.com/apt/apt-key.asc
+    zrepl_apt_key_dst=/usr/share/keyrings/zrepl.gpg
+    zrepl_apt_repo_file=/etc/apt/sources.list.d/zrepl.list
 
+    # Install dependencies for subsequent commands
+    sudo apt update && sudo apt install curl gnupg lsb-release
+
+    # Deploy the zrepl apt key.
+    curl -fsSL "$zrepl_apt_key_url" | tee | gpg --dearmor | sudo tee "$zrepl_apt_key_dst" > /dev/null
+
+    # Add the zrepl apt repo.
+    ARCH="$(dpkg --print-architecture)"
+    CODENAME="$(lsb_release -i -s | tr '[:upper:]' '[:lower:]') $(lsb_release -c -s | tr '[:upper:]' '[:lower:]')"
+    echo "Using Distro and Codename: $CODENAME"
+    echo "deb [arch=$ARCH signed-by=$zrepl_apt_key_dst] https://zrepl.cschwarz.com/apt/$CODENAME main" | sudo tee /etc/apt/sources.list.d/zrepl.list
+
+    # Update apt repos.
+    sudo apt update
+    )
 
 .. NOTE::
 
