@@ -139,9 +139,11 @@ var testPlaceholder = &cli.Subcommand{
 func runTestPlaceholder(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 
 	var checkDPs []*zfs.DatasetPath
+	var datasetWasExplicitArgument bool
 
 	// all actions first
 	if testPlaceholderArgs.all {
+		datasetWasExplicitArgument = false
 		out, err := zfs.ZFSList(ctx, []string{"name"})
 		if err != nil {
 			return errors.Wrap(err, "could not list ZFS filesystems")
@@ -154,6 +156,7 @@ func runTestPlaceholder(ctx context.Context, subcommand *cli.Subcommand, args []
 			checkDPs = append(checkDPs, dp)
 		}
 	} else {
+		datasetWasExplicitArgument = true
 		dp, err := zfs.NewDatasetPath(testPlaceholderArgs.ds)
 		if err != nil {
 			return err
@@ -171,7 +174,12 @@ func runTestPlaceholder(ctx context.Context, subcommand *cli.Subcommand, args []
 			return errors.Wrap(err, "cannot get placeholder state")
 		}
 		if !ph.FSExists {
-			panic("placeholder state inconsistent: filesystem " + ph.FS + " must exist in this context")
+			if datasetWasExplicitArgument {
+				return errors.Errorf("filesystem %q does not exist", ph.FS)
+			} else {
+				// got deleted between ZFSList and ZFSGetFilesystemPlaceholderState
+				continue
+			}
 		}
 		is := "yes"
 		if !ph.IsPlaceholder {
