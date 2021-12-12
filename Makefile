@@ -189,6 +189,8 @@ GO_SUPPORTS_ILLUMOS := $(shell $(GO) version | gawk -F '.' '/^go version /{split
 bins-all:
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=freebsd   GOARCH=amd64
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=freebsd   GOARCH=386
+	$(MAKE) $(BINS_ALL_TARGETS) GOOS=freebsd   GOARCH=arm	  GOARM=7
+	$(MAKE) $(BINS_ALL_TARGETS) GOOS=freebsd   GOARCH=arm64
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=linux     GOARCH=amd64
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=linux     GOARCH=arm64
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=linux     GOARCH=arm     GOARM=7
