@@ -158,8 +158,8 @@ func (j *controlJob) Run(ctx context.Context) {
 	server := http.Server{
 		Handler: mux,
 		// control socket is local, 1s timeout should be more than sufficient, even on a loaded system
-		WriteTimeout: 1 * time.Second,
-		ReadTimeout:  1 * time.Second,
+		WriteTimeout: envconst.Duration("ZREPL_DAEMON_CONTROL_SERVER_WRITE_TIMEOUT", 1*time.Second),
+		ReadTimeout:  envconst.Duration("ZREPL_DAEMON_CONTROL_SERVER_READ_TIMEOUT", 1*time.Second),
 	}
 
 outer:
