@@ -95,7 +95,7 @@ Downstream packagers can read the changelog to determine whether they want to pu
 
 ### Additional Notes to Distro Package Maintainers
 
-* Use `sudo make test-platform-bin && sudo make test-platform` **on a test system** to validate that zrepl's abstractions on top of ZFS work with the system ZFS.
+* Run the platform tests (Docs -> Usage -> Platform Tests) **on a test system** to validate that zrepl's abstractions on top of ZFS work with the system ZFS.
 * Ship a default config that adheres to your distro's `hier` and logging system.
 * Ship a service manager file and _please_ try to upstream it to this repository.
   * `dist/systemd` contains a Systemd unit template.

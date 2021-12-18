@@ -89,3 +89,60 @@ Ops Runbooks
 .. toctree::
 
    usage/runbooks/migrating_sending_side_to_new_zpool.rst
+
+
+==============
+Platform Tests
+==============
+
+Along with the main ``zrepl`` binary, we release the ``platformtest`` binaries.
+The zrepl platform tests are an integration test suite that is complementary to the pure Go unit tests.
+Any test that needs to interact with ZFS is a platform test.
+
+The platform need to run as root.
+For each test, we create a fresh dummy zpool backed by a file-based vdev.
+The file path, and a root mountpoint for the dummy zpool, must be specified on the command line:
+
+::
+
+   mkdir -p /tmp/zreplplatformtest
+   ./platformtest \
+       -poolname 'zreplplatformtest' \  # <- name must contain zreplplatformtest
+       -imagepath /tmp/zreplplatformtest.img \ # <- zrepl will create the file
+       -mountpoint /tmp/zreplplatformtest # <- must exist
+
+
+.. WARNING::
+
+   ``platformtest`` will unconditionally overwrite the file at `imagepath`
+   and unconditionally ``zpool destroy $poolname``.
+   So, don't use a production poolname, and consider running the test in a VM.
+   It'll be a lot faster as well because the underlying operations, ``zfs list`` in particular, will be faster.
+
+
+While the platformtests are running, there will be a log of log output.
+After all tests have run, it prints a summary with a list of tests, grouped by result type (success, failure, skipped):
+
+::
+
+   PASSING TESTS:
+     github.com/zrepl/zrepl/platformtest/tests.BatchDestroy
+     github.com/zrepl/zrepl/platformtest/tests.CreateReplicationCursor
+     github.com/zrepl/zrepl/platformtest/tests.GetNonexistent
+     github.com/zrepl/zrepl/platformtest/tests.HoldsWork
+     ...
+     github.com/zrepl/zrepl/platformtest/tests.SendStreamNonEOFReadErrorHandling
+     github.com/zrepl/zrepl/platformtest/tests.UndestroyableSnapshotParsing
+   SKIPPED TESTS:
+     github.com/zrepl/zrepl/platformtest/tests.SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden__EncryptionSupported_false
+   FAILED TESTS: []
+
+
+If there is a failure, or a skipped test that you believe should be passing, re-run the test suite, capture stderr & stdout to a text file, and create an issue on GitHub.
+
+To run a specific test case, or a subset of tests matched by regex, use the ``-run REGEX`` command line flag.
+
+To stop test execution at the first failing test, and prevent cleanup of the dummy zpool, use the ``-failure.stop-and-keep-pool`` flag.
+
+To build the platformtests yourself, use ``make test-platform-bin``.
+There's also the ``make test-platform`` target to run the platform tests with a default command line.
