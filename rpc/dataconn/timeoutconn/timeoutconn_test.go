@@ -154,6 +154,7 @@ func (c *partialWriteMockConn) Write(p []byte) (int, error) {
 }
 
 func TestPartialWriteMockConn(t *testing.T) {
+	zreplcircleci.SkipOnCircleCI(t, "because it relies on scheduler responsiveness < 50ms")
 	mc := newPartialWriteMockConn(100*time.Millisecond, 5)
 	buf := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 	begin := time.Now()
