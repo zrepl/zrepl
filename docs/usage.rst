@@ -91,6 +91,8 @@ Ops Runbooks
    usage/runbooks/migrating_sending_side_to_new_zpool.rst
 
 
+.. _usage-platform-tests:
+
 ==============
 Platform Tests
 ==============

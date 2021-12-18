@@ -16,26 +16,44 @@ Changelog
 The changelog summarizes bugfixes that are deemed relevant for users and package maintainers.
 Developers should consult the git commit log or GitHub issue tracker.
 
-We use the following annotations for classifying changes:
-
-* |break_config| Change that breaks the config.
-  As a package maintainer, make sure to warn your users about config breakage somehow.
-* |break| Change that breaks interoperability or persistent state representation with previous releases.
-  As a package maintainer, make sure to warn your users about config breakage somehow.
-  Note that even updating the package on both sides might not be sufficient, e.g. if persistent state needs to be migrated to a new format.
-* |mig| Migration that must be run by the user.
-* |feature| Change that introduces new functionality.
-* |bugfix| Change that fixes a bug, no regressions or incompatibilities expected.
-* |docs| Change to the documentation.
-* |maint| Maintenance changes.
-
 0.5
 ---
 
-* |break_config| |bugfix| Rename mis-spelled :ref:`send option <job-send-options>` ``embbeded_data`` to ``embedded_data``.
+* |feature| :ref:`Bandwidth limiting <job-send-recv-options--bandwidth-limit>` (Thanks, Prominic.NET, Inc.)
+* |feature| zrepl status: use a ``*`` to indicate which filesystem is currently replicating
+* |feature| include daemon environment variables in zrepl status (currently only in ``--raw``)
+* |bugfix| **fix encrypt-on-receive + placeholders use case** (:issue:`504`)
 
-Note to all users: please read up on the following OpenZFS bug, as you might be affected:
-`ZFS send/recv with ashift 9->12 leads to data corruption <https://github.com/openzfs/zfs/issues/12762>`_.
+  * Before this fix, **plain sends** to a receiver with an encrypted ``root_fs`` **could be received unencrypted** if zrepl needed to create placeholders on the receiver.
+  * Existing zrepl users should :ref:`read the docs <job-recv-options--placeholder>` and check ``zfs get -r encryption,zrepl:placeholder PATH_TO_ROOTFS`` on the receiver.
+  * Thanks to `@mologie <https://github.com/mologie>`_ and `@razielgn <https://github.com/razielgn>`_ for reporting and testing!
+
+* |bugfix| Rename mis-spelled :ref:`send option <job-send-options>` ``embbeded_data`` to ``embedded_data``.
+* |bugfix| zrepl status: replication step numbers should start at 1
+* |bugfix| incorrect bandwidth averaging in ``zrepl status``.
+* |bugfix| FreeBSD with OpenZFS 2.0: zrepl would wait indefinitely for zfs send to exit on timeouts.
+* |bugfix| fix ``strconv.ParseInt: value out of range`` bug (and use the control RPCs).
+* |docs| improve description of multiple pruning rules.
+* |docs| document :ref:`platform tests <usage-platform-tests>`.
+* |docs| quickstart: make users aware that prune rules apply to all snapshots.
+* |maint| some platformtests were broken.
+* |maint| FreeBSD: release armv7 and arm64 binaries.
+* |maint| apt repo: update instructions due to ``apt-key`` deprecation.
+
+Note to all users: please read up on the following OpenZFS bugs, as you might be affected:
+
+* `ZFS send/recv with ashift 9->12 leads to data corruption <https://github.com/openzfs/zfs/issues/12762>`_.
+* Various bugs with encrypted send/recv (`Leadership meeting notes <https://openzfs.topicbox.com/groups/developer/T24bdaa2886c6cbf5-Mc039a11c3f1507ea0664817b/december-openzfs-leadership-meeting>`_)
+
+Finally, I'd like to point you to the `GitHub discussion <https://github.com/zrepl/zrepl/discussions/547>`_ about which bugfixes and features should be prioritized in zrepl 0.6 and beyond!
+
+.. NOTE::
+  |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
+  |  You can support maintenance and feature development through one of the following services:
+  |  |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
+  |  Note that PayPal processing fees are relatively high for small donations.
+  |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
+
 
 0.4.0
 -----
@@ -60,13 +78,6 @@ For users who skipped the 0.3.1 update: please make sure your pruning grid confi
 The following bugfix in 0.3.1 :issue:`caused problems for some users <400>`:
 
 * |bugfix| pruning: ``grid``:  add all snapshots that do not match the regex to the rule's destroy list.
-
-.. NOTE::
-  |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
-  |  You can support maintenance and feature development through one of the following services:
-  |  |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
-  |  Note that PayPal processing fees are relatively high for small donations.
-  |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
 
 0.3.1
 -----
