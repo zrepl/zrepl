@@ -51,6 +51,19 @@ We hope that you have found a configuration that fits your use case.
 Use ``zrepl configcheck`` once again to make sure the config is correct (output indicates that everything is fine).
 Then restart the zrepl daemon on all systems involved in the replication, likely using ``service zrepl restart`` or ``systemctl restart zrepl``.
 
+.. WARNING::
+
+   Please :ref:`read up carefully <prune>` on the pruning rules before applying the config.
+   In particular, note that most example configs apply to all snapshots, not just zrepl-created snapshots.
+   Use the following keep rule on sender and receiver to prevent this:
+
+   ::
+      
+      - type: regex
+        negate: true
+        regex: "^zrepl_.*" # <- the 'prefix' specified in snapshotting.prefix
+
+
 Watch it Work
 =============
 
