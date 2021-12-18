@@ -9,4 +9,7 @@ jobs:
       key: "/etc/zrepl/backups.key"
       client_cns:
         - "prod"
+  recv:
+    placeholder:
+      encryption: inherit # use 'off' if sender uses send.encrypted
   root_fs: "storage/zrepl/sink"
