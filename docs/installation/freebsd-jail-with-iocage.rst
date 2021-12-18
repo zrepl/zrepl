@@ -93,6 +93,7 @@ Enable the zrepl daemon to start automatically at boot:
 
    sysrc zrepl_enable="YES"
 
+Now jump to :ref:`the summary <installation-freebsd-jail-summary>` below.
 
 Plugin
 ######
@@ -134,7 +135,18 @@ Now ``zrepl`` can be started.
 
    service zrepl start
 
+Now jump to :ref:`the summary <installation-freebsd-jail-summary>` below.
+
+.. _installation-freebsd-jail-summary:
+
 Summary
 -------
 
 Congratulations, you have a working jail!
+
+.. NOTE::
+
+   With FreeBSD 13's transition to OpenZFS 2.0, please ensure that your jail's FreeBSD version matches the one in the kernel module.
+   If you are getting cryptic errors such as
+   ``cannot receive new filesystem stream: invalid backup stream``
+   the instructions posted `here <https://github.com/zrepl/zrepl/issues/500#issuecomment-966215205>`_ might help.
