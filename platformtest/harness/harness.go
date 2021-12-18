@@ -37,6 +37,7 @@ func main() {
 	flag.StringVar(&args.CreateArgs.Mountpoint, "mountpoint", "", "")
 	flag.BoolVar(&args.StopAndKeepPoolOnFail, "failure.stop-and-keep-pool", false, "if a test case fails, stop test execution and keep pool as it was when the test failed")
 	flag.StringVar(&args.Run, "run", "", "")
+	flag.DurationVar(&platformtest.ZpoolExportTimeout, "zfs.zpool-export-timeout", platformtest.ZpoolExportTimeout, "")
 	flag.Parse()
 
 	if err := HarnessRun(args); err != nil {

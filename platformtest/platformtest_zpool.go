@@ -5,11 +5,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/zfs"
 )
+
+var ZpoolExportTimeout time.Duration = 500 * time.Millisecond
 
 type Zpool struct {
 	args ZpoolCreateArgs
@@ -93,8 +98,23 @@ func (p *Zpool) Name() string { return p.args.PoolName }
 
 func (p *Zpool) Destroy(ctx context.Context, e Execer) error {
 
-	if err := e.RunExpectSuccessNoOutput(ctx, "zpool", "export", p.args.PoolName); err != nil {
-		return errors.Wrapf(err, "export pool %q", p.args.PoolName)
+	exportDeadline := time.Now().Add(ZpoolExportTimeout)
+
+	for {
+		if time.Now().After(exportDeadline) {
+			return errors.Errorf("could not zpool export (got 'pool is busy'): %s", p.args.PoolName)
+		}
+		err := e.RunExpectSuccessNoOutput(ctx, "zpool", "export", p.args.PoolName)
+		if err == nil {
+			break
+		}
+		if strings.Contains(err.Error(), "pool is busy") {
+			runtime.Gosched()
+			continue
+		}
+		if err != nil {
+			return errors.Wrapf(err, "export pool %q", p.args.PoolName)
+		}
 	}
 
 	if err := os.Remove(p.args.ImagePath); err != nil {
