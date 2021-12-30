@@ -9,9 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zrepl/zrepl/util/chainlock"
+	"github.com/zrepl/zrepl/util/zreplcircleci"
 )
 
 func TestContextWithOptionalDeadline(t *testing.T) {
+	zreplcircleci.SkipOnCircleCI(t, "test relies on predictably low scheduler latency")
 
 	ctx := context.Background()
 	cctx, enforceDeadline := ContextWithOptionalDeadline(ctx)
@@ -72,6 +74,7 @@ func TestContextWithOptionalDeadlineNegativeDeadline(t *testing.T) {
 }
 
 func TestContextWithOptionalDeadlineParentCancellation(t *testing.T) {
+	zreplcircleci.SkipOnCircleCI(t, "test relies on predictably low scheduler latency")
 
 	pctx, cancel := context.WithCancel(context.Background())
 	cctx, enforceDeadline := ContextWithOptionalDeadline(pctx)
