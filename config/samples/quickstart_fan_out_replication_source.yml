@@ -1,0 +1,66 @@
+jobs:
+# Separate job for snapshots and pruning
+- name: snapshots
+  type: snap
+  filesystems:
+    'pool0/dataset1': true
+    'pool0/dataset2': true
+  snapshotting:
+    type: periodic
+    prefix: zrepl_
+    interval: 10m
+  pruning:
+    keep:
+      # Keep non-zrepl snapshots
+      - type: regex
+        negate: true
+        regex: '^zrepl_'
+      # Time-based snapshot retention
+      - type: grid
+        grid: 1x1h(keep=all) | 24x1h | 30x1d | 12x30d
+        regex: '^zrepl_'
+
+# Source job for target B
+- name: target_b
+  type: source
+  serve:
+    type: tls
+    listen: :8888
+    ca: /etc/zrepl/b.example.com.crt
+    cert: /etc/zrepl/a.example.com.crt
+    key: /etc/zrepl/a.example.com.key
+    client_cns:
+      - b.example.com
+  filesystems:
+    'pool0/dataset1': true
+    'pool0/dataset2': true
+  send:
+    encrypted: true
+  # Snapshots are handled by the separate snap job
+  snapshotting:
+    type: manual
+
+# Source job for target C
+- name: target_c
+  type: source
+  serve:
+    type: tls
+    listen: :8889
+    ca: /etc/zrepl/c.example.com.crt
+    cert: /etc/zrepl/a.example.com.crt
+    key: /etc/zrepl/a.example.com.key
+    client_cns:
+      - c.example.com
+  filesystems:
+    'pool0/dataset1': true
+    'pool0/dataset2': true
+  send:
+    encrypted: true
+  # Snapshots are handled by the separate snap job
+  snapshotting:
+    type: manual
+
+# Source jobs for remaining targets. Each one should listen on a different port
+# and reference the correct certificate and client CN.
+# - name: target_c
+#   ...

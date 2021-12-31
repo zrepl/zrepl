@@ -33,6 +33,7 @@ Keep the :ref:`full config documentation <configuration_toc>` handy if a config 
 
    quickstart/continuous_server_backup
    quickstart/backup_to_external_disk
+   quickstart/fan_out_replication
 
 Use ``zrepl configcheck`` to validate your configuration.
 No output indicates that everything is fine.

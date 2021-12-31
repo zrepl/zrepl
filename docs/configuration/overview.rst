@@ -293,6 +293,24 @@ This section might be relevant to users who wish to *fan-in* (N machines replica
   * ``sink`` constrains each client to a disjoint sub-tree of the sink-side dataset hierarchy ``${root_fs}/${client_identity}``.
     Therefore, the different clients cannot interfere.
 
+.. _fan-out-replication:
+
+* Fan-out replication: 1 ``pull`` job on each target server, each with a corresponding unique ``source`` job on the source server.
+
+  * It is currently not possible to use a single ``source`` job with multiple ``pull`` jobs.
+    The way zfs abstractions are named, which can be seen in ``zrepl zfs-abstraction list``, include the name of the ``source`` job, but not the name of the client identity of the target servers (see :issue:`380`).
+    Multiple ``pull`` jobs with one ``source`` job would share the same zfs replication cursor bookmark and potentially break incremental replication.
+    Thus, each client with a ``pull`` job must have its own corresponding ``source`` job.
+
+  * With fan-out replication, the datasets referenced by each ``source`` job are likely not disjoint.
+    This can work if snapshotting and sender-side pruning is done by a separate ``snap`` job.
+    Snapshotting should be disabled in each ``source`` job on the source server and sender-side pruning disabled in the ``pull`` job on each target server.
+
+  * Note that if the datasets on the source server are restored from one of the ``pull`` targets, the replication cursor bookmarks might no longer exist on the restored system.
+    This may cause incremental replication after the restore to break.
+
+  * See :ref:`the fan-out replication quick-start guide <quickstart-fan-out-replication>` for an example of this setup.
+
 
 **Setups that do not work**:
 
