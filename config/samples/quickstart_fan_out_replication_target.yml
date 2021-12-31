@@ -1,0 +1,30 @@
+jobs:
+# Pull from source server A
+- name: source_a
+  type: pull
+  connect:
+    type: tls
+    # Use the correct port for this specific client (eg. B is 8888, C is 8889, etc.)
+    address: a.example.com:8888
+    ca: /etc/zrepl/a.example.com.crt
+    # Use the correct key pair for this specific client
+    cert: /etc/zrepl/b.example.com.crt
+    key: /etc/zrepl/b.example.com.key
+    server_cn: a.example.com
+  root_fs: pool0/backup
+  interval: 10m
+  pruning:
+    keep_sender:
+      # Source does the pruning in its snap job
+      - type: regex
+        regex: '.*'
+    # Receiver-side pruning can be configured as desired on each target server
+    keep_receiver:
+      # Keep non-zrepl snapshots
+      - type: regex
+        negate: true
+        regex: '^zrepl_'
+      # Time-based snapshot retention
+      - type: grid
+        grid: 1x1h(keep=all) | 24x1h | 30x1d | 12x30d
+        regex: '^zrepl_'

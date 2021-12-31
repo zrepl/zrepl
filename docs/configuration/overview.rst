@@ -248,7 +248,7 @@ Limitations
 Multiple Jobs & More than 2 Machines
 ------------------------------------
 
-The quick-start guides focus on simple setups with a single sender and a single receiver.
+Most users are served well with a single sender and a single receiver job.
 This section documents considerations for more complex setups.
 
 .. ATTENTION::
@@ -288,10 +288,45 @@ This section might be relevant to users who wish to *fan-in* (N machines replica
 
 **Working setups**:
 
-* N ``push`` identities, 1 ``sink`` (as long as the different push jobs have a different :ref:`client identity <overview-passive-side--client-identity>`)
+* **Fan-in: N servers replicated to one receiver, disjoint dataset trees.**
 
-  * ``sink`` constrains each client to a disjoint sub-tree of the sink-side dataset hierarchy ``${root_fs}/${client_identity}``.
+  * This is the common use case of a centralized backup server.
+
+  * Implementation:
+
+    * N ``push`` jobs (one per sender server), 1 ``sink`` (as long as the different push jobs have a different :ref:`client identity <overview-passive-side--client-identity>`)
+    * N ``source`` jobs (one per sender server), N ``pull`` on the receiver server (unique names, disjoing  ``root_fs``)
+
+  * The ``sink`` job automatically constrains each client to a disjoint sub-tree of the sink-side dataset hierarchy ``${root_fs}/${client_identity}``.
     Therefore, the different clients cannot interfere.
+
+  * The ``pull`` job only pulls from one host, so it's up to the zrepl user to ensure that the different ``pull`` jobs don't interfere.
+
+.. _fan-out-replication:
+
+* **Fan-out: 1 server replicated to N receivers**
+
+  * Can be implemented either in a pull or push fashion.
+
+    * **pull setup**: 1 ``pull`` job on each receiver server, each with a corresponding **unique** ``source`` job on the sender server.
+    * **push setup**: 1 ``sink`` job on each receiver server, each with a corresponding **unique** ``push`` job on the sender server.
+
+  * It is critical that we have one sending-side job (``source``, ``push``) per receiver.
+    The reason is that :ref:`zrepl's ZFS abstractions <zrepl-zfs-abstractions>` (``zrepl zfs-abstraction list``) include the name of the ``source``/``push`` job, but not the receive-side job name or client identity (see :issue:`380`).
+    As a counter-example, suppose we used multiple ``pull`` jobs with only one ``source`` job.
+    All ``pull`` jobs would share the same :ref:`replication cursor bookmark <replication-cursor-and-last-received-hold>` and trip over each other, breaking incremental replication guarantees quickly.
+    The anlogous problem exists for 1 ``push`` to N ``sink`` jobs.
+
+  * The ``filesystems`` matched by the sending side jobs (``source``, ``push``) need not necessarily be disjoint.
+    For this to work, we need to avoid interference between snapshotting and pruning of the different sending jobs.
+    The solution is to centralize sender-side snapshot management in a separate ``snap`` job.
+    Snapshotting in the ``source``/``push`` job should then be disabled (``type: manual``).
+    And sender-side pruning (``keep_sender``) needs to be disabled in the active side (``pull`` / ``push``), since that'll be done by the ``snap job``.
+
+  * **Restore limitations**: when restoring from one of the ``pull`` targets (e.g., using ``zfs send -R``), the replication cursor bookmarks don't exist on the restored system.
+    This can break incremental replication to all other receive-sides after restore.
+
+  * See :ref:`the fan-out replication quick-start guide <quickstart-fan-out-replication>` for an example of this setup.
 
 
 **Setups that do not work**:
