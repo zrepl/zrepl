@@ -5,7 +5,7 @@
 
 .. include:: global.rst.inc
 
-|GitHub license| |Language: Go| |Twitter| |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
+|GitHub license| |Language: Go| |Twitter| |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal| |Matrix|
 
 
 zrepl - ZFS replication
@@ -137,5 +137,6 @@ Table of Contents
    pr
    changelog
    GitHub Repository & Issue Tracker <https://github.com/zrepl/zrepl>
+   Chat: Matrix <https://matrix.to/#/#zrepl:matrix.org>
    supporters
 
