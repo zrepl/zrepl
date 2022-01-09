@@ -9,13 +9,13 @@ This config example shows how we can backup our ZFS-based server to another mach
 
 * Production server ``prod`` with filesystems to back up:
 
-  * ``zroot/var/db``
-  * ``zroot/usr/home`` and all its child filesystems
-  * **except** ``zroot/usr/home/paranoid`` belonging to a user doing backups themselves
+  * The entire pool ``zroot``
+  * except ``zroot/var/tmp`` and all child datasets of it
+  * and except ``zroot/usr/home/paranoid`` which belongs to a user doing backups themselves.
 
-* Backup server ``backups`` with
+* Backup server ``backups`` with a dataset sub-tree for use by zrepl:
 
-  * Filesystem ``storage/zrepl/sink/prod`` + children dedicated to backups of ``prod``
+  * In our example, that will be ``storage/zrepl/sink/prod``.
 
 Our backup solution should fulfill the following requirements:
 
