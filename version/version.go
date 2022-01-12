@@ -34,20 +34,19 @@ func (i *ZreplVersionInformation) String() string {
 		i.Version, i.RuntimeGo, i.RuntimeGOOS, i.RuntimeGOARCH, i.RUNTIMECompiler)
 }
 
-var prometheusMetric = prometheus.NewUntypedFunc(
-	prometheus.UntypedOpts{
+var prometheusMetric = prometheus.NewGauge(
+	prometheus.GaugeOpts{
 		Namespace: "zrepl",
-		Subsystem: "version",
-		Name:      "daemon",
-		Help:      "zrepl daemon version",
+		Name:      "start_time",
+		Help:      "zrepl daemon start time and version",
 		ConstLabels: map[string]string{
 			"raw":          zreplVersion,
 			"version_info": NewZreplVersionInformation().String(),
 		},
 	},
-	func() float64 { return 1 },
 )
 
 func PrometheusRegister(r prometheus.Registerer) {
 	r.MustRegister(prometheusMetric)
+	prometheusMetric.SetToCurrentTime()
 }

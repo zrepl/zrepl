@@ -249,7 +249,7 @@
             "stack": true,
             "steppedLine": false,
             "targets": [{
-                "expr": "zrepl_version_daemon{job='$prom_job_name'}",
+                "expr": "sgn(zrepl_start_time{job='$prom_job_name'})",
                 "format": "time_series",
                 "interval": "",
                 "intervalFactor": 1,

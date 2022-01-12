@@ -16,6 +16,17 @@ Changelog
 The changelog summarizes bugfixes that are deemed relevant for users and package maintainers.
 Developers should consult the git commit log or GitHub issue tracker.
 
+0.6 (Unreleased)
+----------------
+
+* `Feature Wishlist on GitHub <https://github.com/zrepl/zrepl/discussions/547>`_
+
+* |break| |feature| convert Prometheus metric ``zrepl_version_daemon`` to ``zrepl_start_time`` metric
+
+  * The metric still reports the zrepl version in a label.
+    But the metric *value* is now the Unix timestamp at the time the daemon was started.
+    The Grafana dashboard in :repomasterlink:`dist/grafana` has been updated.
+
 0.5
 ---
 
