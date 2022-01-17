@@ -37,7 +37,7 @@ func (i *ZreplVersionInformation) String() string {
 var prometheusMetric = prometheus.NewGauge(
 	prometheus.GaugeOpts{
 		Namespace: "zrepl",
-		Name:      "uptime",
+		Name:      "start_time",
 		Help:      "zrepl daemon start time and version",
 		ConstLabels: map[string]string{
 			"raw":          zreplVersion,
