@@ -13,7 +13,7 @@ Thus, we only keep one hour worth of high-resolution snapshots, then fade them o
 
 At the end of each work day, we connect our external disk that serves as our workstation's local offline backup.
 We want zrepl to inspect the filesystems and snapshots on the external pool, figure out which snapshots were created since the last time we connected the external disk, and use incremental replication to efficiently mirror our workstation to our backup disk.
-Afterwards, we want to clean up old snapshots on the backup pool: we want to keep all snapshots younger than one hour, 24 for each hor of the first day, then 360 daily backups.
+Afterwards, we want to clean up old snapshots on the backup pool: we want to keep all snapshots younger than one hour, 24 for each hour of the first day, then 360 daily backups.
 
 A few additional requirements:
 
