@@ -173,6 +173,10 @@ check-git-clean:
 		fi; \
 	fi;
 
+tag-release:
+	test -n "$(ZREPL_TAG_VERSION)" || exit 1
+	git tag -u E27CA5FC -m "$(ZREPL_TAG_VERSION)" "$(ZREPL_TAG_VERSION)"
+
 sign:
 	gpg -u "89BC 5D89 C845 568B F578  B306 CDBD 8EC8 E27C A5FC" \
 		--armor \
