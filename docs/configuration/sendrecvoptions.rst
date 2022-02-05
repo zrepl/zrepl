@@ -149,7 +149,7 @@ Recv Options
 Jump to
 :ref:`properties <job-recv-options--inherit-and-override>` ,
 :ref:`bandwidth_limit <job-send-recv-options--bandwidth-limit>` , and
-:ref:`bandwidth_limit <job-recv-options--placeholder>`.
+:ref:`placeholder <job-recv-options--placeholder>`.
 
 .. _job-recv-options--inherit-and-override:
 
@@ -228,6 +228,11 @@ and property replication is enabled, the receiver must :ref:`inherit the followi
 
 Placeholders
 ------------
+
+::
+
+   placeholder:
+     encryption: unspecified | off | inherit
 
 During replication, zrepl :ref:`creates placeholder datasets <replication-placeholder-property>` on the receiving side if the sending side's ``filesystems`` filter creates gaps in the dataset hierarchy.
 This is generally fully transparent to the user.
