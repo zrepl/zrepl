@@ -294,7 +294,8 @@ jobs:
       # don't save-cache-gomod here, test-go doesn't pull all the dependencies
 
   release-build:
-    machine: true
+    machine:
+      image: ubuntu-2004:202201-02
     steps:
       - checkout
       - run: make release-docker RELEASE_DOCKER_BASEIMAGE_TAG=<<pipeline.parameters.release_docker_baseimage_tag>>
@@ -302,7 +303,8 @@ jobs:
           root: .
           paths: [.]
   release-deb:
-    machine: true
+    machine:
+      image: ubuntu-2004:202201-02
     steps:
       - attach_workspace:
           at: .
@@ -313,7 +315,8 @@ jobs:
             - "artifacts/*.deb"
 
   release-rpm:
-    machine: true
+    machine:
+      image: ubuntu-2004:202201-02
     steps:
       - attach_workspace:
           at: .
