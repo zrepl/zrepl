@@ -25,6 +25,6 @@ sphinxcontrib-htmlhelp==1.0.2
 sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==1.0.2
 sphinxcontrib-serializinghtml==1.1.3
--e git://github.com/rwblair/sphinxcontrib-versioning.git@7e3885a389a809e17ea55261316b7b0e98dbf98f#egg=sphinxcontrib-versioning
+git+https://github.com/rwblair/sphinxcontrib-versioning.git@7e3885a389a809e17ea55261316b7b0e98dbf98f#egg=sphinxcontrib-versioning
 sphinxcontrib-websupport==1.1.2
 urllib3==1.25.3
