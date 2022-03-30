@@ -18,12 +18,12 @@ type TLSConnecter struct {
 	tlsConfig *tls.Config
 }
 
-func TLSConnecterFromConfig(in *config.TLSConnect) (*TLSConnecter, error) {
+func TLSConnecterFromConfig(in *config.TLSConnect, parseOnly bool) (*TLSConnecter, error) {
 	dialer := net.Dialer{
 		Timeout: in.DialTimeout,
 	}
 
-	if fakeCertificateLoading {
+	if fakeCertificateLoading || parseOnly {
 		return &TLSConnecter{in.Address, dialer, nil}, nil
 	}
 

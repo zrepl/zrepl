@@ -19,8 +19,9 @@ import (
 )
 
 var configcheckArgs struct {
-	format string
-	what   string
+	format    string
+	what      string
+	parseOnly bool
 }
 
 var ConfigcheckCmd = &cli.Subcommand{
@@ -29,6 +30,7 @@ var ConfigcheckCmd = &cli.Subcommand{
 	SetupFlags: func(f *pflag.FlagSet) {
 		f.StringVar(&configcheckArgs.format, "format", "", "dump parsed config object [pretty|yaml|json]")
 		f.StringVar(&configcheckArgs.what, "what", "all", "what to print [all|config|jobs|logging]")
+		f.BoolVar(&configcheckArgs.parseOnly, "parse-only", false, "only parse config (don't check cert files)")
 	},
 	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 		formatMap := map[string]func(interface{}){
@@ -56,8 +58,16 @@ var ConfigcheckCmd = &cli.Subcommand{
 		}
 
 		var hadErr bool
+		var confJobs []job.Job
+		var err error
+
 		// further: try to build jobs
-		confJobs, err := job.JobsFromConfig(subcommand.Config())
+		if configcheckArgs.parseOnly {
+			confJobs, err = job.ParseJobsFromConfig(subcommand.Config())
+		} else {
+			confJobs, err = job.JobsFromConfig(subcommand.Config())
+		}
+
 		if err != nil {
 			err := errors.Wrap(err, "cannot build jobs from config")
 			if configcheckArgs.what == "jobs" {

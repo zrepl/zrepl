@@ -300,7 +300,7 @@ func replicationDriverConfigFromConfig(in *config.Replication) (c driver.Config,
 	return c, err
 }
 
-func activeSide(g *config.Global, in *config.ActiveJob, configJob interface{}) (j *ActiveSide, err error) {
+func activeSide(g *config.Global, in *config.ActiveJob, configJob interface{}, parseOnly bool) (j *ActiveSide, err error) {
 
 	j = &ActiveSide{}
 	j.name, err = endpoint.MakeJobID(in.Name)
@@ -349,7 +349,7 @@ func activeSide(g *config.Global, in *config.ActiveJob, configJob interface{}) (
 		ConstLabels: prometheus.Labels{"zrepl_job": j.name.String()},
 	})
 
-	j.connecter, err = fromconfig.ConnecterFromConfig(g, in.Connect)
+	j.connecter, err = fromconfig.ConnecterFromConfig(g, in.Connect, parseOnly)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot build client")
 	}

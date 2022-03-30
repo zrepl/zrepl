@@ -12,9 +12,17 @@ import (
 )
 
 func JobsFromConfig(c *config.Config) ([]Job, error) {
+	return jobsFromConfigImpl(c, false)
+}
+
+func ParseJobsFromConfig(c *config.Config) ([]Job, error) {
+	return jobsFromConfigImpl(c, true)
+}
+
+func jobsFromConfigImpl(c *config.Config, parseOnly bool) ([]Job, error) {
 	js := make([]Job, len(c.Jobs))
 	for i := range c.Jobs {
-		j, err := buildJob(c.Global, c.Jobs[i])
+		j, err := buildJob(c.Global, c.Jobs[i], parseOnly)
 		if err != nil {
 			return nil, err
 		}
@@ -42,7 +50,7 @@ func JobsFromConfig(c *config.Config) ([]Job, error) {
 	return js, nil
 }
 
-func buildJob(c *config.Global, in config.JobEnum) (j Job, err error) {
+func buildJob(c *config.Global, in config.JobEnum, parseOnly bool) (j Job, err error) {
 	cannotBuildJob := func(e error, name string) (Job, error) {
 		return nil, errors.Wrapf(e, "cannot build job %q", name)
 	}
@@ -64,12 +72,12 @@ func buildJob(c *config.Global, in config.JobEnum) (j Job, err error) {
 			return cannotBuildJob(err, v.Name)
 		}
 	case *config.PushJob:
-		j, err = activeSide(c, &v.ActiveJob, v)
+		j, err = activeSide(c, &v.ActiveJob, v, parseOnly)
 		if err != nil {
 			return cannotBuildJob(err, v.Name)
 		}
 	case *config.PullJob:
-		j, err = activeSide(c, &v.ActiveJob, v)
+		j, err = activeSide(c, &v.ActiveJob, v, parseOnly)
 		if err != nil {
 			return cannotBuildJob(err, v.Name)
 		}
