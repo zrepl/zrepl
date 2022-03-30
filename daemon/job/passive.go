@@ -91,7 +91,7 @@ func (m *modeSource) SnapperReport() *snapper.Report {
 	return m.snapper.Report()
 }
 
-func passiveSideFromConfig(g *config.Global, in *config.PassiveJob, configJob interface{}) (s *PassiveSide, err error) {
+func passiveSideFromConfig(g *config.Global, in *config.PassiveJob, configJob interface{}, parseFlags config.ParseFlags) (s *PassiveSide, err error) {
 
 	s = &PassiveSide{}
 
@@ -110,7 +110,7 @@ func passiveSideFromConfig(g *config.Global, in *config.PassiveJob, configJob in
 		return nil, err // no wrapping necessary
 	}
 
-	if s.listen, err = fromconfig.ListenerFactoryFromConfig(g, in.Serve); err != nil {
+	if s.listen, err = fromconfig.ListenerFactoryFromConfig(g, in.Serve, parseFlags); err != nil {
 		return nil, errors.Wrap(err, "cannot build listener factory")
 	}
 

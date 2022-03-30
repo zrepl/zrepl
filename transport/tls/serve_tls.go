@@ -16,7 +16,7 @@ import (
 
 type TLSListenerFactory struct{}
 
-func TLSListenerFactoryFromConfig(c *config.Global, in *config.TLSServe) (transport.AuthenticatedListenerFactory, error) {
+func TLSListenerFactoryFromConfig(c *config.Global, in *config.TLSServe, parseFlags config.ParseFlags) (transport.AuthenticatedListenerFactory, error) {
 
 	address := in.Listen
 	handshakeTimeout := in.HandshakeTimeout
@@ -25,7 +25,7 @@ func TLSListenerFactoryFromConfig(c *config.Global, in *config.TLSServe) (transp
 		return nil, errors.New("fields 'ca', 'cert' and 'key'must be specified")
 	}
 
-	if fakeCertificateLoading {
+	if parseFlags&config.ParseFlagsNoCertCheck != 0 {
 		return func() (transport.AuthenticatedListener, error) { return nil, nil }, nil
 	}
 

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/transport/tls"
 )
 
 func TestValidateReceivingSidesDoNotOverlap(t *testing.T) {
@@ -96,7 +95,7 @@ jobs:
 			conf, err := config.ParseConfigBytes([]byte(fill(c.jobName)))
 			require.NoError(t, err, "not expecting yaml-config to know about job ids")
 			require.NotNil(t, conf)
-			jobs, err := JobsFromConfig(conf)
+			jobs, err := JobsFromConfig(conf, config.ParseFlagsNone)
 
 			if c.valid {
 				assert.NoError(t, err)
@@ -153,8 +152,7 @@ func TestSampleConfigsAreBuiltWithoutErrors(t *testing.T) {
 			t.Logf("file: %s", p)
 			t.Log(pretty.Sprint(c))
 
-			tls.FakeCertificateLoading(t)
-			jobs, err := JobsFromConfig(c)
+			jobs, err := JobsFromConfig(c, config.ParseFlagsNoCertCheck)
 			t.Logf("jobs: %#v", jobs)
 			require.NoError(t, err)
 
@@ -299,7 +297,7 @@ jobs:
 			t.Logf("testing config:\n%s", cstr)
 			c, err := config.ParseConfigBytes([]byte(cstr))
 			require.NoError(t, err)
-			jobs, err := JobsFromConfig(c)
+			jobs, err := JobsFromConfig(c, config.ParseFlagsNone)
 			if ts.expectOk != nil {
 				require.NoError(t, err)
 				require.NotNil(t, c)

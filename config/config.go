@@ -17,6 +17,13 @@ import (
 	zfsprop "github.com/zrepl/zrepl/zfs/property"
 )
 
+type ParseFlags uint
+
+const (
+	ParseFlagsNone        ParseFlags = 0
+	ParseFlagsNoCertCheck ParseFlags = 1 << iota
+)
+
 type Config struct {
 	Jobs   []JobEnum `yaml:"jobs"`
 	Global *Global   `yaml:"global,optional,fromdefaults"`

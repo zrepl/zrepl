@@ -11,10 +11,10 @@ import (
 	"github.com/zrepl/zrepl/util/bandwidthlimit"
 )
 
-func JobsFromConfig(c *config.Config) ([]Job, error) {
+func JobsFromConfig(c *config.Config, parseFlags config.ParseFlags) ([]Job, error) {
 	js := make([]Job, len(c.Jobs))
 	for i := range c.Jobs {
-		j, err := buildJob(c.Global, c.Jobs[i])
+		j, err := buildJob(c.Global, c.Jobs[i], parseFlags)
 		if err != nil {
 			return nil, err
 		}
@@ -42,19 +42,19 @@ func JobsFromConfig(c *config.Config) ([]Job, error) {
 	return js, nil
 }
 
-func buildJob(c *config.Global, in config.JobEnum) (j Job, err error) {
+func buildJob(c *config.Global, in config.JobEnum, parseFlags config.ParseFlags) (j Job, err error) {
 	cannotBuildJob := func(e error, name string) (Job, error) {
 		return nil, errors.Wrapf(e, "cannot build job %q", name)
 	}
 	// FIXME prettify this
 	switch v := in.Ret.(type) {
 	case *config.SinkJob:
-		j, err = passiveSideFromConfig(c, &v.PassiveJob, v)
+		j, err = passiveSideFromConfig(c, &v.PassiveJob, v, parseFlags)
 		if err != nil {
 			return cannotBuildJob(err, v.Name)
 		}
 	case *config.SourceJob:
-		j, err = passiveSideFromConfig(c, &v.PassiveJob, v)
+		j, err = passiveSideFromConfig(c, &v.PassiveJob, v, parseFlags)
 		if err != nil {
 			return cannotBuildJob(err, v.Name)
 		}
@@ -64,12 +64,12 @@ func buildJob(c *config.Global, in config.JobEnum) (j Job, err error) {
 			return cannotBuildJob(err, v.Name)
 		}
 	case *config.PushJob:
-		j, err = activeSide(c, &v.ActiveJob, v)
+		j, err = activeSide(c, &v.ActiveJob, v, parseFlags)
 		if err != nil {
 			return cannotBuildJob(err, v.Name)
 		}
 	case *config.PullJob:
-		j, err = activeSide(c, &v.ActiveJob, v)
+		j, err = activeSide(c, &v.ActiveJob, v, parseFlags)
 		if err != nil {
 			return cannotBuildJob(err, v.Name)
 		}
