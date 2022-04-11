@@ -547,10 +547,20 @@ func renderPrunerReport(t *stringbuilder.B, r *pruner.Report, fsfilter FilterFun
 
 func renderSnapperReport(t *stringbuilder.B, r *snapper.Report, fsfilter FilterFunc) {
 	if r == nil {
-		t.Printf("<snapshot type does not have a report>\n")
+		t.Printf("<no snapshotting report available>\n")
 		return
 	}
+	t.Printf("Type: %s\n", r.Type)
+	if r.Periodic != nil {
+		renderSnapperReportPeriodic(t, r.Periodic, fsfilter)
+	} else if r.Cron != nil {
+		renderSnapperReportCron(t, r.Cron, fsfilter)
+	} else {
+		t.Printf("<no details available>")
+	}
+}
 
+func renderSnapperReportPeriodic(t *stringbuilder.B, r *snapper.PeriodicReport, fsfilter FilterFunc) {
 	t.Printf("Status: %s", r.State)
 	t.Newline()
 
@@ -561,8 +571,25 @@ func renderSnapperReport(t *stringbuilder.B, r *snapper.Report, fsfilter FilterF
 		t.Printf("Sleep until: %s\n", r.SleepUntil)
 	}
 
-	sort.Slice(r.Progress, func(i, j int) bool {
-		return strings.Compare(r.Progress[i].Path, r.Progress[j].Path) == -1
+	renderSnapperPlanReportFilesystem(t, r.Progress, fsfilter)
+}
+
+func renderSnapperReportCron(t *stringbuilder.B, r *snapper.CronReport, fsfilter FilterFunc) {
+	t.Printf("State: %s\n", r.State)
+
+	now := time.Now()
+	if r.WakeupTime.After(now) {
+		t.Printf("Sleep until: %s (%s remaining)\n", r.WakeupTime, r.WakeupTime.Sub(now).Round(time.Second))
+	} else {
+		t.Printf("Started: %s (lasting %s)\n", r.WakeupTime, now.Sub(r.WakeupTime).Round(time.Second))
+	}
+
+	renderSnapperPlanReportFilesystem(t, r.Progress, fsfilter)
+}
+
+func renderSnapperPlanReportFilesystem(t *stringbuilder.B, fss []*snapper.ReportFilesystem, fsfilter FilterFunc) {
+	sort.Slice(fss, func(i, j int) bool {
+		return strings.Compare(fss[i].Path, fss[j].Path) == -1
 	})
 
 	dur := func(d time.Duration) string {
@@ -575,8 +602,8 @@ func renderSnapperReport(t *stringbuilder.B, r *snapper.Report, fsfilter FilterF
 	var widths struct {
 		path, state, duration int
 	}
-	rows := make([]*row, 0, len(r.Progress))
-	for _, fs := range r.Progress {
+	rows := make([]*row, 0, len(fss))
+	for _, fs := range fss {
 		if !fsfilter(fs.Path) {
 			continue
 		}
@@ -619,9 +646,11 @@ func renderSnapperReport(t *stringbuilder.B, r *snapper.Report, fsfilter FilterF
 		t.Printf("%s %s %s", path, state, duration)
 		t.PrintfDrawIndentedAndWrappedIfMultiline(" %s", r.remainder)
 		if r.hookReport != "" {
-			t.PrintfDrawIndentedAndWrappedIfMultiline("%s", r.hookReport)
+			t.AddIndent(1)
+			t.Newline()
+			t.Printf("%s", r.hookReport)
+			t.AddIndent(-1)
 		}
 		t.Newline()
 	}
-
 }

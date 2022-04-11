@@ -101,7 +101,7 @@ type modePush struct {
 	receiver      *rpc.Client
 	senderConfig  *endpoint.SenderConfig
 	plannerPolicy *logic.PlannerPolicy
-	snapper       *snapper.PeriodicOrManual
+	snapper       snapper.Snapper
 }
 
 func (m *modePush) ConnectEndpoints(ctx context.Context, connecter transport.Connecter) {
@@ -137,7 +137,8 @@ func (m *modePush) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}
 }
 
 func (m *modePush) SnapperReport() *snapper.Report {
-	return m.snapper.Report()
+	r := m.snapper.Report()
+	return &r
 }
 
 func (m *modePush) ResetConnectBackoff() {

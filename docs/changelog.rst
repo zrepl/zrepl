@@ -21,6 +21,7 @@ Developers should consult the git commit log or GitHub issue tracker.
 
 * `Feature Wishlist on GitHub <https://github.com/zrepl/zrepl/discussions/547>`_
 
+* |feature| :ref:`Schedule-based snapshotting<job-snapshotting--cron>` using ``cron`` syntax instead of an interval.
 * |feature| Add ``ZREPL_DESTROY_MAX_BATCH_SIZE`` env var (default 0=unlimited).
 * |bugfix| Fix resuming from interrupted replications that use ``send.raw`` on unencrypted datasets.
 

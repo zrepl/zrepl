@@ -93,7 +93,14 @@ func (r *CommandHookReport) String() string {
 		cmdLine.WriteString(fmt.Sprintf("%s'%s'", sep, a))
 	}
 
-	return fmt.Sprintf("command hook invocation: \"%s\"", cmdLine.String()) // no %q to make copy-pastable
+	var msg string
+	if r.Err == nil {
+		msg = "command hook"
+	} else {
+		msg = fmt.Sprintf("command hook failed with %q", r.Err)
+	}
+
+	return fmt.Sprintf("%s: \"%s\"", msg, cmdLine.String()) // no %q to make copy-pastable
 }
 func (r *CommandHookReport) Error() string {
 	if r.Err == nil {

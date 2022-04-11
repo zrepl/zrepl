@@ -1,0 +1,14 @@
+jobs:
+- name: snapjob
+  type: snap
+  filesystems: {
+    "tank<": true,
+  }
+  snapshotting:
+    type: cron
+    prefix: zrepl_snapjob_
+    cron: "*/5 * * * *"
+  pruning:
+    keep:
+      - type: last_n
+        count: 60

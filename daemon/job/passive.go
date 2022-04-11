@@ -58,7 +58,7 @@ func modeSinkFromConfig(g *config.Global, in *config.SinkJob, jobID endpoint.Job
 
 type modeSource struct {
 	senderConfig *endpoint.SenderConfig
-	snapper      *snapper.PeriodicOrManual
+	snapper      snapper.Snapper
 }
 
 func modeSourceFromConfig(g *config.Global, in *config.SourceJob, jobID endpoint.JobID) (m *modeSource, err error) {
@@ -88,7 +88,8 @@ func (m *modeSource) RunPeriodic(ctx context.Context) {
 }
 
 func (m *modeSource) SnapperReport() *snapper.Report {
-	return m.snapper.Report()
+	r := m.snapper.Report()
+	return &r
 }
 
 func passiveSideFromConfig(g *config.Global, in *config.PassiveJob, configJob interface{}, parseFlags config.ParseFlags) (s *PassiveSide, err error) {

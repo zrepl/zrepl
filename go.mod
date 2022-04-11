@@ -29,6 +29,7 @@ require (
 	github.com/problame/go-netssh v0.0.0-20200601114649-26439f9f0dc5
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/common v0.7.0
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/sergi/go-diff v1.0.1-0.20180205163309-da645544ed44 // indirect; go1.12 thinks it needs this
 	github.com/spf13/cobra v0.0.2
 	github.com/spf13/pflag v1.0.5

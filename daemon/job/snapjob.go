@@ -26,7 +26,7 @@ import (
 type SnapJob struct {
 	name     endpoint.JobID
 	fsfilter zfs.DatasetFilter
-	snapper  *snapper.PeriodicOrManual
+	snapper  snapper.Snapper
 
 	prunerFactory *pruner.LocalPrunerFactory
 
@@ -86,7 +86,8 @@ func (j *SnapJob) Status() *Status {
 		s.Pruning = j.pruner.Report()
 	}
 	j.prunerMtx.Unlock()
-	s.Snapshotting = j.snapper.Report()
+	r := j.snapper.Report()
+	s.Snapshotting = &r
 	return &Status{Type: t, JobSpecific: s}
 }
 

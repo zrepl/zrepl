@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/robfig/cron/v3"
 	"github.com/zrepl/yaml-config"
 
 	"github.com/zrepl/zrepl/util/datasizeunit"
@@ -231,6 +232,38 @@ type SnapshottingPeriodic struct {
 	Prefix   string        `yaml:"prefix"`
 	Interval time.Duration `yaml:"interval,positive"`
 	Hooks    HookList      `yaml:"hooks,optional"`
+}
+
+type CronSpec struct {
+	Schedule cron.Schedule
+}
+
+var _ yaml.Unmarshaler = &CronSpec{}
+
+func (s *CronSpec) UnmarshalYAML(unmarshal func(v interface{}, not_strict bool) error) error {
+	var specString string
+	if err := unmarshal(&specString, false); err != nil {
+		return err
+	}
+
+	// Use standard cron format.
+	// Disable the various "descriptors" (@daily, etc)
+	// They are just aliases to "top of hour", "midnight", etc.
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.SecondOptional)
+
+	sched, err := parser.Parse(specString)
+	if err != nil {
+		return errors.Wrap(err, "cron syntax invalid")
+	}
+	s.Schedule = sched
+	return nil
+}
+
+type SnapshottingCron struct {
+	Type   string   `yaml:"type"`
+	Prefix string   `yaml:"prefix"`
+	Cron   CronSpec `yaml:"cron"`
+	Hooks  HookList `yaml:"hooks,optional"`
 }
 
 type SnapshottingManual struct {
@@ -556,6 +589,7 @@ func (t *SnapshottingEnum) UnmarshalYAML(u func(interface{}, bool) error) (err e
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
 		"periodic": &SnapshottingPeriodic{},
 		"manual":   &SnapshottingManual{},
+		"cron":     &SnapshottingCron{},
 	})
 	return
 }

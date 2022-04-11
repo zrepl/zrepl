@@ -5,52 +5,116 @@
 Taking Snaphots
 ===============
 
-The ``push``, ``source`` and ``snap`` jobs can automatically take periodic snapshots of the filesystems matched by the ``filesystems`` filter field.
-The snapshot names are composed of a user-defined prefix followed by a UTC date formatted like ``20060102_150405_000``.
-We use UTC because it will avoid name conflicts when switching time zones or between summer and winter time.
+You can configure zrepl to take snapshots of the filesystems in the ``filesystems`` field specified in ``push``, ``source`` and ``snap`` jobs.
 
-When a job is started, the snapshotter attempts to get the snapshotting rhythms of the matched ``filesystems`` in sync because snapshotting all filesystems at the same time results in a more consistent backup.
-To find that sync point, the most recent snapshot, made by the snapshotter, in any of the matched ``filesystems`` is used.
-A filesystem that does not have snapshots by the snapshotter has lower priority than filesystem that do, and thus might not be snapshotted (and replicated) until it is snapshotted at the next sync point.
+The following snapshotting types are supported:
 
-For ``push`` jobs, replication is automatically triggered after all filesystems have been snapshotted.
 
-Note that the ``zrepl signal wakeup JOB`` subcommand does not trigger snapshotting.
+.. list-table::
+    :widths: 20 70
+    :header-rows: 1
 
+    * - ``snapshotting.type``
+      - Comment
+    * - ``periodic``
+      - Ensure that snapshots are taken at a particular interval.
+    * - ``cron``
+      - Use cron spec to take snapshots at particular points in time.
+    * - ``manual``
+      - zrepl does not take any snapshots by itself.
+
+The ``periodic`` and ``cron`` snapshotting types share some common options and behavior:
+
+* **Naming:** The snapshot names are composed of a user-defined ``prefix`` followed by a UTC date formatted like ``20060102_150405_000``.
+  We use UTC because it will avoid name conflicts when switching time zones or between summer and winter time.
+* **Hooks:** You can configure hooks to run before or after zrepl takes the snapshots. See :ref:`below <job-snapshotting-hooks>` for details.
+* **Push replication:** After creating all snapshots, the snapshotter will wake up the replication part of the job, if it's a ``push`` job.
+  Note that snapshotting is decoupled from replication, i.e., if it is down or takes too long, snapshots will still be taken.
+  Note further that other jobs are not woken up by snapshotting.
+
+.. NOTE::
+
+   There is **no concept of ownership** of the snapshots that are created by ``periodic`` or ``cron``.
+   Thus, there is no distinction between zrepl-created snapshots and user-created snapshots during replication or pruning.
+
+   In particular, pruning will take all snapshots into consideration by default.
+   To constrain pruning to just zrepl-created snapshots:
+
+     1. Assign a unique `prefix` to the snapshotter and
+     2. Use the ``regex`` functionality of the various pruning ``keep`` rules to just consider snapshots with that prefix.
+
+  There is currently no way to constrain replication to just zrepl-created snapshots.
+  Follow and comment at :issue:`403` if you need this functionality.
+
+.. NOTE::
+
+  The ``zrepl signal wakeup JOB`` subcommand does not trigger snapshotting.
+
+``periodic`` Snapshotting
+-------------------------
 
 ::
 
-    jobs:
-    - type: push
-      filesystems: {
-        "<": true,
-        "tmp": false
-      }
-      snapshotting:
-        type: periodic
-        prefix: zrepl_
-        interval: 10m
-        hooks: ...
-      ...
+   jobs:
+   - ...
+     filesystems: { ... }
+     snapshotting:
+       type: periodic
+       prefix: zrepl_
+       interval: 10m
+       hooks: ...
+    pruning: ...
 
-There is also a ``manual`` snapshotting type, which covers the following use cases:
+The ``periodic`` snapshotter ensures that snapshots are taken in the specified ``interval``.
+If you use zrepl for backup, this translates into your recovery point objective (RPO).
+To meet your RPO, you still need to monitor that replication, which happens asynchronously to snapshotting, actually works.
 
-* Existing infrastructure for automatic snapshots: you only want to use this zrepl job for replication.
-* Handling snapshotting through a separate ``snap`` job.
+It is desirable to get all ``filesystems`` snapshotted simultaneously because it results in a more consistent backup.
+To accomplish this while still maintaining the ``interval``, the ``periodic`` snapshotter attempts to get the snapshotting rhythms in sync.
+To find that sync point, the most recent snapshot, created by the snapshotter, in any of the matched ``filesystems`` is used.
+A filesystem that does not have snapshots by the snapshotter has lower priority than filesystem that do, and thus might not be snapshotted (and replicated) until it is snapshotted at the next sync point.
+The snapshotter uses the ``prefix`` to identify which snapshots it created.
 
-Note that you will have to trigger replication manually using the ``zrepl signal wakeup JOB`` subcommand in that case.
+.. _job-snapshotting--cron:
+
+``cron`` Snapshotting
+---------------------
+
+::
+
+   jobs:
+   - type: snap
+     filesystems: { ... }
+     snapshotting:
+       type: cron
+       prefix: zrepl_
+       # (second, optional) minute hour day-of-month month day-of-week
+       # This example takes snapshots daily at 3:00.
+       cron: "0 3 * * *"
+     pruning: ...
+
+In ``cron`` mode, the snapshotter takes snaphots at fixed points in time.
+See https://en.wikipedia.org/wiki/Cron for details on the syntax.
+zrepl uses the ``the github.com/robfig/cron/v3`` Go package for parsing.
+An optional field for "seconds" is supported to take snapshots at sub-minute frequencies.
+
+``manual`` Snapshotting
+-----------------------
 
 ::
 
    jobs:
    - type: push
-     filesystems: {
-       "<": true,
-       "tmp": false
-     }
      snapshotting:
        type: manual
      ...
+
+In ``manual`` mode, zrepl does not take snapshots by itself.
+Manual snapshotting is most useful if you have existing infrastructure for snapshot management.
+Or, if you want to decouple snapshot management from replication using a zrepl ``snap`` job.
+See :ref:`this quickstart guide <quickstart-backup-to-external-disk>` for an example.
+
+To trigger replication after taking snapshots, use the ``zrepl signal wakeup JOB`` command.
 
 .. _job-snapshotting-hooks:
 

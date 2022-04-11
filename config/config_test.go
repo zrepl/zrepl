@@ -13,6 +13,7 @@ import (
 	"github.com/kr/pretty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zrepl/yaml-config"
 )
 
 func TestSampleConfigsAreParsedWithoutErrors(t *testing.T) {
@@ -85,4 +86,54 @@ func TestTrimSpaceEachLineAndPad(t *testing.T) {
 	bar baz 
 	`
 	assert.Equal(t, "  \n  foo\n  bar baz\n  \n", trimSpaceEachLineAndPad(foo, "  "))
+}
+
+func TestCronSpec(t *testing.T) {
+
+	expectAccept := []string{
+		`"* * * * *"`,
+		`"0-10 * * * *"`,
+		`"* 0-5,8,12 * * *"`,
+	}
+
+	expectFail := []string{
+		`* * * *`,
+		``,
+		`23`,
+		`"@reboot"`,
+		`"@every 1h30m"`,
+		`"@daily"`,
+		`* * * * * *`,
+	}
+
+	for _, input := range expectAccept {
+		t.Run(input, func(t *testing.T) {
+			s := fmt.Sprintf("spec: %s\n", input)
+			var v struct {
+				Spec CronSpec
+			}
+			v.Spec.Schedule = nil
+			t.Logf("input:\n%s", s)
+			err := yaml.UnmarshalStrict([]byte(s), &v)
+			t.Logf("error: %T %s", err, err)
+			require.NoError(t, err)
+			require.NotNil(t, v.Spec.Schedule)
+		})
+	}
+
+	for _, input := range expectFail {
+		t.Run(input, func(t *testing.T) {
+			s := fmt.Sprintf("spec: %s\n", input)
+			var v struct {
+				Spec CronSpec
+			}
+			v.Spec.Schedule = nil
+			t.Logf("input: %q", s)
+			err := yaml.UnmarshalStrict([]byte(s), &v)
+			t.Logf("error: %T %s", err, err)
+			require.Error(t, err)
+			require.Nil(t, v.Spec.Schedule)
+		})
+	}
+
 }
