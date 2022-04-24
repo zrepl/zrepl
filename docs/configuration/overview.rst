@@ -243,10 +243,8 @@ Limitations
     This is temporary and being worked on :issue:`24`.
 
 
-.. _jobs-multiple-jobs:
-
-Multiple Jobs & More than 2 Machines
-------------------------------------
+Caveats With Complex Setups (More Than 2 Jobs or Machines)
+----------------------------------------------------------
 
 Most users are served well with a single sender and a single receiver job.
 This section documents considerations for more complex setups.
@@ -262,7 +260,7 @@ This section documents considerations for more complex setups.
 
    If you can't find your desired configuration, have questions or would like to see improvements to multi-job setups, please `open an issue on GitHub <https://github.com/zrepl/zrepl/issues/new>`_.
 
-Multiple Jobs on one Machine
+Multiple Jobs on One Machine
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 As a general rule, multiple jobs configured on one machine **must operate on disjoint sets of filesystems**.
 Otherwise, concurrently running jobs might interfere when operating on the same filesystem.
@@ -281,7 +279,7 @@ On your setup, ensure that
   This scenario is detailed in one of the :ref:`quick-start guides <quickstart-backup-to-external-disk>`.
 
 
-More Than 2 Machines
+Two Or More Machines
 ^^^^^^^^^^^^^^^^^^^^
 
 This section might be relevant to users who wish to *fan-in* (N machines replicate to 1) or *fan-out* (replicate 1 machine to N machines).
