@@ -245,7 +245,7 @@ Limitations
 
 .. _jobs-multiple-jobs:
 
-Multiple Jobs & More than 2 Machines
+Multiple Jobs & 2 or more Machines
 ------------------------------------
 
 Most users are served well with a single sender and a single receiver job.
@@ -281,7 +281,7 @@ On your setup, ensure that
   This scenario is detailed in one of the :ref:`quick-start guides <quickstart-backup-to-external-disk>`.
 
 
-More Than 2 Machines
+2 or more Machines
 ^^^^^^^^^^^^^^^^^^^^
 
 This section might be relevant to users who wish to *fan-in* (N machines replicate to 1) or *fan-out* (replicate 1 machine to N machines).
