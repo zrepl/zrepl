@@ -295,7 +295,7 @@ This section might be relevant to users who wish to *fan-in* (N machines replica
   * Implementation:
 
     * N ``push`` jobs (one per sender server), 1 ``sink`` (as long as the different push jobs have a different :ref:`client identity <overview-passive-side--client-identity>`)
-    * N ``source`` jobs (one per sender server), N ``pull`` on the receiver server (unique names, disjoing  ``root_fs``)
+    * N ``source`` jobs (one per sender server), N ``pull`` on the receiver server (unique names, disjoint  ``root_fs``)
 
   * The ``sink`` job automatically constrains each client to a disjoint sub-tree of the sink-side dataset hierarchy ``${root_fs}/${client_identity}``.
     Therefore, the different clients cannot interfere.
