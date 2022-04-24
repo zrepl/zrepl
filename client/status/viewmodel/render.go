@@ -228,8 +228,16 @@ func printFilesystemStatus(t *stringbuilder.B, rep *report.FilesystemReport, max
 	}
 
 	userVisisbleCurrentStep, userVisibleTotalSteps := rep.CurrentStep, len(rep.Steps)
-	if len(rep.Steps) > 0 {
-		userVisisbleCurrentStep = rep.CurrentStep + 1 // CurrentStep is an index that starts at 0
+	// `.CurrentStep` is == len(rep.Steps) if all steps are done.
+	// Until then, it's an index into .Steps that starts at 0.
+	// For the user, we want it to start at 1.
+	if rep.CurrentStep >= len(rep.Steps) {
+		// rep.CurrentStep is what we want to show.
+		// We check for >= and not == for robustness.
+	} else {
+		// We're not done yet, so, make step count start at 1
+		// (The `.State` is included in the output, indicating we're not done yet)
+		userVisisbleCurrentStep = rep.CurrentStep + 1
 	}
 	status := fmt.Sprintf("%s (step %d/%d, %s/%s)%s",
 		strings.ToUpper(string(rep.State)),
