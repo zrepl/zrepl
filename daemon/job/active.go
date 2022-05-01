@@ -162,8 +162,14 @@ func modePushFromConfig(g *config.Global, in *config.PushJob, jobID endpoint.Job
 		return nil, errors.Wrap(err, "field `replication`")
 	}
 
+	conflictResolution, err := logic.ConflictResolutionFromConfig(in.ConflictResolution)
+	if err != nil {
+		return nil, errors.Wrap(err, "field `conflict_resolution`")
+	}
+
 	m.plannerPolicy = &logic.PlannerPolicy{
 		EncryptedSend:             logic.TriFromBool(in.Send.Encrypted),
+		ConflictResolution:        conflictResolution,
 		ReplicationConfig:         replicationConfig,
 		SizeEstimationConcurrency: in.Replication.Concurrency.SizeEstimates,
 	}
@@ -261,8 +267,14 @@ func modePullFromConfig(g *config.Global, in *config.PullJob, jobID endpoint.Job
 		return nil, errors.Wrap(err, "field `replication`")
 	}
 
+	conflictResolution, err := logic.ConflictResolutionFromConfig(in.ConflictResolution)
+	if err != nil {
+		return nil, errors.Wrap(err, "field `conflict_resolution`")
+	}
+
 	m.plannerPolicy = &logic.PlannerPolicy{
 		EncryptedSend:             logic.DontCare,
+		ConflictResolution:        conflictResolution,
 		ReplicationConfig:         replicationConfig,
 		SizeEstimationConcurrency: in.Replication.Concurrency.SizeEstimates,
 	}

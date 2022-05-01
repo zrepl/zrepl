@@ -96,12 +96,37 @@ func TestIncrementalPath_SnapshotsOnly(t *testing.T) {
 		assert.Equal(t, l("@c,3", "@d,4"), path)
 	})
 
-	// sender with earlier but also current version as sender is not a conflict
+	// nothing to do if fully shared history
+	doTest(l("@a,1", "@b,2"), l("@a,1", "@b,2"), func(incpath []*FilesystemVersion, conflict error) {
+		assert.Nil(t, incpath)
+		assert.NotNil(t, conflict)
+		_, ok := conflict.(*ConflictMostRecentSnapshotAlreadyPresent)
+		assert.True(t, ok)
+	})
+
+	// ...but it's sufficient if the most recent snapshot is present
 	doTest(l("@c,3"), l("@a,1", "@b,2", "@c,3"), func(path []*FilesystemVersion, conflict error) {
-		t.Logf("path: %#v", path)
-		t.Logf("conflict: %#v", conflict)
-		assert.Empty(t, path)
-		assert.Nil(t, conflict)
+		assert.Nil(t, path)
+		_, ok := conflict.(*ConflictMostRecentSnapshotAlreadyPresent)
+		assert.True(t, ok)
+	})
+
+	// no sender snapshots errors: empty receiver
+	doTest(l(), l(), func(incpath []*FilesystemVersion, conflict error) {
+		assert.Nil(t, incpath)
+		assert.NotNil(t, conflict)
+		t.Logf("%T", conflict)
+		_, ok := conflict.(*ConflictNoSenderSnapshots)
+		assert.True(t, ok)
+	})
+
+	// no sender snapshots errors: snapshots on receiver
+	doTest(l("@a,1"), l(), func(incpath []*FilesystemVersion, conflict error) {
+		assert.Nil(t, incpath)
+		assert.NotNil(t, conflict)
+		t.Logf("%T", conflict)
+		_, ok := conflict.(*ConflictNoSenderSnapshots)
+		assert.True(t, ok)
 	})
 
 }

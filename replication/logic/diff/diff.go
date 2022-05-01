@@ -49,6 +49,23 @@ func (c *ConflictDiverged) Error() string {
 	return buf.String()
 }
 
+type ConflictNoSenderSnapshots struct{}
+
+func (c *ConflictNoSenderSnapshots) Error() string {
+	return "no snapshots available on sender side"
+}
+
+type ConflictMostRecentSnapshotAlreadyPresent struct {
+	SortedSenderVersions, SortedReceiverVersions []*FilesystemVersion
+	CommonAncestor                               *FilesystemVersion
+}
+
+func (c *ConflictMostRecentSnapshotAlreadyPresent) Error() string {
+	var buf strings.Builder
+	fmt.Fprintf(&buf, "the most recent sender snapshot is already present on the receiver (guid=%v, name=%q)", c.CommonAncestor.GetGuid(), c.CommonAncestor.RelName())
+	return buf.String()
+}
+
 func SortVersionListByCreateTXGThenBookmarkLTSnapshot(fsvslice []*FilesystemVersion) []*FilesystemVersion {
 	lesser := func(s []*FilesystemVersion) func(i, j int) bool {
 		return func(i, j int) bool {
@@ -71,7 +88,6 @@ func SortVersionListByCreateTXGThenBookmarkLTSnapshot(fsvslice []*FilesystemVers
 	return sorted
 }
 
-// conflict may be a *ConflictDiverged or a *ConflictNoCommonAncestor
 func IncrementalPath(receiver, sender []*FilesystemVersion) (incPath []*FilesystemVersion, conflict error) {
 
 	receiver = SortVersionListByCreateTXGThenBookmarkLTSnapshot(receiver)
@@ -98,9 +114,13 @@ findCandidate:
 
 	// handle failure cases
 	if !mrcaCandidate.found {
-		return nil, &ConflictNoCommonAncestor{
-			SortedSenderVersions:   sender,
-			SortedReceiverVersions: receiver,
+		if len(sender) == 0 {
+			return nil, &ConflictNoSenderSnapshots{}
+		} else {
+			return nil, &ConflictNoCommonAncestor{
+				SortedSenderVersions:   sender,
+				SortedReceiverVersions: receiver,
+			}
 		}
 	} else if mrcaCandidate.r != len(receiver)-1 {
 		return nil, &ConflictDiverged{
@@ -125,7 +145,11 @@ findCandidate:
 	}
 	if len(incPath) == 1 {
 		// nothing to do
-		incPath = incPath[1:]
+		return nil, &ConflictMostRecentSnapshotAlreadyPresent{
+			SortedSenderVersions:   sender,
+			SortedReceiverVersions: receiver,
+			CommonAncestor:         sender[mrcaCandidate.s],
+		}
 	}
 	return incPath, nil
 }

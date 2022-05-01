@@ -44,6 +44,7 @@ type replicationInvocation struct {
 	guarantee          *pdu.ReplicationConfigProtection
 	senderConfigHook   func(*endpoint.SenderConfig)
 	receiverConfigHook func(*endpoint.ReceiverConfig)
+	plannerPolicyHook  func(*logic.PlannerPolicy)
 }
 
 func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
@@ -95,7 +96,13 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 		ReplicationConfig: &pdu.ReplicationConfig{
 			Protection: i.guarantee,
 		},
+		ConflictResolution: &logic.ConflictResolution{
+			InitialReplication: logic.InitialReplicationAutoResolutionMostRecent,
+		},
 		SizeEstimationConcurrency: 1,
+	}
+	if i.plannerPolicyHook != nil {
+		i.plannerPolicyHook(&plannerPolicy)
 	}
 
 	report, wait := replication.Do(
@@ -1305,4 +1312,80 @@ func ReplicationPlaceholderEncryption__EncryptOnReceiverUseCase__WorksIfConfigur
 	props, err := zfs.ZFSGet(ctx, rfs, []string{"encryptionroot"})
 	require.NoError(ctx, err)
 	require.Equal(ctx, rfsRoot, props.Get("encryptionroot"))
+}
+
+func replicationInitialImpl(ctx *platformtest.Context, iras logic.InitialReplicationAutoResolution, expectExactRfsSnaps []string) *report.Report {
+	// reverse order for snap names to expose sorting assumptions
+	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
+		CREATEROOT
+		+  "sender"
+		+  "sender@3"
+		+  "sender@2"
+		+  "sender@1"
+		+  "receiver"
+		R  zfs create -p "${ROOTDS}/receiver/${ROOTDS}"
+	`)
+
+	sjid := endpoint.MustMakeJobID("sender-job")
+	rjid := endpoint.MustMakeJobID("receiver-job")
+
+	sfs := ctx.RootDataset + "/sender"
+	rfsRoot := ctx.RootDataset + "/receiver"
+
+	rep := replicationInvocation{
+		sjid:      sjid,
+		rjid:      rjid,
+		sfs:       sfs,
+		rfsRoot:   rfsRoot,
+		guarantee: pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability),
+		plannerPolicyHook: func(pp *logic.PlannerPolicy) {
+			pp.ConflictResolution.InitialReplication = iras
+		},
+	}
+	rfs := rep.ReceiveSideFilesystem()
+
+	// first replication
+	report := rep.Do(ctx)
+	ctx.Logf("\n%s", pretty.Sprint(report))
+
+	versions, err := zfs.ZFSListFilesystemVersions(ctx, mustDatasetPath(rfs), zfs.ListFilesystemVersionsOptions{Types: zfs.Snapshots})
+	if _, ok := err.(*zfs.DatasetDoesNotExist); ok {
+		versions = nil
+	} else {
+		require.NoError(ctx, err)
+	}
+
+	bySnapName := make(map[string]int)
+	for _, v := range versions {
+		bySnapName[v.GetName()] += 1
+	}
+	for _, v := range expectExactRfsSnaps {
+		bySnapName[v] -= 1
+	}
+
+	for _, v := range bySnapName {
+		if v != 0 {
+			ctx.Logf("unexpected snaps:\n%#v", bySnapName)
+			ctx.FailNow()
+		}
+	}
+
+	return report
+}
+
+func ReplicationInitialAll(ctx *platformtest.Context) {
+	replicationInitialImpl(ctx, logic.InitialReplicationAutoResolutionAll, []string{"3", "2", "1"})
+}
+
+func ReplicationInitialMostRecent(ctx *platformtest.Context) {
+	replicationInitialImpl(ctx, logic.InitialReplicationAutoResolutionMostRecent, []string{"1"})
+}
+
+func ReplicationInitialFail(ctx *platformtest.Context) {
+	report := replicationInitialImpl(ctx, logic.InitialReplicationAutoResolutionFail, []string{})
+	require.Len(ctx, report.Attempts, 1)
+	require.Nil(ctx, report.Attempts[0].PlanError)
+	require.Len(ctx, report.Attempts[0].Filesystems, 1)
+	require.NotNil(ctx, report.Attempts[0].Filesystems[0].PlanError)
+	require.Contains(ctx, report.Attempts[0].Filesystems[0].PlanError.Err, "automatic conflict resolution for initial replication is disabled in config")
 }

@@ -235,25 +235,55 @@ func NewPlanner(secsPerState *prometheus.HistogramVec, bytesReplicated *promethe
 		promBytesReplicated: bytesReplicated,
 	}
 }
-func resolveConflict(conflict error) (path []*pdu.FilesystemVersion, msg string) {
+
+func tryAutoresolveConflict(conflict error, policy ConflictResolution) (path []*pdu.FilesystemVersion, reason error) {
+
+	if _, ok := conflict.(*ConflictMostRecentSnapshotAlreadyPresent); ok {
+		// replicatoin is a no-op
+		return nil, nil
+	}
+
 	if noCommonAncestor, ok := conflict.(*ConflictNoCommonAncestor); ok {
 		if len(noCommonAncestor.SortedReceiverVersions) == 0 {
-			// TODO this is hard-coded replication policy: most recent snapshot as source
-			// NOTE: Keep in sync with listStaleFiltering, it depends on this hard-coded assumption
-			var mostRecentSnap *pdu.FilesystemVersion
-			for n := len(noCommonAncestor.SortedSenderVersions) - 1; n >= 0; n-- {
-				if noCommonAncestor.SortedSenderVersions[n].Type == pdu.FilesystemVersion_Snapshot {
-					mostRecentSnap = noCommonAncestor.SortedSenderVersions[n]
-					break
+
+			if len(noCommonAncestor.SortedSenderVersions) == 0 {
+				return nil, fmt.Errorf("no snapshots available on sender side")
+			}
+
+			switch policy.InitialReplication {
+
+			case InitialReplicationAutoResolutionMostRecent:
+
+				var mostRecentSnap *pdu.FilesystemVersion
+				for n := len(noCommonAncestor.SortedSenderVersions) - 1; n >= 0; n-- {
+					if noCommonAncestor.SortedSenderVersions[n].Type == pdu.FilesystemVersion_Snapshot {
+						mostRecentSnap = noCommonAncestor.SortedSenderVersions[n]
+						break
+					}
 				}
+				return []*pdu.FilesystemVersion{nil, mostRecentSnap}, nil
+
+			case InitialReplicationAutoResolutionAll:
+
+				path = append(path, nil)
+
+				for n := 0; n < len(noCommonAncestor.SortedSenderVersions); n++ {
+					if noCommonAncestor.SortedSenderVersions[n].Type == pdu.FilesystemVersion_Snapshot {
+						path = append(path, noCommonAncestor.SortedSenderVersions[n])
+					}
+				}
+				return path, nil
+
+			case InitialReplicationAutoResolutionFail:
+
+				return nil, fmt.Errorf("automatic conflict resolution for initial replication is disabled in config")
+
+			default:
+				panic(fmt.Sprintf("unimplemented: %#v", policy.InitialReplication))
 			}
-			if mostRecentSnap == nil {
-				return nil, "no snapshots available on sender side"
-			}
-			return []*pdu.FilesystemVersion{mostRecentSnap}, fmt.Sprintf("start replication at most recent snapshot %s", mostRecentSnap.RelName())
 		}
 	}
-	return nil, "no automated way to handle conflict type"
+	return nil, conflict
 }
 
 func (p *Planner) doPlanning(ctx context.Context) ([]*Filesystem, error) {
@@ -456,39 +486,31 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 	} else { // resumeToken == nil
 		path, conflict := IncrementalPath(rfsvs, sfsvs)
 		if conflict != nil {
-			var msg string
-			path, msg = resolveConflict(conflict) // no shadowing allowed!
-			if path != nil {
-				log(ctx).WithField("conflict", conflict).Info("conflict")
-				log(ctx).WithField("resolution", msg).Info("automatically resolved")
+			updPath, updConflict := tryAutoresolveConflict(conflict, *fs.policy.ConflictResolution)
+			if updConflict == nil {
+				log(ctx).WithField("conflict", conflict).Info("conflict automatically resolved")
+
 			} else {
-				log(ctx).WithField("conflict", conflict).Error("conflict")
-				log(ctx).WithField("problem", msg).Error("cannot resolve conflict")
+				log(ctx).WithField("conflict", conflict).Error("cannot resolve conflict")
 			}
+			path, conflict = updPath, updConflict
 		}
-		if len(path) == 0 {
+		if conflict != nil {
 			return nil, conflict
 		}
-
-		steps = make([]*Step, 0, len(path)) // shadow
-		if len(path) == 1 {
-			steps = append(steps, &Step{
-				parent:   fs,
-				sender:   fs.sender,
-				receiver: fs.receiver,
-
-				from:    nil,
-				to:      path[0],
-				encrypt: fs.policy.EncryptedSend,
-			})
+		if len(path) == 0 {
+			steps = nil
+		} else if len(path) == 1 {
+			panic(fmt.Sprintf("len(path) must be two for incremental repl, and initial repl must start with nil, got path[0]=%#v", path[0]))
 		} else {
+			steps = make([]*Step, 0, len(path)) // shadow
 			for i := 0; i < len(path)-1; i++ {
 				steps = append(steps, &Step{
 					parent:   fs,
 					sender:   fs.sender,
 					receiver: fs.receiver,
 
-					from:    path[i],
+					from:    path[i], // nil in case of initial repl
 					to:      path[i+1],
 					encrypt: fs.policy.EncryptedSend,
 				})
