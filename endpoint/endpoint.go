@@ -78,24 +78,6 @@ func NewSender(conf SenderConfig) *Sender {
 	}
 }
 
-func (s *Sender) filterCheckFS(fs string) (*zfs.DatasetPath, error) {
-	dp, err := zfs.NewDatasetPath(fs)
-	if err != nil {
-		return nil, err
-	}
-	if dp.Length() == 0 {
-		return nil, errors.New("empty filesystem not allowed")
-	}
-	pass, err := s.FSFilter.Filter(dp)
-	if err != nil {
-		return nil, err
-	}
-	if !pass {
-		return nil, fmt.Errorf("endpoint does not allow access to filesystem %s", fs)
-	}
-	return dp, nil
-}
-
 func (s *Sender) ListFilesystems(ctx context.Context, r *pdu.ListFilesystemReq) (*pdu.ListFilesystemRes, error) {
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
@@ -123,7 +105,7 @@ func (s *Sender) ListFilesystems(ctx context.Context, r *pdu.ListFilesystemReq) 
 func (s *Sender) ListFilesystemVersions(ctx context.Context, r *pdu.ListFilesystemVersionsReq) (*pdu.ListFilesystemVersionsRes, error) {
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
-	lp, err := s.filterCheckFS(r.GetFilesystem())
+	lp, err := zfs.FilterCheckFS(s.FSFilter, r.GetFilesystem())
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +143,7 @@ func sendArgsFromPDUAndValidateExistsAndGetVersion(ctx context.Context, fs strin
 
 func (s *Sender) sendMakeArgs(ctx context.Context, r *pdu.SendReq) (sendArgs zfs.ZFSSendArgsValidated, _ error) {
 
-	_, err := s.filterCheckFS(r.Filesystem)
+	_, err := zfs.FilterCheckFS(s.FSFilter, r.Filesystem)
 	if err != nil {
 		return sendArgs, err
 	}
@@ -345,7 +327,7 @@ func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*p
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
 	orig := r.GetOriginalReq() // may be nil, always use proto getters
-	fsp, err := p.filterCheckFS(orig.GetFilesystem())
+	fsp, err := zfs.FilterCheckFS(p.FSFilter, orig.GetFilesystem())
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +380,7 @@ func (p *Sender) SendCompleted(ctx context.Context, r *pdu.SendCompletedReq) (*p
 func (p *Sender) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapshotsReq) (*pdu.DestroySnapshotsRes, error) {
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
-	dp, err := p.filterCheckFS(req.Filesystem)
+	dp, err := zfs.FilterCheckFS(p.FSFilter, req.Filesystem)
 	if err != nil {
 		return nil, err
 	}
@@ -429,7 +411,7 @@ func (p *Sender) WaitForConnectivity(ctx context.Context) error {
 func (p *Sender) ReplicationCursor(ctx context.Context, req *pdu.ReplicationCursorReq) (*pdu.ReplicationCursorRes, error) {
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 
-	dp, err := p.filterCheckFS(req.Filesystem)
+	dp, err := zfs.FilterCheckFS(p.FSFilter, req.Filesystem)
 	if err != nil {
 		return nil, err
 	}

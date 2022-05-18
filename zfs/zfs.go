@@ -1919,3 +1919,21 @@ func ZFSRollback(ctx context.Context, fs *DatasetPath, snapshot FilesystemVersio
 
 	return err
 }
+
+func FilterCheckFS(fsfilter DatasetFilter, fs string) (*DatasetPath, error) {
+	dp, err := NewDatasetPath(fs)
+	if err != nil {
+		return nil, err
+	}
+	if dp.Length() == 0 {
+		return nil, errors.New("empty filesystem not allowed")
+	}
+	pass, err := fsfilter.Filter(dp)
+	if err != nil {
+		return nil, err
+	}
+	if !pass {
+		return nil, fmt.Errorf("endpoint does not allow access to filesystem %s", fs)
+	}
+	return dp, nil
+}
