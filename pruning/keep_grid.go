@@ -8,7 +8,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/pruning/retentiongrid"
+	"github.com/zrepl/zrepl/zfs"
 )
 
 // KeepGrid fits snapshots that match a given regex into a retentiongrid.Grid,
@@ -17,6 +19,7 @@ import (
 type KeepGrid struct {
 	retentionGrid *retentiongrid.Grid
 	re            *regexp.Regexp
+	fsf           zfs.DatasetFilter
 }
 
 func NewKeepGrid(in *config.PruneGrid) (p *KeepGrid, err error) {
@@ -29,10 +32,15 @@ func NewKeepGrid(in *config.PruneGrid) (p *KeepGrid, err error) {
 		return nil, errors.Wrap(err, "Regex is invalid")
 	}
 
-	return newKeepGrid(re, in.Grid)
+	fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
+	if err != nil {
+		panic(err)
+	}
+
+	return newKeepGrid(fsf, re, in.Grid)
 }
 
-func MustNewKeepGrid(regex, gridspec string) *KeepGrid {
+func MustNewKeepGrid(filesystems config.FilesystemsFilter, regex, gridspec string) *KeepGrid {
 
 	ris, err := config.ParseRetentionIntervalSpec(gridspec)
 	if err != nil {
@@ -41,16 +49,26 @@ func MustNewKeepGrid(regex, gridspec string) *KeepGrid {
 
 	re := regexp.MustCompile(regex)
 
-	grid, err := newKeepGrid(re, ris)
+	fsf, err := filters.DatasetMapFilterFromConfig(filesystems)
+	if err != nil {
+		panic(err)
+	}
+
+	grid, err := newKeepGrid(fsf, re, ris)
 	if err != nil {
 		panic(err)
 	}
 	return grid
 }
 
-func newKeepGrid(re *regexp.Regexp, configIntervals []config.RetentionInterval) (*KeepGrid, error) {
+func newKeepGrid(fsf zfs.DatasetFilter, re *regexp.Regexp, configIntervals []config.RetentionInterval) (*KeepGrid, error) {
+
 	if re == nil {
 		panic("re must not be nil")
+	}
+
+	if fsf == nil {
+		panic("fsf must not be nil")
 	}
 
 	if len(configIntervals) == 0 {
@@ -84,7 +102,26 @@ func newKeepGrid(re *regexp.Regexp, configIntervals []config.RetentionInterval) 
 	return &KeepGrid{
 		retentionGrid: retentiongrid.NewGrid(intervals),
 		re:            re,
+		fsf:           fsf,
 	}, nil
+}
+
+func (p *KeepGrid) MatchFS(fsPath string) (bool, error) {
+	dp, err := zfs.NewDatasetPath(fsPath)
+	if err != nil {
+		return false, err
+	}
+	if dp.Length() == 0 {
+		return false, errors.New("empty filesystem not allowed")
+	}
+	pass, err := p.fsf.Filter(dp)
+	if err != nil {
+		return false, err
+	}
+	if !pass {
+		return false, nil
+	}
+	return true, nil
 }
 
 // Prune filters snapshots with the retention grid.

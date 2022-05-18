@@ -8,8 +8,8 @@ import (
 
 func TestKeepRegexNegation(t *testing.T) {
 
-	noneg := MustKeepRegex("^zrepl_", false)
-	neg := MustKeepRegex("^zrepl_", true)
+	noneg := MustKeepRegex(map[string]bool{}, "^zrepl_", false)
+	neg := MustKeepRegex(map[string]bool{}, "^zrepl_", true)
 
 	snaps := []Snapshot{
 		stubSnap{name: "zrepl_foobar"},

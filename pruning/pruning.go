@@ -11,6 +11,7 @@ import (
 
 type KeepRule interface {
 	KeepRule(snaps []Snapshot) (destroyList []Snapshot)
+	MatchFS(path string) (bool, error)
 }
 
 type Snapshot interface {
@@ -60,9 +61,9 @@ func RuleFromConfig(in config.PruningEnum) (KeepRule, error) {
 	case *config.PruneKeepNotReplicated:
 		return NewKeepNotReplicated(), nil
 	case *config.PruneKeepLastN:
-		return NewKeepLastN(v.Count, v.Regex)
+		return NewKeepLastN(v.Filesystems, v.Count, v.Regex)
 	case *config.PruneKeepRegex:
-		return NewKeepRegex(v.Regex, v.Negate)
+		return NewKeepRegex(v.Filesystems, v.Regex, v.Negate)
 	case *config.PruneGrid:
 		return NewKeepGrid(v)
 	default:

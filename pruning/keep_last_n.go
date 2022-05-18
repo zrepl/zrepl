@@ -6,22 +6,26 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/filters"
+	"github.com/zrepl/zrepl/zfs"
 )
 
 type KeepLastN struct {
-	n  int
-	re *regexp.Regexp
+	n   int
+	re  *regexp.Regexp
+	fsf zfs.DatasetFilter
 }
 
-func MustKeepLastN(n int, regex string) *KeepLastN {
-	k, err := NewKeepLastN(n, regex)
+func MustKeepLastN(filesystems config.FilesystemsFilter, n int, regex string) *KeepLastN {
+	k, err := NewKeepLastN(filesystems, n, regex)
 	if err != nil {
 		panic(err)
 	}
 	return k
 }
 
-func NewKeepLastN(n int, regex string) (*KeepLastN, error) {
+func NewKeepLastN(filesystems config.FilesystemsFilter, n int, regex string) (*KeepLastN, error) {
 	if n <= 0 {
 		return nil, errors.Errorf("must specify positive number as 'keep last count', got %d", n)
 	}
@@ -29,7 +33,16 @@ func NewKeepLastN(n int, regex string) (*KeepLastN, error) {
 	if err != nil {
 		return nil, errors.Errorf("invalid regex %q: %s", regex, err)
 	}
-	return &KeepLastN{n, re}, nil
+	fsf, err := filters.DatasetMapFilterFromConfig(filesystems)
+	if err != nil {
+		panic(err)
+	}
+	return &KeepLastN{n, re, fsf}, nil
+}
+
+// TODO: Add fsre to last_n
+func (k KeepLastN) MatchFS(fsPath string) (bool, error) {
+	return true, nil
 }
 
 func (k KeepLastN) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {

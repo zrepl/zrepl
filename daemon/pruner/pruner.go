@@ -291,6 +291,7 @@ const (
 	NotSkipped                   = ""
 	SkipPlaceholder              = "filesystem is placeholder"
 	SkipNoCorrespondenceOnSender = "filesystem has no correspondence on sender"
+	SkipNoRules                  = "filesystem did not match any rules"
 )
 
 func (r FSSkipReason) NotSkipped() bool {
@@ -392,10 +393,35 @@ tfss_loop:
 			pfs.skipReason = SkipPlaceholder
 			l.WithField("skip_reason", pfs.skipReason).Debug("skipping filesystem")
 			continue
-		} else if sfs := sfss[tfs.GetPath()]; sfs == nil {
+		}
+
+		sfs := sfss[tfs.GetPath()]
+
+		if sfs == nil {
 			pfs.skipReason = SkipNoCorrespondenceOnSender
 			l.WithField("skip_reason", pfs.skipReason).WithField("sfs", sfs.GetPath()).Debug("skipping filesystem")
 			continue
+		}
+
+		rules := make([]pruning.KeepRule, 0, len(a.rules))
+
+		for _, r := range a.rules {
+			match, err := r.MatchFS(sfs.GetPath())
+			if err != nil {
+				u(func(p *Pruner) {
+					p.state = PlanErr
+					p.err = err
+				})
+				return
+			}
+			if match {
+				rules = append(rules, r)
+			}
+		}
+
+		if len(rules) == 0 {
+			pfs.skipReason = SkipNoRules
+			l.WithField("skip_reason", pfs.skipReason).WithField("sfs", sfs.GetPath()).Debug("skipping filesystem")
 		}
 
 		pfsPlanErrAndLog := func(err error, message string) {
@@ -469,7 +495,7 @@ tfss_loop:
 		}
 
 		// Apply prune rules
-		pfs.destroyList = pruning.PruneSnapshots(pfs.snaps, a.rules)
+		pfs.destroyList = pruning.PruneSnapshots(pfs.snaps, rules)
 	}
 
 	u(func(pruner *Pruner) {

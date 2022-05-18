@@ -29,7 +29,7 @@ func TestKeepLastN(t *testing.T) {
 		"keep2": {
 			inputs: inputs["s1"],
 			rules: []KeepRule{
-				MustKeepLastN(2, ""),
+				MustKeepLastN(map[string]bool{}, 2, ""),
 			},
 			expDestroy: map[string]bool{
 				"1": true, "2": true, "3": true,
@@ -38,28 +38,28 @@ func TestKeepLastN(t *testing.T) {
 		"keep1OfTwoWithSameTime": { // Keep one of two with same time
 			inputs: inputs["s1"],
 			rules: []KeepRule{
-				MustKeepLastN(1, ""),
+				MustKeepLastN(map[string]bool{}, 1, ""),
 			},
 			expDestroy: map[string]bool{"1": true, "2": true, "3": true, "4": true},
 		},
 		"keepMany": {
 			inputs: inputs["s1"],
 			rules: []KeepRule{
-				MustKeepLastN(100, ""),
+				MustKeepLastN(map[string]bool{}, 100, ""),
 			},
 			expDestroy: map[string]bool{},
 		},
 		"empty_input": {
 			inputs: inputs["s2"],
 			rules: []KeepRule{
-				MustKeepLastN(100, ""),
+				MustKeepLastN(map[string]bool{}, 100, ""),
 			},
 			expDestroy: map[string]bool{},
 		},
 		"empty_regex": {
 			inputs: inputs["s1"],
 			rules: []KeepRule{
-				MustKeepLastN(4, ""),
+				MustKeepLastN(map[string]bool{}, 4, ""),
 			},
 			expDestroy: map[string]bool{
 				"1": true,
@@ -75,8 +75,8 @@ func TestKeepLastN(t *testing.T) {
 				stubSnap{"b3", false, o(31)},
 			},
 			rules: []KeepRule{
-				MustKeepLastN(2, "^a"),
-				MustKeepLastN(2, "^b"),
+				MustKeepLastN(map[string]bool{}, 2, "^a"),
+				MustKeepLastN(map[string]bool{}, 2, "^b"),
 			},
 			expDestroy: map[string]bool{
 				"a1": true,
@@ -90,7 +90,7 @@ func TestKeepLastN(t *testing.T) {
 				stubSnap{"a2", false, o(12)},
 			},
 			rules: []KeepRule{
-				MustKeepLastN(3, "a"),
+				MustKeepLastN(map[string]bool{}, 3, "a"),
 			},
 			expDestroy: map[string]bool{
 				"b1": true,
@@ -102,14 +102,14 @@ func TestKeepLastN(t *testing.T) {
 
 	t.Run("mustBePositive", func(t *testing.T) {
 		var err error
-		_, err = NewKeepLastN(0, "foo")
+		_, err = NewKeepLastN(map[string]bool{}, 0, "foo")
 		assert.Error(t, err)
-		_, err = NewKeepLastN(-5, "foo")
+		_, err = NewKeepLastN(map[string]bool{}, -5, "foo")
 		assert.Error(t, err)
 	})
 
 	t.Run("emptyRegexAllowed", func(t *testing.T) {
-		_, err := NewKeepLastN(23, "")
+		_, err := NewKeepLastN(map[string]bool{}, 23, "")
 		require.NoError(t, err)
 	})
 

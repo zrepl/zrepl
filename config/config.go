@@ -361,20 +361,23 @@ type PruningEnum struct {
 }
 
 type PruneKeepNotReplicated struct {
-	Type                 string `yaml:"type"`
-	KeepSnapshotAtCursor bool   `yaml:"keep_snapshot_at_cursor,optional,default=true"`
+	Type                 string            `yaml:"type"`
+	Filesystems          FilesystemsFilter `yaml:"filesystems,optional,default={'<': true}"`
+	KeepSnapshotAtCursor bool              `yaml:"keep_snapshot_at_cursor,optional,default=true"`
 }
 
 type PruneKeepLastN struct {
-	Type  string `yaml:"type"`
-	Count int    `yaml:"count"`
-	Regex string `yaml:"regex,optional"`
+	Type        string            `yaml:"type"`
+	Filesystems FilesystemsFilter `yaml:"filesystems,optional,default={'<': true}"`
+	Count       int               `yaml:"count"`
+	Regex       string            `yaml:"regex,optional"`
 }
 
 type PruneKeepRegex struct { // FIXME rename to KeepRegex
-	Type   string `yaml:"type"`
-	Regex  string `yaml:"regex"`
-	Negate bool   `yaml:"negate,optional,default=false"`
+	Type        string            `yaml:"type"`
+	Filesystems FilesystemsFilter `yaml:"filesystems,optional,default={'<': true}"`
+	Regex       string            `yaml:"regex"`
+	Negate      bool              `yaml:"negate,optional,default=false"`
 }
 
 type LoggingOutletEnum struct {

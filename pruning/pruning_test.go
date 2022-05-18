@@ -83,7 +83,7 @@ func TestPruneSnapshots(t *testing.T) {
 		"simple": {
 			inputs: inputs["s1"],
 			rules: []KeepRule{
-				MustKeepRegex("foo_", false),
+				MustKeepRegex(map[string]bool{}, "foo_", false),
 			},
 			expDestroy: map[string]bool{
 				"bar_123": true,
@@ -92,16 +92,16 @@ func TestPruneSnapshots(t *testing.T) {
 		"multipleRules": {
 			inputs: inputs["s1"],
 			rules: []KeepRule{
-				MustKeepRegex("foo_", false),
-				MustKeepRegex("bar_", false),
+				MustKeepRegex(map[string]bool{}, "foo_", false),
+				MustKeepRegex(map[string]bool{}, "bar_", false),
 			},
 			expDestroy: map[string]bool{},
 		},
 		"onlyThoseRemovedByAllAreRemoved": {
 			inputs: inputs["s1"],
 			rules: []KeepRule{
-				MustKeepRegex("notInS1", false), // would remove all
-				MustKeepRegex("bar_", false),    // would remove all but bar_, i.e. foo_.*
+				MustKeepRegex(map[string]bool{}, "notInS1", false), // would remove all
+				MustKeepRegex(map[string]bool{}, "bar_", false),    // would remove all but bar_, i.e. foo_.*
 			},
 			expDestroy: map[string]bool{
 				"foo_123": true,
@@ -121,7 +121,7 @@ func TestPruneSnapshots(t *testing.T) {
 		"noSnaps": {
 			inputs: []Snapshot{},
 			rules: []KeepRule{
-				MustKeepRegex("foo_", false),
+				MustKeepRegex(map[string]bool{}, "foo_", false),
 			},
 			expDestroy: map[string]bool{},
 		},
@@ -135,8 +135,8 @@ func TestPruneSnapshots(t *testing.T) {
 				stubSnap{"p2_c", false, reltime(30)},
 			},
 			rules: []KeepRule{
-				MustNewKeepGrid("^p1_", `1x10s | 1x10s`),
-				MustNewKeepGrid("^p2_", `1x10s | 1x10s`),
+				MustNewKeepGrid(map[string]bool{}, "^p1_", `1x10s | 1x10s`),
+				MustNewKeepGrid(map[string]bool{}, "^p2_", `1x10s | 1x10s`),
 			},
 			expDestroy: map[string]bool{
 				"p1_a": true,
