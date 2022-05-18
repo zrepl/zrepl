@@ -34,7 +34,7 @@ func NewKeepGrid(in *config.PruneGrid) (p *KeepGrid, err error) {
 
 	fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
 	if err != nil {
-		panic(err)
+		return nil, errors.Wrap(err, "Filesystems config is invalid")
 	}
 
 	return newKeepGrid(fsf, re, in.Grid)
@@ -106,22 +106,8 @@ func newKeepGrid(fsf zfs.DatasetFilter, re *regexp.Regexp, configIntervals []con
 	}, nil
 }
 
-func (p *KeepGrid) MatchFS(fsPath string) (bool, error) {
-	dp, err := zfs.NewDatasetPath(fsPath)
-	if err != nil {
-		return false, err
-	}
-	if dp.Length() == 0 {
-		return false, errors.New("empty filesystem not allowed")
-	}
-	pass, err := p.fsf.Filter(dp)
-	if err != nil {
-		return false, err
-	}
-	if !pass {
-		return false, nil
-	}
-	return true, nil
+func (p *KeepGrid) GetFSFilter() zfs.DatasetFilter {
+	return p.fsf
 }
 
 // Prune filters snapshots with the retention grid.

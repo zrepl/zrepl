@@ -19,7 +19,7 @@ func TestNewKeepNotReplicated(t *testing.T) {
 		"destroysOnlyReplicated": {
 			inputs: inputs["s1"],
 			rules: []KeepRule{
-				NewKeepNotReplicated(),
+				MustKeepNotReplicated(map[string]bool{}),
 			},
 			expDestroy: map[string]bool{
 				"1": true, "3": true,
@@ -28,7 +28,7 @@ func TestNewKeepNotReplicated(t *testing.T) {
 		"empty": {
 			inputs: inputs["s2"],
 			rules: []KeepRule{
-				NewKeepNotReplicated(),
+				MustKeepNotReplicated(map[string]bool{}),
 			},
 			expDestroy: map[string]bool{},
 		},

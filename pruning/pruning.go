@@ -7,11 +7,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/zfs"
 )
 
 type KeepRule interface {
 	KeepRule(snaps []Snapshot) (destroyList []Snapshot)
-	MatchFS(path string) (bool, error)
+	GetFSFilter() zfs.DatasetFilter
 }
 
 type Snapshot interface {
@@ -59,7 +60,7 @@ func RulesFromConfig(in []config.PruningEnum) (rules []KeepRule, err error) {
 func RuleFromConfig(in config.PruningEnum) (KeepRule, error) {
 	switch v := in.Ret.(type) {
 	case *config.PruneKeepNotReplicated:
-		return NewKeepNotReplicated(), nil
+		return NewKeepNotReplicated(v.Filesystems)
 	case *config.PruneKeepLastN:
 		return NewKeepLastN(v.Filesystems, v.Count, v.Regex)
 	case *config.PruneKeepRegex:

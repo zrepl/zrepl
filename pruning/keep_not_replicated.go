@@ -1,6 +1,16 @@
 package pruning
 
-type KeepNotReplicated struct{}
+import (
+	"github.com/pkg/errors"
+
+	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/filters"
+	"github.com/zrepl/zrepl/zfs"
+)
+
+type KeepNotReplicated struct {
+	fsf zfs.DatasetFilter
+}
 
 func (*KeepNotReplicated) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 	return filterSnapList(snaps, func(snapshot Snapshot) bool {
@@ -8,11 +18,22 @@ func (*KeepNotReplicated) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 	})
 }
 
-func NewKeepNotReplicated() *KeepNotReplicated {
-	return &KeepNotReplicated{}
+func MustKeepNotReplicated(filesystems config.FilesystemsFilter) *KeepNotReplicated {
+	k, err := NewKeepNotReplicated(filesystems)
+	if err != nil {
+		panic(err)
+	}
+	return k
 }
 
-// TODO: Add fsre to not_replicated
-func (k KeepNotReplicated) MatchFS(fsPath string) (bool, error) {
-	return true, nil
+func NewKeepNotReplicated(filesystems config.FilesystemsFilter) (*KeepNotReplicated, error) {
+	fsf, err := filters.DatasetMapFilterFromConfig(filesystems)
+	if err != nil {
+		return nil, errors.Errorf("invalid filesystems: %s", err)
+	}
+	return &KeepNotReplicated{fsf}, nil
+}
+
+func (k KeepNotReplicated) GetFSFilter() zfs.DatasetFilter {
+	return k.fsf
 }

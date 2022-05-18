@@ -17,6 +17,7 @@ import (
 	"github.com/zrepl/zrepl/pruning"
 	"github.com/zrepl/zrepl/replication/logic/pdu"
 	"github.com/zrepl/zrepl/util/envconst"
+	"github.com/zrepl/zrepl/zfs"
 )
 
 // The sender in the replication setup.
@@ -394,9 +395,7 @@ tfss_loop:
 			l.WithField("skip_reason", pfs.skipReason).Debug("skipping filesystem")
 			continue
 		}
-
 		sfs := sfss[tfs.GetPath()]
-
 		if sfs == nil {
 			pfs.skipReason = SkipNoCorrespondenceOnSender
 			l.WithField("skip_reason", pfs.skipReason).WithField("sfs", sfs.GetPath()).Debug("skipping filesystem")
@@ -404,9 +403,21 @@ tfss_loop:
 		}
 
 		rules := make([]pruning.KeepRule, 0, len(a.rules))
-
 		for _, r := range a.rules {
-			match, err := r.MatchFS(sfs.GetPath())
+			dp, err := zfs.NewDatasetPath(sfs.GetPath())
+			if err != nil {
+				u(func(p *Pruner) {
+					p.state = PlanErr
+					p.err = err
+				})
+				return
+			}
+			if dp.Length() == 0 {
+				pfs.skipReason = SkipNoCorrespondenceOnSender
+				l.WithField("skip_reason", pfs.skipReason).WithField("sfs", sfs.GetPath()).Debug("empty filesystem not allowed")
+				continue
+			}
+			match, err := r.GetFSFilter().Filter(dp)
 			if err != nil {
 				u(func(p *Pruner) {
 					p.state = PlanErr

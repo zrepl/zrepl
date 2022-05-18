@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/zfs"
@@ -35,14 +36,13 @@ func NewKeepLastN(filesystems config.FilesystemsFilter, n int, regex string) (*K
 	}
 	fsf, err := filters.DatasetMapFilterFromConfig(filesystems)
 	if err != nil {
-		panic(err)
+		return nil, errors.Errorf("invalid filesystems: %s", err)
 	}
 	return &KeepLastN{n, re, fsf}, nil
 }
 
-// TODO: Add fsre to last_n
-func (k KeepLastN) MatchFS(fsPath string) (bool, error) {
-	return true, nil
+func (k KeepLastN) GetFSFilter() zfs.DatasetFilter {
+	return k.fsf
 }
 
 func (k KeepLastN) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {

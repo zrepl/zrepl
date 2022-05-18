@@ -24,7 +24,7 @@ func NewKeepRegex(filesystems config.FilesystemsFilter, expr string, negate bool
 
 	fsf, err := filters.DatasetMapFilterFromConfig(filesystems)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	return &KeepRegex{re, negate, fsf}, nil
@@ -38,9 +38,8 @@ func MustKeepRegex(filesystems config.FilesystemsFilter, expr string, negate boo
 	return k
 }
 
-// TODO: Add fsre to regex
-func (k *KeepRegex) MatchFS(fsPath string) (bool, error) {
-	return true, nil
+func (k *KeepRegex) GetFSFilter() zfs.DatasetFilter {
+	return k.fsf
 }
 
 func (k *KeepRegex) KeepRule(snaps []Snapshot) []Snapshot {
