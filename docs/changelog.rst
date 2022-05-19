@@ -21,6 +21,7 @@ Developers should consult the git commit log or GitHub issue tracker.
 
 * `Feature Wishlist on GitHub <https://github.com/zrepl/zrepl/discussions/547>`_
 
+* |feature| Add ``ZREPL_DESTROY_MAX_BATCH_SIZE`` env var (default 0=unlimited).
 * |break| |feature| convert Prometheus metric ``zrepl_version_daemon`` to ``zrepl_start_time`` metric
 
   * The metric still reports the zrepl version in a label.
@@ -275,7 +276,7 @@ Changes
 * |feature| Proper timeout handling for the :ref:`SSH transport <transport-ssh+stdinserver>`
 
   * |break| Requires Go 1.11 or later.
-  
+
 * |break| |break_config|: mappings are no longer supported
 
   * Receiving sides (``pull`` and ``sink`` job) specify a single ``root_fs``.

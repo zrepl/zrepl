@@ -115,9 +115,10 @@ func buildBatches(reqs []*DestroySnapOp) [][]*DestroySnapOp {
 	// group by fs
 	var perFS [][]*DestroySnapOp
 	consumed := 0
+	maxBatchSize := envconst.Int("ZREPL_DESTROY_MAX_BATCH_SIZE", 0)
 	for consumed < len(sorted) {
 		batchConsumedUntil := consumed
-		for ; batchConsumedUntil < len(sorted) && sorted[batchConsumedUntil].Filesystem == sorted[consumed].Filesystem; batchConsumedUntil++ {
+		for ; batchConsumedUntil < len(sorted) && (maxBatchSize < 1 || batchConsumedUntil-consumed < maxBatchSize) && sorted[batchConsumedUntil].Filesystem == sorted[consumed].Filesystem; batchConsumedUntil++ {
 		}
 		perFS = append(perFS, sorted[consumed:batchConsumedUntil])
 		consumed = batchConsumedUntil
