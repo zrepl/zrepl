@@ -6,6 +6,7 @@ Filter Syntax
 =============
 
 For :ref:`source<job-source>`, :ref:`push<job-push>` and :ref:`snap<job-snap>` jobs, a filesystem filter must be defined (field ``filesystems``).
+Filters may also optionally be defined for :ref:`pruning policies<prune-filters>`.
 A filter takes a filesystem path (in the ZFS filesystem hierarchy) as parameter and returns ``true`` (pass) or ``false`` (block).
 
 A filter is specified as a **YAML dictionary** with patterns as keys and booleans as values.

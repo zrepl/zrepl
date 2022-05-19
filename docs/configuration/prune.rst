@@ -219,6 +219,45 @@ Policy ``regex``
 Like all other regular expression fields in prune policies, zrepl uses Go's `regexp.Regexp <https://golang.org/pkg/regexp/#Compile>`_ Perl-compatible regular expressions (`Syntax <https://golang.org/pkg/regexp/syntax>`_).
 The optional `negate` boolean field inverts the semantics: Use it if you want to keep all snapshots that *do not* match the given regex.
 
+.. _prune-filters:
+
+Filesystem filters in pruning policies
+--------------------------------------
+:ref:`Filesystem filters<pattern-filter>` can be used to define different pruning policies within a single job through the ``filesystems`` field. If omitted, it defaults to ``{ "<": true }`` (that is, all filesystems are matched).
+Patterns are matched on sender filesystem names.
+
+Example configuration:
+
+::
+
+  # source side
+  jobs:
+  - type: source
+    filesystems:
+      {tank/long: true}
+    snapshotting:
+      type: periodic
+      prefix: zrepl_
+    ...
+
+  # pull side
+  jobs:
+  - type: pull
+    pruning:
+      keep_receiver:
+      - type: grid
+        filesystems:
+          "tank/long": true
+        regex: "^zrepl_.*"
+        grid: 1x1h(keep=all) | 24x1h | 365x1d | 120x30d
+      - type: grid
+        filesystems:
+          "tank/long": false
+          "<": true
+        regex: "^zrepl_.*"
+        grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
+      ...
+
 .. _prune-workaround-source-side-pruning:
 
 Source-side snapshot pruning

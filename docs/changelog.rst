@@ -21,6 +21,7 @@ Developers should consult the git commit log or GitHub issue tracker.
 
 * `Feature Wishlist on GitHub <https://github.com/zrepl/zrepl/discussions/547>`_
 
+* |feature| Add ``filesystems`` filtering support for pruning policies. Filesystems not matching any policies willnot be pruned.
 * |break| |feature| convert Prometheus metric ``zrepl_version_daemon`` to ``zrepl_start_time`` metric
 
   * The metric still reports the zrepl version in a label.
