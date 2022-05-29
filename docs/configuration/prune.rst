@@ -221,7 +221,7 @@ The optional `negate` boolean field inverts the semantics: Use it if you want to
 
 .. _prune-filters:
 
-Filesystem filters in pruning policies
+Filesystem Filters in Pruning Policies
 --------------------------------------
 :ref:`Filesystem filters<pattern-filter>` can be used to define different pruning policies within a single job through the ``filesystems`` field. If omitted, it defaults to ``{ "<": true }`` (that is, all filesystems are matched).
 Patterns are matched on sender filesystem names.
@@ -260,7 +260,7 @@ Example configuration:
 
 .. _prune-workaround-source-side-pruning:
 
-Source-side snapshot pruning
+Source-side Snapshot Pruning
 ----------------------------
 
 A :ref:`source jobs<job-source>` takes snapshots on the system it runs on.
@@ -273,7 +273,7 @@ This means that **extended replication downtime will fill up the source's zpool 
 
 If the above is a conceivable situation for you, consider using :ref:`push mode <job-push>`, where pruning happens on the same side where snapshots are taken.
 
-Workaround using ``snap`` job
+Workaround Using ``snap`` Job
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 As a workaround (see GitHub :issue:`102` for development progress), a pruning-only :ref:`snap job <job-snap>` can be defined on the source side:
