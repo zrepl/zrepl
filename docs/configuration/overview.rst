@@ -233,15 +233,6 @@ The ``zrepl zfs-abstraction list`` command provides a listing of all bookmarks a
 
     More details can be found in the design document :repomasterlink:`replication/design.md`.
 
-Limitations
-^^^^^^^^^^^
-
-.. ATTENTION::
-
-    Currently, zrepl does not replicate filesystem properties.
-    When receiving a filesystem, it is never mounted (`-u` flag)  and `mountpoint=none` is set.
-    This is temporary and being worked on :issue:`24`.
-
 
 Caveats With Complex Setups (More Than 2 Jobs or Machines)
 ----------------------------------------------------------

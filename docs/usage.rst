@@ -26,7 +26,7 @@ CLI Overview
     * - ``zrepl daemon``
       - run the daemon, required for all zrepl functionality
     * - ``zrepl status``
-      - show job activity, or with ``--raw`` for JSON output
+      - show job activity, or with ``--mode raw`` for JSON output
     * - ``zrepl stdinserver``
       - see :ref:`transport-ssh+stdinserver`
     * - ``zrepl signal wakeup JOB``
