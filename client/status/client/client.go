@@ -14,11 +14,11 @@ import (
 )
 
 type Client struct {
-	h http.Client
+	h *http.Client
 }
 
 func New(network, addr string) (*Client, error) {
-	httpc, err := controlHttpClient(func(_ context.Context) (net.Conn, error) { return net.Dial(network, addr) })
+	httpc, err := makeControlHttpClient(func(_ context.Context) (net.Conn, error) { return net.Dial(network, addr) })
 	if err != nil {
 		return nil, err
 	}
@@ -63,8 +63,8 @@ func (c *Client) SignalReset(job string) error {
 	return c.signal(job, "reset")
 }
 
-func controlHttpClient(dialfunc func(context.Context) (net.Conn, error)) (client http.Client, err error) {
-	return http.Client{
+func makeControlHttpClient(dialfunc func(context.Context) (net.Conn, error)) (client *http.Client, err error) {
+	return &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 				return dialfunc(ctx)
@@ -73,14 +73,24 @@ func controlHttpClient(dialfunc func(context.Context) (net.Conn, error)) (client
 	}, nil
 }
 
-func jsonRequestResponse(c http.Client, endpoint string, req interface{}, res interface{}) error {
+func jsonRequestResponse(c *http.Client, endpoint string, req interface{}, res interface{}) error {
 	var buf bytes.Buffer
 	encodeErr := json.NewEncoder(&buf).Encode(req)
 	if encodeErr != nil {
 		return encodeErr
 	}
 
-	resp, err := c.Post("http://unix"+endpoint, "application/json", &buf)
+	hreq, err := http.NewRequest("POST", "http://unix"+endpoint, &buf)
+	if err != nil {
+		return err
+	}
+	hreq.Header.Set("Content-Type", "application/json")
+	// Prevent EOF errors when client request frequency and server keepalive close are at the same time.
+	// Found this by watching http.Server.ConnState changes, then found
+	// https://stackoverflow.com/questions/17714494/golang-http-request-results-in-eof-errors-when-making-multiple-requests-successi
+	// Note: The issue seems even more prounounced with local TCP sockets than unix domain sockets. So, I used that for debugging.
+	hreq.Close = true
+	resp, err := c.Do(hreq)
 	if err != nil {
 		return err
 	}

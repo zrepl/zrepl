@@ -27,6 +27,8 @@ Developers should consult the git commit log or GitHub issue tracker.
     But the metric *value* is now the Unix timestamp at the time the daemon was started.
     The Grafana dashboard in :repomasterlink:`dist/grafana` has been updated.
 
+* |bugfix| transient zrepl status error: ``Post "http://unix/status": EOF``
+
 0.5
 ---
 
