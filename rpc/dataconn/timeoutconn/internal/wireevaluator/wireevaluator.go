@@ -67,7 +67,7 @@ func main() {
 	case "connect":
 		tc, err := getTestCase(args.testCase)
 		noerror(err)
-		connecter, err := transportconfig.ConnecterFromConfig(global, conf.Connect, false)
+		connecter, err := transportconfig.ConnecterFromConfig(global, conf.Connect, config.ParseFlagsNone)
 		noerror(err)
 		wire, err := connecter.Connect(ctx)
 		noerror(err)
