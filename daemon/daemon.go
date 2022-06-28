@@ -51,7 +51,7 @@ func Run(ctx context.Context, conf *config.Config) error {
 	}
 	outlets.Add(newPrometheusLogOutlet(), logger.Debug)
 
-	confJobs, err := job.JobsFromConfig(conf)
+	confJobs, err := job.JobsFromConfig(conf, config.ParseFlagsNone)
 	if err != nil {
 		return errors.Wrap(err, "cannot build jobs from config")
 	}

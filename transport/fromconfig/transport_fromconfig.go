@@ -37,7 +37,7 @@ func ListenerFactoryFromConfig(g *config.Global, in config.ServeEnum) (transport
 	return l, err
 }
 
-func ConnecterFromConfig(g *config.Global, in config.ConnectEnum, parseOnly bool) (transport.Connecter, error) {
+func ConnecterFromConfig(g *config.Global, in config.ConnectEnum, parseFlags config.ParseFlags) (transport.Connecter, error) {
 	var (
 		connecter transport.Connecter
 		err       error
@@ -48,7 +48,7 @@ func ConnecterFromConfig(g *config.Global, in config.ConnectEnum, parseOnly bool
 	case *config.TCPConnect:
 		connecter, err = tcp.TCPConnecterFromConfig(v)
 	case *config.TLSConnect:
-		connecter, err = tls.TLSConnecterFromConfig(v, parseOnly)
+		connecter, err = tls.TLSConnecterFromConfig(v, parseFlags)
 	case *config.LocalConnect:
 		connecter, err = local.LocalConnecterFromConfig(v)
 	default:

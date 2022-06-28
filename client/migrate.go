@@ -129,7 +129,7 @@ func doMigrateReplicationCursor(ctx context.Context, sc *cli.Subcommand, args []
 	}
 
 	cfg := sc.Config()
-	jobs, err := job.JobsFromConfig(cfg)
+	jobs, err := job.JobsFromConfig(cfg, config.ParseFlagsNone)
 	if err != nil {
 		fmt.Printf("cannot parse config:\n%s\n\n", err)
 		fmt.Printf("NOTE: this migration was released together with a change in job name requirements.\n")
