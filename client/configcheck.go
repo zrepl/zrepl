@@ -22,8 +22,8 @@ var parseFlags config.ParseFlags
 var skipCertCheck bool
 
 var configcheckArgs struct {
-	format    string
-	what      string
+	format string
+	what   string
 }
 
 var ConfigcheckCmd = &cli.Subcommand{
@@ -62,15 +62,13 @@ var ConfigcheckCmd = &cli.Subcommand{
 		}
 
 		var hadErr bool
-		var confJobs []job.Job
-		var err error
 
 		if skipCertCheck {
 			parseFlags |= config.ParseFlagsNoCertCheck
 		}
 
 		// further: try to build jobs
-		confJobs, err = job.JobsFromConfig(subcommand.Config(), parseFlags)
+		confJobs, err := job.JobsFromConfig(subcommand.Config(), parseFlags)
 
 		if err != nil {
 			err := errors.Wrap(err, "cannot build jobs from config")
