@@ -9,9 +9,8 @@ import (
 )
 
 type KeepRegex struct {
-	expr   *regexp.Regexp
+	KeepCommon
 	negate bool
-	fsf    zfs.DatasetFilter
 }
 
 var _ KeepRule = &KeepRegex{}
@@ -27,7 +26,7 @@ func NewKeepRegex(filesystems config.FilesystemsFilter, expr string, negate bool
 		return nil, err
 	}
 
-	return &KeepRegex{re, negate, fsf}, nil
+	return &KeepRegex{KeepCommon{re, fsf}, negate}, nil
 }
 
 func MustKeepRegex(filesystems config.FilesystemsFilter, expr string, negate bool) *KeepRegex {
@@ -45,9 +44,9 @@ func (k *KeepRegex) GetFSFilter() zfs.DatasetFilter {
 func (k *KeepRegex) KeepRule(snaps []Snapshot) []Snapshot {
 	return filterSnapList(snaps, func(s Snapshot) bool {
 		if k.negate {
-			return k.expr.FindStringIndex(s.Name()) != nil
+			return k.re.FindStringIndex(s.Name()) != nil
 		} else {
-			return k.expr.FindStringIndex(s.Name()) == nil
+			return k.re.FindStringIndex(s.Name()) == nil
 		}
 	})
 }

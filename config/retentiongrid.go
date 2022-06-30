@@ -11,10 +11,8 @@ import (
 type RetentionIntervalList []RetentionInterval
 
 type PruneGrid struct {
-	Type        string                `yaml:"type"`
-	Grid        RetentionIntervalList `yaml:"grid"`
-	Regex       string                `yaml:"regex"`
-	Filesystems FilesystemsFilter     `yaml:"filesystems,optional,default={'<': true}"`
+	PruneKeepCommon `yaml:",inline"`
+	Grid            RetentionIntervalList `yaml:"grid"`
 }
 
 type RetentionInterval struct {

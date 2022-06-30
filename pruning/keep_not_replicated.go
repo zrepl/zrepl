@@ -9,7 +9,7 @@ import (
 )
 
 type KeepNotReplicated struct {
-	fsf zfs.DatasetFilter
+	KeepCommon
 }
 
 func (*KeepNotReplicated) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
@@ -31,7 +31,7 @@ func NewKeepNotReplicated(filesystems config.FilesystemsFilter) (*KeepNotReplica
 	if err != nil {
 		return nil, errors.Errorf("invalid filesystems: %s", err)
 	}
-	return &KeepNotReplicated{fsf}, nil
+	return &KeepNotReplicated{KeepCommon{nil, fsf}}, nil
 }
 
 func (k KeepNotReplicated) GetFSFilter() zfs.DatasetFilter {

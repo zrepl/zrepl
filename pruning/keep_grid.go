@@ -2,13 +2,11 @@ package pruning
 
 import (
 	"fmt"
-	"regexp"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/pruning/retentiongrid"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -17,9 +15,8 @@ import (
 // uses the most recent snapshot among those that match the regex as 'now',
 // and deletes all snapshots that do not fit the grid specification.
 type KeepGrid struct {
+	KeepCommon
 	retentionGrid *retentiongrid.Grid
-	re            *regexp.Regexp
-	fsf           zfs.DatasetFilter
 }
 
 func NewKeepGrid(in *config.PruneGrid) (p *KeepGrid, err error) {
@@ -27,47 +24,47 @@ func NewKeepGrid(in *config.PruneGrid) (p *KeepGrid, err error) {
 	if in.Regex == "" {
 		return nil, fmt.Errorf("Regex must not be empty")
 	}
-	re, err := regexp.Compile(in.Regex)
+
+	kc, err := newKeepCommon(&in.PruneKeepCommon)
 	if err != nil {
-		return nil, errors.Wrap(err, "Regex is invalid")
+		return nil, err
 	}
 
-	fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
-	if err != nil {
-		return nil, errors.Wrap(err, "Filesystems config is invalid")
-	}
-
-	return newKeepGrid(fsf, re, in.Grid)
+	return newKeepGrid(kc, in.Grid)
 }
 
 func MustNewKeepGrid(filesystems config.FilesystemsFilter, regex, gridspec string) *KeepGrid {
-
 	ris, err := config.ParseRetentionIntervalSpec(gridspec)
 	if err != nil {
 		panic(err)
 	}
 
-	re := regexp.MustCompile(regex)
+	if regex == "" {
+		panic("Regex must not be empty")
+	}
 
-	fsf, err := filters.DatasetMapFilterFromConfig(filesystems)
+	kc, err := newKeepCommon(&config.PruneKeepCommon{
+		Filesystems: filesystems,
+		Regex:       regex,
+	})
 	if err != nil {
 		panic(err)
 	}
 
-	grid, err := newKeepGrid(fsf, re, ris)
+	grid, err := newKeepGrid(kc, ris)
 	if err != nil {
 		panic(err)
 	}
 	return grid
 }
 
-func newKeepGrid(fsf zfs.DatasetFilter, re *regexp.Regexp, configIntervals []config.RetentionInterval) (*KeepGrid, error) {
+func newKeepGrid(common KeepCommon, configIntervals []config.RetentionInterval) (*KeepGrid, error) {
 
-	if re == nil {
+	if common.re == nil {
 		panic("re must not be nil")
 	}
 
-	if fsf == nil {
+	if common.fsf == nil {
 		panic("fsf must not be nil")
 	}
 
@@ -100,9 +97,8 @@ func newKeepGrid(fsf zfs.DatasetFilter, re *regexp.Regexp, configIntervals []con
 	}
 
 	return &KeepGrid{
-		retentionGrid: retentiongrid.NewGrid(intervals),
-		re:            re,
-		fsf:           fsf,
+		common,
+		retentiongrid.NewGrid(intervals),
 	}, nil
 }
 

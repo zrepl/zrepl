@@ -13,9 +13,8 @@ import (
 )
 
 type KeepLastN struct {
-	n   int
-	re  *regexp.Regexp
-	fsf zfs.DatasetFilter
+	KeepCommon
+	n int
 }
 
 func MustKeepLastN(filesystems config.FilesystemsFilter, n int, regex string) *KeepLastN {
@@ -38,7 +37,7 @@ func NewKeepLastN(filesystems config.FilesystemsFilter, n int, regex string) (*K
 	if err != nil {
 		return nil, errors.Errorf("invalid filesystems: %s", err)
 	}
-	return &KeepLastN{n, re, fsf}, nil
+	return &KeepLastN{KeepCommon{re, fsf}, n}, nil
 }
 
 func (k KeepLastN) GetFSFilter() zfs.DatasetFilter {

@@ -2,11 +2,13 @@ package pruning
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -15,10 +17,28 @@ type KeepRule interface {
 	GetFSFilter() zfs.DatasetFilter
 }
 
+type KeepCommon struct {
+	re  *regexp.Regexp
+	fsf zfs.DatasetFilter
+}
+
 type Snapshot interface {
 	Name() string
 	Replicated() bool
 	Date() time.Time
+}
+
+func newKeepCommon(in *config.PruneKeepCommon) (KeepCommon, error) {
+	re, err := regexp.Compile(in.Regex)
+	if err != nil {
+		return KeepCommon{}, errors.Errorf("invalid regex %q: %s", in.Regex, err)
+	}
+	fsf, err := filters.DatasetMapFilterFromConfig(in.Filesystems)
+	if err != nil {
+		return KeepCommon{}, errors.Errorf("invalid filesystems: %s", err)
+	}
+	return KeepCommon{re, fsf}, nil
+
 }
 
 // The returned snapshot list is guaranteed to only contains elements of input parameter snaps

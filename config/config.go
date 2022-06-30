@@ -360,24 +360,25 @@ type PruningEnum struct {
 	Ret interface{}
 }
 
-type PruneKeepNotReplicated struct {
-	Type                 string            `yaml:"type"`
-	Filesystems          FilesystemsFilter `yaml:"filesystems,optional,default={'<': true}"`
-	KeepSnapshotAtCursor bool              `yaml:"keep_snapshot_at_cursor,optional,default=true"`
-}
-
-type PruneKeepLastN struct {
+type PruneKeepCommon struct {
 	Type        string            `yaml:"type"`
 	Filesystems FilesystemsFilter `yaml:"filesystems,optional,default={'<': true}"`
-	Count       int               `yaml:"count"`
 	Regex       string            `yaml:"regex,optional"`
 }
 
+type PruneKeepNotReplicated struct {
+	PruneKeepCommon      `yaml:",inline"`
+	KeepSnapshotAtCursor bool `yaml:"keep_snapshot_at_cursor,optional,default=true"`
+}
+
+type PruneKeepLastN struct {
+	PruneKeepCommon `yaml:",inline"`
+	Count           int `yaml:"count"`
+}
+
 type PruneKeepRegex struct { // FIXME rename to KeepRegex
-	Type        string            `yaml:"type"`
-	Filesystems FilesystemsFilter `yaml:"filesystems,optional,default={'<': true}"`
-	Regex       string            `yaml:"regex"`
-	Negate      bool              `yaml:"negate,optional,default=false"`
+	PruneKeepCommon `yaml:",inline"`
+	Negate          bool `yaml:"negate,optional,default=false"`
 }
 
 type LoggingOutletEnum struct {
