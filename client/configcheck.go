@@ -18,12 +18,10 @@ import (
 	"github.com/zrepl/zrepl/logger"
 )
 
-var parseFlags config.ParseFlags
-var skipCertCheck bool
-
 var configcheckArgs struct {
-	format string
-	what   string
+	format        string
+	what          string
+	skipCertCheck bool
 }
 
 var ConfigcheckCmd = &cli.Subcommand{
@@ -34,7 +32,7 @@ var ConfigcheckCmd = &cli.Subcommand{
 		f.StringVar(&configcheckArgs.what, "what", "all", "what to print [all|config|jobs|logging]")
 
 		// FIXME: can't set parseFlags here because user input hasn't been populated yet
-		f.BoolVar(&skipCertCheck, "skip-cert-check", false, "skip checking cert files")
+		f.BoolVar(&configcheckArgs.skipCertCheck, "skip-cert-check", false, "skip checking cert files")
 	},
 	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
 		formatMap := map[string]func(interface{}){
@@ -63,7 +61,9 @@ var ConfigcheckCmd = &cli.Subcommand{
 
 		var hadErr bool
 
-		if skipCertCheck {
+		parseFlags := config.ParseFlagsNone
+
+		if configcheckArgs.skipCertCheck {
 			parseFlags |= config.ParseFlagsNoCertCheck
 		}
 
