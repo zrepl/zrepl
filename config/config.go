@@ -20,9 +20,8 @@ import (
 type ParseFlags uint
 
 const (
+	ParseFlagsNone        ParseFlags = 0
 	ParseFlagsNoCertCheck ParseFlags = 1 << iota
-
-	ParseFlagsNone ParseFlags = 0
 )
 
 type Config struct {
