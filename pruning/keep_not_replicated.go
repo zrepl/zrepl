@@ -25,5 +25,5 @@ func NewKeepNotReplicated(in *config.KeepNotReplicated) (*KeepNotReplicated, err
 }
 
 func (k KeepNotReplicated) GetFSFilter() zfs.DatasetFilter {
-	return k.fsf
+	return k.filesystems
 }

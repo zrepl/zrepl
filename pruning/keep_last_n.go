@@ -29,7 +29,7 @@ func NewKeepLastN(in *config.KeepLastN) (*KeepLastN, error) {
 }
 
 func (k KeepLastN) GetFSFilter() zfs.DatasetFilter {
-	return k.fsf
+	return k.filesystems
 }
 
 func (k KeepLastN) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
@@ -39,7 +39,11 @@ func (k KeepLastN) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 	}
 
 	matching, notMatching := partitionSnapList(snaps, func(snapshot Snapshot) bool {
-		return k.re.MatchString(snapshot.Name())
+		if k.negate {
+			return !k.regex.MatchString(snapshot.Name())
+		} else {
+			return k.regex.MatchString(snapshot.Name())
+		}
 	})
 	// snaps that don't match the regex are not kept by this rule
 	destroyList = append(destroyList, notMatching...)

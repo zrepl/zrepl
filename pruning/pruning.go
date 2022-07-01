@@ -18,8 +18,9 @@ type KeepRule interface {
 }
 
 type KeepCommon struct {
-	re  *regexp.Regexp
-	fsf zfs.DatasetFilter
+	filesystems zfs.DatasetFilter
+	negate      bool
+	regex       *regexp.Regexp
 }
 
 type Snapshot interface {
@@ -37,7 +38,7 @@ func newKeepCommon(in *config.KeepCommon) (KeepCommon, error) {
 	if err != nil {
 		return KeepCommon{}, errors.Errorf("invalid filesystems: %s", err)
 	}
-	return KeepCommon{re, fsf}, nil
+	return KeepCommon{fsf, false, re}, nil
 
 }
 

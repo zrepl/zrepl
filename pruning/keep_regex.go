@@ -22,15 +22,15 @@ func NewKeepRegex(in *config.KeepRegex) (*KeepRegex, error) {
 }
 
 func (k *KeepRegex) GetFSFilter() zfs.DatasetFilter {
-	return k.fsf
+	return k.filesystems
 }
 
 func (k *KeepRegex) KeepRule(snaps []Snapshot) []Snapshot {
 	return filterSnapList(snaps, func(s Snapshot) bool {
 		if k.negate {
-			return k.re.FindStringIndex(s.Name()) != nil
+			return k.regex.FindStringIndex(s.Name()) != nil
 		} else {
-			return k.re.FindStringIndex(s.Name()) == nil
+			return k.regex.FindStringIndex(s.Name()) == nil
 		}
 	})
 }

@@ -363,6 +363,7 @@ type PruningEnum struct {
 type KeepCommon struct {
 	Type        string            `yaml:"type"`
 	Filesystems FilesystemsFilter `yaml:"filesystems,optional,default={'<': true}"`
+	Negate      bool              `yaml:"negate,optional,default=false"`
 	Regex       string            `yaml:"regex,optional"`
 }
 
@@ -378,7 +379,6 @@ type KeepLastN struct {
 
 type KeepRegex struct {
 	KeepCommon `yaml:",inline"`
-	Negate     bool `yaml:"negate,optional,default=false"`
 }
 
 type LoggingOutletEnum struct {

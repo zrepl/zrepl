@@ -34,12 +34,12 @@ func NewKeepGrid(in *config.KeepGrid) (*KeepGrid, error) {
 
 func newKeepGrid(common KeepCommon, configIntervals []config.RetentionInterval) (*KeepGrid, error) {
 
-	if common.re == nil {
-		panic("re must not be nil")
+	if common.regex == nil {
+		panic("regex must not be nil")
 	}
 
-	if common.fsf == nil {
-		panic("fsf must not be nil")
+	if common.filesystems == nil {
+		panic("filesystems must not be nil")
 	}
 
 	if len(configIntervals) == 0 {
@@ -77,14 +77,18 @@ func newKeepGrid(common KeepCommon, configIntervals []config.RetentionInterval) 
 }
 
 func (p *KeepGrid) GetFSFilter() zfs.DatasetFilter {
-	return p.fsf
+	return p.filesystems
 }
 
 // Prune filters snapshots with the retention grid.
 func (p *KeepGrid) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 
 	matching, notMatching := partitionSnapList(snaps, func(snapshot Snapshot) bool {
-		return p.re.MatchString(snapshot.Name())
+		if p.negate {
+			return !p.regex.MatchString(snapshot.Name())
+		} else {
+			return p.regex.MatchString(snapshot.Name())
+		}
 	})
 
 	// snaps that don't match the regex are not kept by this rule

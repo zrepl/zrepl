@@ -11,7 +11,7 @@ func MustKeepGrid(filesystems config.FilesystemsFilter, regex, gridspec string) 
 	}
 
 	k, err := NewKeepGrid(&config.KeepGrid{
-		KeepCommon: config.KeepCommon{Filesystems: filesystems, Regex: regex},
+		KeepCommon: config.KeepCommon{Filesystems: filesystems, Negate: false, Regex: regex},
 		Grid:       ris,
 	})
 	if err != nil {
@@ -22,7 +22,7 @@ func MustKeepGrid(filesystems config.FilesystemsFilter, regex, gridspec string) 
 
 func MustKeepLastN(filesystems config.FilesystemsFilter, n int, regex string) *KeepLastN {
 	k, err := NewKeepLastN(&config.KeepLastN{
-		KeepCommon: config.KeepCommon{Filesystems: filesystems, Regex: regex},
+		KeepCommon: config.KeepCommon{Filesystems: filesystems, Negate: false, Regex: regex},
 		Count:      n,
 	})
 	if err != nil {
@@ -44,8 +44,7 @@ func MustKeepNotReplicated(filesystems config.FilesystemsFilter) *KeepNotReplica
 
 func MustKeepRegex(filesystems config.FilesystemsFilter, regex string, negate bool) *KeepRegex {
 	k, err := NewKeepRegex(&config.KeepRegex{
-		KeepCommon: config.KeepCommon{Filesystems: filesystems, Regex: regex},
-		Negate:     negate,
+		KeepCommon: config.KeepCommon{Filesystems: filesystems, Negate: negate, Regex: regex},
 	})
 	if err != nil {
 		panic(err)
