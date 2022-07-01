@@ -17,14 +17,14 @@ func TestKeepLastN(t *testing.T) {
 	}
 
 	inputs := map[string][]Snapshot{
-		"s1": []Snapshot{
+		"s1": {
 			stubSnap{name: "1", date: o(10)},
 			stubSnap{name: "2", date: o(20)},
 			stubSnap{name: "3", date: o(15)},
 			stubSnap{name: "4", date: o(30)},
 			stubSnap{name: "5", date: o(30)},
 		},
-		"s2": []Snapshot{},
+		"s2": {},
 	}
 
 	tcs := map[string]testCase{

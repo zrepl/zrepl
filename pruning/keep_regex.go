@@ -21,18 +21,6 @@ func NewKeepRegex(in *config.PruneKeepRegex) (*KeepRegex, error) {
 	return &KeepRegex{kc, in.Negate}, nil
 }
 
-func MustKeepRegex(filesystems config.FilesystemsFilter, regex string, negate bool) *KeepRegex {
-	kc, err := newKeepCommon(&config.PruneKeepCommon{
-		Filesystems: filesystems,
-		Regex:       regex,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	return &KeepRegex{kc, negate}
-}
-
 func (k *KeepRegex) GetFSFilter() zfs.DatasetFilter {
 	return k.fsf
 }

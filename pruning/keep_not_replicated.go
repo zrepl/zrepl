@@ -15,17 +15,6 @@ func (*KeepNotReplicated) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 	})
 }
 
-func MustKeepNotReplicated(filesystems config.FilesystemsFilter) *KeepNotReplicated {
-	k, err := NewKeepNotReplicated(&config.PruneKeepNotReplicated{
-		PruneKeepCommon:      config.PruneKeepCommon{Filesystems: filesystems},
-		KeepSnapshotAtCursor: false,
-	})
-	if err != nil {
-		panic(err)
-	}
-	return k
-}
-
 func NewKeepNotReplicated(in *config.PruneKeepNotReplicated) (*KeepNotReplicated, error) {
 	kc, err := newKeepCommon(&in.PruneKeepCommon)
 	if err != nil {

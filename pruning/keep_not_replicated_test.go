@@ -7,12 +7,12 @@ import (
 func TestNewKeepNotReplicated(t *testing.T) {
 
 	inputs := map[string][]Snapshot{
-		"s1": []Snapshot{
+		"s1": {
 			stubSnap{name: "1", replicated: true},
 			stubSnap{name: "2", replicated: false},
 			stubSnap{name: "3", replicated: true},
 		},
-		"s2": []Snapshot{},
+		"s2": {},
 	}
 
 	tcs := map[string]testCase{

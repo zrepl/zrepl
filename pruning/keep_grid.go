@@ -32,31 +32,6 @@ func NewKeepGrid(in *config.PruneGrid) (*KeepGrid, error) {
 	return newKeepGrid(kc, in.Grid)
 }
 
-func MustNewKeepGrid(filesystems config.FilesystemsFilter, regex, gridspec string) *KeepGrid {
-	ris, err := config.ParseRetentionIntervalSpec(gridspec)
-	if err != nil {
-		panic(err)
-	}
-
-	if regex == "" {
-		panic("Regex must not be empty")
-	}
-
-	kc, err := newKeepCommon(&config.PruneKeepCommon{
-		Filesystems: filesystems,
-		Regex:       regex,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	grid, err := newKeepGrid(kc, ris)
-	if err != nil {
-		panic(err)
-	}
-	return grid
-}
-
 func newKeepGrid(common KeepCommon, configIntervals []config.RetentionInterval) (*KeepGrid, error) {
 
 	if common.re == nil {

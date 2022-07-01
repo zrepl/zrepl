@@ -15,22 +15,6 @@ type KeepLastN struct {
 	n int
 }
 
-func MustKeepLastN(filesystems config.FilesystemsFilter, n int, regex string) *KeepLastN {
-	if n <= 0 {
-		panic("must specify positive number as 'keep last count'")
-	}
-
-	kc, err := newKeepCommon(&config.PruneKeepCommon{
-		Filesystems: filesystems,
-		Regex:       regex,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	return &KeepLastN{kc, n}
-}
-
 func NewKeepLastN(in *config.PruneKeepLastN) (*KeepLastN, error) {
 	if in.Count <= 0 {
 		return nil, errors.Errorf("must specify positive number as 'keep last count', got %d", in.Count)
