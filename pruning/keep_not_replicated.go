@@ -1,10 +1,7 @@
 package pruning
 
 import (
-	"github.com/pkg/errors"
-
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -19,19 +16,23 @@ func (*KeepNotReplicated) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 }
 
 func MustKeepNotReplicated(filesystems config.FilesystemsFilter) *KeepNotReplicated {
-	k, err := NewKeepNotReplicated(filesystems)
+	k, err := NewKeepNotReplicated(&config.PruneKeepNotReplicated{
+		PruneKeepCommon:      config.PruneKeepCommon{Filesystems: filesystems},
+		KeepSnapshotAtCursor: false,
+	})
 	if err != nil {
 		panic(err)
 	}
 	return k
 }
 
-func NewKeepNotReplicated(filesystems config.FilesystemsFilter) (*KeepNotReplicated, error) {
-	fsf, err := filters.DatasetMapFilterFromConfig(filesystems)
+func NewKeepNotReplicated(in *config.PruneKeepNotReplicated) (*KeepNotReplicated, error) {
+	kc, err := newKeepCommon(&in.PruneKeepCommon)
 	if err != nil {
-		return nil, errors.Errorf("invalid filesystems: %s", err)
+		return nil, err
 	}
-	return &KeepNotReplicated{KeepCommon{nil, fsf}}, nil
+
+	return &KeepNotReplicated{kc}, nil
 }
 
 func (k KeepNotReplicated) GetFSFilter() zfs.DatasetFilter {
