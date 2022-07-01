@@ -1,10 +1,7 @@
 package pruning
 
 import (
-	"regexp"
-
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -15,26 +12,25 @@ type KeepRegex struct {
 
 var _ KeepRule = &KeepRegex{}
 
-func NewKeepRegex(filesystems config.FilesystemsFilter, expr string, negate bool) (*KeepRegex, error) {
-	re, err := regexp.Compile(expr)
+func NewKeepRegex(in *config.PruneKeepRegex) (*KeepRegex, error) {
+	kc, err := newKeepCommon(&in.PruneKeepCommon)
 	if err != nil {
 		return nil, err
 	}
 
-	fsf, err := filters.DatasetMapFilterFromConfig(filesystems)
-	if err != nil {
-		return nil, err
-	}
-
-	return &KeepRegex{KeepCommon{re, fsf}, negate}, nil
+	return &KeepRegex{kc, in.Negate}, nil
 }
 
-func MustKeepRegex(filesystems config.FilesystemsFilter, expr string, negate bool) *KeepRegex {
-	k, err := NewKeepRegex(filesystems, expr, negate)
+func MustKeepRegex(filesystems config.FilesystemsFilter, regex string, negate bool) *KeepRegex {
+	kc, err := newKeepCommon(&config.PruneKeepCommon{
+		Filesystems: filesystems,
+		Regex:       regex,
+	})
 	if err != nil {
 		panic(err)
 	}
-	return k
+
+	return &KeepRegex{kc, negate}
 }
 
 func (k *KeepRegex) GetFSFilter() zfs.DatasetFilter {
