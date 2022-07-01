@@ -4,15 +4,15 @@ import (
 	"github.com/zrepl/zrepl/config"
 )
 
-func MustNewKeepGrid(filesystems config.FilesystemsFilter, regex, gridspec string) *KeepGrid {
+func MustKeepGrid(filesystems config.FilesystemsFilter, regex, gridspec string) *KeepGrid {
 	ris, err := config.ParseRetentionIntervalSpec(gridspec)
 	if err != nil {
 		panic(err)
 	}
 
-	k, err := NewKeepGrid(&config.PruneGrid{
-        PruneKeepCommon: config.PruneKeepCommon{Filesystems: filesystems, Regex: regex},
-        Grid:            ris,
+	k, err := NewKeepGrid(&config.KeepGrid{
+		KeepCommon: config.KeepCommon{Filesystems: filesystems, Regex: regex},
+		Grid:       ris,
 	})
 	if err != nil {
 		panic(err)
@@ -21,9 +21,9 @@ func MustNewKeepGrid(filesystems config.FilesystemsFilter, regex, gridspec strin
 }
 
 func MustKeepLastN(filesystems config.FilesystemsFilter, n int, regex string) *KeepLastN {
-	k, err := NewKeepLastN(&config.PruneKeepLastN{
-        PruneKeepCommon: config.PruneKeepCommon{Filesystems: filesystems, Regex: regex},
-        Count:           n,
+	k, err := NewKeepLastN(&config.KeepLastN{
+		KeepCommon: config.KeepCommon{Filesystems: filesystems, Regex: regex},
+		Count:      n,
 	})
 	if err != nil {
 		panic(err)
@@ -32,8 +32,8 @@ func MustKeepLastN(filesystems config.FilesystemsFilter, n int, regex string) *K
 }
 
 func MustKeepNotReplicated(filesystems config.FilesystemsFilter) *KeepNotReplicated {
-	k, err := NewKeepNotReplicated(&config.PruneKeepNotReplicated{
-		PruneKeepCommon:      config.PruneKeepCommon{Filesystems: filesystems},
+	k, err := NewKeepNotReplicated(&config.KeepNotReplicated{
+		KeepCommon:           config.KeepCommon{Filesystems: filesystems},
 		KeepSnapshotAtCursor: false,
 	})
 	if err != nil {
@@ -43,9 +43,9 @@ func MustKeepNotReplicated(filesystems config.FilesystemsFilter) *KeepNotReplica
 }
 
 func MustKeepRegex(filesystems config.FilesystemsFilter, regex string, negate bool) *KeepRegex {
-	k, err := NewKeepRegex(&config.PruneKeepRegex{
-        PruneKeepCommon: config.PruneKeepCommon{Filesystems: filesystems, Regex: regex},
-		Negate:          negate,
+	k, err := NewKeepRegex(&config.KeepRegex{
+		KeepCommon: config.KeepCommon{Filesystems: filesystems, Regex: regex},
+		Negate:     negate,
 	})
 	if err != nil {
 		panic(err)

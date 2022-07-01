@@ -15,8 +15,8 @@ func (*KeepNotReplicated) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
 	})
 }
 
-func NewKeepNotReplicated(in *config.PruneKeepNotReplicated) (*KeepNotReplicated, error) {
-	kc, err := newKeepCommon(&in.PruneKeepCommon)
+func NewKeepNotReplicated(in *config.KeepNotReplicated) (*KeepNotReplicated, error) {
+	kc, err := newKeepCommon(&in.KeepCommon)
 	if err != nil {
 		return nil, err
 	}

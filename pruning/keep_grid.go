@@ -19,12 +19,12 @@ type KeepGrid struct {
 	retentionGrid *retentiongrid.Grid
 }
 
-func NewKeepGrid(in *config.PruneGrid) (*KeepGrid, error) {
+func NewKeepGrid(in *config.KeepGrid) (*KeepGrid, error) {
 	if in.Regex == "" {
 		return nil, fmt.Errorf("Regex must not be empty")
 	}
 
-	kc, err := newKeepCommon(&in.PruneKeepCommon)
+	kc, err := newKeepCommon(&in.KeepCommon)
 	if err != nil {
 		return nil, err
 	}

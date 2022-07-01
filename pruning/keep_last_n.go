@@ -15,12 +15,12 @@ type KeepLastN struct {
 	n int
 }
 
-func NewKeepLastN(in *config.PruneKeepLastN) (*KeepLastN, error) {
+func NewKeepLastN(in *config.KeepLastN) (*KeepLastN, error) {
 	if in.Count <= 0 {
 		return nil, errors.Errorf("must specify positive number as 'keep last count', got %d", in.Count)
 	}
 
-	kc, err := newKeepCommon(&in.PruneKeepCommon)
+	kc, err := newKeepCommon(&in.KeepCommon)
 	if err != nil {
 		return nil, err
 	}

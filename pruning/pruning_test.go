@@ -135,8 +135,8 @@ func TestPruneSnapshots(t *testing.T) {
 				stubSnap{"p2_c", false, reltime(30)},
 			},
 			rules: []KeepRule{
-				MustNewKeepGrid(map[string]bool{}, "^p1_", `1x10s | 1x10s`),
-				MustNewKeepGrid(map[string]bool{}, "^p2_", `1x10s | 1x10s`),
+				MustKeepGrid(map[string]bool{}, "^p1_", `1x10s | 1x10s`),
+				MustKeepGrid(map[string]bool{}, "^p2_", `1x10s | 1x10s`),
 			},
 			expDestroy: map[string]bool{
 				"p1_a": true,

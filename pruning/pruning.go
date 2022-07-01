@@ -28,7 +28,7 @@ type Snapshot interface {
 	Date() time.Time
 }
 
-func newKeepCommon(in *config.PruneKeepCommon) (KeepCommon, error) {
+func newKeepCommon(in *config.KeepCommon) (KeepCommon, error) {
 	re, err := regexp.Compile(in.Regex)
 	if err != nil {
 		return KeepCommon{}, errors.Errorf("invalid regex %q: %s", in.Regex, err)
@@ -79,13 +79,13 @@ func RulesFromConfig(in []config.PruningEnum) (rules []KeepRule, err error) {
 
 func RuleFromConfig(in config.PruningEnum) (KeepRule, error) {
 	switch v := in.Ret.(type) {
-	case *config.PruneKeepNotReplicated:
+	case *config.KeepNotReplicated:
 		return NewKeepNotReplicated(v)
-	case *config.PruneKeepLastN:
+	case *config.KeepLastN:
 		return NewKeepLastN(v)
-	case *config.PruneKeepRegex:
+	case *config.KeepRegex:
 		return NewKeepRegex(v)
-	case *config.PruneGrid:
+	case *config.KeepGrid:
 		return NewKeepGrid(v)
 	default:
 		return nil, fmt.Errorf("unknown keep rule type %T", v)

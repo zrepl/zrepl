@@ -12,8 +12,8 @@ type KeepRegex struct {
 
 var _ KeepRule = &KeepRegex{}
 
-func NewKeepRegex(in *config.PruneKeepRegex) (*KeepRegex, error) {
-	kc, err := newKeepCommon(&in.PruneKeepCommon)
+func NewKeepRegex(in *config.KeepRegex) (*KeepRegex, error) {
+	kc, err := newKeepCommon(&in.KeepCommon)
 	if err != nil {
 		return nil, err
 	}

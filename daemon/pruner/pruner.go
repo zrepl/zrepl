@@ -98,7 +98,7 @@ func NewLocalPrunerFactory(in config.PruningLocal, promPruneSecs *prometheus.His
 		return nil, errors.Wrap(err, "cannot build pruning rules")
 	}
 	for _, r := range in.Keep {
-		if _, ok := r.Ret.(*config.PruneKeepNotReplicated); ok {
+		if _, ok := r.Ret.(*config.KeepNotReplicated); ok {
 			// rule NotReplicated  for a local pruner doesn't make sense
 			// because no replication happens with that job type
 			return nil, fmt.Errorf("single-site pruner cannot support `not_replicated` keep rule")
@@ -125,7 +125,7 @@ func NewPrunerFactory(in config.PruningSenderReceiver, promPruneSecs *prometheus
 
 	considerSnapAtCursorReplicated := false
 	for _, r := range in.KeepSender {
-		knr, ok := r.Ret.(*config.PruneKeepNotReplicated)
+		knr, ok := r.Ret.(*config.KeepNotReplicated)
 		if !ok {
 			continue
 		}
