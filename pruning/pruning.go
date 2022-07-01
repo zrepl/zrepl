@@ -82,7 +82,7 @@ func RuleFromConfig(in config.PruningEnum) (KeepRule, error) {
 	case *config.PruneKeepNotReplicated:
 		return NewKeepNotReplicated(v.Filesystems)
 	case *config.PruneKeepLastN:
-		return NewKeepLastN(v.Filesystems, v.Count, v.Regex)
+		return NewKeepLastN(v)
 	case *config.PruneKeepRegex:
 		return NewKeepRegex(v.Filesystems, v.Regex, v.Negate)
 	case *config.PruneGrid:

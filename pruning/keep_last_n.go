@@ -1,14 +1,12 @@
 package pruning
 
 import (
-	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/daemon/filters"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -18,26 +16,32 @@ type KeepLastN struct {
 }
 
 func MustKeepLastN(filesystems config.FilesystemsFilter, n int, regex string) *KeepLastN {
-	k, err := NewKeepLastN(filesystems, n, regex)
+	if n <= 0 {
+		panic("must specify positive number as 'keep last count'")
+	}
+
+	kc, err := newKeepCommon(&config.PruneKeepCommon{
+		Filesystems: filesystems,
+		Regex:       regex,
+	})
 	if err != nil {
 		panic(err)
 	}
-	return k
+
+	return &KeepLastN{kc, n}
 }
 
-func NewKeepLastN(filesystems config.FilesystemsFilter, n int, regex string) (*KeepLastN, error) {
-	if n <= 0 {
-		return nil, errors.Errorf("must specify positive number as 'keep last count', got %d", n)
+func NewKeepLastN(in *config.PruneKeepLastN) (*KeepLastN, error) {
+	if in.Count <= 0 {
+		return nil, errors.Errorf("must specify positive number as 'keep last count', got %d", in.Count)
 	}
-	re, err := regexp.Compile(regex)
+
+	kc, err := newKeepCommon(&in.PruneKeepCommon)
 	if err != nil {
-		return nil, errors.Errorf("invalid regex %q: %s", regex, err)
+		return nil, err
 	}
-	fsf, err := filters.DatasetMapFilterFromConfig(filesystems)
-	if err != nil {
-		return nil, errors.Errorf("invalid filesystems: %s", err)
-	}
-	return &KeepLastN{KeepCommon{re, fsf}, n}, nil
+
+	return &KeepLastN{kc, in.Count}, nil
 }
 
 func (k KeepLastN) GetFSFilter() zfs.DatasetFilter {

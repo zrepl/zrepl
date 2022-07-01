@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/zrepl/zrepl/config"
 )
 
 func TestKeepLastN(t *testing.T) {
@@ -102,14 +104,23 @@ func TestKeepLastN(t *testing.T) {
 
 	t.Run("mustBePositive", func(t *testing.T) {
 		var err error
-		_, err = NewKeepLastN(map[string]bool{}, 0, "foo")
+		_, err = NewKeepLastN(&config.PruneKeepLastN{
+			PruneKeepCommon: config.PruneKeepCommon{Type: "foo", Filesystems: map[string]bool{}, Regex: "foo"},
+			Count:           0,
+		})
 		assert.Error(t, err)
-		_, err = NewKeepLastN(map[string]bool{}, -5, "foo")
+		_, err = NewKeepLastN(&config.PruneKeepLastN{
+			PruneKeepCommon: config.PruneKeepCommon{Type: "foo", Filesystems: map[string]bool{}, Regex: "foo"},
+			Count:           -5,
+		})
 		assert.Error(t, err)
 	})
 
 	t.Run("emptyRegexAllowed", func(t *testing.T) {
-		_, err := NewKeepLastN(map[string]bool{}, 23, "")
+		_, err := NewKeepLastN(&config.PruneKeepLastN{
+			PruneKeepCommon: config.PruneKeepCommon{Type: "foo", Filesystems: map[string]bool{}, Regex: ""},
+			Count:           23,
+		})
 		require.NoError(t, err)
 	})
 
