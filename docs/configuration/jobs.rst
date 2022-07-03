@@ -113,7 +113,7 @@ Example config: :sampleconf:`/source.yml`
 
 .. _replication-local:
 
-Local Replication
+Local replication
 -----------------
 
 If you have the need for local replication (most likely between two local storage pools), you can use the :ref:`local transport type <transport-local>` to connect a local push job to a local sink job.
@@ -123,8 +123,8 @@ Example config: :sampleconf:`/local.yml`.
 
 .. _job-snap:
 
-Job Type ``snap`` (``snapshot`` & ``prune`` Only)
--------------------------------------------------
+Job Type ``snap`` (snapshot & prune only)
+-----------------------------------------
 
 Job type that only takes snapshots and performs pruning on the local machine.
 

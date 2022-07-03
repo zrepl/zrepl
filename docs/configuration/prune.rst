@@ -267,7 +267,7 @@ Example configuration:
 
 .. _prune-workaround-source-side-pruning:
 
-Source-side Snapshot Pruning
+Source-side snapshot pruning
 ----------------------------
 
 A :ref:`source jobs<job-source>` takes snapshots on the system it runs on.
@@ -280,7 +280,7 @@ This means that **extended replication downtime will fill up the source's zpool 
 
 If the above is a conceivable situation for you, consider using :ref:`push mode <job-push>`, where pruning happens on the same side where snapshots are taken.
 
-Workaround Using ``snap`` Job
+Workaround using ``snap`` job
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 As a workaround (see GitHub :issue:`102` for development progress), a pruning-only :ref:`snap job <job-snap>` can be defined on the source side:

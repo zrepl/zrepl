@@ -132,7 +132,7 @@ The following high-level steps take place during replication and can be monitore
   * Move the **replication cursor** bookmark on the sending side (see below).
   * Move the **last-received-hold** on the receiving side (see below).
   * Release the send-side step-holds.
-
+   
 The idea behind the execution order of replication steps is that if the sender snapshots all filesystems simultaneously at fixed intervals, the receiver will have all filesystems snapshotted at time ``T1`` before the first snapshot at ``T2 = T1 + $interval`` is replicated.
 
 ZFS Background Knowledge

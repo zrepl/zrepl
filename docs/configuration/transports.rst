@@ -207,7 +207,7 @@ The serve & connect configuration will thus look like the following:
      ...
 
 
-Certificate Authority Using EasyRSA
+Certificate Authority using EasyRSA
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For more than two machines, it might make sense to set up a CA infrastructure.

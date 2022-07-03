@@ -22,7 +22,7 @@ Replication Options
 
 .. _replication-option-protection:
 
-``protection`` Option
+``protection`` option
 --------------------------
 
 The ``protection`` variable controls the degree to which a replicated filesystem is protected from getting out of sync through a zrepl pruner or external tools that destroy snapshots.
@@ -52,7 +52,7 @@ which is useful if replication happens so rarely (or fails so frequently) that t
 
 .. _replication-option-concurrency:
 
-``concurrency`` Option
+``concurrency`` option
 ----------------------
 
 The ``concurrency`` options control the maximum amount of concurrency during replication.
