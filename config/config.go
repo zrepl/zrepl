@@ -253,7 +253,7 @@ format: "human"
 	if err != nil {
 		panic(err)
 	}
-	*l = []LoggingOutletEnum{{Ret: s}}
+	*l = []LoggingOutletEnum{LoggingOutletEnum{Ret: s}}
 }
 
 var _ yaml.Defaulter = &LoggingOutletEnumList{}
@@ -360,25 +360,25 @@ type PruningEnum struct {
 	Ret interface{}
 }
 
-type KeepCommon struct {
+type PruneKeepCommon struct {
 	Type        string            `yaml:"type"`
 	Filesystems FilesystemsFilter `yaml:"filesystems,optional,default={'<': true}"`
 	Negate      bool              `yaml:"negate,optional,default=false"`
 	Regex       string            `yaml:"regex,optional"`
 }
 
-type KeepNotReplicated struct {
-	KeepCommon           `yaml:",inline"`
+type PruneKeepNotReplicated struct {
+	PruneKeepCommon      `yaml:",inline"`
 	KeepSnapshotAtCursor bool `yaml:"keep_snapshot_at_cursor,optional,default=true"`
 }
 
-type KeepLastN struct {
-	KeepCommon `yaml:",inline"`
-	Count      int `yaml:"count"`
+type PruneKeepLastN struct {
+	PruneKeepCommon `yaml:",inline"`
+	Count           int `yaml:"count"`
 }
 
-type KeepRegex struct {
-	KeepCommon `yaml:",inline"`
+type PruneKeepRegex struct {
+	PruneKeepCommon `yaml:",inline"`
 }
 
 type LoggingOutletEnum struct {
@@ -541,10 +541,10 @@ func (t *ServeEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 
 func (t *PruningEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
-		"not_replicated": &KeepNotReplicated{},
-		"last_n":         &KeepLastN{},
-		"grid":           &KeepGrid{},
-		"regex":          &KeepRegex{},
+		"not_replicated": &PruneKeepNotReplicated{},
+		"last_n":         &PruneKeepLastN{},
+		"grid":           &PruneGrid{},
+		"regex":          &PruneKeepRegex{},
 	})
 	return
 }

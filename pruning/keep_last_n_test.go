@@ -104,22 +104,22 @@ func TestKeepLastN(t *testing.T) {
 
 	t.Run("mustBePositive", func(t *testing.T) {
 		var err error
-		_, err = NewKeepLastN(&config.KeepLastN{
-			KeepCommon: config.KeepCommon{Type: "foo", Filesystems: map[string]bool{}, Regex: "foo"},
-			Count:      0,
+		_, err = NewKeepLastN(&config.PruneKeepLastN{
+			PruneKeepCommon: config.PruneKeepCommon{Type: "foo", Filesystems: map[string]bool{}, Regex: "foo"},
+			Count:           0,
 		})
 		assert.Error(t, err)
-		_, err = NewKeepLastN(&config.KeepLastN{
-			KeepCommon: config.KeepCommon{Type: "foo", Filesystems: map[string]bool{}, Regex: "foo"},
-			Count:      -5,
+		_, err = NewKeepLastN(&config.PruneKeepLastN{
+			PruneKeepCommon: config.PruneKeepCommon{Type: "foo", Filesystems: map[string]bool{}, Regex: "foo"},
+			Count:           -5,
 		})
 		assert.Error(t, err)
 	})
 
 	t.Run("emptyRegexAllowed", func(t *testing.T) {
-		_, err := NewKeepLastN(&config.KeepLastN{
-			KeepCommon: config.KeepCommon{Type: "foo", Filesystems: map[string]bool{}, Regex: ""},
-			Count:      23,
+		_, err := NewKeepLastN(&config.PruneKeepLastN{
+			PruneKeepCommon: config.PruneKeepCommon{Type: "foo", Filesystems: map[string]bool{}, Regex: ""},
+			Count:           23,
 		})
 		require.NoError(t, err)
 	})

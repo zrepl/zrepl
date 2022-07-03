@@ -10,9 +10,9 @@ import (
 
 type RetentionIntervalList []RetentionInterval
 
-type KeepGrid struct {
-	KeepCommon `yaml:",inline"`
-	Grid       RetentionIntervalList `yaml:"grid"`
+type PruneGrid struct {
+	PruneKeepCommon `yaml:",inline"`
+	Grid            RetentionIntervalList `yaml:"grid"`
 }
 
 type RetentionInterval struct {
