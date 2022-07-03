@@ -23,6 +23,10 @@ type KeepCommon struct {
 	regex       *regexp.Regexp
 }
 
+func (k *KeepCommon) GetFSFilter() zfs.DatasetFilter {
+	return k.filesystems
+}
+
 type Snapshot interface {
 	Name() string
 	Replicated() bool

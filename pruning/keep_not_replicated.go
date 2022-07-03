@@ -2,7 +2,6 @@ package pruning
 
 import (
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/zfs"
 )
 
 type KeepNotReplicated struct {
@@ -22,8 +21,4 @@ func NewKeepNotReplicated(in *config.PruneKeepNotReplicated) (*KeepNotReplicated
 	}
 
 	return &KeepNotReplicated{kc}, nil
-}
-
-func (k KeepNotReplicated) GetFSFilter() zfs.DatasetFilter {
-	return k.filesystems
 }

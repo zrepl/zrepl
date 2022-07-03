@@ -2,7 +2,6 @@ package pruning
 
 import (
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/zfs"
 )
 
 type KeepRegex struct {
@@ -19,10 +18,6 @@ func NewKeepRegex(in *config.PruneKeepRegex) (*KeepRegex, error) {
 	}
 
 	return &KeepRegex{kc, in.Negate}, nil
-}
-
-func (k *KeepRegex) GetFSFilter() zfs.DatasetFilter {
-	return k.filesystems
 }
 
 func (k *KeepRegex) KeepRule(snaps []Snapshot) []Snapshot {

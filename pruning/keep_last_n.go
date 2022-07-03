@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/zfs"
 )
 
 type KeepLastN struct {
@@ -26,10 +25,6 @@ func NewKeepLastN(in *config.PruneKeepLastN) (*KeepLastN, error) {
 	}
 
 	return &KeepLastN{kc, in.Count}, nil
-}
-
-func (k KeepLastN) GetFSFilter() zfs.DatasetFilter {
-	return k.filesystems
 }
 
 func (k KeepLastN) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {

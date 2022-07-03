@@ -8,7 +8,6 @@ import (
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/pruning/retentiongrid"
-	"github.com/zrepl/zrepl/zfs"
 )
 
 // KeepGrid fits snapshots that match a given regex into a retentiongrid.Grid,
@@ -74,10 +73,6 @@ func newKeepGrid(common KeepCommon, configIntervals []config.RetentionInterval) 
 		common,
 		retentiongrid.NewGrid(intervals),
 	}, nil
-}
-
-func (p *KeepGrid) GetFSFilter() zfs.DatasetFilter {
-	return p.filesystems
 }
 
 // Prune filters snapshots with the retention grid.
