@@ -221,10 +221,17 @@ The optional `negate` boolean field inverts the semantics: Use it if you want to
 
 .. _prune-filters:
 
-Filesystem Filters in Pruning Policies
---------------------------------------
-:ref:`Filesystem filters<pattern-filter>` can be used to define different pruning policies within a single job through the ``filesystems`` field. If omitted, it defaults to ``{ "<": true }`` (that is, all filesystems are matched).
-Patterns are matched on sender filesystem names.
+Filesystem Specific Keep Rules
+------------------------------
+
+It is possible to define file-system specific keep rules within a single job using the the ``filesystems`` field.
+The field uses the common :ref:`filesystem filter syntax<pattern-filter>`.
+If specified, the keep rule only applies to the matching filesystems.
+
+.. WARNING::
+
+  Make sure that all your filesystems have at least one matching keep rule.
+  Otherwise, zrepl will prune all snapshots on the fielsystems that have no matching keep rule.
 
 Example configuration:
 
