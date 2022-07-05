@@ -49,12 +49,12 @@ func buildJob(c *config.Global, in config.JobEnum, parseFlags config.ParseFlags)
 	// FIXME prettify this
 	switch v := in.Ret.(type) {
 	case *config.SinkJob:
-		j, err = passiveSideFromConfig(c, &v.PassiveJob, v)
+		j, err = passiveSideFromConfig(c, &v.PassiveJob, v, parseFlags)
 		if err != nil {
 			return cannotBuildJob(err, v.Name)
 		}
 	case *config.SourceJob:
-		j, err = passiveSideFromConfig(c, &v.PassiveJob, v)
+		j, err = passiveSideFromConfig(c, &v.PassiveJob, v, parseFlags)
 		if err != nil {
 			return cannotBuildJob(err, v.Name)
 		}

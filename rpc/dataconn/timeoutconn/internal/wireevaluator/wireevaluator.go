@@ -75,7 +75,7 @@ func main() {
 	case "serve":
 		tc, err := getTestCase(args.testCase)
 		noerror(err)
-		lf, err := transportconfig.ListenerFactoryFromConfig(global, conf.Serve)
+		lf, err := transportconfig.ListenerFactoryFromConfig(global, conf.Serve, config.ParseFlagsNone)
 		noerror(err)
 		l, err := lf()
 		noerror(err)

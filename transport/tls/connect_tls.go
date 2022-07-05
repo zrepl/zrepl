@@ -23,7 +23,7 @@ func TLSConnecterFromConfig(in *config.TLSConnect, parseFlags config.ParseFlags)
 		Timeout: in.DialTimeout,
 	}
 
-	if fakeCertificateLoading || parseFlags&config.ParseFlagsNoCertCheck != 0 {
+	if parseFlags&config.ParseFlagsNoCertCheck != 0 {
 		return &TLSConnecter{in.Address, dialer, nil}, nil
 	}
 

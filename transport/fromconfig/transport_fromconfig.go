@@ -15,7 +15,7 @@ import (
 	"github.com/zrepl/zrepl/transport/tls"
 )
 
-func ListenerFactoryFromConfig(g *config.Global, in config.ServeEnum) (transport.AuthenticatedListenerFactory, error) {
+func ListenerFactoryFromConfig(g *config.Global, in config.ServeEnum, parseFlags config.ParseFlags) (transport.AuthenticatedListenerFactory, error) {
 
 	var (
 		l   transport.AuthenticatedListenerFactory
@@ -25,7 +25,7 @@ func ListenerFactoryFromConfig(g *config.Global, in config.ServeEnum) (transport
 	case *config.TCPServe:
 		l, err = tcp.TCPListenerFactoryFromConfig(g, v)
 	case *config.TLSServe:
-		l, err = tls.TLSListenerFactoryFromConfig(g, v)
+		l, err = tls.TLSListenerFactoryFromConfig(g, v, parseFlags)
 	case *config.StdinserverServer:
 		l, err = ssh.MultiStdinserverListenerFactoryFromConfig(g, v)
 	case *config.LocalServe:

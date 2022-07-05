@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zrepl/zrepl/config"
-	"github.com/zrepl/zrepl/transport/tls"
 )
 
 func TestValidateReceivingSidesDoNotOverlap(t *testing.T) {
@@ -153,8 +152,7 @@ func TestSampleConfigsAreBuiltWithoutErrors(t *testing.T) {
 			t.Logf("file: %s", p)
 			t.Log(pretty.Sprint(c))
 
-			tls.FakeCertificateLoading(t)
-			jobs, err := JobsFromConfig(c, config.ParseFlagsNone)
+			jobs, err := JobsFromConfig(c, config.ParseFlagsNoCertCheck)
 			t.Logf("jobs: %#v", jobs)
 			require.NoError(t, err)
 
