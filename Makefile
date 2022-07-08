@@ -55,7 +55,7 @@ release: clean
 	$(MAKE) wrapup-and-checksum
 	$(MAKE) check-git-clean
 ifeq (SIGN, 1)
-	$(make) sign
+	$(MAKE) sign
 endif
 	@echo "ZREPL RELEASE ARTIFACTS AVAILABLE IN artifacts/release"
 
@@ -333,12 +333,12 @@ $(ARTIFACTDIR)/go_env.txt:
 
 docs: $(ARTIFACTDIR)/docs
 	# https://www.sphinx-doc.org/en/master/man/sphinx-build.html
-	make -C docs \
+	$(MAKE) -C docs \
 		html \
 		BUILDDIR=../artifacts/docs \
 		SPHINXOPTS="-W --keep-going -n"
 
 docs-clean:
-	make -C docs \
+	$(MAKE) -C docs \
 		clean \
 		BUILDDIR=../artifacts/docs
