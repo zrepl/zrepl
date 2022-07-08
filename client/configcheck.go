@@ -30,8 +30,6 @@ var ConfigcheckCmd = &cli.Subcommand{
 	SetupFlags: func(f *pflag.FlagSet) {
 		f.StringVar(&configcheckArgs.format, "format", "", "dump parsed config object [pretty|yaml|json]")
 		f.StringVar(&configcheckArgs.what, "what", "all", "what to print [all|config|jobs|logging]")
-
-		// FIXME: can't set parseFlags here because user input hasn't been populated yet
 		f.BoolVar(&configcheckArgs.skipCertCheck, "skip-cert-check", false, "skip checking cert files")
 	},
 	Run: func(ctx context.Context, subcommand *cli.Subcommand, args []string) error {
