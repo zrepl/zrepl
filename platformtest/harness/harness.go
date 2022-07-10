@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/list"
 	"context"
 	"flag"
 	"fmt"
@@ -53,6 +54,40 @@ type HarnessArgs struct {
 	Run                   string
 }
 
+type invocation struct {
+	runFunc  tests.Case
+	idstring string
+	result   *testCaseResult
+	children map[string]*invocation
+}
+
+func newInvocation(runFunc tests.Case, id string) *invocation {
+	return &invocation{
+		runFunc:  runFunc,
+		idstring: id,
+		children: make(map[string]*invocation),
+	}
+}
+
+func (i *invocation) String() string {
+	idsuffix := ""
+	if i.idstring != "" {
+		idsuffix = fmt.Sprintf(": %s", i.idstring)
+	}
+	return fmt.Sprintf("%s%s", i.runFunc.String(), idsuffix)
+}
+
+func (i *invocation) RegisterChild(c *invocation) error {
+	if c.idstring == "" {
+		return fmt.Errorf("child must have id string")
+	}
+	if oc := i.children[c.idstring]; oc != nil {
+		return fmt.Errorf("idstring %q is already taken by %s", c.idstring, oc)
+	}
+	i.children[c.idstring] = c
+	return nil
+}
+
 func HarnessRun(args HarnessArgs) error {
 
 	runRE := regexp.MustCompile(args.Run)
@@ -79,21 +114,19 @@ func HarnessRun(args HarnessArgs) error {
 	ctx = logging.WithLoggers(ctx, logging.SubsystemLoggersWithUniversalLogger(logger))
 	ex := platformtest.NewEx(logger)
 
-	type invocation struct {
-		runFunc tests.Case
-		result  *testCaseResult
-	}
-
-	invocations := make([]*invocation, 0, len(tests.Cases))
+	testQueue := list.New()
 	for _, c := range tests.Cases {
 		if runRE.MatchString(c.String()) {
-			invocations = append(invocations, &invocation{runFunc: c})
+			testQueue.PushBack(newInvocation(c, ""))
 		}
 	}
 
-	for _, inv := range invocations {
+	completedTests := list.New()
 
-		bold.Printf("BEGIN TEST CASE %s\n", inv.runFunc.String())
+	for testQueue.Len() > 0 {
+		inv := testQueue.Remove(testQueue.Front()).(*invocation)
+
+		bold.Printf("BEGIN TEST CASE %s\n", inv)
 
 		pool, err := platformtest.CreateOrReplaceZpool(ctx, ex, args.CreateArgs)
 		if err != nil {
@@ -103,6 +136,15 @@ func HarnessRun(args HarnessArgs) error {
 		ctx := &platformtest.Context{
 			Context:     ctx,
 			RootDataset: filepath.Join(pool.Name(), "rootds"),
+			QueueSubtest: func(id string, stf func(*platformtest.Context)) {
+				stinv := newInvocation(stf, id)
+				err := inv.RegisterChild(stinv)
+				if err != nil {
+					panic(err)
+				}
+				bold.Printf(" QUEUING SUBTEST %q\n", id)
+				testQueue.PushFront(stinv)
+			},
 		}
 
 		res := runTestCase(ctx, ex, inv.runFunc)
@@ -120,6 +162,8 @@ func HarnessRun(args HarnessArgs) error {
 			panic(fmt.Sprintf("error destroying test pool: %s", err))
 		}
 
+		completedTests.PushBack(inv)
+
 		if res.failed {
 			boldRed.Printf("TEST FAILED\n")
 		} else if res.skipped {
@@ -136,7 +180,8 @@ func HarnessRun(args HarnessArgs) error {
 	var summary struct {
 		succ, fail, skip []*invocation
 	}
-	for _, inv := range invocations {
+	for completedTests.Len() > 0 {
+		inv := completedTests.Remove(completedTests.Front()).(*invocation)
 		var bucket *[]*invocation
 		if inv.result.failed {
 			bucket = &summary.fail
@@ -157,7 +202,7 @@ func HarnessRun(args HarnessArgs) error {
 		}
 		fmt.Printf("\n")
 		for _, inv := range bucket {
-			fmt.Printf("  %s\n", inv.runFunc.String())
+			fmt.Printf("  %s\n", inv)
 		}
 	}
 	printBucket("PASSING TESTS", boldGreen, summary.succ)
