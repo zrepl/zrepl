@@ -632,6 +632,14 @@ func (e ZFSSendArgsValidationError) Error() string {
 	return e.Msg.Error()
 }
 
+type zfsSendArgsSkipValidationKeyType struct{}
+
+var zfsSendArgsSkipValidationKey = zfsSendArgsSkipValidationKeyType{}
+
+func ZFSSendArgsSkipValidation(ctx context.Context) context.Context {
+	return context.WithValue(ctx, zfsSendArgsSkipValidationKey, true)
+}
+
 // - Recursively call Validate on each field.
 // - Make sure that if ResumeToken != "", it reflects the same operation as the other parameters would.
 //
@@ -659,6 +667,16 @@ func (a ZFSSendArgsUnvalidated) Validate(ctx context.Context) (v ZFSSendArgsVali
 		// fallthrough
 	}
 
+	validated := ZFSSendArgsValidated{
+		ZFSSendArgsUnvalidated: a,
+		FromVersion:            fromVersion,
+		ToVersion:              toVersion,
+	}
+
+	if ctx.Value(zfsSendArgsSkipValidationKey) != nil {
+		return validated, nil
+	}
+
 	if err := a.ZFSSendFlags.Validate(); err != nil {
 		return v, newGenericValidationError(a, errors.Wrap(err, "send flags invalid"))
 	}
@@ -673,18 +691,19 @@ func (a ZFSSendArgsUnvalidated) Validate(ctx context.Context) (v ZFSSendArgsVali
 
 	if a.Encrypted.B && !fsEncrypted {
 		return v, newValidationError(a, ZFSSendArgsEncryptedSendRequestedButFSUnencrypted,
-			errors.Errorf("encrypted send requested, but filesystem %q is not encrypted", a.FS))
+			errors.Errorf("encrypted send mandated by policy, but filesystem %q is not encrypted", a.FS))
+	}
+
+	if a.Raw && fsEncrypted && !a.Encrypted.B {
+		return v, newValidationError(a, ZFSSendArgsGenericValidationError,
+			errors.Errorf("policy mandates raw+unencrypted sends, but filesystem %q is encrypted", a.FS))
 	}
 
 	if err := a.validateEncryptionFlagsCorrespondToResumeToken(ctx, valCtx); err != nil {
 		return v, newValidationError(a, ZFSSendArgsResumeTokenMismatch, err)
 	}
 
-	return ZFSSendArgsValidated{
-		ZFSSendArgsUnvalidated: a,
-		FromVersion:            fromVersion,
-		ToVersion:              toVersion,
-	}, nil
+	return validated, nil
 }
 
 func (f ZFSSendFlags) Validate() error {
@@ -852,21 +871,34 @@ func (a ZFSSendArgsUnvalidated) validateEncryptionFlagsCorrespondToResumeToken(c
 		return gen.fmt("resume token `toguid` != expected: %v != %v", t.ToGUID, a.To.GUID)
 	}
 
-	if a.Encrypted.B {
-		if !(t.RawOK && t.CompressOK) {
-			return ZFSSendArgsResumeTokenMismatchEncryptionNotSet.fmt(
-				"resume token must have `rawok` and `compressok` = true but got %v %v", t.RawOK, t.CompressOK)
-		}
-		// fallthrough
-	} else {
-		if t.RawOK || t.CompressOK {
-			return ZFSSendArgsResumeTokenMismatchEncryptionSet.fmt(
-				"resume token must not have `rawok` or `compressok` set but got %v %v", t.RawOK, t.CompressOK)
-		}
-		// fallthrough
+	// ensure resume stream will be encrypted/unencrypted as specified in policy
+	if err := valCtx.encEnabled.ValidateNoDefault(); err != nil {
+		panic(valCtx)
 	}
-
-	return nil
+	wouldSendEncryptedIfFilesystemIsEncrypted := t.RawOK
+	filesystemIsEncrypted := valCtx.encEnabled.B
+	resumeWillBeEncryptedSend := filesystemIsEncrypted && wouldSendEncryptedIfFilesystemIsEncrypted
+	if a.Encrypted.B {
+		if resumeWillBeEncryptedSend {
+			return nil // encrypted send in policy, and that's what's going to happen
+		} else {
+			if !filesystemIsEncrypted {
+				// NB: a.Encrypted.B && !valCtx.encEnabled.B
+				//     is handled in the caller, because it doesn't concern the resume token (different kind of error)
+				panic("caller should have already raised an error")
+			}
+			// XXX we have no test coverage for this case. We'd need to forge a resume token for that.
+			return ZFSSendArgsResumeTokenMismatchEncryptionNotSet.fmt(
+				"resume token does not have rawok=true which would result in an unencrypted send, but policy mandates encrypted sends only")
+		}
+	} else {
+		if resumeWillBeEncryptedSend {
+			return ZFSSendArgsResumeTokenMismatchEncryptionSet.fmt(
+				"resume token has rawok=true which would result in encrypted send, but policy mandates unencrypted sends only")
+		} else {
+			return nil // unencrypted send in policy, and that's what's going to happen
+		}
+	}
 }
 
 var zfsSendStderrCaptureMaxSize = envconst.Int("ZREPL_ZFS_SEND_STDERR_MAX_CAPTURE_SIZE", 1<<15)

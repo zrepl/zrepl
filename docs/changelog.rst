@@ -22,6 +22,17 @@ Developers should consult the git commit log or GitHub issue tracker.
 * `Feature Wishlist on GitHub <https://github.com/zrepl/zrepl/discussions/547>`_
 
 * |feature| Add ``ZREPL_DESTROY_MAX_BATCH_SIZE`` env var (default 0=unlimited).
+* |bugfix| Fix resuming from interrupted replications that use ``send.raw`` on unencrypted datasets.
+
+  * The send options introduced in zrepl 0.4 allow users to specify additional zfs send flags for zrepl to use.
+    Before this fix, when setting ``send.raw=true`` on a job that replicates unencrypted datasets,
+    zrepl would not allow an interrupted replication to resume.
+    The reason were overly cautious checks to support the ``send.encrypted`` option.
+  * This bugfix removes these checks from the replication planner.
+    This makes ``send.encrypted`` a sender-side-only concern, much like all other ``send.*`` flags.
+  * However, this means that the ``zrepl status`` UI no longer indicates whether a replication step uses encrypted sends or not.
+    The setting is still effective though.
+
 * |break| |feature| convert Prometheus metric ``zrepl_version_daemon`` to ``zrepl_start_time`` metric
 
   * The metric still reports the zrepl version in a label.

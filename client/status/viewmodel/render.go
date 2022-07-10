@@ -273,9 +273,9 @@ func printFilesystemStatus(t *stringbuilder.B, rep *report.FilesystemReport, max
 				attribs = append(attribs, "resumed")
 			}
 
-			attribs = append(attribs, fmt.Sprintf("encrypted=%s", nextStep.Info.Encrypted))
-
-			next += fmt.Sprintf(" (%s)", strings.Join(attribs, ", "))
+			if len(attribs) > 0 {
+				next += fmt.Sprintf(" (%s)", strings.Join(attribs, ", "))
+			}
 		} else {
 			next = "" // individual FSes may still be in planning state
 		}

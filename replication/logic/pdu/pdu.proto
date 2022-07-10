@@ -21,7 +21,6 @@ message Filesystem {
   string Path = 1;
   string ResumeToken = 2;
   bool IsPlaceholder = 3;
-  bool IsEncrypted = 4;
 }
 
 message ListFilesystemVersionsReq { string Filesystem = 1; }
@@ -40,12 +39,6 @@ message FilesystemVersion {
   string Creation = 5; // RFC 3339
 }
 
-enum Tri {
-  DontCare = 0;
-  False = 1;
-  True = 2;
-}
-
 message SendReq {
   string Filesystem = 1;
   // May be empty / null to request a full transfer of To
@@ -59,7 +52,6 @@ message SendReq {
   // ResumeToken is not empty, the GUIDs of From and To MUST correspond to those
   // encoded in the ResumeToken. Otherwise, the Sender MUST return an error.
   string ResumeToken = 4;
-  Tri Encrypted = 5;
 
   ReplicationConfig ReplicationConfig = 6;
 }

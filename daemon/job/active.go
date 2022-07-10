@@ -168,7 +168,6 @@ func modePushFromConfig(g *config.Global, in *config.PushJob, jobID endpoint.Job
 	}
 
 	m.plannerPolicy = &logic.PlannerPolicy{
-		EncryptedSend:             logic.TriFromBool(in.Send.Encrypted),
 		ConflictResolution:        conflictResolution,
 		ReplicationConfig:         replicationConfig,
 		SizeEstimationConcurrency: in.Replication.Concurrency.SizeEstimates,
@@ -273,7 +272,6 @@ func modePullFromConfig(g *config.Global, in *config.PullJob, jobID endpoint.Job
 	}
 
 	m.plannerPolicy = &logic.PlannerPolicy{
-		EncryptedSend:             logic.DontCare,
 		ConflictResolution:        conflictResolution,
 		ReplicationConfig:         replicationConfig,
 		SizeEstimationConcurrency: in.Replication.Concurrency.SizeEstimates,

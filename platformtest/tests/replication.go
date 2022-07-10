@@ -35,16 +35,17 @@ import (
 // of a new sender and receiver instance and one blocking invocation
 // of the replication engine without encryption
 type replicationInvocation struct {
-	sjid, rjid         endpoint.JobID
-	sfs                string
-	sfilter            *filters.DatasetMapFilter
-	rfsRoot            string
-	interceptSender    func(e *endpoint.Sender) logic.Sender
-	interceptReceiver  func(e *endpoint.Receiver) logic.Receiver
-	guarantee          *pdu.ReplicationConfigProtection
-	senderConfigHook   func(*endpoint.SenderConfig)
-	receiverConfigHook func(*endpoint.ReceiverConfig)
-	plannerPolicyHook  func(*logic.PlannerPolicy)
+	sjid, rjid             endpoint.JobID
+	sfs                    string
+	sfilter                *filters.DatasetMapFilter
+	rfsRoot                string
+	interceptSender        func(e *endpoint.Sender) logic.Sender
+	interceptReceiver      func(e *endpoint.Receiver) logic.Receiver
+	guarantee              *pdu.ReplicationConfigProtection
+	senderConfigHook       func(*endpoint.SenderConfig)
+	receiverConfigHook     func(*endpoint.ReceiverConfig)
+	plannerPolicyHook      func(*logic.PlannerPolicy)
+	skipSendArgsValidation bool
 }
 
 func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
@@ -92,7 +93,6 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 	sender := i.interceptSender(endpoint.NewSender(senderConfig))
 	receiver := i.interceptReceiver(endpoint.NewReceiver(receiverConfig))
 	plannerPolicy := logic.PlannerPolicy{
-		EncryptedSend: logic.TriFromBool(false),
 		ReplicationConfig: &pdu.ReplicationConfig{
 			Protection: i.guarantee,
 		},
@@ -105,8 +105,13 @@ func (i replicationInvocation) Do(ctx *platformtest.Context) *report.Report {
 		i.plannerPolicyHook(&plannerPolicy)
 	}
 
+	var doCtx context.Context = ctx
+	if i.skipSendArgsValidation {
+		doCtx = zfs.ZFSSendArgsSkipValidation(ctx)
+	}
+
 	report, wait := replication.Do(
-		ctx,
+		doCtx,
 		driver.Config{
 			MaxAttempts:              1,
 			StepQueueConcurrency:     1,

@@ -105,15 +105,10 @@ func (s *Sender) ListFilesystems(ctx context.Context, r *pdu.ListFilesystemReq) 
 	}
 	rfss := make([]*pdu.Filesystem, len(fss))
 	for i := range fss {
-		encEnabled, err := zfs.ZFSGetEncryptionEnabled(ctx, fss[i].ToString())
-		if err != nil {
-			return nil, errors.Wrap(err, "cannot get filesystem encryption status")
-		}
 		rfss[i] = &pdu.Filesystem{
 			Path: fss[i].ToString(),
 			// ResumeToken does not make sense from Sender
 			IsPlaceholder: false, // sender FSs are never placeholders
-			IsEncrypted:   encEnabled,
 		}
 	}
 	res := &pdu.ListFilesystemRes{Filesystems: rfss}
@@ -164,23 +159,6 @@ func (s *Sender) sendMakeArgs(ctx context.Context, r *pdu.SendReq) (sendArgs zfs
 	_, err := s.filterCheckFS(r.Filesystem)
 	if err != nil {
 		return sendArgs, err
-	}
-	switch r.Encrypted {
-	case pdu.Tri_DontCare:
-		// use s.encrypt setting
-		// ok, fallthrough outer
-	case pdu.Tri_False:
-		if s.config.Encrypt.B {
-			return sendArgs, errors.New("only encrypted sends allowed (send -w + encryption!= off), but unencrypted send requested")
-		}
-		// fallthrough outer
-	case pdu.Tri_True:
-		if !s.config.Encrypt.B {
-			return sendArgs, errors.New("only unencrypted sends allowed, but encrypted send requested")
-		}
-		// fallthrough outer
-	default:
-		return sendArgs, fmt.Errorf("unknown pdu.Tri variant %q", r.Encrypted)
 	}
 
 	sendArgsUnvalidated := zfs.ZFSSendArgsUnvalidated{
@@ -658,11 +636,6 @@ func (s *Receiver) ListFilesystems(ctx context.Context, req *pdu.ListFilesystemR
 			l.WithError(err).Error("cannot get receive resume token")
 			return nil, err
 		}
-		encEnabled, err := zfs.ZFSGetEncryptionEnabled(ctx, a.ToString())
-		if err != nil {
-			l.WithError(err).Error("cannot get encryption enabled status")
-			return nil, err
-		}
 		l.WithField("receive_resume_token", token).Debug("receive resume token")
 
 		a.TrimPrefix(root)
@@ -671,7 +644,6 @@ func (s *Receiver) ListFilesystems(ctx context.Context, req *pdu.ListFilesystemR
 			Path:          a.ToString(),
 			IsPlaceholder: ph.IsPlaceholder,
 			ResumeToken:   token,
-			IsEncrypted:   encEnabled,
 		}
 		fss = append(fss, fs)
 	}

@@ -156,8 +156,7 @@ type Step struct {
 
 	parent      *Filesystem
 	from, to    *pdu.FilesystemVersion // from may be nil, indicating full send
-	encrypt     tri
-	resumeToken string // empty means no resume token shall be used
+	resumeToken string                 // empty means no resume token shall be used
 
 	expectedSize uint64 // 0 means no size estimate present / possible
 
@@ -201,22 +200,10 @@ func (s *Step) ReportInfo() *report.StepInfo {
 	if s.from != nil {
 		from = s.from.RelName()
 	}
-	var encrypted report.EncryptedEnum
-	switch s.encrypt {
-	case DontCare:
-		encrypted = report.EncryptedSenderDependent
-	case True:
-		encrypted = report.EncryptedTrue
-	case False:
-		encrypted = report.EncryptedFalse
-	default:
-		panic(fmt.Sprintf("unknown variant %s", s.encrypt))
-	}
 	return &report.StepInfo{
 		From:            from,
 		To:              s.to.RelName(),
 		Resumed:         s.resumeToken != "",
-		Encrypted:       encrypted,
 		BytesExpected:   s.expectedSize,
 		BytesReplicated: byteCounter,
 	}
@@ -346,10 +333,6 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 
 	log(ctx).Debug("assessing filesystem")
 
-	if fs.policy.EncryptedSend == True && !fs.senderFS.GetIsEncrypted() {
-		return nil, fmt.Errorf("sender filesystem is not encrypted but policy mandates encrypted send")
-	}
-
 	sfsvsres, err := fs.sender.ListFilesystemVersions(ctx, &pdu.ListFilesystemVersionsReq{Filesystem: fs.Path})
 	if err != nil {
 		log(ctx).WithError(err).Error("cannot get remote filesystem versions")
@@ -423,24 +406,7 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 			}
 		}
 
-		encryptionMatches := false
-		switch fs.policy.EncryptedSend {
-		case True:
-			encryptionMatches = resumeToken.RawOK && resumeToken.CompressOK
-		case False:
-			encryptionMatches = !resumeToken.RawOK && !resumeToken.CompressOK
-		case DontCare:
-			encryptionMatches = true
-		}
-
-		log(ctx).WithField("fromVersion", fromVersion).
-			WithField("toVersion", toVersion).
-			WithField("encryptionMatches", encryptionMatches).
-			Debug("result of resume-token-matching to sender's versions")
-
-		if !encryptionMatches {
-			return nil, fmt.Errorf("resume token `rawok`=%v and `compressok`=%v are incompatible with encryption policy=%v", resumeToken.RawOK, resumeToken.CompressOK, fs.policy.EncryptedSend)
-		} else if toVersion == nil {
+		if toVersion == nil {
 			return nil, fmt.Errorf("resume token `toguid` = %v not found on sender (`toname` = %q)", resumeToken.ToGUID, resumeToken.ToName)
 		} else if fromVersion == toVersion {
 			return nil, fmt.Errorf("resume token `fromguid` and `toguid` match same version on sener")
@@ -452,9 +418,8 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 			sender:   fs.sender,
 			receiver: fs.receiver,
 
-			from:    fromVersion,
-			to:      toVersion,
-			encrypt: fs.policy.EncryptedSend,
+			from: fromVersion,
+			to:   toVersion,
 
 			resumeToken: resumeTokenRaw,
 		}
@@ -480,7 +445,6 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 				receiver: fs.receiver,
 				from:     remainingSFSVs[i],
 				to:       remainingSFSVs[i+1],
-				encrypt:  fs.policy.EncryptedSend,
 			})
 		}
 	} else { // resumeToken == nil
@@ -510,9 +474,8 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 					sender:   fs.sender,
 					receiver: fs.receiver,
 
-					from:    path[i], // nil in case of initial repl
-					to:      path[i+1],
-					encrypt: fs.policy.EncryptedSend,
+					from: path[i], // nil in case of initial repl
+					to:   path[i+1],
 				})
 			}
 		}
@@ -592,7 +555,6 @@ func (s *Step) buildSendRequest() (sr *pdu.SendReq) {
 		Filesystem:        fs,
 		From:              s.from, // may be nil
 		To:                s.to,
-		Encrypted:         s.encrypt.ToPDU(),
 		ResumeToken:       s.resumeToken,
 		ReplicationConfig: s.parent.policy.ReplicationConfig,
 	}

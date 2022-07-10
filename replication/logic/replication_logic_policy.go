@@ -63,7 +63,6 @@ func ConflictResolutionFromConfig(in *config.ConflictResolution) (*ConflictResol
 }
 
 type PlannerPolicy struct {
-	EncryptedSend             tri                    // all sends must be encrypted (send -w, and encryption!=off)
 	ConflictResolution        *ConflictResolution    `validate:"ne=nil"`
 	ReplicationConfig         *pdu.ReplicationConfig `validate:"ne=nil"`
 	SizeEstimationConcurrency int                    `validate:"gte=1"`
