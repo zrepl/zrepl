@@ -203,16 +203,8 @@ func syncUp(a args, u updater) state {
 	u(func(s *Snapper) {
 		s.sleepUntil = syncPoint
 	})
-	t := time.NewTimer(time.Until(syncPoint))
-	defer t.Stop()
-	select {
-	case <-t.C:
-		return u(func(s *Snapper) {
-			s.state = Planning
-		}).sf()
-	case <-a.ctx.Done():
-		return onMainCtxDone(a.ctx, u)
-	}
+
+	return waitUntilThenTransitionToPlanning(a, u, syncPoint)
 }
 
 func plan(a args, u updater) state {
@@ -370,16 +362,32 @@ func wait(a args, u updater) state {
 		logFunc("enter wait-state after error")
 	})
 
-	t := time.NewTimer(time.Until(sleepUntil))
-	defer t.Stop()
+	return waitUntilThenTransitionToPlanning(a, u, sleepUntil)
+}
 
-	select {
-	case <-t.C:
-		return u(func(snapper *Snapper) {
-			snapper.state = Planning
-		}).sf()
-	case <-a.ctx.Done():
-		return onMainCtxDone(a.ctx, u)
+func waitUntilThenTransitionToPlanning(a args, u updater, sleepUntil time.Time) state {
+
+	ticker := time.NewTicker(333 * time.Millisecond)
+	defer ticker.Stop()
+	lastLog := time.Now()
+	for {
+		select {
+		case <-ticker.C:
+			now := time.Now()
+			if now.Before(sleepUntil) {
+				// rate limit loggin to once per minute
+				if (now.Sub(lastLog)) > envconst.Duration("ZREPL_SNAPPER_DEBUG_LOG_ISSUE_611", 1*time.Minute) {
+					getLogger(a.ctx).WithField("sleep_until", sleepUntil).WithField("remaining", sleepUntil.Sub(now)).Error("DEBUG-LOG-ZREPL-ISSUE-611")
+					lastLog = now
+				}
+				continue // continue with ticker
+			}
+			return u(func(snapper *Snapper) {
+				snapper.state = Planning
+			}).sf()
+		case <-a.ctx.Done():
+			return onMainCtxDone(a.ctx, u)
+		}
 	}
 }
 
