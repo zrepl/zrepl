@@ -5,14 +5,15 @@ Overview & Terminology
 All work zrepl does is performed by the zrepl daemon which is configured in a single YAML configuration file loaded on startup.
 The following paths are searched, in this order:
 
-1. If set, the location specified via the global ``--config`` flag
+1. The path specified via the global ``--config`` flag
 2. ``/etc/zrepl/zrepl.yml``
 3. ``/usr/local/etc/zrepl/zrepl.yml``
 
-The ``zrepl configcheck`` subcommand can be used to validate the configuration.
-The command will output nothing and exit with zero status code if the configuration is valid.
+``zrepl configcheck`` can be used to validate the configuration.
+If the configuration is valid, it will output nothing and exit with code ``0``.
 The error messages vary in quality and usefulness: please report confusing config errors to the tracking :issue:`155`.
-Full example configs such as in the :ref:`quick-start guides <quickstart-toc>` or the :sampleconf:`/` directory might also be helpful.
+
+Full example configs are available at :ref:`quick-start guides <quickstart-toc>` and :sampleconf:`/`.
 However, copy-pasting examples is no substitute for reading documentation!
 
 Config File Structure
@@ -26,9 +27,8 @@ Config File Structure
      type: push
    - ...
 
-zrepl is configured using a single YAML configuration file with two main sections: ``global`` and ``jobs``.
-The ``global`` section is filled with sensible defaults and is covered later in this chapter.
-The ``jobs`` section is a list of jobs which we are going to explain now.
+A zrepl configuration file is divided in to two main sections: ``global`` and ``jobs``.
+``global`` has sensible defaults. It is covered in :ref:`logging <logging>`, :ref:`monitoring <monitoring>` \& :ref:`miscellaneous <miscellaneous>`.
 
 .. _job-overview:
 
@@ -42,8 +42,7 @@ Jobs are identified by their ``name``, both in log files and the ``zrepl status`
 .. NOTE::
    The job name is persisted in several places on disk and thus :issue:`cannot be changed easily<327>`.
 
-
-Replication always happens between a pair of jobs: one is the **active side**, and one the **passive side**.
+Replication always happens between a pair of jobs: one **active side** and one **passive side**.
 The active side connects to the passive side using a :ref:`transport <transport>` and starts executing the replication logic.
 The passive side responds to requests from the active side after checking its permissions.
 
@@ -72,30 +71,29 @@ How the Active Side Works
 
 The active side (:ref:`push <job-push>` and :ref:`pull <job-pull>` job) executes the replication and pruning logic:
 
-* Wakeup because of finished snapshotting (``push`` job) or pull interval ticker (``pull`` job).
-* Connect to the corresponding passive side using a :ref:`transport <transport>` and instantiate an RPC client.
-* Replicate data from the sending to the receiving side (see below).
-* Prune on sender & receiver.
+1. Wakeup after snapshotting (``push`` job) or pull interval ticker (``pull`` job).
+2. Connect to the passive side and instantiate an RPC client.
+3. Replicate data from the sender to the receiver.
+4. Prune on sender & receiver.
 
 .. TIP::
-  The progress of the active side can be watched live using the ``zrepl status`` subcommand.
+  The progress of the active side can be watched live using ``zrepl status``.
 
 .. _overview-passive-side--client-identity:
 
 How the Passive Side Works
 --------------------------
 
-The passive side (:ref:`sink <job-sink>` and :ref:`source <job-source>`) waits for connections from the corresponding active side,
-using the transport listener type specified in the ``serve`` field of the job configuration.
-When a client connects, the transport listener performS listener-specific access control (cert validation, IP ACLs, etc)
-and determines the *client identity*.
-The passive side job then uses this client identity as follows:
+The passive side (:ref:`sink <job-sink>` and :ref:`source <job-source>`) waits for connections from the active side,
+on the :ref:`transport <transport>` specified with ``serve`` in the job configuration.
+The respective transport then perfoms authentication & authorization, resulting in a stable *client identity*.
+The passive side job uses this *client identity* as follows:
 
-* The ``sink`` job maps requests from different client identities to their respective sub-filesystem tree ``root_fs/${client_identity}``.
-* The ``source`` might, in the future, embed the client identity in :ref:`zrepl's ZFS abstraction names <zrepl-zfs-abstractions>` in order to support multi-host replication.
+   * In ``sink`` jobs, to map requests from different *client identities* to their respective sub-filesystem tree ``root_fs/${client_identity}``.
+   * *In the future, ``source`` might embed the client identity in :ref:`zrepl's ZFS abstraction names <zrepl-zfs-abstractions>`, to support multi-host replication.*
 
 .. TIP::
-   The implementation of the ``sink`` job requires that the connecting client identities be a valid ZFS filesystem name components.
+   The use of the client identity in the ``sink`` job implies that it must be usable as a ZFS ZFS filesystem name component.
 
 .. _overview-how-replication-works:
 
@@ -106,7 +104,7 @@ One of the major design goals of the replication module is to avoid any duplicat
 As such, the code works on abstract senders and receiver **endpoints**, where typically one will be implemented by a local program object and the other is an RPC client instance.
 Regardless of push- or pull-style setup, the logic executes on the active side, i.e. in the ``push`` or ``pull`` job.
 
-The following high-level steps take place during replication and can be monitored using the ``zrepl status`` subcommand:
+The following high-level steps take place during replication and can be monitored using ``zrepl status``:
 
 * Plan the replication:
 
