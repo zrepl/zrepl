@@ -3,11 +3,11 @@ Overview & Terminology
 ======================
 
 All work zrepl does is performed by the zrepl daemon which is configured in a single YAML configuration file loaded on startup.
-The following paths are considered:
+The following paths are searched, in this order:
 
-* If set, the location specified via the global ``--config`` flag
-* ``/etc/zrepl/zrepl.yml``
-* ``/usr/local/etc/zrepl/zrepl.yml``
+1. If set, the location specified via the global ``--config`` flag
+2. ``/etc/zrepl/zrepl.yml``
+3. ``/usr/local/etc/zrepl/zrepl.yml``
 
 The ``zrepl configcheck`` subcommand can be used to validate the configuration.
 The command will output nothing and exit with zero status code if the configuration is valid.
