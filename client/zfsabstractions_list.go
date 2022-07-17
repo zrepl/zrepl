@@ -44,10 +44,11 @@ func doZabsList(ctx context.Context, sc *cli.Subcommand, args []string) error {
 		return errors.Wrap(err, "invalid filter specification on command line")
 	}
 
-	abstractions, errors, err := endpoint.ListAbstractionsStreamed(ctx, q)
+	abstractions, errors, drainDone, err := endpoint.ListAbstractionsStreamed(ctx, q)
 	if err != nil {
 		return err // context clear by invocation of command
 	}
+	defer drainDone()
 
 	var line chainlock.L
 	var wg sync.WaitGroup
