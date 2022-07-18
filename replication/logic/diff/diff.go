@@ -88,7 +88,26 @@ func SortVersionListByCreateTXGThenBookmarkLTSnapshot(fsvslice []*FilesystemVers
 	return sorted
 }
 
+func StripBookmarksFromVersionList(fsvslice []*FilesystemVersion) []*FilesystemVersion {
+	fslice := make([]*FilesystemVersion, 0, len(fsvslice))
+	for _, fv := range fsvslice {
+		if fv.Type != FilesystemVersion_Bookmark {
+			fslice = append(fslice, fv)
+		}
+	}
+	return fslice
+}
+
 func IncrementalPath(receiver, sender []*FilesystemVersion) (incPath []*FilesystemVersion, conflict error) {
+
+	// Receive-side bookmarks can't be used as incremental-from,
+	// and don't cause recv to fail if there is a newer bookmark than incremetal-form on the receiver.
+	// So, simply mask them out.
+	// This will also hide them in the report, but it keeps the code in this function simple,
+	// and a user who complains about them missing in a conflict message will likely require
+	// more education about bookmarks than a slightly more accurate error message. They'll get
+	// that when they open an issue.
+	receiver = StripBookmarksFromVersionList(receiver)
 
 	receiver = SortVersionListByCreateTXGThenBookmarkLTSnapshot(receiver)
 	sender = SortVersionListByCreateTXGThenBookmarkLTSnapshot(sender)

@@ -152,4 +152,18 @@ func TestIncrementalPath_BookmarkSupport(t *testing.T) {
 		assert.Equal(t, l("@a,1", "@b,2"), path)
 	})
 
+	// test that receive-side bookmarks younger than the most recent common ancestor do not cause a conflict
+	doTest(l("@a,1", "#b,2"), l("@a,1", "@c,3"), func(path []*FilesystemVersion, conflict error) {
+		assert.NoError(t, conflict)
+		require.Len(t, path, 2)
+		assert.Equal(t, l("@a,1")[0], path[0])
+		assert.Equal(t, l("@c,3")[0], path[1])
+	})
+	doTest(l("#a,1"), l("@a,1", "@b,2"), func(path []*FilesystemVersion, conflict error) {
+		assert.Nil(t, path)
+		ca, ok := conflict.(*ConflictNoCommonAncestor)
+		require.True(t, ok)
+		assert.Equal(t, l(), ca.SortedReceiverVersions, "See comment in IncrementalPath() on why we don't include the boomkmark here")
+	})
+
 }

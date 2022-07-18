@@ -29,6 +29,8 @@ Developers should consult the git commit log or GitHub issue tracker.
     The Grafana dashboard in :repomasterlink:`dist/grafana` has been updated.
 
 * |bugfix| transient zrepl status error: ``Post "http://unix/status": EOF``
+* |bugfix| don't treat receive-side bookmarks as a replication conflict.
+  This facilitates chaining of replication jobs. See :issue:`490`.
 
 0.5
 ---
