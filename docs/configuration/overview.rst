@@ -27,7 +27,7 @@ Config File Structure
      type: push
    - ...
 
-zrepl is configuration file composes of two main sections: ``global`` and ``jobs``.
+A zrepl configuration file is divided in to two main sections: ``global`` and ``jobs``.
 ``global`` has sensible defaults. It is covered in :ref:`logging <logging>`, :ref:`monitoring <monitoring>` \& :ref:`miscellaneous <miscellaneous>`.
 
 .. _job-overview:
@@ -87,12 +87,12 @@ How the Passive Side Works
 1. The passive side (:ref:`sink <job-sink>` and :ref:`source <job-source>`) waits for connections from the active side,
 on the :ref:`transport <transport>` specified with ``serve`` in the job configuration.
 2. Passive side transport performs listener-specific authentication (determining *client identity*) and authorization (IP ACLs, jobs configs, and more).
-3. The passive side *job* uses this *client identity*:
-   * With the shared ``sink`` job, mapping requests from different *client identities* to their respective sub-filesystem tree ``root_fs/${client_identity}``.
+3. The passive side job uses this *client identity*:
+   * With ``sink`` jobs, mapping requests from different *client identities* to their respective sub-filesystem tree ``root_fs/${client_identity}``.
    * *In the future, ``source`` might embed the client identity in :ref:`zrepl's ZFS abstraction names <zrepl-zfs-abstractions>`, to support multi-host replication.*
 
 .. TIP::
-   The ``sink`` job implementation requires the connecting client identities be of valid ZFS filesystem name components.
+   The ``sink`` job implementation requires the connecting client identities to be of valid ZFS filesystem name components.
 
 .. _overview-how-replication-works:
 
