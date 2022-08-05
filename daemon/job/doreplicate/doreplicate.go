@@ -1,4 +1,4 @@
-package reset
+package doreplicate
 
 import (
 	"context"
@@ -7,10 +7,10 @@ import (
 
 type contextKey int
 
-const contextKeyReset contextKey = iota
+const contextKeyReplicate contextKey = iota
 
 func Wait(ctx context.Context) <-chan struct{} {
-	wc, ok := ctx.Value(contextKeyReset).(chan struct{})
+	wc, ok := ctx.Value(contextKeyReplicate).(chan struct{})
 	if !ok {
 		wc = make(chan struct{})
 	}
@@ -19,7 +19,7 @@ func Wait(ctx context.Context) <-chan struct{} {
 
 type Func func() error
 
-var AlreadyReset = errors.New("Cannot reset")
+var AlreadyReplicate = errors.New("Cannot start replication")
 
 func Context(ctx context.Context) (context.Context, Func) {
 	wc := make(chan struct{})
@@ -28,8 +28,8 @@ func Context(ctx context.Context) (context.Context, Func) {
 		case wc <- struct{}{}:
 			return nil
 		default:
-			return AlreadyReset
+			return AlreadyReplicate
 		}
 	}
-	return context.WithValue(ctx, contextKeyReset, wc), wuf
+	return context.WithValue(ctx, contextKeyReplicate, wc), wuf
 }

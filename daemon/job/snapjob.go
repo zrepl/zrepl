@@ -15,7 +15,7 @@ import (
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
-	"github.com/zrepl/zrepl/daemon/job/wakeup"
+	"github.com/zrepl/zrepl/daemon/job/doprune"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
 	"github.com/zrepl/zrepl/endpoint"
@@ -119,7 +119,7 @@ outer:
 			log.WithError(ctx.Err()).Info("context")
 			break outer
 
-		case <-wakeup.Wait(ctx):
+		case <-doprune.Wait(ctx):
 		case <-periodicDone:
 		}
 		invocationCount++

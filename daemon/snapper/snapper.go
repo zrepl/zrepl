@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/zrepl/zrepl/daemon/job/dosnapshot"
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
@@ -60,6 +61,8 @@ type Snapper struct {
 
 	mtx   sync.Mutex
 	state State
+
+	signal_dosnapshot bool
 
 	// set in state Plan, used in Waiting
 	lastInvocation time.Time
@@ -209,6 +212,12 @@ func syncUp(a args, u updater) state {
 	case <-t.C:
 		return u(func(s *Snapper) {
 			s.state = Planning
+			s.signal_dosnapshot = false
+		}).sf()
+	case <-dosnapshot.Wait(a.ctx):
+		return u(func(s *Snapper) {
+			s.state = Planning
+			s.signal_dosnapshot = true
 		}).sf()
 	case <-a.ctx.Done():
 		return onMainCtxDone(a.ctx, u)
@@ -324,11 +333,19 @@ func snapshot(a args, u updater) state {
 		})
 	}
 
-	select {
-	case a.snapshotsTaken <- struct{}{}:
-	default:
-		if a.snapshotsTaken != nil {
-			getLogger(a.ctx).Warn("callback channel is full, discarding snapshot update event")
+	var signal_dosnapshot bool
+	u(func(snapper *Snapper) {
+		signal_dosnapshot = snapper.signal_dosnapshot
+	})
+
+	if !signal_dosnapshot {
+		select {
+		// this will start Replication & Pruning
+		case a.snapshotsTaken <- struct{}{}:
+		default:
+			if a.snapshotsTaken != nil {
+				getLogger(a.ctx).Warn("callback channel is full, discarding snapshot update event")
+			}
 		}
 	}
 
@@ -377,6 +394,12 @@ func wait(a args, u updater) state {
 	case <-t.C:
 		return u(func(snapper *Snapper) {
 			snapper.state = Planning
+			snapper.signal_dosnapshot = false
+		}).sf()
+	case <-dosnapshot.Wait(a.ctx):
+		return u(func(s *Snapper) {
+			s.state = Planning
+			s.signal_dosnapshot = true
 		}).sf()
 	case <-a.ctx.Done():
 		return onMainCtxDone(a.ctx, u)

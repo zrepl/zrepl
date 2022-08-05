@@ -145,8 +145,12 @@ func (j *controlJob) Run(ctx context.Context) {
 
 			var err error
 			switch req.Op {
-			case "wakeup":
-				err = j.jobs.wakeup(req.Name)
+			case "replicate":
+				err = j.jobs.doreplicate(req.Name)
+			case "snapshot":
+				err = j.jobs.dosnapshot(req.Name)
+			case "prune":
+				err = j.jobs.doprune(req.Name)
 			case "reset":
 				err = j.jobs.reset(req.Name)
 			default:
