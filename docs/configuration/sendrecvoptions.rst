@@ -227,7 +227,7 @@ and property replication is enabled, the receiver must :ref:`inherit the followi
 .. _job-recv-options--placeholder:
 
 Placeholders
-------------
+~~~~~~~~~~~~
 
 ::
 
