@@ -129,7 +129,7 @@ func interactive(c Client, flag statusFlags) error {
 		FSFilter:                func(_ string) bool { return true },
 		DetailViewWidth:         100,
 		DetailViewWrap:          false,
-		ShortKeybindingOverview: "[::b]Q[::-] quit  [::b]<TAB>[::-] switch panes  [::b]Shift+M[::-] toggle navbar  [::b]Shift+S[::-] signal job [::b]</>[::-] filter filesystems",
+		ShortKeybindingOverview: "[::b]Q[::-] quit  [::b]<TAB>[::-] switch panes [::b]W[::-] wrap lines  [::b]Shift+M[::-] toggle navbar  [::b]Shift+S[::-] signal job [::b]</>[::-] filter filesystems",
 	}
 	paramsMtx := &sync.Mutex{}
 	var redraw func()
