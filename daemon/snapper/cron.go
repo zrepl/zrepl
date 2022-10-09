@@ -10,6 +10,7 @@ import (
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/hooks"
+	"github.com/zrepl/zrepl/util/suspendresumesafetimer"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -42,67 +43,45 @@ type Cron struct {
 
 func (s *Cron) Run(ctx context.Context, snapshotsTaken chan<- struct{}) {
 
-	t := time.NewTimer(0)
-	defer func() {
-		if !t.Stop() {
-			select {
-			case <-t.C:
-			default:
-			}
-		}
-	}()
 	for {
 		now := time.Now()
 		s.mtx.Lock()
 		s.wakeupTime = s.config.Cron.Schedule.Next(now)
 		s.mtx.Unlock()
 
-		// Re-arm the timer.
-		// Need to Stop before Reset, see docs.
-		if !t.Stop() {
-			// Use non-blocking read from timer channel
-			// because, except for the first loop iteration,
-			// the channel is already drained
-			select {
-			case <-t.C:
-			default:
-			}
-		}
-		t.Reset(s.wakeupTime.Sub(now))
-
-		select {
-		case <-ctx.Done():
+		ctxDone := suspendresumesafetimer.SleepUntil(ctx, s.wakeupTime)
+		if ctxDone != nil {
 			return
-		case <-t.C:
-			getLogger(ctx).Debug("cron timer fired")
-			s.mtx.Lock()
-			if s.running {
-				getLogger(ctx).Warn("snapshotting triggered according to cron rules but previous snapshotting is not done; not taking a snapshot this time")
-				s.wakeupWhileRunningCount++
-				s.mtx.Unlock()
-				continue
-			}
-			s.lastError = nil
-			s.lastPlan = nil
-			s.wakeupWhileRunningCount = 0
-			s.running = true
-			s.mtx.Unlock()
-			go func() {
-				err := s.do(ctx)
-				s.mtx.Lock()
-				s.lastError = err
-				s.running = false
-				s.mtx.Unlock()
-
-				select {
-				case snapshotsTaken <- struct{}{}:
-				default:
-					if snapshotsTaken != nil {
-						getLogger(ctx).Warn("callback channel is full, discarding snapshot update event")
-					}
-				}
-			}()
 		}
+
+		getLogger(ctx).Debug("cron timer fired")
+		s.mtx.Lock()
+		if s.running {
+			getLogger(ctx).Warn("snapshotting triggered according to cron rules but previous snapshotting is not done; not taking a snapshot this time")
+			s.wakeupWhileRunningCount++
+			s.mtx.Unlock()
+			continue
+		}
+		s.lastError = nil
+		s.lastPlan = nil
+		s.wakeupWhileRunningCount = 0
+		s.running = true
+		s.mtx.Unlock()
+		go func() {
+			err := s.do(ctx)
+			s.mtx.Lock()
+			s.lastError = err
+			s.running = false
+			s.mtx.Unlock()
+
+			select {
+			case snapshotsTaken <- struct{}{}:
+			default:
+				if snapshotsTaken != nil {
+					getLogger(ctx).Warn("callback channel is full, discarding snapshot update event")
+				}
+			}
+		}()
 	}
 
 }

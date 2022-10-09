@@ -15,6 +15,7 @@ import (
 	"github.com/zrepl/zrepl/daemon/hooks"
 	"github.com/zrepl/zrepl/daemon/logging"
 	"github.com/zrepl/zrepl/util/envconst"
+	"github.com/zrepl/zrepl/util/suspendresumesafetimer"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -171,16 +172,13 @@ func periodicStateSyncUp(a periodicArgs, u updater) state {
 	u(func(s *Periodic) {
 		s.sleepUntil = syncPoint
 	})
-	t := time.NewTimer(time.Until(syncPoint))
-	defer t.Stop()
-	select {
-	case <-t.C:
-		return u(func(s *Periodic) {
-			s.state = Planning
-		}).sf()
-	case <-a.ctx.Done():
+	ctxDone := suspendresumesafetimer.SleepUntil(a.ctx, syncPoint)
+	if ctxDone != nil {
 		return onMainCtxDone(a.ctx, u)
 	}
+	return u(func(s *Periodic) {
+		s.state = Planning
+	}).sf()
 }
 
 func periodicStatePlan(a periodicArgs, u updater) state {
@@ -241,17 +239,13 @@ func periodicStateWait(a periodicArgs, u updater) state {
 		logFunc("enter wait-state after error")
 	})
 
-	t := time.NewTimer(time.Until(sleepUntil))
-	defer t.Stop()
-
-	select {
-	case <-t.C:
-		return u(func(snapper *Periodic) {
-			snapper.state = Planning
-		}).sf()
-	case <-a.ctx.Done():
+	ctxDone := suspendresumesafetimer.SleepUntil(a.ctx, sleepUntil)
+	if ctxDone != nil {
 		return onMainCtxDone(a.ctx, u)
 	}
+	return u(func(snapper *Periodic) {
+		snapper.state = Planning
+	}).sf()
 }
 
 func listFSes(ctx context.Context, mf zfs.DatasetFilter) (fss []*zfs.DatasetPath, err error) {
