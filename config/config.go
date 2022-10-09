@@ -6,8 +6,6 @@ import (
 	"log/syslog"
 	"os"
 	"reflect"
-	"regexp"
-	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -190,12 +188,9 @@ func (i *PositiveDurationOrManual) UnmarshalYAML(u func(interface{}, bool) error
 		return fmt.Errorf("value must not be empty")
 	default:
 		i.Manual = false
-		i.Interval, err = time.ParseDuration(s)
+		i.Interval, err = parsePositiveDuration(s)
 		if err != nil {
 			return err
-		}
-		if i.Interval <= 0 {
-			return fmt.Errorf("value must be a positive duration, got %q", s)
 		}
 	}
 	return nil
@@ -228,11 +223,11 @@ type SnapshottingEnum struct {
 }
 
 type SnapshottingPeriodic struct {
-	Type            string        `yaml:"type"`
-	Prefix          string        `yaml:"prefix"`
-	Interval        time.Duration `yaml:"interval,positive"`
-	Hooks           HookList      `yaml:"hooks,optional"`
-	TimestampFormat string        `yaml:"timestamp_format,optional,default=dense"`
+	Type            string            `yaml:"type"`
+	Prefix          string            `yaml:"prefix"`
+	Interval        *PositiveDuration `yaml:"interval"`
+	Hooks           HookList          `yaml:"hooks,optional"`
+	TimestampFormat string            `yaml:"timestamp_format,optional,default=dense"`
 }
 
 type CronSpec struct {
@@ -716,42 +711,4 @@ func ParseConfigBytes(bytes []byte) (*Config, error) {
 		return nil, fmt.Errorf("config is empty or only consists of comments")
 	}
 	return c, nil
-}
-
-var durationStringRegex *regexp.Regexp = regexp.MustCompile(`^\s*(\d+)\s*(s|m|h|d|w)\s*$`)
-
-func parsePositiveDuration(e string) (d time.Duration, err error) {
-	comps := durationStringRegex.FindStringSubmatch(e)
-	if len(comps) != 3 {
-		err = fmt.Errorf("does not match regex: %s %#v", e, comps)
-		return
-	}
-
-	durationFactor, err := strconv.ParseInt(comps[1], 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	if durationFactor <= 0 {
-		return 0, errors.New("duration must be positive integer")
-	}
-
-	var durationUnit time.Duration
-	switch comps[2] {
-	case "s":
-		durationUnit = time.Second
-	case "m":
-		durationUnit = time.Minute
-	case "h":
-		durationUnit = time.Hour
-	case "d":
-		durationUnit = 24 * time.Hour
-	case "w":
-		durationUnit = 24 * 7 * time.Hour
-	default:
-		err = fmt.Errorf("contains unknown time unit '%s'", comps[2])
-		return
-	}
-
-	d = time.Duration(durationFactor) * durationUnit
-	return
 }
