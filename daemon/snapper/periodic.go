@@ -22,7 +22,7 @@ func periodicFromConfig(g *config.Global, fsf zfs.DatasetFilter, in *config.Snap
 	if in.Prefix == "" {
 		return nil, errors.New("prefix must not be empty")
 	}
-	if in.Interval <= 0 {
+	if in.Interval.Duration() <= 0 {
 		return nil, errors.New("interval must be positive")
 	}
 
@@ -32,7 +32,7 @@ func periodicFromConfig(g *config.Global, fsf zfs.DatasetFilter, in *config.Snap
 	}
 
 	args := periodicArgs{
-		interval: in.Interval,
+		interval: in.Interval.Duration(),
 		fsf:      fsf,
 		planArgs: planArgs{
 			prefix: in.Prefix,

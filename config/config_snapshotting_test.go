@@ -38,6 +38,13 @@ jobs:
     interval: 10m
 `
 
+	periodicDaily := `
+  snapshotting:
+    type: periodic
+    prefix: zrepl_
+    interval: 1d
+`
+
 	hooks := `
   snapshotting:
     type: periodic
@@ -74,7 +81,15 @@ jobs:
 		c = testValidConfig(t, fillSnapshotting(periodic))
 		snp := c.Jobs[0].Ret.(*PushJob).Snapshotting.Ret.(*SnapshottingPeriodic)
 		assert.Equal(t, "periodic", snp.Type)
-		assert.Equal(t, 10*time.Minute, snp.Interval)
+		assert.Equal(t, 10*time.Minute, snp.Interval.Duration())
+		assert.Equal(t, "zrepl_", snp.Prefix)
+	})
+
+	t.Run("periodicDaily", func(t *testing.T) {
+		c = testValidConfig(t, fillSnapshotting(periodicDaily))
+		snp := c.Jobs[0].Ret.(*PushJob).Snapshotting.Ret.(*SnapshottingPeriodic)
+		assert.Equal(t, "periodic", snp.Type)
+		assert.Equal(t, 24*time.Hour, snp.Interval.Duration())
 		assert.Equal(t, "zrepl_", snp.Prefix)
 	})
 
