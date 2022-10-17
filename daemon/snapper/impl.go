@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,8 +15,9 @@ import (
 )
 
 type planArgs struct {
-	prefix string
-	hooks  *hooks.List
+	prefix          string
+	timestampFormat string
+	hooks           *hooks.List
 }
 
 type plan struct {
@@ -58,6 +60,21 @@ type snapProgress struct {
 	runResults hooks.PlanReport
 }
 
+func (plan *plan) formatNow(format string) string {
+	now := time.Now().UTC()
+	switch strings.ToLower(format) {
+	case "", "dense":
+		format = "20060102_150405_000"
+	case "human":
+		format = "2006-01-02_15:04:05"
+	case "iso-8601":
+		format = "2006-01-02T15:04:05.000Z"
+	case "unix-seconds":
+		return strconv.FormatInt(now.Unix(), 10)
+	}
+	return now.Format(format)
+}
+
 func (plan *plan) execute(ctx context.Context, dryRun bool) (ok bool) {
 
 	hookMatchCount := make(map[hooks.Hook]int, len(*plan.args.hooks))
@@ -68,7 +85,7 @@ func (plan *plan) execute(ctx context.Context, dryRun bool) (ok bool) {
 	anyFsHadErr := false
 	// TODO channel programs -> allow a little jitter?
 	for fs, progress := range plan.snaps {
-		suffix := time.Now().In(time.UTC).Format("20060102_150405_000")
+		suffix := plan.formatNow(plan.args.timestampFormat)
 		snapname := fmt.Sprintf("%s%s", plan.args.prefix, suffix)
 
 		ctx := logging.WithInjectedField(ctx, "fs", fs.ToString())
