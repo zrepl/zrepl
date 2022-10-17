@@ -35,7 +35,15 @@ jobs:
   snapshotting:
     type: periodic
     prefix: zrepl_
+    timestamp_format: dense
     interval: 10m
+`
+	cron := `
+  snapshotting:
+    type: cron
+    prefix: zrepl_
+    timestamp_format: human
+    cron: "10 * * * *"
 `
 
 	hooks := `
@@ -76,6 +84,15 @@ jobs:
 		assert.Equal(t, "periodic", snp.Type)
 		assert.Equal(t, 10*time.Minute, snp.Interval)
 		assert.Equal(t, "zrepl_", snp.Prefix)
+		assert.Equal(t, "dense", snp.TimestampFormat)
+	})
+
+	t.Run("cron", func(t *testing.T) {
+		c = testValidConfig(t, fillSnapshotting(cron))
+		snp := c.Jobs[0].Ret.(*PushJob).Snapshotting.Ret.(*SnapshottingCron)
+		assert.Equal(t, "cron", snp.Type)
+		assert.Equal(t, "zrepl_", snp.Prefix)
+		assert.Equal(t, "human", snp.TimestampFormat)
 	})
 
 	t.Run("hooks", func(t *testing.T) {
@@ -87,4 +104,58 @@ jobs:
 		assert.Equal(t, hs[3].Ret.(*HookMySQLLockTables).Filesystems["tank/mysql"], true)
 	})
 
+}
+
+func TestSnapshottingTimestampDefaults(t *testing.T) {
+	tmpl := `
+jobs:
+- name: foo
+  type: push
+  connect:
+    type: local
+    listener_name: foo
+    client_identity: bar
+  filesystems: {"<": true}
+  %s
+  pruning:
+    keep_sender:
+    - type: last_n
+      count: 10
+    keep_receiver:
+    - type: last_n
+      count: 10
+`
+
+	periodic := `
+  snapshotting:
+    type: periodic
+    prefix: zrepl_
+    interval: 10m
+`
+	cron := `
+  snapshotting:
+    type: cron
+    prefix: zrepl_
+    cron: "10 * * * *"
+`
+
+	fillSnapshotting := func(s string) string { return fmt.Sprintf(tmpl, s) }
+	var c *Config
+
+	t.Run("periodic", func(t *testing.T) {
+		c = testValidConfig(t, fillSnapshotting(periodic))
+		snp := c.Jobs[0].Ret.(*PushJob).Snapshotting.Ret.(*SnapshottingPeriodic)
+		assert.Equal(t, "periodic", snp.Type)
+		assert.Equal(t, 10*time.Minute, snp.Interval)
+		assert.Equal(t, "zrepl_", snp.Prefix)
+		assert.Equal(t, "dense", snp.TimestampFormat) // default was set correctly
+	})
+
+	t.Run("cron", func(t *testing.T) {
+		c = testValidConfig(t, fillSnapshotting(cron))
+		snp := c.Jobs[0].Ret.(*PushJob).Snapshotting.Ret.(*SnapshottingCron)
+		assert.Equal(t, "cron", snp.Type)
+		assert.Equal(t, "zrepl_", snp.Prefix)
+		assert.Equal(t, "dense", snp.TimestampFormat) // default was set correctly
+	})
 }

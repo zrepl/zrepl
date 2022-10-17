@@ -62,6 +62,9 @@ The ``periodic`` and ``cron`` snapshotting types share some common options and b
        type: periodic
        prefix: zrepl_
        interval: 10m
+       # Timestamp format that is used as snapshot suffix.
+       # Can be any of "dense" (default), "human", "iso-8601", "unix-seconds" or a custom Go time format (see https://go.dev/src/time/format.go)
+       timestamp_format: dense
        hooks: ...
     pruning: ...
 
@@ -91,12 +94,30 @@ The snapshotter uses the ``prefix`` to identify which snapshots it created.
        # (second, optional) minute hour day-of-month month day-of-week
        # This example takes snapshots daily at 3:00.
        cron: "0 3 * * *"
+       # Timestamp format that is used as snapshot suffix.
+       # Can be any of "dense" (default), "human", "iso-8601", "unix-seconds" or a custom Go time format (see https://go.dev/src/time/format.go)
+       timestamp_format: dense
      pruning: ...
 
 In ``cron`` mode, the snapshotter takes snaphots at fixed points in time.
 See https://en.wikipedia.org/wiki/Cron for details on the syntax.
 zrepl uses the ``the github.com/robfig/cron/v3`` Go package for parsing.
 An optional field for "seconds" is supported to take snapshots at sub-minute frequencies.
+
+.. _job-snapshotting-timestamp_format:
+
+Timestamp Format
+~~~~~~~~~~~~~~~~
+
+The ``cron`` and ``periodic`` snapshotter support configuring a custom timestamp format that is used as suffix for the snapshot name.
+It can be used by setting ``timestamp_format`` to any of the following values:
+
+* ``dense`` (default) looks like ``20060102_150405_000``
+* ``human`` looks like ``2006-01-02_15:04:05``
+* ``iso-8601`` looks like ``2006-01-02T15:04:05.000Z``
+* ``unix-seconds`` looks like ``1136214245``
+* Any custom Go time format accepted by `time.Time#Format <https://go.dev/src/time/format.go>`_.
+
 
 ``manual`` Snapshotting
 -----------------------

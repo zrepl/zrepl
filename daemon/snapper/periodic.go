@@ -35,8 +35,9 @@ func periodicFromConfig(g *config.Global, fsf zfs.DatasetFilter, in *config.Snap
 		interval: in.Interval,
 		fsf:      fsf,
 		planArgs: planArgs{
-			prefix: in.Prefix,
-			hooks:  hookList,
+			prefix:          in.Prefix,
+			timestampFormat: in.TimestampFormat,
+			hooks:           hookList,
 		},
 		// ctx and log is set in Run()
 	}
