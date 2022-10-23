@@ -63,7 +63,7 @@ type snapProgress struct {
 func (plan *plan) formatNow(format string) string {
 	now := time.Now().UTC()
 	switch strings.ToLower(format) {
-	case "", "dense":
+	case "dense":
 		format = "20060102_150405_000"
 	case "human":
 		format = "2006-01-02_15:04:05"

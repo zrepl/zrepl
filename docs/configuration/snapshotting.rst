@@ -64,7 +64,7 @@ The ``periodic`` and ``cron`` snapshotting types share some common options and b
        interval: 10m
        # Timestamp format that is used as snapshot suffix.
        # Can be any of "dense" (default), "human", "iso-8601", "unix-seconds" or a custom Go time format (see https://go.dev/src/time/format.go)
-       utc_timestamp_format: dense
+       timestamp_format: dense
        hooks: ...
     pruning: ...
 
@@ -96,7 +96,7 @@ The snapshotter uses the ``prefix`` to identify which snapshots it created.
        cron: "0 3 * * *"
        # Timestamp format that is used as snapshot suffix.
        # Can be any of "dense" (default), "human", "iso-8601", "unix-seconds" or a custom Go time format (see https://go.dev/src/time/format.go)
-       utc_timestamp_format: dense
+       timestamp_format: dense
      pruning: ...
 
 In ``cron`` mode, the snapshotter takes snaphots at fixed points in time.
@@ -106,11 +106,11 @@ An optional field for "seconds" is supported to take snapshots at sub-minute fre
 
 .. _job-snapshotting-timestamp_format:
 
-``utc_timestamp_format`` Timestamp Format
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Timestamp Format
+~~~~~~~~~~~~~~~~
 
 The ``cron`` and ``periodic`` snapshotter support configuring a custom timestamp format that is used as suffix for the snapshot name.
-It can be used by setting ``utc_timestamp_format`` to any of the following values:
+It can be used by setting ``timestamp_format`` to any of the following values:
 
 * ``dense`` (default) looks like ``20060102_150405_000``
 * ``human`` looks like ``2006-01-02_15:04:05``

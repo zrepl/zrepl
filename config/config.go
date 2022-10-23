@@ -228,11 +228,11 @@ type SnapshottingEnum struct {
 }
 
 type SnapshottingPeriodic struct {
-	Type               string        `yaml:"type"`
-	Prefix             string        `yaml:"prefix"`
-	Interval           time.Duration `yaml:"interval,positive"`
-	Hooks              HookList      `yaml:"hooks,optional"`
-	UtcTimestampFormat string        `yaml:"utc_timestamp_format,optional"`
+	Type            string        `yaml:"type"`
+	Prefix          string        `yaml:"prefix"`
+	Interval        time.Duration `yaml:"interval,positive"`
+	Hooks           HookList      `yaml:"hooks,optional"`
+	TimestampFormat string        `yaml:"timestamp_format,optional,default=dense"`
 }
 
 type CronSpec struct {
@@ -261,11 +261,11 @@ func (s *CronSpec) UnmarshalYAML(unmarshal func(v interface{}, not_strict bool) 
 }
 
 type SnapshottingCron struct {
-	Type               string   `yaml:"type"`
-	Prefix             string   `yaml:"prefix"`
-	Cron               CronSpec `yaml:"cron"`
-	Hooks              HookList `yaml:"hooks,optional"`
-	UtcTimestampFormat string   `yaml:"utc_timestamp_format,optional"`
+	Type            string   `yaml:"type"`
+	Prefix          string   `yaml:"prefix"`
+	Cron            CronSpec `yaml:"cron"`
+	Hooks           HookList `yaml:"hooks,optional"`
+	TimestampFormat string   `yaml:"timestamp_format,optional,default=dense"`
 }
 
 type SnapshottingManual struct {

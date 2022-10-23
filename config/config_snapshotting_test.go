@@ -35,7 +35,7 @@ jobs:
   snapshotting:
     type: periodic
     prefix: zrepl_
-    utc_timestamp_format: dense
+    timestamp_format: dense
     interval: 10m
 `
 
@@ -77,7 +77,7 @@ jobs:
 		assert.Equal(t, "periodic", snp.Type)
 		assert.Equal(t, 10*time.Minute, snp.Interval)
 		assert.Equal(t, "zrepl_", snp.Prefix)
-		assert.Equal(t, "dense", snp.UtcTimestampFormat)
+		assert.Equal(t, "dense", snp.TimestampFormat)
 	})
 
 	t.Run("hooks", func(t *testing.T) {

@@ -21,7 +21,7 @@ func cronFromConfig(fsf zfs.DatasetFilter, in config.SnapshottingCron) (*Cron, e
 	}
 	planArgs := planArgs{
 		prefix:          in.Prefix,
-		timestampFormat: in.UtcTimestampFormat,
+		timestampFormat: in.TimestampFormat,
 		hooks:           hooksList,
 	}
 	return &Cron{config: in, fsf: fsf, planArgs: planArgs}, nil
