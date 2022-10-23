@@ -44,7 +44,7 @@ func TestSampleConfigsAreParsedWithoutErrors(t *testing.T) {
 }
 
 // template must be a template/text template with a single '{{ . }}' as placeholder for val
-//nolint[:deadcode,unused]
+//nolint:deadcode,unused
 func testValidConfigTemplate(t *testing.T, tmpl string, val string) *Config {
 	tmp, err := template.New("master").Parse(tmpl)
 	if err != nil {

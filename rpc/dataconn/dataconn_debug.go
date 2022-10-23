@@ -14,7 +14,7 @@ func init() {
 	}
 }
 
-//nolint[:deadcode,unused]
+//nolint:deadcode,unused
 func debug(format string, args ...interface{}) {
 	if debugEnabled {
 		fmt.Fprintf(os.Stderr, "rpc/dataconn: %s\n", fmt.Sprintf(format, args...))
