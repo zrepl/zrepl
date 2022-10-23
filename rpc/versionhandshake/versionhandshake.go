@@ -33,8 +33,47 @@ var _ net.Error = &HandshakeError{}
 
 func (e HandshakeError) Error() string { return e.msg }
 
-// Like with net.OpErr (Go issue 6163), a client failing to handshake
-// should be a temporary Accept error toward the Listener .
+// When a net.Listener.Accept() returns an error, the server must
+// decide whether to retry calling Accept() or not.
+// On some platforms (e.g., Linux), Accept() can return errors
+// related to the specific protocol connection that was supposed
+// to be returned as asocket FD. Obviously, we want to ignore,
+// maybe log, those errors and retry Accept() immediately to
+// serve other connections.
+// But there are also conditions where we get Accept() errors because
+// the process has run out of file descriptors. In that case, retrying
+// won't help. We need to close some file descriptor to make progress.
+// Note that there could be lots of open file descriptors because we
+// have accepted, and not yet closed, lots of connections in the past.
+// And then, of course there can be errors where we just want
+// to return, e.g., if there's a programming error and we're getting
+// an EBADFD or whatever.
+//
+// So, the serve loops in net/http.Server.Serve() or gRPC's server.Serve()
+// must inspect the error and decide what to do.
+// The vehicle for this is the
+//
+//	interface { Temporary() bool }
+//
+// Behavior in both of the aforementioned Serve() loops:
+//
+//   - if the error doesn't implement the interface, stop serving and return
+//   - `Temporary() == true`: retry with back-off
+//   - `Temporary() == false`: stop serving and return
+//
+// So, to make this package's HandshakeListener work with these
+// Serve() loops, we return Temporary() == true if the handshake fails.
+// In the aforementioned categories, that's the case of a per-connection
+// protocol error.
+//
+// Note: the net.Error interface has deprecated the Temporary() method
+// in go.dev/issue/45729, but there is no replacement for users of .Accept().
+// Existing users of .Accept() continue to check for the interface.
+// So, we need to continue supporting Temporary() until there's a different
+// mechanism for serve loops to decide whether to retry or not.
+// The following mailing list post proposes to eliminate the retries
+// completely, but it seems like the effort has stalled.
+// https://groups.google.com/g/golang-nuts/c/-JcZzOkyqYI/m/xwaZzjCgAwAJ
 func (e HandshakeError) Temporary() bool {
 	if e.isAcceptError {
 		return true

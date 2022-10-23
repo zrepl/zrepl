@@ -232,7 +232,12 @@ var _ net.Error = (*closeStateErrConnectionClosed)(nil)
 func (e *closeStateErrConnectionClosed) Error() string {
 	return "connection closed"
 }
-func (e *closeStateErrConnectionClosed) Timeout() bool   { return false }
+
+func (e *closeStateErrConnectionClosed) Timeout() bool { return false }
+
+// This function is deprecated in net.Error and since this
+// function is not involved in .Accept() code path, nothing
+// really needs this method to be here.
 func (e *closeStateErrConnectionClosed) Temporary() bool { return false }
 
 func (s *closeState) CloseEntry() error {

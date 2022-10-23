@@ -181,23 +181,19 @@ func (e *ReadStreamError) Error() string {
 
 var _ net.Error = &ReadStreamError{}
 
-func (e ReadStreamError) netErr() net.Error {
-	if netErr, ok := e.Err.(net.Error); ok {
-		return netErr
-	}
-	return nil
-}
-
 func (e ReadStreamError) Timeout() bool {
-	if netErr := e.netErr(); netErr != nil {
+	if netErr, ok := e.Err.(net.Error); ok {
 		return netErr.Timeout()
 	}
 	return false
 }
 
+// This function is deprecated in net.Error and since this
+// function is not involved in .Accept() code path, nothing
+// really needs this method to be here.
 func (e ReadStreamError) Temporary() bool {
-	if netErr := e.netErr(); netErr != nil {
-		return netErr.Temporary()
+	if te, ok := e.Err.(interface{ Temporary() bool }); ok {
+		return te.Temporary()
 	}
 	return false
 }

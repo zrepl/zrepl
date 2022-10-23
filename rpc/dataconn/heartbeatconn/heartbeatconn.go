@@ -24,6 +24,9 @@ func (e HeartbeatTimeout) Error() string {
 	return "heartbeat timeout"
 }
 
+// This function is deprecated in net.Error and since this
+// function is not involved in .Accept() code path, nothing
+// really needs this method to be here.
 func (e HeartbeatTimeout) Temporary() bool { return true }
 
 func (e HeartbeatTimeout) Timeout() bool { return true }

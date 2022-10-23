@@ -1,25 +1,5 @@
 // Package netadaptor implements an adaptor from
 // transport.AuthenticatedListener to net.Listener.
-//
-// In contrast to transport.AuthenticatedListener,
-// net.Listener is commonly expected (e.g. by net/http.Server.Serve),
-// to return errors that fulfill the Temporary interface:
-//   interface Temporary { Temporary() bool }
-// Common behavior of packages consuming net.Listener is to return
-// from the serve-loop if an error returned by Accept is not Temporary,
-// i.e., does not implement the interface or is !net.Error.Temporary().
-//
-// The zrepl transport infrastructure was written with the
-// idea that Accept() may return any kind of error, and the consumer
-// would just log the error and continue calling Accept().
-// We have to adapt these listeners' behavior to the expectations
-// of net/http.Server.
-//
-// Hence, Listener does not return an error at all but blocks the
-// caller of Accept() until we get a (successfully authenticated)
-// connection without errors from the transport.
-// Accept errors returned from the transport are logged as errors
-// to the logger passed on initialization.
 package netadaptor
 
 import (

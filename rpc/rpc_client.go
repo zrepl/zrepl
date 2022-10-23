@@ -188,8 +188,8 @@ func (c *Client) WaitForConnectivity(ctx context.Context) error {
 			data, dataErr := c.dataClient.ReqPing(ctx, &req)
 			// dataClient uses transport.Connecter, which doesn't expose WaitForReady(true)
 			// => we need to mask dial timeouts
-			if err, ok := dataErr.(interface{ Temporary() bool }); ok && err.Temporary() {
-				// Rate-limit pings here in case Temporary() is a mis-classification
+			if err, ok := dataErr.(interface{ Timeout() bool }); ok && err.Timeout() {
+				// Rate-limit pings here in case Timeout() == true is a mis-classification
 				// or returns immediately (this is a tight loop in that case)
 				// TODO keep this in lockstep with controlClient
 				// 		=> don't use FailFast for control, but check that both control and data worked
