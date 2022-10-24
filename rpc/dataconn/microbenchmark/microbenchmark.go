@@ -2,15 +2,13 @@
 //
 // With stdin / stdout on client and server, simulating zfs send|recv piping
 //
-//   ./microbenchmark -appmode server  | pv -r > /dev/null
-//   ./microbenchmark -appmode client -direction recv < /dev/zero
-//
+//	./microbenchmark -appmode server  | pv -r > /dev/null
+//	./microbenchmark -appmode client -direction recv < /dev/zero
 //
 // Without the overhead of pipes (just protocol performance, mostly useful with perf bc no bw measurement)
 //
-//   ./microbenchmark -appmode client -direction recv -devnoopWriter -devnoopReader
-//   ./microbenchmark -appmode server -devnoopReader -devnoopWriter
-//
+//	./microbenchmark -appmode client -direction recv -devnoopWriter -devnoopReader
+//	./microbenchmark -appmode server -devnoopReader -devnoopWriter
 package main
 
 import (

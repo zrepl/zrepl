@@ -53,7 +53,6 @@ var componentValidChar = regexp.MustCompile(`^[0-9a-zA-Z-_\.: ]+$`)
 // characters:
 //
 //	[-_.: ]
-//
 func ComponentNamecheck(datasetPathComponent string) error {
 	if len(datasetPathComponent) == 0 {
 		return fmt.Errorf("path component must not be empty")
@@ -91,8 +90,8 @@ func (e *PathValidationError) Error() string {
 
 // combines
 //
-//    lib/libzfs/libzfs_dataset.c: zfs_validate_name
-//    module/zcommon/zfs_namecheck.c: entity_namecheck
+//	lib/libzfs/libzfs_dataset.c: zfs_validate_name
+//	module/zcommon/zfs_namecheck.c: entity_namecheck
 //
 // The '%' character is not allowed because it's reserved for zfs-internal use
 func EntityNamecheck(path string, t EntityType) (err *PathValidationError) {

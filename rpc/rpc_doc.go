@@ -3,7 +3,7 @@
 // The zrepl documentation refers to the client as the
 // `active side` and to the server as the `passive side`.
 //
-// Design Considerations
+// # Design Considerations
 //
 // zrepl has non-standard requirements to remote procedure calls (RPC):
 // whereas the coordination of replication (the planning phase) mostly
@@ -35,7 +35,7 @@
 //
 // Hence, this package attempts to combine the best of both worlds:
 //
-// GRPC for Coordination and Dataconn for Bulk Data Transfer
+// # GRPC for Coordination and Dataconn for Bulk Data Transfer
 //
 // This package's Client uses its transport.Connecter to maintain
 // separate control and data connections to the Server.
@@ -47,68 +47,66 @@
 // The following ASCII diagram gives an overview of how the individual
 // building blocks are glued together:
 //
-//                    +------------+
-//                    | rpc.Client |
-//                    +------------+
-//                      |         |
-//             +--------+         +------------+
-//             |                               |
-//   +---------v-----------+          +--------v------+
-//   |pdu.ReplicationClient|          |dataconn.Client|
-//   +---------------------+          +--------v------+
-//             | label:            label:      |
-//             | zrepl_control      zrepl_data |
-//             +--------+         +------------+
-//                      |         |
-//                   +--v---------v---+
-//                   |  transportmux  |
-//                   +-------+--------+
-//                           | uses
-//                   +-------v--------+
-//                   |versionhandshake|
-//                   +-------+--------+
-//                           | uses
-//                    +------v------+
-//                    |  transport  |
-//                    +------+------+
-//                           |
-//                        NETWORK
-//                           |
-//                    +------+------+
-//                    |  transport  |
-//                    +------^------+
-//                           | uses
-//                   +-------+--------+
-//                   |versionhandshake|
-//                   +-------^--------+
-//                           | uses
-//                   +-------+--------+
-//                   |  transportmux  |
-//                   +--^--------^----+
-//                      |        |
-//             +--------+        --------------+       ---
-//             |                               |        |
-//             | label:            label:      |        |
-//             | zrepl_control      zrepl_data |        |
-//       +-----+----+              +-----------+---+    |
-//       |netadaptor|              |dataconn.Server|    | rpc.Server
-//       |     +    |              +------+--------+    |
-//       |grpcclient|                     |             |
-//       |identity  |                     |             |
-//       +-----+----+                     |             |
-//             |                          |             |
-//   +---------v-----------+              |             |
-//   |pdu.ReplicationServer|              |             |
-//   +---------+-----------+              |             |
-//             |                          |            ---
-//             +----------+  +------------+
-//                        |  |
-//                    +---v--v-----+
-//                    |  Handler   |
-//                    +------------+
-//           (usually endpoint.{Sender,Receiver})
-//
-//
+//	                 +------------+
+//	                 | rpc.Client |
+//	                 +------------+
+//	                   |         |
+//	          +--------+         +------------+
+//	          |                               |
+//	+---------v-----------+          +--------v------+
+//	|pdu.ReplicationClient|          |dataconn.Client|
+//	+---------------------+          +--------v------+
+//	          | label:            label:      |
+//	          | zrepl_control      zrepl_data |
+//	          +--------+         +------------+
+//	                   |         |
+//	                +--v---------v---+
+//	                |  transportmux  |
+//	                +-------+--------+
+//	                        | uses
+//	                +-------v--------+
+//	                |versionhandshake|
+//	                +-------+--------+
+//	                        | uses
+//	                 +------v------+
+//	                 |  transport  |
+//	                 +------+------+
+//	                        |
+//	                     NETWORK
+//	                        |
+//	                 +------+------+
+//	                 |  transport  |
+//	                 +------^------+
+//	                        | uses
+//	                +-------+--------+
+//	                |versionhandshake|
+//	                +-------^--------+
+//	                        | uses
+//	                +-------+--------+
+//	                |  transportmux  |
+//	                +--^--------^----+
+//	                   |        |
+//	          +--------+        --------------+       ---
+//	          |                               |        |
+//	          | label:            label:      |        |
+//	          | zrepl_control      zrepl_data |        |
+//	    +-----+----+              +-----------+---+    |
+//	    |netadaptor|              |dataconn.Server|    | rpc.Server
+//	    |     +    |              +------+--------+    |
+//	    |grpcclient|                     |             |
+//	    |identity  |                     |             |
+//	    +-----+----+                     |             |
+//	          |                          |             |
+//	+---------v-----------+              |             |
+//	|pdu.ReplicationServer|              |             |
+//	+---------+-----------+              |             |
+//	          |                          |            ---
+//	          +----------+  +------------+
+//	                     |  |
+//	                 +---v--v-----+
+//	                 |  Handler   |
+//	                 +------------+
+//	        (usually endpoint.{Sender,Receiver})
 package rpc
 
 // edit trick for the ASCII art above:

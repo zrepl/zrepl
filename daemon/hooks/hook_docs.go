@@ -5,7 +5,7 @@
 //
 // This package also provides all supported hook type implementations and abstractions around them.
 //
-// Use For Other Kinds Of ExpectStepReports
+// # Use For Other Kinds Of ExpectStepReports
 //
 // This package REQUIRES REFACTORING before it can be used for other activities than snapshots, e.g. pre- and post-replication:
 //
@@ -15,7 +15,7 @@
 // The hook implementations should move out of this package.
 // However, there is a lot of tight coupling which to untangle isn't worth it ATM.
 //
-// How This Package Is Used By Package Snapper
+// # How This Package Is Used By Package Snapper
 //
 // Deserialize a config.List using ListFromConfig().
 // Then it MUST filter the list to only contain hooks for a particular filesystem using
@@ -30,5 +30,4 @@
 // Command hooks make it available in the environment variable ZREPL_DRYRUN.
 //
 // Plan.Report() can be called while Plan.Run() is executing to give an overview of plan execution progress (future use in "zrepl status").
-//
 package hooks

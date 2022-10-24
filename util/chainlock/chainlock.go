@@ -3,13 +3,12 @@
 //
 // Intended Usage
 //
-//   defer s.lock().unlock()
-//   // drop lock while waiting for wait group
-//   func() {
-//	     defer a.l.Unlock().Lock()
-//	     fssesDone.Wait()
-//	 }()
-//
+//	  defer s.lock().unlock()
+//	  // drop lock while waiting for wait group
+//	  func() {
+//		     defer a.l.Unlock().Lock()
+//		     fssesDone.Wait()
+//		 }()
 package chainlock
 
 import "sync"

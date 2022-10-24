@@ -11,8 +11,6 @@ import (
 // use like this:
 //
 //	defer WithSpanFromStackUpdateCtx(&existingCtx)()
-//
-//
 func WithSpanFromStackUpdateCtx(ctx *context.Context) DoneFunc {
 	childSpanCtx, end := WithSpan(*ctx, getMyCallerOrPanic())
 	*ctx = childSpanCtx

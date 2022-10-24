@@ -1022,8 +1022,10 @@ func (s *DrySendInfo) unmarshalZFSOutput(output []byte) (err error) {
 }
 
 // unmarshal info line, looks like this:
-//   full	zroot/test/a@1	5389768
-//   incremental	zroot/test/a@1	zroot/test/a@2	5383936
+//
+//	full	zroot/test/a@1	5389768
+//	incremental	zroot/test/a@1	zroot/test/a@2	5383936
+//
 // => see test cases
 func (s *DrySendInfo) unmarshalInfoLine(l string) (regexMatched bool, err error) {
 
@@ -1855,7 +1857,6 @@ var ErrBookmarkCloningNotSupported = fmt.Errorf("bookmark cloning feature is not
 // unless a bookmark with the name `bookmark` exists and has the same idenitty (zfs.FilesystemVersionEqualIdentity)
 //
 // v must be validated by the caller
-//
 func ZFSBookmark(ctx context.Context, fs string, v FilesystemVersion, bookmark string) (bm FilesystemVersion, err error) {
 
 	bm = FilesystemVersion{

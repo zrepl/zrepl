@@ -17,19 +17,22 @@ import (
 	"github.com/zrepl/zrepl/zfs"
 )
 
+// Hook to implement the following recommmendation from MySQL docs
 // https://dev.mysql.com/doc/mysql-backup-excerpt/5.7/en/backup-methods.html
 //
-// Making Backups Using a File System Snapshot:
+//	Making Backups Using a File System Snapshot:
 //
-//  If you are using a Veritas file system, you can make a backup like this:
+//	If you are using a Veritas file system, you can make a backup like this:
 //
-//    	From a client program, execute FLUSH TABLES WITH READ LOCK.
-//    	From another shell, execute mount vxfs snapshot.
-//    	From the first client, execute UNLOCK TABLES.
-//    	Copy files from the snapshot.
-//    	Unmount the snapshot.
+//	   	From a client program, execute FLUSH TABLES WITH READ LOCK.
+//	   	From another shell, execute mount vxfs snapshot.
+//	   	From the first client, execute UNLOCK TABLES.
+//	   	Copy files from the snapshot.
+//	   	Unmount the snapshot.
 //
-//	Similar snapshot capabilities may be available in other file systems, such as LVM or ZFS.
+//		Similar snapshot capabilities may be available in other file systems, such as LVM or ZFS.
+//
+
 type MySQLLockTables struct {
 	errIsFatal  bool
 	connector   sqldriver.Connector

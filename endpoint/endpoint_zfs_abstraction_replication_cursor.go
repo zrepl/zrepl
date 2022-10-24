@@ -23,7 +23,7 @@ func replicationCursorBookmarkNameImpl(fs string, guid uint64, jobid string) (st
 
 var ErrV1ReplicationCursor = fmt.Errorf("bookmark name is a v1-replication cursor")
 
-//err != nil always means that the bookmark is not a valid replication bookmark
+// err != nil always means that the bookmark is not a valid replication bookmark
 //
 // Returns ErrV1ReplicationCursor as error if the bookmark is a v1 replication cursor
 func ParseReplicationCursorBookmarkName(fullname string) (uint64, JobID, error) {

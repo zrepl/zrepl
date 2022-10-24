@@ -138,7 +138,7 @@ outer:
 // TODO:
 // This is a work-around for the current package daemon/pruner
 // and package pruning.Snapshot limitation: they require the
-//  `Replicated` getter method be present, but obviously,
+// `Replicated` getter method be present, but obviously,
 // a local job like SnapJob can't deliver on that.
 // But the pruner.Pruner gives up on an FS if no replication
 // cursor is present, which is why this pruner returns the

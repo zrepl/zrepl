@@ -439,7 +439,7 @@ type FSMap interface { // FIXME unused
 }
 
 // NOTE: when adding members to this struct, remember
-//       to add them to `ReceiverConfig.copyIn()`
+// to add them to `ReceiverConfig.copyIn()`
 type ReceiverConfig struct {
 	JobID JobID
 

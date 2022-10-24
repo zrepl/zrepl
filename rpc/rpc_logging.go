@@ -9,7 +9,7 @@ import (
 
 type Logger = logger.Logger
 
-/// All fields must be non-nil
+// All fields must be non-nil
 type Loggers struct {
 	General Logger
 	Control Logger
