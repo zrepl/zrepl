@@ -168,7 +168,7 @@ func (s AbstractionTypeSet) String() string {
 	for i := range s {
 		sts = append(sts, string(i))
 	}
-	sts = sort.StringSlice(sts)
+	sort.Strings(sts)
 	return strings.Join(sts, ",")
 }
 

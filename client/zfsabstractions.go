@@ -57,7 +57,7 @@ func (f *zabsFilterFlags) registerZabsFilterFlags(s *pflag.FlagSet, verb string)
 	for v := range endpoint.AbstractionTypesAll {
 		variants = append(variants, string(v))
 	}
-	variants = sort.StringSlice(variants)
+	sort.Strings(variants)
 	variantsJoined := strings.Join(variants, "|")
 	s.Var(&f.Types, "type", fmt.Sprintf("only %s holds of the specified type [default: all] [comma-separated list of %s]", verb, variantsJoined))
 
