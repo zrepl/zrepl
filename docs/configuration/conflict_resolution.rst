@@ -15,7 +15,7 @@ Conflict Resolution Options
 
      ...
 
-.. _conflict_resolution-initial_replication-option-send_all_snapshots:
+.. _conflict_resolution-initial_replication:
 
 
 ``initial_replication`` option

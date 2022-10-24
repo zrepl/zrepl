@@ -16,14 +16,18 @@ Changelog
 The changelog summarizes bugfixes that are deemed relevant for users and package maintainers.
 Developers should consult the git commit log or GitHub issue tracker.
 
-0.6 (Unreleased)
-----------------
-
-* `Feature Wishlist on GitHub <https://github.com/zrepl/zrepl/discussions/547>`_
+0.6
+---
 
 * |feature| :ref:`Schedule-based snapshotting<job-snapshotting--cron>` using ``cron`` syntax instead of an interval.
-* |feature| Configurable timestamp format for snapshot names via :ref:`timestamp_format<job-snapshotting-timestamp_format>`.
-* |feature| Add ``ZREPL_DESTROY_MAX_BATCH_SIZE`` env var (default 0=unlimited).
+* |feature| Configurable initial replication policy.
+  When a filesystem is first replicated to a receiver, this control whether just the newest
+  snapshot will be replicated vs. all existing snapshots. Learn more :ref:`in the docs <conflict_resolution-initial_replication>`.
+* |feature| Configurable timestamp format for snapshot names via :ref:`timestamp_format<job-snapshotting-timestamp_format>`
+  (Thanks, `@ydylla <https://github.com/ydylla>`_).
+* |feature| Add ``ZREPL_DESTROY_MAX_BATCH_SIZE`` env var (default 0=unlimited)
+  (Thanks, `@3nprob <https://github.com/3nprob>`_).
+* |feature| Add ``zrepl configcheck --skip-cert-check`` flag (Thanks, `@cole-h <https://github.com/cole-h>`_).
 * |bugfix| Fix resuming from interrupted replications that use ``send.raw`` on unencrypted datasets.
 
   * The send options introduced in zrepl 0.4 allow users to specify additional zfs send flags for zrepl to use.
@@ -35,7 +39,7 @@ Developers should consult the git commit log or GitHub issue tracker.
   * However, this means that the ``zrepl status`` UI no longer indicates whether a replication step uses encrypted sends or not.
     The setting is still effective though.
 
-* |break| |feature| convert Prometheus metric ``zrepl_version_daemon`` to ``zrepl_start_time`` metric
+* |break| convert Prometheus metric ``zrepl_version_daemon`` to ``zrepl_start_time`` metric
 
   * The metric still reports the zrepl version in a label.
     But the metric *value* is now the Unix timestamp at the time the daemon was started.
@@ -44,6 +48,13 @@ Developers should consult the git commit log or GitHub issue tracker.
 * |bugfix| transient zrepl status error: ``Post "http://unix/status": EOF``
 * |bugfix| don't treat receive-side bookmarks as a replication conflict.
   This facilitates chaining of replication jobs. See :issue:`490`.
+* |bugfix| workaround for Go/gRPC problem on Illumos where zrepl would
+  crash when using the ``local`` transport type (:issue:`598`).
+* |bugfix| fix active child tasks panic that cold occur during replication plannig (:issue:`193abbe`)
+* |bugfix| ``zrepl status`` off-by-one error in display of completed step count (:commit:`ce6701f`)
+* |bugfix| Allow using day & week units for ``snapshotting.interval`` (:commit:`ffb1d89`)
+* |docs| ``docs/overview`` improvements (Thanks, `@jtagcat <https://github.com/jtagcat>`_).
+* |maint| Update to Go 1.19.
 
 0.5
 ---
