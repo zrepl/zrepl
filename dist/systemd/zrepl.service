@@ -27,7 +27,8 @@ ProtectHome=read-only
 # SystemCallFilter
 #   ~@privileged doesn't work with Ubuntu 18.04 ssh
 SystemCallFilter=~ @mount @cpu-emulation @keyring @module @obsolete @raw-io @debug @clock @resources
-
+# Go1.19 added automatic RLIMIT_NOFILE changes, so, we need to allow that
+SystemCallFilter= setrlimit
 
 [Install]
 WantedBy=multi-user.target
