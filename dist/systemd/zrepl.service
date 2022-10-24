@@ -9,6 +9,9 @@ ExecStart=/usr/local/bin/zrepl --config /etc/zrepl/zrepl.yml daemon
 RuntimeDirectory=zrepl zrepl/stdinserver
 RuntimeDirectoryMode=0700
 
+# Make Go produce coredumps
+Environment=GOTRACEBACK='crash'
+
 ProtectSystem=strict
 #PrivateDevices=yes # TODO ZFS needs access to /dev/zfs, could we limit this?
 ProtectKernelTunables=yes
