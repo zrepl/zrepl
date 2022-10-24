@@ -16,6 +16,30 @@ Changelog
 The changelog summarizes bugfixes that are deemed relevant for users and package maintainers.
 Developers should consult the git commit log or GitHub issue tracker.
 
+Next Release
+------------
+
+The plan for the next release is to revisit how zrepl does snapshot management.
+High-level goals:
+
+- Make it easy to decouple snapshot management (snapshotting, pruning) from replication.
+- Ability to include/exclude snapshots from replication.
+  This is useful for aforementioned decoupling, e.g., separate snapshot prefixes for local & remote replication.
+  Also, it makes explicit that by default, zrepl replicates all snapshots, and that
+  replication has no concept of "zrepl-created snapshots", which is a common misconception.
+- Use of ``zfs snapshot`` comma syntax or channel programs to take snapshots of multiple
+  datasets atomically.
+- Provide an alternative to the ``grid`` pruning policy.
+  Most likely something based on hourly/daily/weekly/monthly "trains" plus a count.
+- Ability to prune at the granularity of the **group** of snapshots created at a given
+  time, as opposed to the individual snapshots within a dataset.
+  Maybe this will be addressed by the alternative to the ``grid`` pruning policy,
+  as it will likely be more predictable.
+
+Those changes will likely come with some breakage in the config.
+However, I want to avoid breaking **use cases** that are satisfied by the current design.
+There will be beta/RC releases to give users a chance to evaluate.
+
 0.6
 ---
 
