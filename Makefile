@@ -134,7 +134,13 @@ endif
 
 deb-docker:
 	docker build -t zrepl_debian_pkg --pull -f packaging/deb/Dockerfile .
+	# Use a small open file limit to make fakeroot work. If we don't
+	# specify it, docker daemon will use its file limit. I don't know
+	# what changed (Docker, its systemd service, its Go version). But I
+	# observed fakeroot iterating close(i) up to i > 1000000, which costs
+	# a good amount of CPU time and makes the build slow.
 	docker run --rm -i -v $(CURDIR):/build/src -u $$(id -u):$$(id -g) \
+		--ulimit nofile=1024:1024 \
 		zrepl_debian_pkg \
 		make deb GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)
 
