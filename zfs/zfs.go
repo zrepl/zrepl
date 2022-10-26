@@ -343,7 +343,6 @@ const (
 
 type SendStream struct {
 	cmd          *zfscmd.Cmd
-	kill         context.CancelFunc
 	stdoutReader io.ReadCloser // not *os.File for mocking during platformtest
 	stderrBuf    *circlog.CircularLog
 
@@ -416,8 +415,29 @@ func (s *SendStream) killAndWait() error {
 	debug("sendStream: killAndWait enter")
 	defer debug("sendStream: killAndWait leave")
 
+	// ensure this function is only called once
+	if s.state != sendStreamOpen {
+		panic(s.state)
+	}
+
 	// send SIGKILL
-	s.kill()
+	// In an earlier version, we used the starting context.Context's cancel function
+	// for this, but in Go > 1.19, doing so will cause .Wait() to return the
+	// context cancel error instead of the *exec.ExitError.
+	err := s.cmd.Process().Kill()
+	if err != nil {
+		if err == os.ErrProcessDone {
+			// This can happen if
+			// (1) the process has already been .Wait()ed, or
+			// (2) some other goroutine cancels the context, likely further up
+			//     the context tree.
+			// Case (1) can't happen to us because we only call
+			// this function in sendStreamOpen state.
+			// In Case (2), it's still our job to .Wait(), so, fallthrough.
+		} else {
+			return err
+		}
+	}
 
 	// Close our read-end of the pipe.
 	//
@@ -963,10 +983,10 @@ func ZFSSend(ctx context.Context, sendArgs ZFSSendArgsValidated) (*SendStream, e
 
 	stream := &SendStream{
 		cmd:          cmd,
-		kill:         cancel,
 		stdoutReader: stdoutReader,
 		stderrBuf:    stderrBuf,
 	}
+	_ = cancel // the SendStream.killAndWait() will kill the process
 
 	return stream, nil
 }
