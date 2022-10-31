@@ -24,7 +24,12 @@ commands:
 
   apt-update-and-install-common-deps:
     steps:
-      - run: sudo apt update && sudo apt install gawk make
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y gawk make
+      # CircleCI doesn't update its cimg/go images.
+      # So, need to update manually to get up-to-date trust chains.
+      # The need for this was required for cimg/go:1.12, but let's future proof this here and now.
+      - run: sudo apt-get install -y git ca-certificates
 
   restore-cache-gomod:
     steps:
@@ -257,12 +262,13 @@ jobs:
     steps:
       - checkout
 
+      - install-godep
+
       - restore-cache-gomod
       - run: go mod download
       - run: cd build && go mod download
       - save-cache-gomod
 
-      - install-godep
       - run: make formatcheck
       - run: make generate-platform-test-list
       - run: make zrepl-bin test-platform-bin
