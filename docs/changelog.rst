@@ -80,6 +80,13 @@ There will be beta/RC releases to give users a chance to evaluate.
 * |docs| ``docs/overview`` improvements (Thanks, `@jtagcat <https://github.com/jtagcat>`_).
 * |maint| Update to Go 1.19.
 
+.. NOTE::
+  |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
+  |  You can support maintenance and feature development through one of the following services:
+  |  |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
+  |  Note that PayPal processing fees are relatively high for small donations.
+  |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
+
 0.5
 ---
 
@@ -110,14 +117,6 @@ Note to all users: please read up on the following OpenZFS bugs, as you might be
 * Various bugs with encrypted send/recv (`Leadership meeting notes <https://openzfs.topicbox.com/groups/developer/T24bdaa2886c6cbf5-Mc039a11c3f1507ea0664817b/december-openzfs-leadership-meeting>`_)
 
 Finally, I'd like to point you to the `GitHub discussion <https://github.com/zrepl/zrepl/discussions/547>`_ about which bugfixes and features should be prioritized in zrepl 0.6 and beyond!
-
-.. NOTE::
-  |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
-  |  You can support maintenance and feature development through one of the following services:
-  |  |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
-  |  Note that PayPal processing fees are relatively high for small donations.
-  |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
-
 
 0.4.0
 -----
