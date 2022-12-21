@@ -62,8 +62,8 @@ So just read the annotated comments ;)
         conn: # debug the io.ReadWriteCloser connection
           read_dump: /tmp/connlog_read   # dump results of Read() invocations to this file
           write_dump: /tmp/connlog_write # dump results of Write() invocations to this file
-        rpc: # debug the RPC protocol implementation
-          log: true # log output from rpc layer to the job log
+        rpc_log: true # debug the RPC protocol implementation
+                      # log output from rpc layer to the job log
 
 .. ATTENTION::
 
