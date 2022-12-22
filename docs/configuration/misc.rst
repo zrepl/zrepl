@@ -44,27 +44,3 @@ Interval & duration fields in job definitions, pruning configurations, etc. must
 
     var durationStringRegex *regexp.Regexp = regexp.MustCompile(`^\s*(\d+)\s*(s|m|h|d|w)\s*$`)
     // s = second, m = minute, h = hour, d = day, w = week (7 days)
-
-Super-Verbose Job Debugging
----------------------------
-
-You have probably landed here because you opened an issue on GitHub and some developer told you to do this...
-So just read the annotated comments ;)
-
-::
-
-    job:
-    - name: ...
-      ...
-     # JOB DEBUGGING OPTIONS
-      # should be equal for all job types, but each job implements the debugging itself
-      debug:
-        conn: # debug the io.ReadWriteCloser connection
-          read_dump: /tmp/connlog_read   # dump results of Read() invocations to this file
-          write_dump: /tmp/connlog_write # dump results of Write() invocations to this file
-        rpc: # debug the RPC protocol implementation
-          log: true # log output from rpc layer to the job log
-
-.. ATTENTION::
-
-    Connection dumps will almost certainly contain your or other's private data. Do not share it in a bug report.
