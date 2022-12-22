@@ -65,7 +65,6 @@ type ActiveJob struct {
 	Name               string                `yaml:"name"`
 	Connect            ConnectEnum           `yaml:"connect"`
 	Pruning            PruningSenderReceiver `yaml:"pruning"`
-	Debug              JobDebugSettings      `yaml:"debug,optional"`
 	Replication        *Replication          `yaml:"replication,optional,fromdefaults"`
 	ConflictResolution *ConflictResolution   `yaml:"conflict_resolution,optional,fromdefaults"`
 }
@@ -75,17 +74,15 @@ type ConflictResolution struct {
 }
 
 type PassiveJob struct {
-	Type  string           `yaml:"type"`
-	Name  string           `yaml:"name"`
-	Serve ServeEnum        `yaml:"serve"`
-	Debug JobDebugSettings `yaml:"debug,optional"`
+	Type  string    `yaml:"type"`
+	Name  string    `yaml:"name"`
+	Serve ServeEnum `yaml:"serve"`
 }
 
 type SnapJob struct {
 	Type         string            `yaml:"type"`
 	Name         string            `yaml:"name"`
 	Pruning      PruningLocal      `yaml:"pruning"`
-	Debug        JobDebugSettings  `yaml:"debug,optional"`
 	Snapshotting SnapshottingEnum  `yaml:"snapshotting"`
 	Filesystems  FilesystemsFilter `yaml:"filesystems"`
 }
@@ -478,14 +475,6 @@ type GlobalServe struct {
 
 type GlobalStdinServer struct {
 	SockDir string `yaml:"sockdir,default=/var/run/zrepl/stdinserver"`
-}
-
-type JobDebugSettings struct {
-	Conn *struct {
-		ReadDump  string `yaml:"read_dump"`
-		WriteDump string `yaml:"write_dump"`
-	} `yaml:"conn,optional"`
-	RPCLog bool `yaml:"rpc_log,optional,default=false"`
 }
 
 type HookList []HookEnum
