@@ -1,0 +1,14 @@
+#!/sbin/openrc-run
+
+command='/usr/local/bin/zrepl'
+command_args='daemon'
+command_background='true'
+pidfile="/run/${RC_SVCNAME}.pid"
+output_log="/var/log/${RC_SVCNAME}.log"
+error_log="/var/log/${RC_SVCNAME}.log"
+
+start() {
+	mkdir -p /var/run/zrepl
+	chmod 750 /var/run/zrepl
+	default_start
+}
