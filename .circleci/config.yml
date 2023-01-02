@@ -55,83 +55,6 @@ commands:
       - invoke-lazy-sh:
           subcommand: docdep
 
-  download-and-install-minio-client:
-    steps:
-      - setup-home-local-bin
-      - restore_cache:
-          key: minio-client-v2
-      - run:
-          shell: /bin/bash -eo pipefail
-          command: |
-            if which mc; then exit 0; fi
-            sudo curl -sSL https://dl.min.io/client/mc/release/linux-amd64/archive/mc.RELEASE.2020-08-20T00-23-01Z \
-              -o "$HOME/.local/bin/mc"
-            sudo chmod +x "$HOME/.local/bin/mc"
-      - save_cache:
-          key: minio-client-v2
-          paths:
-            - "$HOME/.local/bin/mc"
-
-  upload-minio:
-    parameters:
-      src:
-        type: string
-      dst:
-        type: string
-    steps:
-      - run:
-          shell: /bin/bash -eo pipefail
-          when: always
-          command: |
-            if [ -n "$CIRCLE_PR_NUMBER" ]; then # CIRCLE_PR_NUMBER is guaranteed to be only present in forked PRs (external)
-              echo "Forked PR detected. Sry, can't trust you with credentials to external artifact store, use CircleCI's instead."
-              exit 0
-            fi
-            set -u # from now on
-
-            mc config host add --api s3v4 zrepl-minio https://minio.cschwarz.com ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
-
-            # keep in sync with set-github-minio-status
-            jobprefix=zrepl-ci-artifacts/${CIRCLE_SHA1}-pipeline-<<pipeline.number>>/${CIRCLE_JOB}
-
-            # Upload artifacts
-            mkdir -p ./artifacts
-            mc cp -r <<parameters.src>> "zrepl-minio/$jobprefix/<<parameters.dst>>"
-
-  set-github-minio-status:
-    parameters:
-      context:
-        type: string
-      description:
-        type: string
-      minio-dst:
-        type: string
-    steps:
-      - run:
-          shell: /bin/bash -eo pipefail
-          command: |
-            if [ -n "$CIRCLE_PR_NUMBER" ]; then # CIRCLE_PR_NUMBER is guaranteed to be only present in forked PRs (external)
-              echo "Forked PR detected. Sry, can't trust you with credentials to external artifact store, use CircleCI's instead."
-              exit 0
-            fi
-            set -u # from now on
-
-            # keep in sync with with upload-minio command
-            jobprefix=zrepl-ci-artifacts/${CIRCLE_SHA1}-pipeline-<<pipeline.number>>/${CIRCLE_JOB}
-            # Push Artifact Link to GitHub
-            REPO="zrepl/zrepl"
-            COMMIT="${CIRCLE_SHA1}"
-            JOB_NAME="${CIRCLE_JOB}"
-            CONTEXT="<<parameters.context>>"
-            DESCRIPTION="<<parameters.description>>"
-            TARGETURL=https://minio.cschwarz.com/minio/"$jobprefix"/"<<parameters.minio-dst>>"
-            curl "https://api.github.com/repos/$REPO/statuses/$COMMIT" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: token $GITHUB_COMMIT_STATUS_TOKEN" \
-              -X POST \
-              -d '{"context":"'"$CONTEXT"'", "state": "success", "description":"'"$DESCRIPTION"'", "target_url":"'"$TARGETURL"'"}'
-
-
   trigger-pipeline:
     parameters:
       body_no_shell_subst:
@@ -232,15 +155,6 @@ jobs:
       - install-docdep
       - run: make docs
 
-      - download-and-install-minio-client
-      - upload-minio:
-          src: artifacts
-          dst: ""
-      - set-github-minio-status:
-          context: artifacts/${CIRCLE_JOB}
-          description: artifacts of CI job ${CIRCLE_JOB}
-          minio-dst: ""
-
   quickcheck-go:
     parameters:
       goversion:
@@ -271,17 +185,9 @@ jobs:
       - run: make vet
       - run: make lint
 
-      - download-and-install-minio-client
       - run: rm -f artifacts/generate-platform-test-list
       - store_artifacts:
           path: artifacts
-      - upload-minio:
-          src: artifacts
-          dst: ""
-      - set-github-minio-status:
-          context: artifacts/${CIRCLE_JOB}
-          description: artifacts of CI job ${CIRCLE_JOB}
-          minio-dst: ""
 
   test-go-on-latest-go-release:
     parameters:
@@ -336,14 +242,6 @@ jobs:
           at: .
       - store_artifacts:
           path: artifacts
-      - download-and-install-minio-client
-      - upload-minio:
-          src: artifacts
-          dst: ""
-      - set-github-minio-status:
-          context: artifacts/release
-          description: CI-generated release artifacts
-          minio-dst: ""
 
   periodic-full-pipeline-run:
     docker:
