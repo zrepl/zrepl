@@ -30,6 +30,10 @@ Job Type ``push``
       - |snapshotting-spec|
     * - ``pruning``
       - |pruning-spec|
+    * - ``replication``
+      - |replication-options|
+    * - ``conflict_resolution``
+      - |conflict-resolution-options|
 
 Example config: :sampleconf:`/push.yml`
 
@@ -81,6 +85,10 @@ Job Type ``pull``
         | ``manual`` disables periodic pulling, replication then only happens on :ref:`wakeup <cli-signal-wakeup>`.
     * - ``pruning``
       - |pruning-spec|
+    * - ``replication``
+      - |replication-options|
+    * - ``conflict_resolution``
+      - |conflict-resolution-options|
 
 Example config: :sampleconf:`/pull.yml`
 

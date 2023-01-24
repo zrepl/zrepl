@@ -1,5 +1,6 @@
 .. include:: ../global.rst.inc
 
+.. _replication-options:
 
 Replication Options
 ===================
