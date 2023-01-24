@@ -374,13 +374,15 @@ func renderReplicationReport(t *stringbuilder.B, rep *report.Report, history *by
 			eta = time.Duration((float64(expected)-float64(replicated))/float64(rate)) * time.Second
 		}
 
-		t.Write("Progress: ")
-		t.DrawBar(50, replicated, expected, changeCount)
-		t.Write(fmt.Sprintf(" %s / %s @ %s/s", ByteCountBinaryUint(replicated), ByteCountBinaryUint(expected), ByteCountBinary(rate)))
-		if eta != 0 {
-			t.Write(fmt.Sprintf(" (%s remaining)", humanizeDuration(eta)))
+		if latest.State != report.AttemptDone {
+			t.Write("Progress: ")
+			t.DrawBar(50, replicated, expected, changeCount)
+			t.Write(fmt.Sprintf(" %s / %s @ %s/s", ByteCountBinaryUint(replicated), ByteCountBinaryUint(expected), ByteCountBinary(rate)))
+			if eta != 0 {
+				t.Write(fmt.Sprintf(" (%s remaining)", humanizeDuration(eta)))
+			}
+			t.Newline()
 		}
-		t.Newline()
 		if containsInvalidSizeEstimates {
 			t.Write("NOTE: not all steps could be size-estimated, total estimate is likely imprecise!")
 			t.Newline()
@@ -493,15 +495,17 @@ func renderPrunerReport(t *stringbuilder.B, r *pruner.Report, fsfilter FilterFun
 	}
 
 	// global progress bar
-	progress := int(math.Round(80 * float64(completedDestroyCount) / float64(totalDestroyCount)))
-	t.Write("Progress: ")
-	t.Write("[")
-	t.Write(stringbuilder.Times("=", progress))
-	t.Write(">")
-	t.Write(stringbuilder.Times("-", 80-progress))
-	t.Write("]")
-	t.Printf(" %d/%d snapshots", completedDestroyCount, totalDestroyCount)
-	t.Newline()
+	if state != pruner.Done {
+		progress := int(math.Round(80 * float64(completedDestroyCount) / float64(totalDestroyCount)))
+		t.Write("Progress: ")
+		t.Write("[")
+		t.Write(stringbuilder.Times("=", progress))
+		t.Write(">")
+		t.Write(stringbuilder.Times("-", 80-progress))
+		t.Write("]")
+		t.Printf(" %d/%d snapshots", completedDestroyCount, totalDestroyCount)
+		t.Newline()
+	}
 
 	sort.SliceStable(all, func(i, j int) bool {
 		return strings.Compare(all[i].Filesystem, all[j].Filesystem) == -1
