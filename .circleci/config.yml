@@ -134,7 +134,6 @@ workflows:
               only:
                 - master
                 - stable
-                - problame/circleci-build
     jobs:
       - periodic-full-pipeline-run
 

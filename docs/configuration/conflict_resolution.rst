@@ -1,5 +1,6 @@
 .. include:: ../global.rst.inc
 
+.. _conflict_resolution-options:
 
 Conflict Resolution Options
 ===========================
