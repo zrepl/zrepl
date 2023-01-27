@@ -10,13 +10,13 @@ error_log="/var/log/${RC_SVCNAME}.log"
 zrepl_runtime_dir='/var/run/zrepl'
 
 start() {
-	mkdir -p $zrepl_runtime_dir/stdinserver
-	chmod -R 0700 $zrepl_runtime_dir
+	mkdir -p "$zrepl_runtime_dir/stdinserver"
+	chmod -R 0700 "$zrepl_runtime_dir"
 	default_start
 }
 
 stop() {
-	rm -rf $zrepl_runtime_dir
+	rm -rf "$zrepl_runtime_dir"
 	default_stop
 }
 
