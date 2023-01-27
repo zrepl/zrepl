@@ -1,0 +1,23 @@
+#!/sbin/openrc-run
+
+command='/usr/local/bin/zrepl'
+command_args='daemon'
+command_background='true'
+pidfile="/run/${RC_SVCNAME}.pid"
+output_log="/var/log/${RC_SVCNAME}.log"
+error_log="/var/log/${RC_SVCNAME}.log"
+
+zrepl_runtime_dir='/var/run/zrepl'
+
+start() {
+	mkdir -p "$zrepl_runtime_dir/stdinserver"
+	chmod -R 0700 "$zrepl_runtime_dir"
+	default_start
+}
+
+stop() {
+	rm -rf "$zrepl_runtime_dir"
+	default_stop
+}
+
+# vi: noet sw=8 sts=0
