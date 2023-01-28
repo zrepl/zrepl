@@ -199,6 +199,16 @@ const (
 	Done
 )
 
+// Returns true in case the State is a terminal state(PlanErr, ExecErr, Done)
+func (s State) IsTerminal() bool {
+	switch s {
+	case PlanErr, ExecErr, Done:
+		return true
+	default:
+		return false
+	}
+}
+
 type updater func(func(*Pruner))
 
 func (p *Pruner) Prune() {

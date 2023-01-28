@@ -374,7 +374,7 @@ func renderReplicationReport(t *stringbuilder.B, rep *report.Report, history *by
 			eta = time.Duration((float64(expected)-float64(replicated))/float64(rate)) * time.Second
 		}
 
-		if latest.State != report.AttemptDone {
+		if !latest.State.IsTerminal() {
 			t.Write("Progress: ")
 			t.DrawBar(50, replicated, expected, changeCount)
 			t.Write(fmt.Sprintf(" %s / %s @ %s/s", ByteCountBinaryUint(replicated), ByteCountBinaryUint(expected), ByteCountBinary(rate)))
@@ -495,14 +495,9 @@ func renderPrunerReport(t *stringbuilder.B, r *pruner.Report, fsfilter FilterFun
 	}
 
 	// global progress bar
-	if state != pruner.Done {
-		progress := int(math.Round(80 * float64(completedDestroyCount) / float64(totalDestroyCount)))
+	if !state.IsTerminal() {
 		t.Write("Progress: ")
-		t.Write("[")
-		t.Write(stringbuilder.Times("=", progress))
-		t.Write(">")
-		t.Write(stringbuilder.Times("-", 80-progress))
-		t.Write("]")
+		t.DrawBar(80, uint64(completedDestroyCount), uint64(totalDestroyCount), 1)
 		t.Printf(" %d/%d snapshots", completedDestroyCount, totalDestroyCount)
 		t.Newline()
 	}
