@@ -41,6 +41,8 @@ func (b bookmarkBasedAbstraction) Destroy(ctx context.Context) error {
 	return nil
 }
 
+func (b bookmarkBasedAbstraction) GetDestroyDestroysVersion() bool { return true }
+
 type holdBasedAbstraction struct {
 	Type AbstractionType
 	FS   string
@@ -72,3 +74,5 @@ func (h holdBasedAbstraction) Destroy(ctx context.Context) error {
 	}
 	return nil
 }
+
+func (h holdBasedAbstraction) GetDestroyDestroysVersion() bool { return false }

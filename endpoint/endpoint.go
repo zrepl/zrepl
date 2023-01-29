@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"strings"
 
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"
@@ -233,6 +234,21 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 	//
 	// Note further that a resuming send, due to the idempotent nature of func CreateReplicationCursor and HoldStep,
 	// will never lose its step holds because we just (idempotently re-)created them above, before attempting the cleanup.
+	destroyTypes := AbstractionTypeSet{
+		AbstractionStepHold:                           true,
+		AbstractionTentativeReplicationCursorBookmark: true,
+	}
+	// The replication planner can also pick an endpoint zfs abstraction as FromVersion.
+	// Keep it, so that the replication will succeed.
+	//
+	// NB: there is no abstraction for snapshots, so, we only need to check bookmarks.
+	if sendArgs.FromVersion != nil && sendArgs.FromVersion.IsBookmark() {
+		dp, err := zfs.NewDatasetPath(sendArgs.FS)
+		if err != nil {
+			panic(err) // sendArgs is validated,
+		}
+		liveAbs = append(liveAbs, destroyTypes.ExtractBookmark(dp, sendArgs.FromVersion))
+	}
 	func() {
 		ctx, endSpan := trace.WithSpan(ctx, "cleanup-stale-abstractions")
 		defer endSpan()
@@ -245,35 +261,41 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 			return keep
 		}
 		check := func(obsoleteAbs []Abstraction) {
-			// last line of defense: check that we don't destroy the incremental `from` and `to`
-			// if we did that, we might be about to blow away the last common filesystem version between sender and receiver
-			mustLiveVersions := []zfs.FilesystemVersion{sendArgs.ToVersion}
-			if sendArgs.FromVersion != nil {
-				mustLiveVersions = append(mustLiveVersions, *sendArgs.FromVersion)
+			// Ensure that we don't delete `From` or `To`.
+			// Regardless of whether they are in AbstractionTypeSet or not.
+			type Problem struct {
+				sendArgsWhat string
+				fullpath     string
+				obsoleteAbs  Abstraction
 			}
-			for _, staleVersion := range obsoleteAbs {
-				for _, mustLiveVersion := range mustLiveVersions {
-					isSendArg := zfs.FilesystemVersionEqualIdentity(mustLiveVersion, staleVersion.GetFilesystemVersion())
-					stepHoldBasedGuaranteeStrategy := false
-					k := replicationGuaranteeStrategy.Kind()
-					switch k {
-					case ReplicationGuaranteeKindResumability:
-						stepHoldBasedGuaranteeStrategy = true
-					case ReplicationGuaranteeKindIncremental:
-					case ReplicationGuaranteeKindNone:
-					default:
-						panic(fmt.Sprintf("this is supposed to be an exhaustive match, got %v", k))
-					}
-					isSnapshot := mustLiveVersion.IsSnapshot()
-					if isSendArg && (!isSnapshot || stepHoldBasedGuaranteeStrategy) {
-						panic(fmt.Sprintf("impl error: %q would be destroyed because it is considered stale but it is part of of sendArgs=%s", mustLiveVersion.String(), pretty.Sprint(sendArgs)))
+			problems := make([]Problem, 0)
+			checkFullpaths := make(map[string]string, 2)
+			checkFullpaths["ToVersion"] = sendArgs.ToVersion.FullPath(sendArgs.FS)
+			if sendArgs.FromVersion != nil {
+				checkFullpaths["FromVersion"] = sendArgs.FromVersion.FullPath(sendArgs.FS)
+			}
+			for what, fullpath := range checkFullpaths {
+				for _, a := range obsoleteAbs {
+					if a.GetFullPath() == fullpath && a.GetDestroyDestroysVersion() {
+						problems = append(problems, Problem{
+							sendArgsWhat: what,
+							fullpath:     fullpath,
+							obsoleteAbs:  a,
+						})
 					}
 				}
 			}
-		}
-		destroyTypes := AbstractionTypeSet{
-			AbstractionStepHold:                           true,
-			AbstractionTentativeReplicationCursorBookmark: true,
+			if len(problems) == 0 {
+				return
+			}
+			var msg strings.Builder
+			fmt.Fprintf(&msg, "cleaning up send stale would destroy send args:\n")
+			fmt.Fprintf(&msg, "  SendArgs: %s\n", pretty.Sprint(sendArgs))
+			for _, check := range problems {
+				fmt.Fprintf(&msg, "would delete %s %s because it was deemed an obsolete abstraction: %s\n",
+					check.sendArgsWhat, check.fullpath, check.obsoleteAbs)
+			}
+			panic(msg.String())
 		}
 		abstractionsCacheSingleton.TryBatchDestroy(ctx, s.jobId, sendArgs.FS, destroyTypes, keep, check)
 	}()

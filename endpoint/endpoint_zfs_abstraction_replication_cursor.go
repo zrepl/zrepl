@@ -265,3 +265,4 @@ func (c ReplicationCursorV1) Destroy(ctx context.Context) error {
 	}
 	return nil
 }
+func (c ReplicationCursorV1) GetDestroyDestroysVersion() bool { return true }

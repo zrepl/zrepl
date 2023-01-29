@@ -31,7 +31,7 @@ const (
 	AbstractionReplicationCursorBookmarkV2        AbstractionType = "replication-cursor-bookmark-v2"
 )
 
-var AbstractionTypesAll = map[AbstractionType]bool{
+var AbstractionTypesAll = AbstractionTypeSet{
 	AbstractionStepHold:                           true,
 	AbstractionLastReceivedHold:                   true,
 	AbstractionTentativeReplicationCursorBookmark: true,
@@ -52,6 +52,8 @@ type Abstraction interface {
 	String() string
 	// destroy the abstraction: either releases the hold or destroys the bookmark
 	Destroy(context.Context) error
+	// returns true if calling `Destroy()` destroys the filesystem version returned by `GetFilesystemVersion`
+	GetDestroyDestroysVersion() bool
 	json.Marshaler
 }
 
@@ -179,6 +181,33 @@ func (s AbstractionTypeSet) Validate() error {
 		}
 	}
 	return nil
+}
+
+// Panics if more than one abstraction type matches.
+func (s AbstractionTypeSet) ExtractBookmark(dp *zfs.DatasetPath, v *zfs.FilesystemVersion) Abstraction {
+	matched := make(AbstractionTypeSet, 1)
+	var matchedAbs Abstraction
+	for absType := range s {
+		extractor := absType.BookmarkExtractor()
+		if extractor == nil {
+			continue
+		}
+		abstraction := extractor(dp, *v)
+		if abstraction != nil {
+			matched[absType] = true
+			matchedAbs = abstraction
+		}
+	}
+	if len(matched) == 0 {
+		return nil
+	}
+	if len(matched) == 1 {
+		if matchedAbs == nil {
+			panic("loop above should always set matchedAbs if there is a match")
+		}
+		return matchedAbs
+	}
+	panic(fmt.Sprintf("abstraction types extractors should not overlap: %s", matched))
 }
 
 type BookmarkExtractor func(fs *zfs.DatasetPath, v zfs.FilesystemVersion) Abstraction
