@@ -7,7 +7,7 @@ require (
 	github.com/gdamore/tcell v1.2.0
 	github.com/gdamore/tcell/v2 v2.2.0
 	github.com/gitchander/permutation v0.0.0-20181107151852-9e56b92e9909
-	github.com/go-logfmt/logfmt v0.4.0
+	github.com/go-logfmt/logfmt v0.5.0
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/go-playground/validator/v10 v10.4.1
 	github.com/go-sql-driver/mysql v1.4.1-0.20190907122137-b2c03bcae3d4
@@ -24,11 +24,11 @@ require (
 	github.com/montanaflynn/stats v0.5.0
 	github.com/onsi/ginkgo v1.10.2 // indirect
 	github.com/onsi/gomega v1.7.0 // indirect
-	github.com/pkg/errors v0.8.1
+	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.2.1
 	github.com/problame/go-netssh v0.0.0-20200601114649-26439f9f0dc5
-	github.com/prometheus/client_golang v1.2.1
-	github.com/prometheus/common v0.7.0
+	github.com/prometheus/client_golang v1.11.1
+	github.com/prometheus/common v0.26.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sergi/go-diff v1.0.1-0.20180205163309-da645544ed44 // indirect; go1.12 thinks it needs this
 	github.com/spf13/cobra v0.0.2
@@ -41,11 +41,11 @@ require (
 	github.com/zrepl/yaml-config v0.0.0-20191220194647-cbb6b0cf4bdd
 	gitlab.com/tslocum/cview v1.5.3
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
-	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c
+	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
+	golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40
 	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
 	google.golang.org/genproto v0.0.0-20210122163508-8081c04a3579 // indirect
 	google.golang.org/grpc v1.35.0
-	google.golang.org/protobuf v1.25.0
+	google.golang.org/protobuf v1.26.0-rc.1
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 )
