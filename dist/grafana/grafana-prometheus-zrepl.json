@@ -40,6 +40,12 @@
         "id": "text",
         "name": "Text",
         "version": ""
+      },
+      {
+        "type": "panel",
+        "id": "timeseries",
+        "name": "Time series",
+        "version": ""
       }
     ],
     "annotations": {
@@ -827,7 +833,7 @@
         },
         "fieldConfig": {
           "defaults": {
-            "custom": {}
+            "links": []
           },
           "overrides": []
         },
@@ -856,9 +862,10 @@
         "links": [],
         "nullPointMode": "null",
         "options": {
-          "dataLinks": []
+          "alertThreshold": true
         },
         "percentage": false,
+        "pluginVersion": "9.3.6",
         "pointradius": 5,
         "points": false,
         "renderer": "flot",
@@ -920,7 +927,7 @@
         },
         "fieldConfig": {
           "defaults": {
-            "custom": {}
+            "links": []
           },
           "overrides": []
         },
@@ -948,9 +955,10 @@
         "links": [],
         "nullPointMode": "null",
         "options": {
-          "dataLinks": []
+          "alertThreshold": true
         },
         "percentage": false,
+        "pluginVersion": "9.3.6",
         "pointradius": 5,
         "points": false,
         "renderer": "flot",
@@ -1011,7 +1019,7 @@
         },
         "fieldConfig": {
           "defaults": {
-            "custom": {}
+            "links": []
           },
           "overrides": []
         },
@@ -1039,9 +1047,10 @@
         "links": [],
         "nullPointMode": "null",
         "options": {
-          "dataLinks": []
+          "alertThreshold": true
         },
         "percentage": false,
+        "pluginVersion": "9.3.6",
         "pointradius": 5,
         "points": false,
         "renderer": "flot",
@@ -1094,6 +1103,98 @@
         }
       },
       {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "drawStyle": "line",
+              "fillOpacity": 0,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "auto",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 5,
+          "w": 12,
+          "x": 12,
+          "y": 32
+        },
+        "id": 52,
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${DS_PROMETHEUS}"
+            },
+            "editorMode": "builder",
+            "expr": "zrepl_zfs_list_unmatched_user_specified_dataset_count",
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A"
+          }
+        ],
+        "title": "Unmatched datasets",
+        "type": "timeseries"
+      },
+      {
         "aliasColors": {},
         "bars": false,
         "dashLength": 10,
@@ -1104,7 +1205,7 @@
         },
         "fieldConfig": {
           "defaults": {
-            "custom": {}
+            "links": []
           },
           "overrides": []
         },
@@ -1132,9 +1233,10 @@
         "links": [],
         "nullPointMode": "null",
         "options": {
-          "dataLinks": []
+          "alertThreshold": true
         },
         "percentage": false,
+        "pluginVersion": "9.3.6",
         "pointradius": 5,
         "points": false,
         "renderer": "flot",

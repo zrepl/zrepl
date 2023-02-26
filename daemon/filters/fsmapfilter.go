@@ -160,6 +160,14 @@ func (m DatasetMapFilter) Filter(p *zfs.DatasetPath) (pass bool, err error) {
 	return
 }
 
+func (m DatasetMapFilter) UserSpecifiedDatasets() (datasets zfs.UserSpecifiedDatasetsSet) {
+	datasets = make(zfs.UserSpecifiedDatasetsSet)
+	for i := range m.entries {
+		datasets[m.entries[i].path.ToString()] = true
+	}
+	return
+}
+
 // Construct a new filter-only DatasetMapFilter from a mapping
 // The new filter allows exactly those paths that were not forbidden by the mapping.
 func (m DatasetMapFilter) InvertedFilter() (inv *DatasetMapFilter, err error) {
