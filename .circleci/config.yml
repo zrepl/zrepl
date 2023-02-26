@@ -108,6 +108,14 @@ workflows:
               - goversion: *latest-go-release
                 goos: linux
                 goarch: amd64
+      - platformtest:
+          matrix:
+            parameters:
+              goversion: [*latest-go-release]
+              goos: ["linux"]
+              goarch: ["amd64"]
+          requires:
+            - quickcheck-go-<< matrix.goarch >>-<< matrix.goos >>-<< matrix.goversion >>
 
   release:
     when: << pipeline.parameters.do_release >>
@@ -187,6 +195,31 @@ jobs:
       - run: rm -f artifacts/generate-platform-test-list
       - store_artifacts:
           path: artifacts
+      - persist_to_workspace:
+          root: .
+          paths: [.]
+
+  platformtest:
+    parameters:
+      goversion:
+        type: string
+      goos:
+        type: string
+      goarch:
+        type: string
+    machine:
+      image: ubuntu-2204:current
+    resource_class: medium
+    environment:
+      GOOS: <<parameters.goos>>
+      GOARCH: <<parameters.goarch>>
+    steps:
+      - attach_workspace:
+          at: .
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y zfsutils-linux
+      - run: sudo zfs version
+      - run: sudo make test-platform GOOS="$GOOS" GOARCH="$GOARCH"
 
   test-go-on-latest-go-release:
     parameters:
