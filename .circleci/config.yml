@@ -1,5 +1,8 @@
 version: 2.1
-
+orbs:
+  # NB: 1.7.2 is not the Go version, but the Orb version
+  # https://circleci.com/developer/orbs/orb/circleci/go#usage-go-modules-cache
+  go: circleci/go@1.7.2
 commands:
   setup-home-local-bin:
     steps:
@@ -30,17 +33,6 @@ commands:
       # So, need to update manually to get up-to-date trust chains.
       # The need for this was required for cimg/go:1.12, but let's future proof this here and now.
       - run: sudo apt-get install -y git ca-certificates
-
-  restore-cache-gomod:
-    steps:
-      - restore_cache:
-          key: go-mod-v4-{{ checksum "go.sum" }}
-  save-cache-gomod:
-    steps:
-      - save_cache:
-          key: go-mod-v4-{{ checksum "go.sum" }}
-          paths:
-            - "/go/pkg/mod"
 
   install-godep:
     steps:
@@ -179,12 +171,13 @@ jobs:
     steps:
       - checkout
 
+      - go/load-cache:
+          key: quickcheck-<<parameters.goversion>>
       - install-godep
-
-      - restore-cache-gomod
       - run: go mod download
       - run: cd build && go mod download
-      - save-cache-gomod
+      - go/save-cache:
+          key: quickcheck-<<parameters.goversion>>
 
       - run: make formatcheck
       - run: make generate-platform-test-list
@@ -229,9 +222,11 @@ jobs:
       - image: cimg/go:<<parameters.goversion>>
     steps:
       - checkout
-      - restore-cache-gomod
+      - go/load-cache:
+          key: make-test-go
       - run: make test-go
-      # don't save-cache-gomod here, test-go doesn't pull all the dependencies
+      - go/save-cache:
+          key: make-test-go
 
   release-build:
     machine:
