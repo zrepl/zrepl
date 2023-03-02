@@ -1152,7 +1152,7 @@
                 },
                 {
                   "color": "red",
-                  "value": 80
+                  "value": 0
                 }
               ]
             }
@@ -1185,7 +1185,7 @@
               "uid": "${DS_PROMETHEUS}"
             },
             "editorMode": "builder",
-            "expr": "zrepl_zfs_list_unmatched_user_specified_dataset_count",
+            "expr": "rate(zrepl_zfs_list_unmatched_user_specified_dataset_count[1m])",
             "legendFormat": "__auto",
             "range": true,
             "refId": "A"
