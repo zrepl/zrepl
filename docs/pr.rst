@@ -15,3 +15,4 @@ Talks & Presentations
   `Event <https://wiki.freebsd.org/DevSummit/201709>`__
   )
 
+Note: The problems referenced in the questions with regards to ``keep_bookmarks`` are no longer relevant. Since version `0.4.0 <https://zrepl.github.io/v0.4.0/changelog.html>`__ zrepl only uses a single bookmark from the last sync and the ``keep_bookmarks`` option was removed.
