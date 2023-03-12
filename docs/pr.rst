@@ -15,3 +15,5 @@ Talks & Presentations
   `Event <https://wiki.freebsd.org/DevSummit/201709>`__
   )
 
+  * Note: The remarks on ``keep_bookmarks`` are irrelevant as of zrepl 0.1 which introduced the zrepl-managed replication cursor bookmark.
+    Read the `Overview <overview-how-replication-works>`_ section to learn more.
