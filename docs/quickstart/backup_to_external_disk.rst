@@ -33,4 +33,14 @@ You will likely want to customize some aspects mentioned in the top comment in t
 
 .. literalinclude:: ../../config/samples/quickstart_backup_to_external_disk.yml
 
+
+Offline Backups with two (or more) External Disks
+-------------------------------------------------
+
+For some setups, it can make sense to store backup disks in other (or multiple different) physical areas to reduce the risk of data loss through emergencies (flooding, fire, robbery).
+This requires setting up multiple backup disks following the above-described example.
+Therefore, one needs to replicate the ``push`` and ``sink`` jobs for each backup disk and adjust their ``name``, ``listener_name``, and ``root_fs`` configurations accordingly.
+Enumerating the disks and using suffixes/prefixes (``_1``, ``_2``, ...) for these is probably the simplest way to distinguish them.
+
+
 :ref:`Click here <quickstart-apply-config>` to go back to the quickstart guide.
