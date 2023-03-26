@@ -39,8 +39,9 @@ Offline Backups with two (or more) External Disks
 
 It can be desirable to have multiple disk-based backups of the same machine.
 To accomplish this,
+
 * create one zpool per external HDD, each with a unique name, and
-* define a pair of ``push``and ``sink``job **for each** of these zpools, each with a unique ``name``, ``listener_name``, and ``root_fs``.
+* define a pair of ``push`` and ``sink`` job **for each** of these zpools, each with a unique ``name``, ``listener_name``, and ``root_fs``.
 
 The unique names ensure that the jobs don't step on each others' toes when managing :ref:`zrepl's ZFS abstractions <zrepl-zfs-abstractions>` . 
 
