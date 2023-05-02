@@ -4,6 +4,21 @@ export ZREPL_MOCK_ZFS_COMMAND_LOG="$1"
 shift
 export ZREPL_MOCK_ZFS_PATH="$1"
 shift
-export PATH="$(dirname "${BASH_SOURCE[0]}" )":"$PATH"
+dirname="$(dirname "${BASH_SOURCE[0]}")"
+# If we invoke this script from the top zrepl source tree, like so:
+#    ./platformtest/logmockzfs/logzfsenv ...
+# then dirname is relative, i.e., ./platformtest/logmockzfs.
+# If we put that relative dir in PATH, then Go >= 1.19 will refuse to
+# exec the `./platformtest/logmockzfs/zfs` wrapper script if it finds
+# it via PATH lookup. For Example:
+#   cmd := exec.Command("zfs")
+#   err := cmd.Run()
+# will fail with an error that errors.Is(err, exec.ErrDot), message:
+#   cannot run executable found relative to current directory
+# The solution is to use an abspath.
+# Learn more at https://pkg.go.dev/os/exec#hdr-Executables_in_the_current_directory
+# and https://go-review.googlesource.com/c/go/+/381374
+absdirname="$(readlink -e "$dirname")"
+export PATH="$absdirname":"$PATH"
 args=("$@")
 exec "${args[@]}"
