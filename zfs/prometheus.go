@@ -3,10 +3,11 @@ package zfs
 import "github.com/prometheus/client_golang/prometheus"
 
 var prom struct {
-	ZFSListFilesystemVersionDuration *prometheus.HistogramVec
-	ZFSSnapshotDuration              *prometheus.HistogramVec
-	ZFSBookmarkDuration              *prometheus.HistogramVec
-	ZFSDestroyDuration               *prometheus.HistogramVec
+	ZFSListFilesystemVersionDuration          *prometheus.HistogramVec
+	ZFSSnapshotDuration                       *prometheus.HistogramVec
+	ZFSBookmarkDuration                       *prometheus.HistogramVec
+	ZFSDestroyDuration                        *prometheus.HistogramVec
+	ZFSListUnmatchedUserSpecifiedDatasetCount *prometheus.GaugeVec
 }
 
 func init() {
@@ -34,6 +35,15 @@ func init() {
 		Name:      "destroy_duration",
 		Help:      "Duration it took to destroy a dataset",
 	}, []string{"dataset_type", "filesystem"})
+	prom.ZFSListUnmatchedUserSpecifiedDatasetCount = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "zrepl",
+		Subsystem: "zfs",
+		Name:      "list_unmatched_user_specified_dataset_count",
+		Help: "When evaluating a DatsetFilter against zfs list output, this counter " +
+			"is incremented for every DatasetFilter rule that did not match any " +
+			"filesystem name in the zfs list output. Monitor for increases to detect filesystem " +
+			"filter rules that have no effect because they don't match any local filesystem.",
+	}, []string{"jobid"})
 }
 
 func PrometheusRegister(registry prometheus.Registerer) error {
@@ -47,6 +57,9 @@ func PrometheusRegister(registry prometheus.Registerer) error {
 		return err
 	}
 	if err := registry.Register(prom.ZFSDestroyDuration); err != nil {
+		return err
+	}
+	if err := registry.Register(prom.ZFSListUnmatchedUserSpecifiedDatasetCount); err != nil {
 		return err
 	}
 	return nil
