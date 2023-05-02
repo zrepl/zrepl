@@ -496,8 +496,13 @@ func renderPrunerReport(t *stringbuilder.B, r *pruner.Report, fsfilter FilterFun
 
 	// global progress bar
 	if !state.IsTerminal() {
+		progress := int(math.Round(80 * float64(completedDestroyCount) / float64(totalDestroyCount)))
 		t.Write("Progress: ")
-		t.DrawBar(80, uint64(completedDestroyCount), uint64(totalDestroyCount), 1)
+		t.Write("[")
+		t.Write(stringbuilder.Times("=", progress))
+		t.Write(">")
+		t.Write(stringbuilder.Times("-", 80-progress))
+		t.Write("]")
 		t.Printf(" %d/%d snapshots", completedDestroyCount, totalDestroyCount)
 		t.Newline()
 	}
