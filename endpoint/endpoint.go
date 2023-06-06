@@ -245,7 +245,7 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 	if sendArgs.FromVersion != nil && sendArgs.FromVersion.IsBookmark() {
 		dp, err := zfs.NewDatasetPath(sendArgs.FS)
 		if err != nil {
-			panic(err) // sendArgs is validated,
+			panic(err) // sendArgs is validated, this shouldn't happen
 		}
 		liveAbs = append(liveAbs, destroyTypes.ExtractBookmark(dp, sendArgs.FromVersion))
 	}
@@ -263,6 +263,7 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 		check := func(obsoleteAbs []Abstraction) {
 			// Ensure that we don't delete `From` or `To`.
 			// Regardless of whether they are in AbstractionTypeSet or not.
+			// And produce a nice error message in case we do, to aid debugging the resulting panic.
 			type Problem struct {
 				sendArgsWhat string
 				fullpath     string

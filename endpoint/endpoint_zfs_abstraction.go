@@ -267,6 +267,23 @@ func (t AbstractionType) BookmarkNamer() func(fs string, guid uint64, jobId JobI
 	}
 }
 
+func (t AbstractionType) IsSnapshotOrBookmark() bool {
+	switch t {
+	case AbstractionTentativeReplicationCursorBookmark:
+		return true
+	case AbstractionReplicationCursorBookmarkV1:
+		return true
+	case AbstractionReplicationCursorBookmarkV2:
+		return true
+	case AbstractionStepHold:
+		return false
+	case AbstractionLastReceivedHold:
+		return false
+	default:
+		panic(fmt.Sprintf("unimpl: %q", t))
+	}
+}
+
 type ListZFSHoldsAndBookmarksQuery struct {
 	FS ListZFSHoldsAndBookmarksQueryFilesystemFilter
 	// What abstraction types should match (any contained in the set)
