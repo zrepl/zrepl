@@ -52,8 +52,6 @@ type Abstraction interface {
 	String() string
 	// destroy the abstraction: either releases the hold or destroys the bookmark
 	Destroy(context.Context) error
-	// returns true if calling `Destroy()` destroys the filesystem version returned by `GetFilesystemVersion`
-	GetDestroyDestroysVersion() bool
 	json.Marshaler
 }
 
@@ -183,6 +181,11 @@ func (s AbstractionTypeSet) Validate() error {
 	return nil
 }
 
+// Use the `BookmarkExtractor()` method of each abstraction type in this set
+// to try extract an abstraction from the given FilesystemVersion.
+//
+// Abstraction types in this set that don't have a bookmark extractor are skipped.
+//
 // Panics if more than one abstraction type matches.
 func (s AbstractionTypeSet) ExtractBookmark(dp *zfs.DatasetPath, v *zfs.FilesystemVersion) Abstraction {
 	matched := make(AbstractionTypeSet, 1)

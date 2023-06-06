@@ -277,7 +277,7 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 			}
 			for what, fullpath := range checkFullpaths {
 				for _, a := range obsoleteAbs {
-					if a.GetFullPath() == fullpath && a.GetDestroyDestroysVersion() {
+					if a.GetFullPath() == fullpath && a.GetType().IsSnapshotOrBookmark() {
 						problems = append(problems, Problem{
 							sendArgsWhat: what,
 							fullpath:     fullpath,
