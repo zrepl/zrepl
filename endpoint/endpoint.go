@@ -264,6 +264,9 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 			// Ensure that we don't delete `From` or `To`.
 			// Regardless of whether they are in AbstractionTypeSet or not.
 			// And produce a nice error message in case we do, to aid debugging the resulting panic.
+			//
+			// This is especially important for `From`. We could break incremental replication
+			// if we deleted the last common filesystem version between sender and receiver.
 			type Problem struct {
 				sendArgsWhat string
 				fullpath     string
