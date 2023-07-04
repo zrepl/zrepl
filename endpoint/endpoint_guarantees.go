@@ -89,6 +89,8 @@ func ReplicationGuaranteeFromKind(k ReplicationGuaranteeKind) ReplicationGuarant
 
 type ReplicationGuaranteeNone struct{}
 
+func (g ReplicationGuaranteeNone) String() string { return "none" }
+
 func (g ReplicationGuaranteeNone) Kind() ReplicationGuaranteeKind {
 	return ReplicationGuaranteeKindNone
 }
@@ -106,6 +108,8 @@ func (g ReplicationGuaranteeNone) SenderPostRecvConfirmed(ctx context.Context, j
 }
 
 type ReplicationGuaranteeIncremental struct{}
+
+func (g ReplicationGuaranteeIncremental) String() string { return "incremental" }
 
 func (g ReplicationGuaranteeIncremental) Kind() ReplicationGuaranteeKind {
 	return ReplicationGuaranteeKindIncremental
@@ -143,6 +147,8 @@ func (g ReplicationGuaranteeIncremental) SenderPostRecvConfirmed(ctx context.Con
 }
 
 type ReplicationGuaranteeResumability struct{}
+
+func (g ReplicationGuaranteeResumability) String() string { return "resumability" }
 
 func (g ReplicationGuaranteeResumability) Kind() ReplicationGuaranteeKind {
 	return ReplicationGuaranteeKindResumability

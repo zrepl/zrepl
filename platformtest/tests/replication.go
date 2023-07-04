@@ -248,7 +248,10 @@ func implReplicationIncrementalCleansUpStaleAbstractions(ctx *platformtest.Conte
 		require.NoError(ctx, err)
 		snap2Hold, err := endpoint.HoldStep(ctx, sfs, snap2, jobId) // no shadow
 		require.NoError(ctx, err)
-		return []endpoint.Abstraction{snap2Cursor, snap1Hold, snap2Hold}
+		// create artificial tentative cursor
+		snap3TentativeCursor, err := endpoint.CreateTentativeReplicationCursor(ctx, sfs, snap3, jobId)
+		require.NoError(ctx, err)
+		return []endpoint.Abstraction{snap2Cursor, snap1Hold, snap2Hold, snap3TentativeCursor}
 	}
 	createArtificalStaleAbstractions(sjid)
 	ojidSendAbstractions := createArtificalStaleAbstractions(ojid)
@@ -333,21 +336,29 @@ func implReplicationIncrementalCleansUpStaleAbstractions(ctx *platformtest.Conte
 		require.NoError(ctx, err)
 		snap2OjidCursorName, err := endpoint.ReplicationCursorBookmarkName(sfs, snap2.Guid, ojid)
 		require.NoError(ctx, err)
+		snap3SjidTentativeCursorName, err := endpoint.TentativeReplicationCursorBookmarkName(sfs, snap3.Guid, sjid)
+		require.NoError(ctx, err)
+		snap3OjidTentativeCursorName, err := endpoint.TentativeReplicationCursorBookmarkName(sfs, snap3.Guid, ojid)
+		require.NoError(ctx, err)
 		var bmNames []string
 		for _, bm := range sBms {
 			bmNames = append(bmNames, bm.Name)
 		}
 
 		if invalidateCacheBeforeSecondReplication {
-			require.Len(ctx, sBms, 3)
+			require.Len(ctx, sBms, 4)
 			require.Contains(ctx, bmNames, snap5SjidCursorName)
 			require.Contains(ctx, bmNames, snap2OjidCursorName)
+			require.Contains(ctx, bmNames, snap3OjidTentativeCursorName)
 			require.Contains(ctx, bmNames, "2")
 		} else {
-			require.Len(ctx, sBms, 4)
+			require.Len(ctx, sBms, 6)
+			ctx.Logf("%s", pretty.Sprint(sBms))
 			require.Contains(ctx, bmNames, snap5SjidCursorName)
 			require.Contains(ctx, bmNames, snap2SjidCursorName)
 			require.Contains(ctx, bmNames, snap2OjidCursorName)
+			require.Contains(ctx, bmNames, snap3SjidTentativeCursorName)
+			require.Contains(ctx, bmNames, snap3OjidTentativeCursorName)
 			require.Contains(ctx, bmNames, "2")
 		}
 	}
@@ -368,6 +379,84 @@ func implReplicationIncrementalCleansUpStaleAbstractions(ctx *platformtest.Conte
 		require.Equal(ctx, rAbs[0].GetFilesystemVersion().GetGuid(), snap5.GetGuid())
 	}
 
+}
+
+func ReplicationIncrementalHandlesFromVersionEqTentativeCursorCorrectly(ctx *platformtest.Context) {
+
+	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
+		CREATEROOT
+		+  "sender"
+		+  "sender@1"
+		+  "receiver"
+		R  zfs create -p "${ROOTDS}/receiver/${ROOTDS}"
+	`)
+
+	sjid := endpoint.MustMakeJobID("sender-job")
+	rjid := endpoint.MustMakeJobID("receiver-job")
+
+	sfs := ctx.RootDataset + "/sender"
+	rfsRoot := ctx.RootDataset + "/receiver"
+
+	rep := replicationInvocation{
+		sjid:    sjid,
+		rjid:    rjid,
+		sfs:     sfs,
+		rfsRoot: rfsRoot,
+		// It doesn't really matter what guarantee we use here, as the second replication will configure another.
+		// But, in the real world, the only way for a stale tentative cursor to appear is if the guarantee is set to
+		// incremental replication and we crash before converting the tentative cursor into a regular cursor.
+		guarantee: pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeIncrementalReplication),
+	}
+
+	// Do initial replication to set up the test.
+	rep1 := rep.Do(ctx)
+	ctx.Logf("\n%s", pretty.Sprint(rep1))
+	sfsDs := mustDatasetPath(sfs)
+	snap1_sender := mustGetFilesystemVersion(ctx, sfs+"@1")
+	snap1_replicationCursor_name, err := endpoint.ReplicationCursorBookmarkName(sfs, snap1_sender.Guid, sjid)
+	require.NoError(ctx, err)
+	snap1_replicationCursor := mustGetFilesystemVersion(ctx, sfs+"#"+snap1_replicationCursor_name)
+
+	// The second replication will be done with a guarantee kind that doesn't create tentative cursors by itself.
+	// So, it would generally be right to clean up any tentative cursors on sfs since they're stale abstractions.
+	// However, if the cursor is used as the `from` version in any send step, we must not destroy it, as that
+	// would break incremental replication.
+	// NB: we only need to test the first step as all subsequent steps will be snapshot->snapshot.
+	rep.guarantee = pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeNothing)
+	// create the artificial cursor
+	snap1_tentativeCursor, err := endpoint.CreateTentativeReplicationCursor(ctx, sfs, snap1_sender, sjid)
+	require.NoError(ctx, err)
+	endpoint.AbstractionsCacheInvalidate(sfs)
+	// remove other bookmarks of snap1, and snap1 itself, to force the replication planner to use the tentative cursor
+	err = zfs.ZFSDestroyFilesystemVersion(ctx, sfsDs, &snap1_sender)
+	require.NoError(ctx, err)
+	err = zfs.ZFSDestroyFilesystemVersion(ctx, sfsDs, &snap1_replicationCursor)
+	require.NoError(ctx, err)
+	versions, err := zfs.ZFSListFilesystemVersions(ctx, sfsDs, zfs.ListFilesystemVersionsOptions{})
+	require.NoError(ctx, err)
+	require.Len(ctx, versions, 1)
+	require.Equal(ctx, versions[0].Guid, snap1_tentativeCursor.GetFilesystemVersion().Guid)
+	// create another snapshot so that replication does one incremental step `tentative_cursor` -> `@2`
+	mustSnapshot(ctx, sfs+"@2")
+	mustGetFilesystemVersion(ctx, sfs+"@2")
+	// do the replication
+	rep2 := rep.Do(ctx)
+	ctx.Logf("\n%s", pretty.Sprint(rep2))
+
+	// Ensure that the tentative cursor was used.
+	require.Len(ctx, rep2.Attempts, 1)
+	require.Equal(ctx, rep2.Attempts[0].State, report.AttemptDone)
+	require.Len(ctx, rep2.Attempts[0].Filesystems, 1)
+	require.Nil(ctx, rep2.Attempts[0].Filesystems[0].Error())
+	require.Len(ctx, rep2.Attempts[0].Filesystems[0].Steps, 1)
+	require.EqualValues(ctx, rep2.Attempts[0].Filesystems[0].CurrentStep, 1)
+	require.Len(ctx, rep2.Attempts[0].Filesystems[0].Steps, 1)
+	require.Equal(ctx, rep2.Attempts[0].Filesystems[0].Steps[0].Info.From, snap1_tentativeCursor.GetFilesystemVersion().RelName())
+
+	// Ensure that the tentative cursor was destroyed as part of SendPost.
+	_, err = zfs.ZFSGetFilesystemVersion(ctx, snap1_replicationCursor.FullPath(sfs))
+	_, ok := err.(*zfs.DatasetDoesNotExist)
+	require.True(ctx, ok)
 }
 
 type PartialSender struct {

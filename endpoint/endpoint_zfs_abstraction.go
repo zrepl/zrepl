@@ -31,7 +31,7 @@ const (
 	AbstractionReplicationCursorBookmarkV2        AbstractionType = "replication-cursor-bookmark-v2"
 )
 
-var AbstractionTypesAll = map[AbstractionType]bool{
+var AbstractionTypesAll = AbstractionTypeSet{
 	AbstractionStepHold:                           true,
 	AbstractionLastReceivedHold:                   true,
 	AbstractionTentativeReplicationCursorBookmark: true,
@@ -181,6 +181,38 @@ func (s AbstractionTypeSet) Validate() error {
 	return nil
 }
 
+// Use the `BookmarkExtractor()` method of each abstraction type in this set
+// to try extract an abstraction from the given FilesystemVersion.
+//
+// Abstraction types in this set that don't have a bookmark extractor are skipped.
+//
+// Panics if more than one abstraction type matches.
+func (s AbstractionTypeSet) ExtractBookmark(dp *zfs.DatasetPath, v *zfs.FilesystemVersion) Abstraction {
+	matched := make(AbstractionTypeSet, 1)
+	var matchedAbs Abstraction
+	for absType := range s {
+		extractor := absType.BookmarkExtractor()
+		if extractor == nil {
+			continue
+		}
+		abstraction := extractor(dp, *v)
+		if abstraction != nil {
+			matched[absType] = true
+			matchedAbs = abstraction
+		}
+	}
+	if len(matched) == 0 {
+		return nil
+	}
+	if len(matched) == 1 {
+		if matchedAbs == nil {
+			panic("loop above should always set matchedAbs if there is a match")
+		}
+		return matchedAbs
+	}
+	panic(fmt.Sprintf("abstraction types extractors should not overlap: %s", matched))
+}
+
 type BookmarkExtractor func(fs *zfs.DatasetPath, v zfs.FilesystemVersion) Abstraction
 
 // returns nil if the abstraction type is not bookmark-based
@@ -233,6 +265,23 @@ func (t AbstractionType) BookmarkNamer() func(fs string, guid uint64, jobId JobI
 		return nil
 	case AbstractionLastReceivedHold:
 		return nil
+	default:
+		panic(fmt.Sprintf("unimpl: %q", t))
+	}
+}
+
+func (t AbstractionType) IsSnapshotOrBookmark() bool {
+	switch t {
+	case AbstractionTentativeReplicationCursorBookmark:
+		return true
+	case AbstractionReplicationCursorBookmarkV1:
+		return true
+	case AbstractionReplicationCursorBookmarkV2:
+		return true
+	case AbstractionStepHold:
+		return false
+	case AbstractionLastReceivedHold:
+		return false
 	default:
 		panic(fmt.Sprintf("unimpl: %q", t))
 	}
