@@ -19,6 +19,10 @@ func WithJobID(ctx context.Context, jobID string) context.Context {
 	return context.WithValue(ctx, contextKeyJobID, jobID)
 }
 
+func GetJobIDOrDefault(ctx context.Context, def string) string {
+	return getJobIDOrDefault(ctx, def)
+}
+
 func getJobIDOrDefault(ctx context.Context, def string) string {
 	ret, ok := ctx.Value(contextKeyJobID).(string)
 	if !ok {

@@ -192,3 +192,14 @@ func (r *Report) GetFailedFilesystemsCountInLatestAttempt() int {
 		return 0
 	}
 }
+
+// Returns true in case the AttemptState is a terminal
+// state(AttemptPlanningError, AttemptFanOutError, AttemptDone)
+func (a AttemptState) IsTerminal() bool {
+	switch a {
+	case AttemptPlanningError, AttemptFanOutError, AttemptDone:
+		return true
+	default:
+		return false
+	}
+}

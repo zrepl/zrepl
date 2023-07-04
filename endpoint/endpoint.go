@@ -454,6 +454,7 @@ func (p *Sender) Receive(ctx context.Context, r *pdu.ReceiveReq, _ io.ReadCloser
 
 type FSFilter interface { // FIXME unused
 	Filter(path *zfs.DatasetPath) (pass bool, err error)
+	UserSpecifiedDatasets() zfs.UserSpecifiedDatasetsSet
 }
 
 // FIXME: can we get away without error types here?
@@ -611,6 +612,12 @@ var _ zfs.DatasetFilter = subroot{}
 // Filters local p
 func (f subroot) Filter(p *zfs.DatasetPath) (pass bool, err error) {
 	return p.HasPrefix(f.localRoot) && !p.Equal(f.localRoot), nil
+}
+
+func (f subroot) UserSpecifiedDatasets() zfs.UserSpecifiedDatasetsSet {
+	return zfs.UserSpecifiedDatasetsSet{
+		f.localRoot.ToString(): true,
+	}
 }
 
 func (f subroot) MapToLocal(fs string) (*zfs.DatasetPath, error) {
