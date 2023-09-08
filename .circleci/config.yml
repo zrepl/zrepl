@@ -279,7 +279,7 @@ jobs:
 
   publish-zrepl-github-io:
     docker:
-      - image: cimg/python:3.7
+      - image: cimg/base:2023.09
     steps:
       - checkout
       - invoke-lazy-sh:
