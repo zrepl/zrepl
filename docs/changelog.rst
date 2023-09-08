@@ -40,6 +40,27 @@ Those changes will likely come with some breakage in the config.
 However, I want to avoid breaking **use cases** that are satisfied by the current design.
 There will be beta/RC releases to give users a chance to evaluate.
 
+0.6.1
+-----
+
+* |feature| add metric to detect filesystems rules that don't match any local dataset (thanks, `@gmekicaxcient <https://github.com/gmekicaxcient>`_).
+* |bugfix| ``zrepl status``: hide progress bar once all filesystems reach terminal state (thanks, `@0x3333 <https://github.com/0x3333>`_).
+* |bugfix| handling of tenative cursor presence if protection strategy doesn't use it (:issue:`714`).
+* |docs| address setup with two or more external disks (thanks, `@se-jaeger <https://github.com/se-jaeger>`_).
+* |docs| document ``replication`` and ``conflict_resolution`` options (thanks, `@InsanePrawn <https://github.com/InsanePrawn>`_).
+* |docs| docs: talks: add note on keep_bookmarks option (thanks, `@skirmess <https://github.com/skirmess>`_).
+* |maint| dist: add openrc service file (thanks, `@gramosg <https://github.com/gramosg>`_).
+* |maint| grafana: update dashboard to Grafana 9.3.6.
+* |maint| run platform tests as part of CI.
+* |maint| build: upgrade to Go 1.21 and update golangci-lint; minimum Go version for builds is now 1.20
+
+.. NOTE::
+  |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
+  |  You can support maintenance and feature development through one of the following services:
+  |  |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
+  |  Note that PayPal processing fees are relatively high for small donations.
+  |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
+
 0.6
 ---
 
@@ -79,13 +100,6 @@ There will be beta/RC releases to give users a chance to evaluate.
 * |bugfix| Allow using day & week units for ``snapshotting.interval`` (:commit:`ffb1d89`)
 * |docs| ``docs/overview`` improvements (Thanks, `@jtagcat <https://github.com/jtagcat>`_).
 * |maint| Update to Go 1.19.
-
-.. NOTE::
-  |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
-  |  You can support maintenance and feature development through one of the following services:
-  |  |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
-  |  Note that PayPal processing fees are relatively high for small donations.
-  |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
 
 0.5
 ---
