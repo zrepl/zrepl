@@ -75,6 +75,7 @@ echo "building site"
 
 python3 run-sphinx-multiversion.py . ./public_git
 
+
 CURRENT_COMMIT=$(git rev-parse HEAD)
 git status --porcelain
 if [[ "$(git status --porcelain)" != "" ]]; then

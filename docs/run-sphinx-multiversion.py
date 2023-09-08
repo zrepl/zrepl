@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import sys
+from pathlib import Path
 import subprocess
 import re
 import argparse
+import distutils
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument("docsroot")
@@ -70,3 +71,37 @@ cmdline = [
 print(cmdline)
 subprocess.run(cmdline, check=True)
 
+# Unlink sphinxcontrib-versioning, sphinx-multiversion doesn't put the latest version at `/`.
+# We don't want to break such links.
+# The problem is that we're hosting on GitHub pages, so, we don't control the web server.
+# So, time for a dirty hack: place an HTML-level redirect.
+outdir = Path(args.outdir)
+assert outdir.is_dir()
+assert (outdir / "stable" / "index.html").is_file(), "sanity check"
+def recurse(prefix: Path):
+    srcdir = outdir / "stable" / prefix
+    dstdir = outdir / prefix
+    assert srcdir.is_dir(), f"{srcdir}"
+    assert dstdir.is_dir(), f"{dstdir}"
+    # print(outdir, prefix, srcdir, dstdir)
+    for f in srcdir.glob("*"):
+        assert not (dstdir / f.name).exists(), f"don't want to be overwriting stuff: {f}"
+        if f.is_file():
+            # redirect using JS, with fallback to `http-equiv`
+            redirect_path = str(prefix / f.name)
+            redirect = f"""
+    <!DOCTYPE html>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+    <meta http-equiv="refresh" content="2; URL=/stable/{redirect_path}">
+    <script>
+        window.location.href = "/stable" + window.location.pathname + window.location.search + window.location.hash;
+    </script>
+    """
+            (dstdir / f.name).write_text(redirect)
+        elif f.is_dir():
+            (dstdir / f.name).mkdir()
+            recurse(prefix / f.name)
+        else:
+            assert False, "unsupported: {f}"
+recurse(Path("."))
