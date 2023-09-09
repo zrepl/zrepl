@@ -4,7 +4,7 @@ set -euo pipefail
 NON_INTERACTIVE=false
 DO_CLONE=false
 PUSH=false
-while getopts "ca" arg; do
+while getopts "caP" arg; do
     case "$arg" in
         "a")
             NON_INTERACTIVE=true
