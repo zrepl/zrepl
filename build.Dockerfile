@@ -2,11 +2,17 @@ FROM !SUBSTITUTED_BY_MAKEFILE
 
 RUN apt-get update && apt-get install -y \
     python3-pip \
+    python3-venv \
     unzip \
     gawk
 
 ADD build.installprotoc.bash ./
 RUN bash build.installprotoc.bash
+
+# setup venv
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 ADD lazy.sh /tmp/lazy.sh
 ADD docs/requirements.txt /tmp/requirements.txt
