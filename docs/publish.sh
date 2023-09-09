@@ -3,6 +3,7 @@ set -euo pipefail
 
 NON_INTERACTIVE=false
 DO_CLONE=false
+PUSH=false
 while getopts "ca" arg; do
     case "$arg" in
         "a")
@@ -10,6 +11,9 @@ while getopts "ca" arg; do
             ;;
         "c")
             DO_CLONE=true
+            ;;
+        "P")
+            PUSH=true
             ;;
         *)
             echo "invalid option '-$arg'"
@@ -93,6 +97,11 @@ if [ "$(git status --porcelain)" != "" ]; then
 else
     echo "nothing to commit"
 fi
-echo "pushing to GitHub pages repo"
-git push origin master
+
+if $PUSH; then
+    echo "pushing to GitHub pages repo"
+    git push origin master
+else
+    echo "not pushing to GitHub pages repo, set -P flag to push"
+fi
 
