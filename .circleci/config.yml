@@ -59,6 +59,42 @@ commands:
             -H "Circle-Token: $ZREPL_BOT_CIRCLE_TOKEN" \
             --data '<<parameters.body_no_shell_subst>>'
 
+  docs-publish-sh:
+    parameters:
+      push:
+        type: boolean
+    steps:
+      - checkout
+      - run:
+          command: |
+            git config --global user.email "zreplbot@cschwarz.com"
+            git config --global user.name "zrepl-github-io-ci"
+
+      # https://circleci.com/docs/2.0/add-ssh-key/#adding-multiple-keys-with-blank-hostnames
+      - run: ssh-add -D
+      # the default circleci ssh config only additional ssh keys for Host !github.com
+      - run:
+          command: |
+            cat > ~/.ssh/config \<<EOF
+            Host *
+              IdentityFile /home/circleci/.ssh/id_rsa_458e62c517f6c480e40452126ce47421
+            EOF
+      - add_ssh_keys:
+          fingerprints:
+            # deploy key for zrepl.github.io
+            - "45:8e:62:c5:17:f6:c4:80:e4:04:52:12:6c:e4:74:21"
+
+      # caller must install-docdep
+      - when:
+          condition: << parameters.push >>
+          steps:
+            - run: bash -x docs/publish.sh -c -a -P
+      - when:
+          condition:
+            not: << parameters.push >>
+          steps:
+            - run: bash -x docs/publish.sh -c -a
+
 parameters:
   do_ci:
     type: boolean
@@ -137,7 +173,7 @@ workflows:
     jobs:
       - periodic-full-pipeline-run
 
-  zrepl.github.io:
+  publish-zrepl.github.io:
     jobs:
       - publish-zrepl-github-io:
           filters:
@@ -152,7 +188,11 @@ jobs:
     steps:
       - checkout
       - install-docdep
+      # do the current docs build
       - run: make docs
+      # does the publish.sh script still work?
+      - docs-publish-sh:
+          push: false
 
   quickcheck-go:
     parameters:
@@ -282,25 +322,6 @@ jobs:
       - image: cimg/base:2023.09
     steps:
       - checkout
-      - invoke-lazy-sh:
-          subcommand: docdep
-      - run:
-          command: |
-            git config --global user.email "zreplbot@cschwarz.com"
-            git config --global user.name "zrepl-github-io-ci"
-
-      # https://circleci.com/docs/2.0/add-ssh-key/#adding-multiple-keys-with-blank-hostnames
-      - run: ssh-add -D
-      # the default circleci ssh config only additional ssh keys for Host !github.com
-      - run:
-          command: |
-            cat > ~/.ssh/config \<<EOF
-            Host *
-              IdentityFile /home/circleci/.ssh/id_rsa_458e62c517f6c480e40452126ce47421
-            EOF
-      - add_ssh_keys:
-          fingerprints:
-            # deploy key for zrepl.github.io
-            - "45:8e:62:c5:17:f6:c4:80:e4:04:52:12:6c:e4:74:21"
-
-      - run: bash -x docs/publish.sh -c -a
+      - install-docdep
+      - docs-publish-sh:
+          push: true
