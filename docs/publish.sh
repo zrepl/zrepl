@@ -26,8 +26,8 @@ checkout_repo_msg() {
     echo "clone ${GHPAGESREPO} to ${PUBLICDIR}:"
 }
 
-if ! type sphinx-versioning >/dev/null; then
-    echo "install sphinx-versioning and come back"
+if ! type sphinx-multiversion >/dev/null; then
+    echo "install sphinx-multiversion and come back"
     exit 1
 fi
 
@@ -49,11 +49,11 @@ else
     read -r
 fi
 
-pushd "$PUBLICDIR" 
+pushd "$PUBLICDIR"
 
 echo "verify we're in the GitHub pages repo..."
 git remote get-url origin | grep -E "^${GHPAGESREPO}\$"
-if [ "$?" -ne "0" ] ;then 
+if [ "$?" -ne "0" ] ;then
     checkout_repo_msg
     echo "finished checkout, please run again"
     exit 1
@@ -73,22 +73,15 @@ popd
 
 echo "building site"
 
-flags="$(python3 gen-sphinx-versioning-flags.py)"
-set -e
-sphinx-versioning build \
-   $flags \
-   docs ./public_git \
-   -- -c sphinxconf # older conf.py throw errors because they used
-                    # version = subprocess.show_output(["git", "describe"])
-                    # which fails when building with sphinxcontrib-versioning
-set +e
+python3 run-sphinx-multiversion.py . ./public_git
+
 
 CURRENT_COMMIT=$(git rev-parse HEAD)
 git status --porcelain
 if [[ "$(git status --porcelain)" != "" ]]; then
-    CURRENT_COMMIT="${CURRENT_COMMIT}(dirty)" 
+    CURRENT_COMMIT="${CURRENT_COMMIT}(dirty)"
 fi
-COMMIT_MSG="sphinx-versioning render from publish.sh - $(date -u) - ${CURRENT_COMMIT}"
+COMMIT_MSG="render from publish.sh - $(date -u) - ${CURRENT_COMMIT}"
 
 pushd "$PUBLICDIR"
 
