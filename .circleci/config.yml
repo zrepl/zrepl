@@ -47,18 +47,6 @@ commands:
       - invoke-lazy-sh:
           subcommand: docdep
 
-  trigger-pipeline:
-    parameters:
-      body_no_shell_subst:
-        type: string
-    steps:
-      - run: |
-          curl -X POST https://circleci.com/api/v2/project/github/zrepl/zrepl/pipeline \
-            -H 'Content-Type: application/json' \
-            -H 'Accept: application/json' \
-            -H "Circle-Token: $ZREPL_BOT_CIRCLE_TOKEN" \
-            --data '<<parameters.body_no_shell_subst>>'
-
   docs-publish-sh:
     parameters:
       push:
@@ -160,18 +148,6 @@ workflows:
             - release-build
             - release-deb
             - release-rpm
-
-  periodic:
-    triggers:
-      - schedule:
-          cron: "00 17 * * *"
-          filters:
-            branches:
-              only:
-                - master
-                - stable
-    jobs:
-      - periodic-full-pipeline-run
 
   publish-zrepl.github.io:
     jobs:
@@ -309,13 +285,6 @@ jobs:
           at: .
       - store_artifacts:
           path: artifacts
-
-  periodic-full-pipeline-run:
-    docker:
-      - image: cimg/base:2020.08
-    steps:
-      - trigger-pipeline:
-          body_no_shell_subst: '{"branch":"<<pipeline.git.branch>>", "parameters": { "do_ci": true, "do_release": true }}'
 
   publish-zrepl-github-io:
     docker:
