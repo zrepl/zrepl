@@ -150,9 +150,7 @@ func NewOutlets() *Outlets {
 func (os *Outlets) DeepCopy() (copy *Outlets) {
 	copy = NewOutlets()
 	for level := range os.outs {
-		for i := range os.outs[level] {
-			copy.outs[level] = append(copy.outs[level], os.outs[level][i])
-		}
+		copy.outs[level] = append(copy.outs[level], os.outs[level]...)
 	}
 	return copy
 }
