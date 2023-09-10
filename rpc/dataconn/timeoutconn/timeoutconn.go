@@ -107,34 +107,31 @@ func (c *Conn) RenewWriteDeadline() error {
 	return c.SetWriteDeadline(time.Now().Add(c.idleTimeout))
 }
 
-func (c *Conn) Read(p []byte) (n int, err error) {
+func (c *Conn) Read(p []byte) (n int, _ error) {
 	n = 0
-	err = nil
 restart:
 	if err := c.renewReadDeadline(); err != nil {
 		return n, err
 	}
 	var nCurRead int
-	nCurRead, err = c.Wire.Read(p[n:])
+	nCurRead, err := c.Wire.Read(p[n:])
 	n += nCurRead
 	if netErr, ok := err.(net.Error); ok && netErr.Timeout() && nCurRead > 0 {
-		err = nil
 		goto restart
 	}
 	return n, err
 }
 
-func (c *Conn) Write(p []byte) (n int, err error) {
+func (c *Conn) Write(p []byte) (n int, _ error) {
 	n = 0
 restart:
 	if err := c.RenewWriteDeadline(); err != nil {
 		return n, err
 	}
 	var nCurWrite int
-	nCurWrite, err = c.Wire.Write(p[n:])
+	nCurWrite, err := c.Wire.Write(p[n:])
 	n += nCurWrite
 	if netErr, ok := err.(net.Error); ok && netErr.Timeout() && nCurWrite > 0 {
-		err = nil
 		goto restart
 	}
 	return n, err
@@ -144,17 +141,16 @@ restart:
 // but is guaranteed to use the writev system call if the wrapped Wire
 // support it.
 // Note the Conn does not support writev through io.Copy(aConn, aNetBuffers).
-func (c *Conn) WritevFull(bufs net.Buffers) (n int64, err error) {
+func (c *Conn) WritevFull(bufs net.Buffers) (n int64, _ error) {
 	n = 0
 restart:
 	if err := c.RenewWriteDeadline(); err != nil {
 		return n, err
 	}
 	var nCurWrite int64
-	nCurWrite, err = io.Copy(c.Wire, &bufs)
+	nCurWrite, err := io.Copy(c.Wire, &bufs)
 	n += nCurWrite
 	if netErr, ok := err.(net.Error); ok && netErr.Timeout() && nCurWrite > 0 {
-		err = nil
 		goto restart
 	}
 	return n, err
