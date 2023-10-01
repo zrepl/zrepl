@@ -283,6 +283,7 @@ jobs:
     steps:
       - attach_workspace:
           at: .
+      - run: make wrapup-and-checksum
       - store_artifacts:
           path: artifacts
 

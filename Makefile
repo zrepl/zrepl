@@ -52,12 +52,6 @@ release: clean
 	$(MAKE) test-go
 	$(MAKE) bins-all
 	$(MAKE) noarch
-	$(MAKE) wrapup-and-checksum
-	$(MAKE) check-git-clean
-ifeq (SIGN, 1)
-	$(MAKE) sign
-endif
-	@echo "ZREPL RELEASE ARTIFACTS AVAILABLE IN artifacts/release"
 
 release-docker: $(ARTIFACTDIR)
 	sed 's/FROM.*!SUBSTITUTED_BY_MAKEFILE/FROM $(RELEASE_DOCKER_BASEIMAGE)/' build.Dockerfile > artifacts/release-docker.Dockerfile
@@ -144,7 +138,7 @@ deb-docker:
 		zrepl_debian_pkg \
 		make deb GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)
 
-# expects `release` target to have run before
+# expects `release`, `deb` & `rpm` targets to have run before
 NOARCH_TARBALL := $(ARTIFACTDIR)/zrepl-noarch.tar
 wrapup-and-checksum:
 	rm -f $(NOARCH_TARBALL)
@@ -181,15 +175,20 @@ check-git-clean:
 
 tag-release:
 	test -n "$(ZREPL_TAG_VERSION)" || exit 1
-	git tag -u E27CA5FC -m "$(ZREPL_TAG_VERSION)" "$(ZREPL_TAG_VERSION)"
+	git tag -u '328A6627FA98061D!' -m "$(ZREPL_TAG_VERSION)" "$(ZREPL_TAG_VERSION)"
 
 sign:
-	gpg -u "89BC 5D89 C845 568B F578  B306 CDBD 8EC8 E27C A5FC" \
+	gpg -u '328A6627FA98061D!' \
 		--armor \
 		--detach-sign $(ARTIFACTDIR)/release/sha512sum.txt
 
 clean: docs-clean
 	rm -rf "$(ARTIFACTDIR)"
+
+download-circleci-release:
+	rm -rf "$(ARTIFACTDIR)"
+	mkdir -p "$(ARTIFACTDIR)/release"
+	python3 .circleci/download_artifacts.py --prefix 'artifacts/release/' "$(BUILD_NUM)" "$(ARTIFACTDIR)/release"
 
 ##################### BINARIES #####################
 .PHONY: bins-all lint test-go test-platform cover-merge cover-html vet zrepl-bin test-platform-bin generate-platform-test-list
