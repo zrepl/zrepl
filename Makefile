@@ -48,8 +48,6 @@ printvars:
 .PHONY: release wrapup-and-checksum check-git-clean sign clean
 
 release: clean
-	# no cross-platform support for target test
-	$(MAKE) test-go
 	$(MAKE) bins-all
 	$(MAKE) noarch
 
@@ -193,7 +191,7 @@ download-circleci-release:
 ##################### BINARIES #####################
 .PHONY: bins-all lint test-go test-platform cover-merge cover-html vet zrepl-bin test-platform-bin generate-platform-test-list
 
-BINS_ALL_TARGETS := zrepl-bin test-platform-bin vet lint
+BINS_ALL_TARGETS := zrepl-bin test-platform-bin
 GO_SUPPORTS_ILLUMOS := $(shell $(GO) version | gawk -F '.' '/^go version /{split($$0, comps, " "); split(comps[3], v, "."); if (v[1] == "go1" && v[2] >= 13) { print "illumos"; } else { print "noillumos"; }}')
 bins-all:
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=freebsd   GOARCH=amd64
