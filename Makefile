@@ -1,5 +1,5 @@
 .PHONY: generate build test vet cover release docs docs-clean clean format lint platformtest
-.PHONY: release bins-all release-noarch
+.PHONY: release release-noarch
 .DEFAULT_GOAL := zrepl-bin
 
 ARTIFACTDIR := artifacts
@@ -48,7 +48,12 @@ printvars:
 .PHONY: release wrapup-and-checksum check-git-clean sign clean
 
 release: clean
-	$(MAKE) bins-all
+	# no cross-platform support for target test
+	$(MAKE) test-go
+	$(MAKE) _run_make_foreach_target_tuple RUN_MAKE_FOREACH_TARGET_TUPLE_ARG="vet"
+	$(MAKE) _run_make_foreach_target_tuple RUN_MAKE_FOREACH_TARGET_TUPLE_ARG="lint"
+	$(MAKE) _run_make_foreach_target_tuple RUN_MAKE_FOREACH_TARGET_TUPLE_ARG="zrepl-bin"
+	$(MAKE) _run_make_foreach_target_tuple RUN_MAKE_FOREACH_TARGET_TUPLE_ARG="test-platform-bin"
 	$(MAKE) noarch
 
 release-docker: $(ARTIFACTDIR)
@@ -188,11 +193,7 @@ download-circleci-release:
 	mkdir -p "$(ARTIFACTDIR)/release"
 	python3 .circleci/download_artifacts.py --prefix 'artifacts/release/' "$(BUILD_NUM)" "$(ARTIFACTDIR)/release"
 
-##################### BINARIES #####################
-.PHONY: bins-all lint test-go test-platform cover-merge cover-html vet zrepl-bin test-platform-bin generate-platform-test-list
-
-bins-all:
-	$(MAKE) _run_make_foreach_target_tuple RUN_MAKE_FOREACH_TARGET_TUPLE_ARG="zrepl-bin test-platform-bin"
+##################### MULTI-ARCH HELPERS #####################
 
 _run_make_foreach_target_tuple:
 	if [ "$(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG)" = "" ]; then \
@@ -210,6 +211,9 @@ _run_make_foreach_target_tuple:
 	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=darwin    GOARCH=amd64
 	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=solaris   GOARCH=amd64
 	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=illumos   GOARCH=amd64
+
+##################### REGULAR TARGETS #####################
+.PHONY: lint test-go test-platform cover-merge cover-html vet zrepl-bin test-platform-bin generate-platform-test-list
 
 lint:
 	$(GO_ENV_VARS) $(GOLANGCI_LINT) run ./...
