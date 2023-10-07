@@ -4,17 +4,8 @@
 
 ARTIFACTDIR := artifacts
 
-ifdef ZREPL_VERSION
-    _ZREPL_VERSION := $(ZREPL_VERSION)
-endif
-ifndef _ZREPL_VERSION
-    _ZREPL_VERSION := $(shell git describe --always --dirty 2>/dev/null || echo "ZREPL_BUILD_INVALID_VERSION" )
-    ifeq ($(_ZREPL_VERSION),ZREPL_BUILD_INVALID_VERSION) # can't use .SHELLSTATUS because Debian Stretch is still on gmake 4.1
-        $(error cannot infer variable ZREPL_VERSION using git and variable is not overriden by make invocation)
-    endif
-endif
-
-ZREPL_PACKAGE_RELEASE := 1
+_ZREPL_VERSION := v0.6.1
+ZREPL_PACKAGE_RELEASE := 2
 
 GO := go
 GOOS ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOOS"')
