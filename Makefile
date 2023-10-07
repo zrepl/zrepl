@@ -79,7 +79,6 @@ _debs_or_rpms_docker: # artifacts/_zrepl.zsh_completion artifacts/bash_completio
 
 rpm: $(ARTIFACTDIR) # artifacts/_zrepl.zsh_completion artifacts/bash_completion docs zrepl-bin
 	$(eval _ZREPL_RPM_VERSION := $(subst -,.,$(_ZREPL_VERSION)))
-	$(eval _ZREPL_RPM_RELEASE := $(subst -,.,$(ZREPL_PACKAGE_RELEASE)))
 	$(eval _ZREPL_RPM_TOPDIR_ABS := $(CURDIR)/$(ARTIFACTDIR)/rpmbuild)
 	rm -rf "$(_ZREPL_RPM_TOPDIR_ABS)"
 	mkdir "$(_ZREPL_RPM_TOPDIR_ABS)"
@@ -88,7 +87,7 @@ rpm: $(ARTIFACTDIR) # artifacts/_zrepl.zsh_completion artifacts/bash_completion 
 	done
 	sed \
 		-e "s/^Version:.*/Version:          $(_ZREPL_RPM_VERSION)/g" \
-		-e "s/^Release:.*/Release:          $(_ZREPL_RPM_RELEASE)/g" \
+		-e "s/^Release:.*/Release:          $(ZREPL_PACKAGE_RELEASE)/g" \
 	    packaging/rpm/zrepl.spec \
 		>  $(_ZREPL_RPM_TOPDIR_ABS)/SPECS/zrepl.spec
 
