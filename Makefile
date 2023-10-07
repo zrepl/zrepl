@@ -191,19 +191,25 @@ download-circleci-release:
 ##################### BINARIES #####################
 .PHONY: bins-all lint test-go test-platform cover-merge cover-html vet zrepl-bin test-platform-bin generate-platform-test-list
 
-BINS_ALL_TARGETS := zrepl-bin test-platform-bin
 bins-all:
-	$(MAKE) $(BINS_ALL_TARGETS) GOOS=freebsd   GOARCH=amd64
-	$(MAKE) $(BINS_ALL_TARGETS) GOOS=freebsd   GOARCH=386
-	$(MAKE) $(BINS_ALL_TARGETS) GOOS=freebsd   GOARCH=arm	  GOARM=7
-	$(MAKE) $(BINS_ALL_TARGETS) GOOS=freebsd   GOARCH=arm64
-	$(MAKE) $(BINS_ALL_TARGETS) GOOS=linux     GOARCH=amd64
-	$(MAKE) $(BINS_ALL_TARGETS) GOOS=linux     GOARCH=arm64
-	$(MAKE) $(BINS_ALL_TARGETS) GOOS=linux     GOARCH=arm     GOARM=7
-	$(MAKE) $(BINS_ALL_TARGETS) GOOS=linux     GOARCH=386
-	$(MAKE) $(BINS_ALL_TARGETS) GOOS=darwin    GOARCH=amd64
-	$(MAKE) $(BINS_ALL_TARGETS) GOOS=solaris   GOARCH=amd64
-	$(MAKE) $(BINS_ALL_TARGETS) GOOS=illumos   GOARCH=amd64
+	$(MAKE) _run_make_foreach_target_tuple RUN_MAKE_FOREACH_TARGET_TUPLE_ARG="zrepl-bin test-platform-bin"
+
+_run_make_foreach_target_tuple:
+	if [ "$(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG)" = "" ]; then \
+		echo "RUN_MAKE_FOREACH_TARGET_TUPLE_ARG must be set"; \
+		exit 1; \
+	fi
+	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=freebsd   GOARCH=amd64
+	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=freebsd   GOARCH=386
+	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=freebsd   GOARCH=arm	  GOARM=7
+	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=freebsd   GOARCH=arm64
+	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=linux     GOARCH=amd64
+	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=linux     GOARCH=arm64
+	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=linux     GOARCH=arm     GOARM=7
+	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=linux     GOARCH=386
+	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=darwin    GOARCH=amd64
+	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=solaris   GOARCH=amd64
+	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=illumos   GOARCH=amd64
 
 lint:
 	$(GO_ENV_VARS) $(GOLANGCI_LINT) run ./...
