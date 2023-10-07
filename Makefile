@@ -63,7 +63,9 @@ release-docker: $(ARTIFACTDIR)
 	docker build -t zrepl_release --pull -f artifacts/release-docker.Dockerfile .
 	docker run --rm -i -v $(CURDIR):/src -u $$(id -u):$$(id -g) \
 		zrepl_release \
-		make release GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)
+		make release \
+			GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM) \
+			ZREPL_VERSION=$(ZREPL_VERSION) ZREPL_PACKAGE_RELEASE=$(ZREPL_PACKAGE_RELEASE)
 
 debs-docker:
 	$(MAKE) _debs_or_rpms_docker _DEB_OR_RPM=deb
@@ -115,7 +117,10 @@ rpm-docker:
 	docker build -t zrepl_rpm_pkg --pull -f packaging/rpm/Dockerfile .
 	docker run --rm -i -v $(CURDIR):/build/src -u $$(id -u):$$(id -g) \
 		zrepl_rpm_pkg \
-		make rpm GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)
+		make rpm \
+			GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM) \
+			ZREPL_VERSION=$(ZREPL_VERSION) ZREPL_PACKAGE_RELEASE=$(ZREPL_PACKAGE_RELEASE)
+
 
 deb: $(ARTIFACTDIR) # artifacts/_zrepl.zsh_completion artifacts/bash_completion docs zrepl-bin
 
@@ -147,7 +152,9 @@ deb-docker:
 	docker run --rm -i -v $(CURDIR):/build/src -u $$(id -u):$$(id -g) \
 		--ulimit nofile=1024:1024 \
 		zrepl_debian_pkg \
-		make deb GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)
+		make deb \
+			GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM) \
+			ZREPL_VERSION=$(ZREPL_VERSION) ZREPL_PACKAGE_RELEASE=$(ZREPL_PACKAGE_RELEASE)
 
 # expects `release`, `deb` & `rpm` targets to have run before
 NOARCH_TARBALL := $(ARTIFACTDIR)/zrepl-noarch.tar
