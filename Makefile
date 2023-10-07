@@ -173,7 +173,7 @@ wrapup-and-checksum:
 		config/samples
 	rm -rf "$(ARTIFACTDIR)/release"
 	mkdir -p "$(ARTIFACTDIR)/release"
-	cp -l $(ARTIFACTDIR)/zrepl-* \
+	cp -l $(ARTIFACTDIR)/zrepl* \
 		$(ARTIFACTDIR)/platformtest-* \
 		"$(ARTIFACTDIR)/release"
 	cd "$(ARTIFACTDIR)/release" && sha512sum $$(ls | sort) > sha512sum.txt
