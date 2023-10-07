@@ -192,7 +192,6 @@ download-circleci-release:
 .PHONY: bins-all lint test-go test-platform cover-merge cover-html vet zrepl-bin test-platform-bin generate-platform-test-list
 
 BINS_ALL_TARGETS := zrepl-bin test-platform-bin
-GO_SUPPORTS_ILLUMOS := $(shell $(GO) version | gawk -F '.' '/^go version /{split($$0, comps, " "); split(comps[3], v, "."); if (v[1] == "go1" && v[2] >= 13) { print "illumos"; } else { print "noillumos"; }}')
 bins-all:
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=freebsd   GOARCH=amd64
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=freebsd   GOARCH=386
@@ -204,13 +203,7 @@ bins-all:
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=linux     GOARCH=386
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=darwin    GOARCH=amd64
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=solaris   GOARCH=amd64
-ifeq ($(GO_SUPPORTS_ILLUMOS), illumos)
 	$(MAKE) $(BINS_ALL_TARGETS) GOOS=illumos   GOARCH=amd64
-else ifeq ($(GO_SUPPORTS_ILLUMOS), noillumos)
-	@echo "SKIPPING ILLUMOS BUILD BECAUSE GO VERSION DOESN'T SUPPORT IT"
-else
-	@echo "CANNOT DETERMINE WHETHER GO VERSION SUPPORTS GOOS=illumos"; exit 1
-endif
 
 lint:
 	$(GO_ENV_VARS) $(GOLANGCI_LINT) run ./...
