@@ -16,7 +16,7 @@ zrepl is a one-stop, integrated solution for ZFS replication.}
 %define __strip /usr/bin/true
 
 Name:             zrepl
-Release:          1
+Release:          SUBSTITUTED_BY_MAKEFILE
 Summary:          One-stop, integrated solution for ZFS replication
 License:          MIT
 URL:              https://zrepl.github.io/

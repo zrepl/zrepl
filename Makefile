@@ -14,6 +14,8 @@ ifndef _ZREPL_VERSION
     endif
 endif
 
+ZREPL_PACKAGE_RELEASE := 1
+
 GO := go
 GOOS ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOOS"')
 GOARCH ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOARCH"')
@@ -75,12 +77,18 @@ _debs_or_rpms_docker: # artifacts/_zrepl.zsh_completion artifacts/bash_completio
 
 rpm: $(ARTIFACTDIR) # artifacts/_zrepl.zsh_completion artifacts/bash_completion docs zrepl-bin
 	$(eval _ZREPL_RPM_VERSION := $(subst -,.,$(_ZREPL_VERSION)))
+	$(eval _ZREPL_RPM_RELEASE := $(subst -,.,$(ZREPL_PACKAGE_RELEASE)))
 	$(eval _ZREPL_RPM_TOPDIR_ABS := $(CURDIR)/$(ARTIFACTDIR)/rpmbuild)
 	rm -rf "$(_ZREPL_RPM_TOPDIR_ABS)"
 	mkdir "$(_ZREPL_RPM_TOPDIR_ABS)"
-	mkdir -p "$(_ZREPL_RPM_TOPDIR_ABS)"/{SPECS,RPMS,BUILD,BUILDROOT}
-	sed "s/^Version:.*/Version:          $(_ZREPL_RPM_VERSION)/g" \
-	    packaging/rpm/zrepl.spec >  $(_ZREPL_RPM_TOPDIR_ABS)/SPECS/zrepl.spec
+	for d in BUILD BUILDROOT RPMS SOURCES SPECS SRPMS; do \
+		mkdir -p "$(_ZREPL_RPM_TOPDIR_ABS)/$$d"; \
+	done
+	sed \
+		-e "s/^Version:.*/Version:          $(_ZREPL_RPM_VERSION)/g" \
+		-e "s/^Release:.*/Release:          $(_ZREPL_RPM_RELEASE)/g" \
+	    packaging/rpm/zrepl.spec \
+		>  $(_ZREPL_RPM_TOPDIR_ABS)/SPECS/zrepl.spec
 
 	# see /usr/lib/rpm/platform
 ifeq ($(GOARCH),amd64)
@@ -113,7 +121,7 @@ deb: $(ARTIFACTDIR) # artifacts/_zrepl.zsh_completion artifacts/bash_completion 
 
 	cp packaging/deb/debian/changelog.template packaging/deb/debian/changelog
 	sed -i 's/DATE_DASH_R_OUTPUT/$(shell date -R)/' packaging/deb/debian/changelog
-	VERSION="$(subst -,.,$(_ZREPL_VERSION))"; \
+	VERSION="$(subst -,.,$(_ZREPL_VERSION))-$(ZREPL_PACKAGE_RELEASE)"; \
 		export VERSION="$${VERSION#v}"; \
 		sed -i 's/VERSION/'"$$VERSION"'/' packaging/deb/debian/changelog
 
