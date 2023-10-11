@@ -40,10 +40,10 @@ require (
 	github.com/yudai/pp v2.0.1+incompatible // indirect
 	github.com/zrepl/yaml-config v0.0.0-20191220194647-cbb6b0cf4bdd
 	gitlab.com/tslocum/cview v1.5.3
-	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
-	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c
-	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
+	golang.org/x/net v0.17.0
+	golang.org/x/sync v0.1.0
+	golang.org/x/sys v0.13.0
+	golang.org/x/tools v0.6.0
 	google.golang.org/genproto v0.0.0-20210122163508-8081c04a3579 // indirect
 	google.golang.org/grpc v1.35.0
 	google.golang.org/protobuf v1.25.0
