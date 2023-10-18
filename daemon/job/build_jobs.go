@@ -102,7 +102,7 @@ func validateReceivingSidesDoNotOverlap(receivingRootFSs []string) error {
 	// thus,
 	// if any i is prefix of i+n (n >= 1), there is overlap
 	for i := 0; i < len(rfss)-1; i++ {
-		if strings.HasPrefix(rfss[i+1], rfss[i]) {
+		if rfss[i] != rfss[i+1] && strings.HasPrefix(rfss[i+1], rfss[i]) {
 			return fmt.Errorf("receiving jobs with overlapping root filesystems are forbidden")
 		}
 	}
