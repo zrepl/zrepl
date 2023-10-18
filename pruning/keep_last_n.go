@@ -33,11 +33,6 @@ func NewKeepLastN(n int, regex string) (*KeepLastN, error) {
 }
 
 func (k KeepLastN) KeepRule(snaps []Snapshot) (destroyList []Snapshot) {
-
-	if k.n > len(snaps) {
-		return []Snapshot{}
-	}
-
 	matching, notMatching := partitionSnapList(snaps, func(snapshot Snapshot) bool {
 		return k.re.MatchString(snapshot.Name())
 	})
