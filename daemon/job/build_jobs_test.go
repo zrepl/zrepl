@@ -26,16 +26,16 @@ func TestValidateReceivingSidesDoNotOverlap(t *testing.T) {
 		{false, []string{"some/path"}},
 		{false, []string{"zroot/sink1", "zroot/sink2", "zroot/sink3"}},
 		{false, []string{"zroot/foo", "zroot/foobar"}},
-		{false, []string{"zroot/b", "zroot/b"}},
+		{true, []string{"zroot/b", "zroot/b"}},
 		{true, []string{"zroot/foo", "zroot/foo/bar", "zroot/baz"}},
 		{false, []string{"a/x", "b/x"}},
 		{false, []string{"a", "b"}},
-		{false, []string{"a", "a"}},
+		{true, []string{"a", "a"}},
 		{true, []string{"a/x/y", "a/x"}},
 		{true, []string{"a/x", "a/x/y"}},
 		{true, []string{"a/x", "b/x", "a/x/y"}},
 		{true, []string{"a", "a/b", "a/c", "a/b"}},
-		{false, []string{"a/b", "a/c", "a/b", "a/d", "a/c"}},
+		{true, []string{"a/b", "a/c", "a/b", "a/d", "a/c"}},
 	}
 
 	for _, tc := range tcs {
