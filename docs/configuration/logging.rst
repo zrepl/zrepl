@@ -106,6 +106,36 @@ Outlets
 
 Outlets are the destination for log entries.
 
+.. _logging-outlet-file:
+
+``file`` Outlet
+-----------------
+
+.. list-table::
+    :widths: 10 90
+    :header-rows: 1
+
+    * - Parameter
+      - Comment
+    * - ``type``
+      - ``file``
+    * - ``level``
+      -  minimum  :ref:`log level <logging-levels>`
+    * - ``format``
+      - output :ref:`format <logging-formats>`
+    * - ``time``
+      - always include time in output (``true`` or ``false``). Default is ``true``.
+    * - ``log_level``
+      - include log level into output (``true`` or ``false``). Default is ``true``.
+    * - ``filename``
+      - path of the log file
+
+Writes all log entries with minimum level ``level`` formatted by ``format`` to
+file from ``filename``. This outlet automatically detects the log file was
+rotated and reopens it.
+
+Can be specified many times with different ``filename``.
+
 .. _logging-outlet-stdout:
 
 ``stdout`` Outlet

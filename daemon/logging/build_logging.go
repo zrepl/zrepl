@@ -234,6 +234,12 @@ func ParseOutlet(in config.LoggingOutletEnum) (o logger.Outlet, level logger.Lev
 			break
 		}
 		o, err = parseSyslogOutlet(v, f)
+	case *config.FileLoggingOutlet:
+		level, f, err = parseCommon(v.LoggingOutletCommon)
+		if err != nil {
+			break
+		}
+		o, err = parseFileOutlet(v, f)
 	default:
 		panic(v)
 	}
@@ -300,4 +306,28 @@ func parseSyslogOutlet(in *config.SyslogLoggingOutlet, formatter EntryFormatter)
 	out.Facility = syslog.Priority(*in.Facility)
 	out.RetryInterval = in.RetryInterval
 	return out, nil
+}
+
+func parseFileOutlet(
+	in *config.FileLoggingOutlet, formatter EntryFormatter,
+) (*FileOutlet, error) {
+	flags := MetadataNone
+	if in.Time {
+		flags |= MetadataTime
+	}
+	if in.LogLevel {
+		flags |= MetadataLevel
+	}
+
+	formatter.SetMetadataFlags(flags)
+	outlet := FileOutlet{
+		filename:  in.FileName,
+		formatter: formatter,
+	}
+
+	if err := outlet.Open(); err != nil {
+		return nil, err
+	}
+
+	return &outlet, nil
 }

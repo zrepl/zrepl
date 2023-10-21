@@ -421,6 +421,13 @@ type LoggingOutletCommon struct {
 	Format string `yaml:"format"`
 }
 
+type FileLoggingOutlet struct {
+	LoggingOutletCommon `yaml:",inline"`
+	FileName            string `yaml:"filename"`
+	Time                bool   `yaml:"time,default=true"`
+	LogLevel            bool   `yaml:"log_level,default=true"`
+}
+
 type StdoutLoggingOutlet struct {
 	LoggingOutletCommon `yaml:",inline"`
 	Time                bool `yaml:"time,default=true"`
@@ -582,6 +589,7 @@ func (t *SnapshottingEnum) UnmarshalYAML(u func(interface{}, bool) error) (err e
 
 func (t *LoggingOutletEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
 	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
+		"file":   &FileLoggingOutlet{},
 		"stdout": &StdoutLoggingOutlet{},
 		"syslog": &SyslogLoggingOutlet{},
 		"tcp":    &TCPLoggingOutlet{},

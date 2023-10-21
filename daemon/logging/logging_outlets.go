@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"log/syslog"
 	"net"
+	"os"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -170,5 +173,70 @@ func (o *SyslogOutlet) WriteEntry(entry logger.Entry) error {
 	default:
 		return o.writer.Err(s) // write as error as reaching this case is in fact an error
 	}
+}
 
+type FileOutlet struct {
+	file      *os.File
+	filename  string
+	formatter EntryFormatter
+	writer    io.Writer
+}
+
+func (self *FileOutlet) WriteEntry(entry logger.Entry) error {
+	bytes, err := self.formatter.Format(&entry)
+	if err != nil {
+		return err
+	}
+
+	if err := self.ReOpenIfNotExists(); err != nil {
+		return nil
+	}
+
+	if _, err = self.writer.Write(bytes); err != nil {
+		return fmt.Errorf("failed write to %q: %w", self.filename, err)
+	}
+
+	if _, err = self.writer.Write([]byte("\n")); err != nil {
+		return fmt.Errorf("failed write to %q: %w", self.filename, err)
+	}
+
+	return nil
+}
+
+func (self *FileOutlet) ReOpenIfNotExists() error {
+	finfo, err := self.file.Stat()
+	if err != nil {
+		return fmt.Errorf("failed stat of %q: %w", self.filename, err)
+	}
+
+	nlink := uint64(0)
+	if finfo.Sys() != nil {
+		if stat, ok := finfo.Sys().(*syscall.Stat_t); ok {
+			nlink = stat.Nlink
+		}
+	}
+	if nlink > 0 {
+		return nil
+	}
+
+	return self.ReOpen()
+}
+
+func (self *FileOutlet) ReOpen() error {
+	if err := self.file.Close(); err != nil {
+		return fmt.Errorf("failed close %q: %w", self.filename, err)
+	}
+
+	return self.Open()
+}
+
+func (self *FileOutlet) Open() error {
+	f, err := os.OpenFile(self.filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("file outlet: %w", err)
+	}
+	self.file = f
+	self.writer = f
+
+	return nil
 }
