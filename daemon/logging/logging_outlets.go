@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"syscall"
+	"text/template"
 	"time"
 
 	"github.com/pkg/errors"
@@ -179,6 +180,7 @@ type FileOutlet struct {
 	file      *os.File
 	filename  string
 	formatter EntryFormatter
+	template  *template.Template
 	writer    io.Writer
 }
 
@@ -188,22 +190,22 @@ func (self *FileOutlet) WriteEntry(entry logger.Entry) error {
 		return err
 	}
 
-	if err := self.ReOpenIfNotExists(); err != nil {
+	if err := self.reOpenIfNotExists(); err != nil {
 		return nil
 	}
 
-	if _, err = self.writer.Write(bytes); err != nil {
-		return fmt.Errorf("failed write to %q: %w", self.filename, err)
+	if self.template == nil {
+		return self.writeBytes(bytes)
 	}
 
-	if _, err = self.writer.Write([]byte("\n")); err != nil {
-		return fmt.Errorf("failed write to %q: %w", self.filename, err)
+	if err := self.writeTemplate(entry.Time, string(bytes)); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (self *FileOutlet) ReOpenIfNotExists() error {
+func (self *FileOutlet) reOpenIfNotExists() error {
 	finfo, err := self.file.Stat()
 	if err != nil {
 		return fmt.Errorf("failed stat of %q: %w", self.filename, err)
@@ -219,10 +221,10 @@ func (self *FileOutlet) ReOpenIfNotExists() error {
 		return nil
 	}
 
-	return self.ReOpen()
+	return self.reOpen()
 }
 
-func (self *FileOutlet) ReOpen() error {
+func (self *FileOutlet) reOpen() error {
 	if err := self.file.Close(); err != nil {
 		return fmt.Errorf("failed close %q: %w", self.filename, err)
 	}
@@ -237,6 +239,52 @@ func (self *FileOutlet) Open() error {
 	}
 	self.file = f
 	self.writer = f
+
+	return nil
+}
+
+func (self *FileOutlet) ParseTemplate(templateText string) error {
+	funcMap := template.FuncMap{
+		"formatTime": func(t time.Time, layout string) string {
+			return t.Format(layout)
+		},
+	}
+
+	tmpl, err := template.New("").Funcs(funcMap).Parse(templateText)
+	if err != nil {
+		return fmt.Errorf("failed parse template %q: %w", templateText, err)
+	}
+	self.template = tmpl
+
+	return nil
+}
+
+func (self *FileOutlet) writeTemplate(t time.Time, msg string) error {
+	data := struct {
+		Time    time.Time
+		Pid     int
+		Message string
+	}{
+		Time:    t,
+		Pid:     os.Getpid(),
+		Message: msg,
+	}
+
+	if err := self.template.Execute(self.writer, data); err != nil {
+		return fmt.Errorf("failed execute template: %w", err)
+	}
+
+	return nil
+}
+
+func (self *FileOutlet) writeBytes(bytes []byte) error {
+	if _, err := self.writer.Write(bytes); err != nil {
+		return fmt.Errorf("failed write to %q: %w", self.filename, err)
+	}
+
+	if _, err := self.writer.Write([]byte("\n")); err != nil {
+		return fmt.Errorf("failed write to %q: %w", self.filename, err)
+	}
 
 	return nil
 }

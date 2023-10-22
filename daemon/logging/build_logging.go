@@ -325,6 +325,12 @@ func parseFileOutlet(
 		formatter: formatter,
 	}
 
+	if in.Template != "" {
+		if err := outlet.ParseTemplate(in.Template); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := outlet.Open(); err != nil {
 		return nil, err
 	}
