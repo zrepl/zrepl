@@ -129,10 +129,28 @@ Outlets are the destination for log entries.
       - include log level into output (``true`` or ``false``). Default is ``true``.
     * - ``filename``
       - path of the log file
+    * - ``template``
+      - format output by Go template string
 
 Writes all log entries with minimum level ``level`` formatted by ``format`` to
 file from ``filename``. This outlet automatically detects the log file was
 rotated and reopens it.
+
+If ``template`` configured, log entries formatted by this template. For instance
+this configuration
+
+::
+
+    - type: "file"
+      level:  "info"
+      format: "human"
+      filename: "/var/log/zrepl.log"
+      time: false
+      template: '{{formatTime .Time "Jan _2 15:04:05"}} zrepl[{{.Pid}}]: {{.Message}}'
+
+formats log entries like ::
+
+  ``Oct 22 21:51:02 zrepl[29094]: [INFO][job-name][job][abcd$dcab$abcd.dcab]: wait for wakeups``.
 
 Can be specified many times with different ``filename``.
 
