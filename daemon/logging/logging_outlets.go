@@ -274,6 +274,10 @@ func (self *FileOutlet) writeTemplate(t time.Time, msg string) error {
 		return fmt.Errorf("failed execute template: %w", err)
 	}
 
+	if _, err := self.writer.Write([]byte("\n")); err != nil {
+		return fmt.Errorf("failed write to %q: %w", self.filename, err)
+	}
+
 	return nil
 }
 
