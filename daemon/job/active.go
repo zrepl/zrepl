@@ -102,6 +102,7 @@ type modePush struct {
 	senderConfig  *endpoint.SenderConfig
 	plannerPolicy *logic.PlannerPolicy
 	snapper       snapper.Snapper
+	interval      *config.PositiveDurationOrManual
 }
 
 func (m *modePush) ConnectEndpoints(ctx context.Context, connecter transport.Connecter) {
@@ -132,8 +133,32 @@ func (m *modePush) Type() Type { return TypePush }
 
 func (m *modePush) PlannerPolicy() logic.PlannerPolicy { return *m.plannerPolicy }
 
-func (m *modePush) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}) {
-	m.snapper.Run(ctx, wakeUpCommon)
+func (m *modePush) RunPeriodic(
+	ctx context.Context, wakeUpCommon chan<- struct{},
+) {
+	if m.interval == nil {
+		m.snapper.Run(ctx, wakeUpCommon)
+		return
+	}
+
+	t := time.NewTicker(m.interval.Interval)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-t.C:
+			select {
+			case wakeUpCommon <- struct{}{}:
+			default:
+				GetLogger(ctx).
+					WithField("push_interval", m.interval).
+					Warn("push job took longer than push interval")
+				wakeUpCommon <- struct{}{} // block anyways, to queue up the wakeup
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func (m *modePush) SnapperReport() *snapper.Report {
@@ -152,6 +177,10 @@ func (m *modePush) ResetConnectBackoff() {
 func modePushFromConfig(g *config.Global, in *config.PushJob, jobID endpoint.JobID) (*modePush, error) {
 	m := &modePush{}
 	var err error
+
+	if _, ok := in.Snapshotting.Ret.(*config.SnapshottingManual); ok {
+		m.interval = in.Interval
+	}
 
 	m.senderConfig, err = buildSenderConfig(in, jobID)
 	if err != nil {
