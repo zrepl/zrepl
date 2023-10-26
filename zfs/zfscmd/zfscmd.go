@@ -7,6 +7,7 @@ package zfscmd
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -24,6 +25,9 @@ type Cmd struct {
 	mtx                                      sync.RWMutex
 	startedAt, waitStartedAt, waitReturnedAt time.Time
 	waitReturnEndSpanCb                      trace.DoneFunc
+
+	pipeCmds []*exec.Cmd
+	pipeLeft bool
 }
 
 func CommandContext(ctx context.Context, name string, arg ...string) *Cmd {
@@ -72,7 +76,26 @@ func (c *Cmd) SetStdio(stdio Stdio) {
 }
 
 func (c *Cmd) String() string {
-	return strings.Join(c.cmd.Args, " ") // includes argv[0] if initialized with CommandContext, that's the only way we o it
+	if len(c.pipeCmds) == 0 {
+		return strings.Join(c.cmd.Args, " ") // includes argv[0] if initialized with CommandContext, that's the only way we o it
+	}
+
+	var s strings.Builder
+	if c.pipeLeft {
+		for _, cmd := range c.pipeCmds {
+			s.WriteString(strings.Join(cmd.Args, " "))
+			s.WriteString(" | ")
+		}
+		s.WriteString(strings.Join(c.cmd.Args, " "))
+	} else {
+		s.WriteString(strings.Join(c.cmd.Args, " "))
+		for _, cmd := range c.pipeCmds {
+			s.WriteString(" | ")
+			s.WriteString(strings.Join(cmd.Args, " "))
+		}
+	}
+
+	return s.String()
 }
 
 func (c *Cmd) log() Logger {
@@ -88,7 +111,7 @@ func (c *Cmd) log() Logger {
 // If this method returns an error, the Cmd instance is invalid. Start must not be called repeatedly.
 func (c *Cmd) Start() (err error) {
 	c.startPre(true)
-	err = c.cmd.Start()
+	err = c.startPipe()
 	c.startPost(err)
 	return err
 }
@@ -109,7 +132,7 @@ func (c *Cmd) Process() *os.Process {
 // Only call this method after a successful call to .Start().
 func (c *Cmd) Wait() (err error) {
 	c.waitPre()
-	err = c.cmd.Wait()
+	err = c.WaitPipe()
 	c.waitPost(err)
 	return err
 }
@@ -212,4 +235,69 @@ func (c *Cmd) Runtime() time.Duration {
 
 func (c *Cmd) TestOnly_ExecCmd() *exec.Cmd {
 	return c.cmd
+}
+
+func (c *Cmd) Pipe(
+	stdin io.ReadCloser, stderr io.Writer, cmds ...[]string,
+) (io.ReadCloser, error) {
+	for _, pipeCmd := range c.buildPipeCmds(cmds) {
+		r, err := pipeCmd.StdoutPipe()
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed create stdout pipe for %q: %w", pipeCmd.String(), err)
+		}
+		pipeCmd.Stdin = stdin
+		pipeCmd.Stderr = stderr
+		c.pipeCmds = append(c.pipeCmds, pipeCmd)
+		stdin = r
+	}
+	return stdin, nil
+}
+
+func (c *Cmd) buildPipeCmds(cmds [][]string) []*exec.Cmd {
+	pipeCmds := make([]*exec.Cmd, len(cmds))
+	for i := range cmds {
+		name := cmds[i][0]
+		var args []string
+		if len(cmds[i]) > 1 {
+			args = cmds[i][1:]
+		}
+		pipeCmds[i] = exec.CommandContext(c.ctx, name, args...)
+	}
+	return pipeCmds
+}
+
+func (c *Cmd) startPipe() error {
+	if err := c.cmd.Start(); err != nil {
+		return err
+	}
+	for _, cmd := range c.pipeCmds {
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("failed start %q: %w", cmd.String(), err)
+		}
+	}
+	return nil
+}
+
+func (c *Cmd) WaitPipe() error {
+	var firstErr error
+	if c.cmd.Process != nil {
+		if err := c.cmd.Wait(); err != nil {
+			firstErr = err
+		}
+	}
+	for _, cmd := range c.pipeCmds {
+		if cmd.Process == nil {
+			break
+		}
+		if err := cmd.Wait(); err != nil && firstErr == nil {
+			firstErr = fmt.Errorf("failed wait %q: %w", cmd.String(), err)
+		}
+	}
+	return firstErr
+}
+
+func (c *Cmd) WithLeftPipe() *Cmd {
+	c.pipeLeft = true
+	return c
 }

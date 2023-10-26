@@ -38,6 +38,7 @@ type SenderConfig struct {
 	SendSaved            bool
 
 	BandwidthLimit bandwidthlimit.Config
+	ExecPipe       [][]string
 }
 
 func (c *SenderConfig) Validate() error {
@@ -305,7 +306,7 @@ func (s *Sender) Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.Rea
 	}()
 
 	var sendStream io.ReadCloser
-	sendStream, err = zfs.ZFSSend(ctx, sendArgs)
+	sendStream, err = zfs.ZFSSend(ctx, sendArgs, s.config.ExecPipe...)
 	if err != nil {
 		// it's ok to not destroy the abstractions we just created here, a new send attempt will take care of it
 		return nil, nil, errors.Wrap(err, "zfs send failed")
@@ -479,6 +480,8 @@ type ReceiverConfig struct {
 	BandwidthLimit bandwidthlimit.Config
 
 	PlaceholderEncryption PlaceholderCreationEncryptionProperty
+
+	ExecPipe [][]string
 }
 
 //go:generate enumer -type=PlaceholderCreationEncryptionProperty -transform=kebab -trimprefix=PlaceholderCreationEncryptionProperty
@@ -923,7 +926,10 @@ func (s *Receiver) Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.
 	log.WithField("opts", fmt.Sprintf("%#v", recvOpts)).Debug("start receive command")
 
 	snapFullPath := to.FullPath(lp.ToString())
-	if err := zfs.ZFSRecv(ctx, lp.ToString(), to, chainedio.NewChainedReader(&peek, receive), recvOpts); err != nil {
+	if err := zfs.ZFSRecv(
+		ctx, lp.ToString(), to, chainedio.NewChainedReader(&peek, receive),
+		recvOpts, s.conf.ExecPipe...,
+	); err != nil {
 
 		// best-effort rollback of placeholder state if the recv didn't start
 		_, resumableStatePresent := err.(*zfs.RecvFailedWithResumeTokenErr)

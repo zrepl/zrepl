@@ -930,8 +930,9 @@ var ErrEncryptedSendNotSupported = fmt.Errorf("raw sends which are required for 
 // (if from is "" a full ZFS send is done)
 //
 // Returns ErrEncryptedSendNotSupported if encrypted send is requested but not supported by CLI
-func ZFSSend(ctx context.Context, sendArgs ZFSSendArgsValidated) (*SendStream, error) {
-
+func ZFSSend(
+	ctx context.Context, sendArgs ZFSSendArgsValidated, pipeCmds ...[]string,
+) (*SendStream, error) {
 	args := make([]string, 0)
 	args = append(args, "send")
 
@@ -972,10 +973,19 @@ func ZFSSend(ctx context.Context, sendArgs ZFSSendArgsValidated) (*SendStream, e
 		Stderr: stderrBuf,
 	})
 
+	pipeReader, err := cmd.Pipe(stdoutReader, stderrBuf, pipeCmds...)
+	if err != nil {
+		cancel()
+		stdoutWriter.Close()
+		stdoutReader.Close()
+		return nil, err
+	}
+
 	if err := cmd.Start(); err != nil {
 		cancel()
 		stdoutWriter.Close()
 		stdoutReader.Close()
+		_ = cmd.WaitPipe()
 		return nil, errors.Wrap(err, "cannot start zfs send command")
 	}
 	// close our writing-end of the pipe so that we don't wait for ourselves when reading from the reading  end
@@ -983,7 +993,7 @@ func ZFSSend(ctx context.Context, sendArgs ZFSSendArgsValidated) (*SendStream, e
 
 	stream := &SendStream{
 		cmd:          cmd,
-		stdoutReader: stdoutReader,
+		stdoutReader: pipeReader,
 		stderrBuf:    stderrBuf,
 	}
 	_ = cancel // the SendStream.killAndWait() will kill the process
@@ -1207,8 +1217,10 @@ func (opts RecvOptions) buildRecvFlags() []string {
 
 const RecvStderrBufSiz = 1 << 15
 
-func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, stream io.ReadCloser, opts RecvOptions) (err error) {
-
+func ZFSRecv(
+	ctx context.Context, fs string, v *ZFSSendArgVersion, stream io.ReadCloser,
+	opts RecvOptions, pipeCmds ...[]string,
+) (err error) {
 	if err := v.ValidateInMemory(fs); err != nil {
 		return errors.Wrap(err, "invalid version")
 	}
@@ -1280,8 +1292,15 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, stream io.Rea
 		return err
 	}
 
+	pipeReader, err := cmd.WithLeftPipe().Pipe(stdin, stderr, pipeCmds...)
+	if err != nil {
+		stdinWriter.Close()
+		stdin.Close()
+		return err
+	}
+
 	cmd.SetStdio(zfscmd.Stdio{
-		Stdin:  stdin,
+		Stdin:  pipeReader,
 		Stdout: stdout,
 		Stderr: stderr,
 	})
@@ -1289,6 +1308,7 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, stream io.Rea
 	if err = cmd.Start(); err != nil {
 		stdinWriter.Close()
 		stdin.Close()
+		_ = cmd.WaitPipe()
 		return err
 	}
 	stdin.Close()
@@ -1301,40 +1321,30 @@ func ZFSRecv(ctx context.Context, fs string, v *ZFSSendArgVersion, stream io.Rea
 
 	debug("started")
 
-	copierErrChan := make(chan error)
-	go func() {
-		_, err := io.Copy(stdinWriter, stream)
-		copierErrChan <- err
-		stdinWriter.Close()
-	}()
-	waitErrChan := make(chan error)
-	go func() {
-		defer close(waitErrChan)
-		if err = cmd.Wait(); err != nil {
-			if rtErr := tryRecvErrorWithResumeToken(ctx, stderr.String()); rtErr != nil {
-				waitErrChan <- rtErr
-			} else if owErr := tryRecvDestroyOrOverwriteEncryptedErr(stderr.Bytes()); owErr != nil {
-				waitErrChan <- owErr
-			} else if readErr := tryRecvCannotReadFromStreamErr(stderr.Bytes()); readErr != nil {
-				waitErrChan <- readErr
-			} else {
-				waitErrChan <- &ZFSError{
-					Stderr:  stderr.Bytes(),
-					WaitErr: err,
-				}
-			}
-			return
-		}
-	}()
-
-	copierErr := <-copierErrChan
+	_, copierErr := io.Copy(stdinWriter, stream)
 	debug("copierErr: %T %s", copierErr, copierErr)
+	stdinWriter.Close()
+
 	if copierErr != nil {
 		debug("killing zfs recv command after copierErr")
 		cancelCmd()
 	}
 
-	waitErr := <-waitErrChan
+	var waitErr error
+	if err = cmd.Wait(); err != nil {
+		if rtErr := tryRecvErrorWithResumeToken(ctx, stderr.String()); rtErr != nil {
+			waitErr = rtErr
+		} else if owErr := tryRecvDestroyOrOverwriteEncryptedErr(stderr.Bytes()); owErr != nil {
+			waitErr = owErr
+		} else if readErr := tryRecvCannotReadFromStreamErr(stderr.Bytes()); readErr != nil {
+			waitErr = readErr
+		} else {
+			waitErr = &ZFSError{
+				Stderr:  stderr.Bytes(),
+				WaitErr: err,
+			}
+		}
+	}
 	debug("waitErr: %T %s", waitErr, waitErr)
 
 	if copierErr == nil && waitErr == nil {

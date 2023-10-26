@@ -39,6 +39,9 @@ See the `upstream man page <https://openzfs.github.io/openzfs-docs/man/8/zfs-sen
     * - ``bandwidth_limit``
       -
       - Specific to zrepl, :ref:`see below <job-send-recv-options--bandwidth-limit>`.
+    * - ``execpipe``
+      -
+      - Specific to zrepl, :ref:`see below <job-send-recv-options--execpipe>`.
     * - ``raw``
       - ``-w``
       - Use ``encrypted`` to only allow encrypted sends. Mixed sends are not supported.
@@ -142,13 +145,15 @@ Recv Options
            "org.openzfs.systemd:ignore": "on"
          }
        bandwidth_limit: ...
+       execpipe: ...
        placeholder:
          encryption: unspecified | off | inherit
      ...
 
 Jump to
 :ref:`properties <job-recv-options--inherit-and-override>` ,
-:ref:`bandwidth_limit <job-send-recv-options--bandwidth-limit>` , and
+:ref:`bandwidth_limit <job-send-recv-options--bandwidth-limit>` ,
+:ref:`execpipe <job-send-recv-options--execpipe>` , and
 :ref:`placeholder <job-recv-options--placeholder>`.
 
 .. _job-recv-options--inherit-and-override:
@@ -277,3 +282,32 @@ The ``bandwidth_limit.bucket_capacity`` refers to the `token bucket size <https:
 The bandwidth limit only applies to the payload data, i.e., the ZFS send stream.
 It does not account for transport protocol overheads.
 The scope is the job level, i.e., all :ref:`concurrent <replication-option-concurrency>` sends or incoming receives of a job share the bandwidth limit.
+
+.. _job-send-recv-options--execpipe:
+
+Command Pipe (send & recv)
+-----------------------------
+
+::
+   send:
+     execpipe:
+       # zfs send | mbuffer
+       - [ "/usr/local/bin/mbuffer", "-q", "-s", "128k", "-m", "100M" ]
+
+::
+   send:
+     execpipe:
+       # zfs send | zstd | mbuffer
+       - [ "zstd", "-3" ]
+       - [ "/usr/local/bin/mbuffer", "-q", "-s", "128k", "-m", "100M" ]
+
+::
+   recv:
+     execpipe:
+       # unzstd | mbuffer | zfs receive
+       - [ "unzstd" ]
+       - [ "/usr/local/bin/mbuffer", "-q", "-s", "128k", "-m", "100M" ]
+
+Usually it executes standalone ``zfs send`` or ``zfs recv``, but using
+``execpipe`` we can configure it to send stdout of ``zfs send`` to another
+programm(s) or send stdout of another programm(s) to ``zfs recv``.
