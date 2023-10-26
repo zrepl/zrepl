@@ -304,9 +304,9 @@ Command Pipe (send & recv)
 ::
    recv:
      execpipe:
-       # unzstd | mbuffer | zfs receive
-       - [ "unzstd" ]
+       # mbuffer | unzstd | zfs receive
        - [ "/usr/local/bin/mbuffer", "-q", "-s", "128k", "-m", "100M" ]
+       - [ "unzstd" ]
 
 Usually it executes standalone ``zfs send`` or ``zfs recv``, but using
 ``execpipe`` we can configure it to send stdout of ``zfs send`` to another
