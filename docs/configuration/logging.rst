@@ -136,8 +136,8 @@ Writes all log entries with minimum level ``level`` formatted by ``format`` to
 file from ``filename``. This outlet automatically detects the log file was
 rotated and reopens it.
 
-If ``template`` configured, log entries formatted by this template. For instance
-this configuration
+If ``template`` is configured, log entries are formatted using this template.
+For instance this configuration
 
 ::
 
