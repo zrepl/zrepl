@@ -58,19 +58,26 @@ commands:
             git config --global user.email "zreplbot@cschwarz.com"
             git config --global user.name "zrepl-github-io-ci"
 
-      # https://circleci.com/docs/2.0/add-ssh-key/#adding-multiple-keys-with-blank-hostnames
-      - run: ssh-add -D
-      # the default circleci ssh config only additional ssh keys for Host !github.com
-      - run:
-          command: |
-            cat > ~/.ssh/config \<<EOF
-            Host *
-              IdentityFile /home/circleci/.ssh/id_rsa_458e62c517f6c480e40452126ce47421
-            EOF
-      - add_ssh_keys:
-          fingerprints:
-            # deploy key for zrepl.github.io
-            - "45:8e:62:c5:17:f6:c4:80:e4:04:52:12:6c:e4:74:21"
+      # if we're pushing, we need to add the deploy key
+      # which is stored as "Additional SSH Keys" in the CircleCI project settings.
+      # We can't use the CircleCI-manage deploy key because we're pushing
+      # to a different repo than the one we're building.
+      - when:
+          condition: << parameters.push >>
+          steps:
+            # https://circleci.com/docs/2.0/add-ssh-key/#adding-multiple-keys-with-blank-hostnames
+            - run: ssh-add -D
+            # the default circleci ssh config only additional ssh keys for Host !github.com
+            - run:
+                command: |
+                  cat > ~/.ssh/config \<<EOF
+                  Host *
+                    IdentityFile /home/circleci/.ssh/id_rsa_458e62c517f6c480e40452126ce47421
+                  EOF
+            - add_ssh_keys:
+                fingerprints:
+                  # deploy key for zrepl.github.io
+                  - "45:8e:62:c5:17:f6:c4:80:e4:04:52:12:6c:e4:74:21"
 
       # caller must install-docdep
       - when:
