@@ -191,7 +191,7 @@ func (self *FileOutlet) WriteEntry(entry logger.Entry) error {
 	}
 
 	if err := self.reOpenIfNotExists(); err != nil {
-		return nil
+		return err
 	}
 
 	if self.template == nil {
