@@ -146,7 +146,7 @@ For instance this configuration
       format: "human"
       filename: "/var/log/zrepl.log"
       time: false
-      template: '{{formatTime .Time "Jan _2 15:04:05"}} zrepl[{{.Pid}}]: {{.Message}}'
+      template: '{{.Time.Format "Jan _2 15:04:05"}} zrepl[{{.Pid}}]: {{.Message}}'
 
 formats log entries like ::
 

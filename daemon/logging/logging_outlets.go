@@ -244,13 +244,7 @@ func (self *FileOutlet) Open() error {
 }
 
 func (self *FileOutlet) ParseTemplate(templateText string) error {
-	funcMap := template.FuncMap{
-		"formatTime": func(t time.Time, layout string) string {
-			return t.Format(layout)
-		},
-	}
-
-	tmpl, err := template.New("").Funcs(funcMap).Parse(templateText)
+	tmpl, err := template.New("").Parse(templateText)
 	if err != nil {
 		return fmt.Errorf("failed parse template %q: %w", templateText, err)
 	}
