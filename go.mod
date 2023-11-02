@@ -3,6 +3,7 @@ module github.com/zrepl/zrepl
 go 1.21
 
 require (
+	github.com/bits-and-blooms/bitset v1.10.0
 	github.com/fatih/color v1.15.0
 	github.com/gdamore/tcell v1.4.0
 	github.com/gdamore/tcell/v2 v2.6.0
@@ -27,7 +28,6 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
-	github.com/willf/bitset v1.1.10
 	github.com/yudai/gojsondiff v0.0.0-20170107030110-7b1b7adf999d
 	github.com/zrepl/yaml-config v0.0.0-20191220194647-cbb6b0cf4bdd
 	gitlab.com/tslocum/cview v1.5.3
