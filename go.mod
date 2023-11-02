@@ -10,7 +10,7 @@ require (
 	github.com/go-logfmt/logfmt v0.6.0
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/go-playground/validator/v10 v10.15.5
-	github.com/go-sql-driver/mysql v1.4.1-0.20190907122137-b2c03bcae3d4
+	github.com/go-sql-driver/mysql v1.7.1
 	github.com/golang/protobuf v1.4.3
 	github.com/google/uuid v1.1.2
 	github.com/jinzhu/copier v0.0.0-20170922082739-db4671f3a9b8
@@ -78,7 +78,6 @@ require (
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/term v0.6.0 // indirect
 	golang.org/x/text v0.8.0 // indirect
-	google.golang.org/appengine v1.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20210122163508-8081c04a3579 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
