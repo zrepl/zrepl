@@ -14,7 +14,7 @@ require (
 	github.com/golang/protobuf v1.5.3
 	github.com/google/uuid v1.4.0
 	github.com/jinzhu/copier v0.4.0
-	github.com/juju/ratelimit v1.0.1
+	github.com/juju/ratelimit v1.0.2
 	github.com/kr/pretty v0.1.0
 	github.com/lib/pq v1.2.0
 	github.com/mattn/go-isatty v0.0.17
