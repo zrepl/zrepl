@@ -16,7 +16,7 @@ require (
 	github.com/jinzhu/copier v0.4.0
 	github.com/juju/ratelimit v1.0.2
 	github.com/kr/pretty v0.3.1
-	github.com/lib/pq v1.2.0
+	github.com/lib/pq v1.10.9
 	github.com/mattn/go-isatty v0.0.17
 	github.com/montanaflynn/stats v0.5.0
 	github.com/pkg/errors v0.8.1
