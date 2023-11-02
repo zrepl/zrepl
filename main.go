@@ -19,6 +19,7 @@ func init() {
 	cli.AddSubcommand(client.TestCmd)
 	cli.AddSubcommand(client.MigrateCmd)
 	cli.AddSubcommand(client.ZFSAbstractionsCmd)
+	cli.AddSubcommand(client.MonitorCmd)
 }
 
 func main() {
