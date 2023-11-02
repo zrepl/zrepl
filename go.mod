@@ -18,7 +18,7 @@ require (
 	github.com/kr/pretty v0.3.1
 	github.com/lib/pq v1.10.9
 	github.com/mattn/go-isatty v0.0.20
-	github.com/montanaflynn/stats v0.5.0
+	github.com/montanaflynn/stats v0.7.1
 	github.com/pkg/errors v0.8.1
 	github.com/pkg/profile v1.2.1
 	github.com/problame/go-netssh v0.0.0-20200601114649-26439f9f0dc5
