@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/fatih/color v1.15.0
-	github.com/gdamore/tcell v1.2.0
+	github.com/gdamore/tcell v1.4.0
 	github.com/gdamore/tcell/v2 v2.2.0
 	github.com/gitchander/permutation v0.0.0-20210517125447-a5d73722e1b1
 	github.com/go-logfmt/logfmt v0.4.0
