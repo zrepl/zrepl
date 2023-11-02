@@ -71,14 +71,13 @@ func (e *platformtestFuncDeclFinder) Visit(n2 ast.Node) ast.Visitor {
 }
 
 func main() {
-
 	// TODO safeguards that prevent us from deleting non-generated generated_cases.go
 	os.Remove("generated_cases.go")
 	// (no error handling to easily cover the case where the file doesn't exist)
 
 	pkgs, err := packages.Load(
 		&packages.Config{
-			Mode:  packages.LoadFiles,
+			Mode:  packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles,
 			Tests: false,
 		},
 		os.Args[1],
