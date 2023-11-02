@@ -7,7 +7,7 @@ require (
 	github.com/gdamore/tcell v1.4.0
 	github.com/gdamore/tcell/v2 v2.6.0
 	github.com/gitchander/permutation v0.0.0-20210517125447-a5d73722e1b1
-	github.com/go-logfmt/logfmt v0.4.0
+	github.com/go-logfmt/logfmt v0.6.0
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/go-playground/validator/v10 v10.4.1
 	github.com/go-sql-driver/mysql v1.4.1-0.20190907122137-b2c03bcae3d4
@@ -54,7 +54,6 @@ require (
 	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
-	github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515 // indirect
 	github.com/kr/text v0.1.0 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
