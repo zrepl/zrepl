@@ -20,7 +20,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20
 	github.com/montanaflynn/stats v0.7.1
 	github.com/pkg/errors v0.9.1
-	github.com/pkg/profile v1.2.1
+	github.com/pkg/profile v1.7.0
 	github.com/problame/go-netssh v0.0.0-20200601114649-26439f9f0dc5
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/common v0.7.0
@@ -41,7 +41,9 @@ require (
 )
 
 require (
+	github.com/felixge/fgprof v0.9.3 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
+	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	golang.org/x/mod v0.8.0 // indirect
 )
