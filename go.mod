@@ -21,7 +21,7 @@ require (
 	github.com/montanaflynn/stats v0.7.1
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.7.0
-	github.com/problame/go-netssh v0.0.0-20200601114649-26439f9f0dc5
+	github.com/problame/go-netssh v0.0.0-20201229122201-330ad6c9cc6f
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/common v0.7.0
 	github.com/robfig/cron/v3 v3.0.1
