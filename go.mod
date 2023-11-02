@@ -13,7 +13,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/golang/protobuf v1.5.3
 	github.com/google/uuid v1.4.0
-	github.com/jinzhu/copier v0.0.0-20170922082739-db4671f3a9b8
+	github.com/jinzhu/copier v0.4.0
 	github.com/juju/ratelimit v1.0.1
 	github.com/kr/pretty v0.1.0
 	github.com/lib/pq v1.2.0
