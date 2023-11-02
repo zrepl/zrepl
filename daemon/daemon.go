@@ -3,7 +3,6 @@ package daemon
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/signal"
 	"strings"
@@ -38,12 +37,6 @@ func Run(ctx context.Context, conf *config.Config) error {
 		<-sigChan
 		cancel()
 	}()
-
-	// The math/rand package is used presently for generating trace IDs, we
-	// seed it with the current time and pid so that the IDs are mostly
-	// unique.
-	rand.Seed(time.Now().UnixNano())
-	rand.Seed(int64(os.Getpid()))
 
 	outlets, err := logging.OutletsFromConfig(*conf.Global.Logging)
 	if err != nil {
