@@ -3,7 +3,7 @@ module github.com/zrepl/zrepl
 go 1.21
 
 require (
-	github.com/fatih/color v1.7.0
+	github.com/fatih/color v1.15.0
 	github.com/gdamore/tcell v1.2.0
 	github.com/gdamore/tcell/v2 v2.2.0
 	github.com/gitchander/permutation v0.0.0-20210517125447-a5d73722e1b1
@@ -17,7 +17,7 @@ require (
 	github.com/juju/ratelimit v1.0.1
 	github.com/kr/pretty v0.1.0
 	github.com/lib/pq v1.2.0
-	github.com/mattn/go-isatty v0.0.8
+	github.com/mattn/go-isatty v0.0.17
 	github.com/montanaflynn/stats v0.5.0
 	github.com/pkg/errors v0.8.1
 	github.com/pkg/profile v1.2.1
@@ -34,7 +34,7 @@ require (
 	gitlab.com/tslocum/cview v1.5.3
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c
+	golang.org/x/sys v0.6.0
 	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
 	google.golang.org/grpc v1.35.0
 	google.golang.org/protobuf v1.25.0
@@ -56,7 +56,7 @@ require (
 	github.com/kr/text v0.1.0 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.0.3 // indirect
-	github.com/mattn/go-colorable v0.1.4 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-runewidth v0.0.10 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/onsi/ginkgo v1.10.2 // indirect
