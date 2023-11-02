@@ -5,7 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 
@@ -47,7 +46,7 @@ func main() {
 	flag.StringVar(&args.testCase, "testcase", "", "")
 	flag.Parse()
 
-	bytes, err := ioutil.ReadFile(args.configPath)
+	bytes, err := os.ReadFile(args.configPath)
 	noerror(err)
 	err = yaml.UnmarshalStrict(bytes, &conf)
 	noerror(err)
