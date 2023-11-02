@@ -15,7 +15,7 @@ require (
 	github.com/google/uuid v1.4.0
 	github.com/jinzhu/copier v0.4.0
 	github.com/juju/ratelimit v1.0.2
-	github.com/kr/pretty v0.1.0
+	github.com/kr/pretty v0.3.1
 	github.com/lib/pq v1.2.0
 	github.com/mattn/go-isatty v0.0.17
 	github.com/montanaflynn/stats v0.5.0
@@ -42,6 +42,7 @@ require (
 
 require (
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
+	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	golang.org/x/mod v0.8.0 // indirect
 )
 
@@ -57,7 +58,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
-	github.com/kr/text v0.1.0 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
