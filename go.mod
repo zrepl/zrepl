@@ -8,7 +8,6 @@ require (
 	github.com/gdamore/tcell/v2 v2.6.0
 	github.com/gitchander/permutation v0.0.0-20210517125447-a5d73722e1b1
 	github.com/go-logfmt/logfmt v0.6.0
-	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/go-playground/validator/v10 v10.15.5
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/golang/protobuf v1.5.3
@@ -77,6 +76,5 @@ require (
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
-	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

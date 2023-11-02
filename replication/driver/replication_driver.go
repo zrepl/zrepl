@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-playground/validator"
+	"github.com/go-playground/validator/v10"
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
