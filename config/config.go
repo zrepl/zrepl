@@ -67,11 +67,16 @@ type ActiveJob struct {
 	Pruning            PruningSenderReceiver `yaml:"pruning"`
 	Replication        *Replication          `yaml:"replication,optional,fromdefaults"`
 	ConflictResolution *ConflictResolution   `yaml:"conflict_resolution,optional,fromdefaults"`
-	MonitorSnapshots   []MonitorSnapshot     `yaml:"monitor,optional"`
+	MonitorSnapshots   MonitorSnapshots      `yaml:"monitor,optional"`
 }
 
 type ConflictResolution struct {
 	InitialReplication string `yaml:"initial_replication,optional,default=most_recent"`
+}
+
+type MonitorSnapshots struct {
+	Latest []MonitorSnapshot `yaml:"latest,optional"`
+	Oldest []MonitorSnapshot `yaml:"oldest,optional"`
 }
 
 type MonitorSnapshot struct {
@@ -81,10 +86,10 @@ type MonitorSnapshot struct {
 }
 
 type PassiveJob struct {
-	Type             string            `yaml:"type"`
-	Name             string            `yaml:"name"`
-	Serve            ServeEnum         `yaml:"serve"`
-	MonitorSnapshots []MonitorSnapshot `yaml:"monitor,optional"`
+	Type             string           `yaml:"type"`
+	Name             string           `yaml:"name"`
+	Serve            ServeEnum        `yaml:"serve"`
+	MonitorSnapshots MonitorSnapshots `yaml:"monitor,optional"`
 }
 
 type SnapJob struct {
@@ -93,7 +98,7 @@ type SnapJob struct {
 	Pruning          PruningLocal      `yaml:"pruning"`
 	Snapshotting     SnapshottingEnum  `yaml:"snapshotting"`
 	Filesystems      FilesystemsFilter `yaml:"filesystems"`
-	MonitorSnapshots []MonitorSnapshot `yaml:"monitor,optional"`
+	MonitorSnapshots MonitorSnapshots  `yaml:"monitor,optional"`
 }
 
 type SendOptions struct {

@@ -9,7 +9,6 @@ import (
 
 	"github.com/inexio/go-monitoringplugin"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
 	"github.com/zrepl/zrepl/cli"
 	"github.com/zrepl/zrepl/config"
@@ -28,33 +27,58 @@ var MonitorCmd = &cli.Subcommand{
 func newMonitorSnapshotsCmd() *cli.Subcommand {
 	runner := monitorSnapshots{}
 	return &cli.Subcommand{
-		Use:   "snapshots --job JOB",
-		Short: "check snapshots are fresh according to rules",
-		SetupFlags: func(f *pflag.FlagSet) {
+		Use:   "snapshots",
+		Short: "check snapshots age",
+		SetupSubcommands: func() []*cli.Subcommand {
+			return []*cli.Subcommand{
+				newLatestSnapshotsCmd(&runner),
+				newOldestSnapshotsCmd(&runner),
+			}
+		},
+		SetupCobra: func(c *cobra.Command) {
+			f := c.PersistentFlags()
 			f.StringVarP(&runner.job, "job", "j", "", "the name of the job")
 			f.StringVarP(&runner.prefix, "prefix", "p", "", "snapshot prefix")
 			f.DurationVarP(&runner.critical, "crit", "c", 0, "critical snapshot age")
 			f.DurationVarP(&runner.warning, "warn", "w", 0, "warning snapshot age")
-		},
-		SetupCobra: func(c *cobra.Command) {
+
 			_ = c.MarkFlagRequired("job")
 			c.MarkFlagsRequiredTogether("prefix", "crit")
 		},
-		Run: runner.Run,
+	}
+}
+
+func newLatestSnapshotsCmd(runner *monitorSnapshots) *cli.Subcommand {
+	return &cli.Subcommand{
+		Use:   "latest",
+		Short: "check latest snapshots are not too old, according to rules",
+		Run:   runner.run,
+	}
+}
+
+func newOldestSnapshotsCmd(runner *monitorSnapshots) *cli.Subcommand {
+	return &cli.Subcommand{
+		Use:   "oldest",
+		Short: "check oldest snapshots are not too old, according to rules",
+		Run: func(ctx context.Context, subcmd *cli.Subcommand, args []string) error {
+			runner.oldest = true
+			return runner.run(ctx, subcmd, args)
+		},
 	}
 }
 
 type monitorSnapshots struct {
 	job      string
+	oldest   bool
 	prefix   string
 	critical time.Duration
 	warning  time.Duration
 }
 
-func (self *monitorSnapshots) Run(
-	ctx context.Context, subcommand *cli.Subcommand, args []string,
+func (self *monitorSnapshots) run(
+	ctx context.Context, subcmd *cli.Subcommand, args []string,
 ) error {
-	jobConfig, err := subcommand.Config().Job(self.job)
+	jobConfig, err := subcmd.Config().Job(self.job)
 	if err != nil {
 		return err
 	}
@@ -94,28 +118,33 @@ func (self *monitorSnapshots) overrideRules(
 func (self *monitorSnapshots) datasetsRules(
 	ctx context.Context, jobConfig *config.JobEnum,
 ) (datasets []string, rules []config.MonitorSnapshot, err error) {
+	var cfg config.MonitorSnapshots
 	switch job := jobConfig.Ret.(type) {
 	case *config.PushJob:
-		rules = job.MonitorSnapshots
+		cfg = job.MonitorSnapshots
 		datasets, err = self.datasetsFromFilter(ctx, job.Filesystems)
 	case *config.SnapJob:
-		rules = job.MonitorSnapshots
+		cfg = job.MonitorSnapshots
 		datasets, err = self.datasetsFromFilter(ctx, job.Filesystems)
 	case *config.SourceJob:
-		rules = job.MonitorSnapshots
+		cfg = job.MonitorSnapshots
 		datasets, err = self.datasetsFromFilter(ctx, job.Filesystems)
 	case *config.PullJob:
-		rules = job.MonitorSnapshots
+		cfg = job.MonitorSnapshots
 		datasets, err = self.datasetsFromRootFs(ctx, job.RootFS, 0)
 	case *config.SinkJob:
-		rules = job.MonitorSnapshots
+		cfg = job.MonitorSnapshots
 		datasets, err = self.datasetsFromRootFs(ctx, job.RootFS, 1)
 	default:
 		err = fmt.Errorf("unknown job type %T", job)
 	}
 
-	if err != nil {
-		rules = nil
+	if err == nil {
+		if self.oldest {
+			rules = cfg.Oldest
+		} else {
+			rules = cfg.Latest
+		}
 	}
 
 	return
@@ -207,18 +236,19 @@ func (self *monitorSnapshots) checkDataset(
 		return err
 	}
 
-	latest := self.latestSnapshots(snaps, rules)
+	latest := self.groupSnapshots(snaps, rules)
 	for i, rule := range rules {
+		const tooOldFmt = "%s %q too old: %q > %q"
 		switch {
 		case rule.Prefix == "" && latest[i].Creation.IsZero():
 		case latest[i].Creation.IsZero():
 			return newMonitorCriticalf(
 				"%q has no snapshots with prefix %q", name, rule.Prefix)
 		case time.Since(latest[i].Creation) >= rule.Critical:
-			return newMonitorCriticalf("%q too old: %q > %q",
+			return newMonitorCriticalf(tooOldFmt, self.snapshotType(),
 				latest[i].FullPath(name), time.Since(latest[i].Creation), rule.Critical)
 		case rule.Warning > 0 && time.Since(latest[i].Creation) >= rule.Warning:
-			return newMonitorWarningf("%q too old: %q > %q",
+			return newMonitorWarningf(tooOldFmt, self.snapshotType(),
 				latest[i].FullPath(name), time.Since(latest[i].Creation), rule.Warning)
 		}
 	}
@@ -226,7 +256,7 @@ func (self *monitorSnapshots) checkDataset(
 	return nil
 }
 
-func (self *monitorSnapshots) latestSnapshots(
+func (self *monitorSnapshots) groupSnapshots(
 	snaps []zfs.FilesystemVersion, rules []config.MonitorSnapshot,
 ) []zfs.FilesystemVersion {
 	latest := make([]zfs.FilesystemVersion, len(rules))
@@ -235,7 +265,7 @@ func (self *monitorSnapshots) latestSnapshots(
 	for i, rule := range rules {
 		for _, snap := range snaps {
 			if rule.Prefix == "" || strings.HasPrefix(snap.GetName(), rule.Prefix) {
-				if latest[i].Creation.IsZero() || snap.Creation.After(latest[i].Creation) {
+				if latest[i].Creation.IsZero() || self.cmpSnapshots(snap, latest[i]) {
 					latest[i] = snap
 				}
 			} else {
@@ -251,9 +281,18 @@ func (self *monitorSnapshots) latestSnapshots(
 	return latest
 }
 
+func (self *monitorSnapshots) cmpSnapshots(
+	new zfs.FilesystemVersion, old zfs.FilesystemVersion,
+) bool {
+	if self.oldest {
+		return new.Creation.Before(old.Creation)
+	}
+	return new.Creation.After(old.Creation)
+}
+
 func (self *monitorSnapshots) outputAndExit(err error) {
 	resp := monitoringplugin.NewResponse(
-		fmt.Sprintf("job %q: all snapshots fresh", self.job))
+		fmt.Sprintf("job %q: %s snapshots", self.job, self.snapshotType()))
 
 	if err != nil {
 		status := fmt.Sprintf("job %q: %s", self.job, err)
@@ -273,6 +312,13 @@ func (self *monitorSnapshots) outputAndExit(err error) {
 	}
 
 	resp.OutputAndExit()
+}
+
+func (self *monitorSnapshots) snapshotType() string {
+	if self.oldest {
+		return "oldest"
+	}
+	return "latest"
 }
 
 func newMonitorCriticalf(msg string, v ...interface{}) monitorCheckResult {
