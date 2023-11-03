@@ -12,7 +12,9 @@ import (
 
 	"github.com/zrepl/zrepl/cli"
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon"
 	"github.com/zrepl/zrepl/daemon/filters"
+	"github.com/zrepl/zrepl/version"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -20,8 +22,17 @@ var MonitorCmd = &cli.Subcommand{
 	Use:   "monitor",
 	Short: "Icinga/Nagios health checks",
 	SetupSubcommands: func() []*cli.Subcommand {
-		return []*cli.Subcommand{newMonitorSnapshotsCmd()}
+		return []*cli.Subcommand{newMonitorAliveCmd(), newMonitorSnapshotsCmd()}
 	},
+}
+
+func newMonitorAliveCmd() *cli.Subcommand {
+	runner := monitorAlive{}
+	return &cli.Subcommand{
+		Use:   "alive",
+		Short: "check the daemon is alive",
+		Run:   runner.run,
+	}
 }
 
 func newMonitorSnapshotsCmd() *cli.Subcommand {
@@ -343,4 +354,70 @@ type monitorCheckResult struct {
 
 func (self monitorCheckResult) Error() string {
 	return self.msg
+}
+
+type monitorAlive struct{}
+
+func (self *monitorAlive) run(
+	ctx context.Context, subcmd *cli.Subcommand, args []string,
+) error {
+	resp := monitoringplugin.NewResponse("daemon alive")
+	resp.SetOutputDelimiter("")
+	defer resp.OutputAndExit()
+
+	daemonVer, err := self.checkVersions(subcmd.Config().Global.Control.SockPath)
+	if err != nil {
+		self.updateErrStatus(err, resp)
+	} else {
+		resp.UpdateStatus(monitoringplugin.OK,
+			fmt.Sprintf(", %s", daemonVer))
+	}
+
+	return nil
+}
+
+func (self *monitorAlive) checkVersions(sockPath string) (string, error) {
+	clientVer := version.NewZreplVersionInformation().String()
+	daemonVer, err := self.daemonVersion(sockPath)
+	if err != nil {
+		return "", err
+	}
+
+	if clientVer != daemonVer {
+		return "", newMonitorWarningf("client version (%s) != daemon version (%s)",
+			clientVer, daemonVer)
+	}
+
+	return daemonVer, nil
+}
+
+func (self *monitorAlive) daemonVersion(sockPath string) (string, error) {
+	httpc, err := controlHttpClient(sockPath)
+	if err != nil {
+		return "", fmt.Errorf("failed http client for %q: %w", sockPath, err)
+	}
+
+	var ver version.ZreplVersionInformation
+	err = jsonRequestResponse(httpc, daemon.ControlJobEndpointVersion, "", &ver)
+	if err != nil {
+		return "", newMonitorCriticalf("failed version request: %s", err)
+	}
+
+	return ver.String(), nil
+}
+
+func (self *monitorAlive) updateErrStatus(
+	err error, resp *monitoringplugin.Response,
+) {
+	statusCode := monitoringplugin.UNKNOWN
+	var checkResult monitorCheckResult
+	if errors.As(err, &checkResult) {
+		switch {
+		case checkResult.critical:
+			statusCode = monitoringplugin.CRITICAL
+		case checkResult.warning:
+			statusCode = monitoringplugin.WARNING
+		}
+	}
+	resp.UpdateStatus(statusCode, err.Error())
 }
