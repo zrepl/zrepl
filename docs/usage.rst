@@ -45,6 +45,8 @@ CLI Overview
         | args (see
         | :ref:`zrepl monitor snapshots <usage-zrepl-monitor-snapshots:>`
         | for details)
+    * - ``zrepl monitor alive``
+      - check if zrepl daemon is alive
 
 .. _usage-zrepl-daemon:
 
@@ -167,19 +169,32 @@ configuration like this:
   - name: "zdisk"
     type: "sink"
     root_fs: "zdisk/zrepl"
+    # ...
     monitor:
-      - prefix: "zrepl_frequently_"
-        warning: "12h"
-        critical: "36h"
-      - prefix: "zrepl_hourly_"
-        critical: "36h"
-      - prefix: "zrepl_daily_"
-        critical: "36h"
-      - prefix: "zrepl_monthly_"
-        critical: "768h"        # 32d
-      - prefix: ""              # everything else
-        critical: "168h"        #  7d
+      latest:
+        - prefix: "zrepl_frequently_"
+          critical: "48h"       # 2d
+        - prefix: "zrepl_hourly_"
+          critical: "48h"
+        - prefix: "zrepl_daily_"
+          critical: "48h"
+        - prefix: "zrepl_monthly_"
+          critical: "768h"      # 32d
+      oldest:
+        - prefix: "zrepl_frequently_"
+          critical: "48h"       # 2d
+        - prefix: "zrepl_hourly_"
+          critical: "168h"      # 7d
+        - prefix: "zrepl_daily_"
+          critical: "2208h"     # 90d + 2d
+        - prefix: "zrepl_monthly_"
+          critical: "8688h"     # 30 * 12 = 360d + 2d
+        - prefix: ""            # everything else
+          critical: "168h"      # 7d
 
-If youngest snapshot with given ``prefix`` is older than ``warning`` or
-``critical``, ``zrepl monitor snapshots --job zdisk`` will report it in format,
-suitable for Icinga, Nagios, etc.
+If latest snapshot with given ``prefix`` is older than ``warning`` or
+``critical``, ``zrepl monitor snapshots latest --job zdisk`` will report it in
+format, suitable for Icinga, Nagios, etc.
+
+``zrepl monitor snapshots oldest --job zdisk`` will report about oldest snapshot
+instead of latest one.
