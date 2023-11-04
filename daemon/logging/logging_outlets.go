@@ -181,7 +181,6 @@ type FileOutlet struct {
 	filename  string
 	formatter EntryFormatter
 	template  *template.Template
-	writer    io.Writer
 }
 
 func (self *FileOutlet) WriteEntry(entry logger.Entry) error {
@@ -195,7 +194,10 @@ func (self *FileOutlet) WriteEntry(entry logger.Entry) error {
 	}
 
 	if self.template == nil {
-		return self.writeBytes(bytes)
+		if _, err := fmt.Fprintln(self.file, string(bytes)); err != nil {
+			return fmt.Errorf("failed write to %q: %w", self.filename, err)
+		}
+		return nil
 	}
 
 	if err := self.writeTemplate(entry.Time, string(bytes)); err != nil {
@@ -233,12 +235,11 @@ func (self *FileOutlet) reOpen() error {
 }
 
 func (self *FileOutlet) Open() error {
-	f, err := os.OpenFile(self.filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(self.filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return fmt.Errorf("file outlet: %w", err)
 	}
 	self.file = f
-	self.writer = f
 
 	return nil
 }
@@ -264,23 +265,12 @@ func (self *FileOutlet) writeTemplate(t time.Time, msg string) error {
 		Message: msg,
 	}
 
-	if err := self.template.Execute(self.writer, data); err != nil {
+	var b bytes.Buffer
+	if err := self.template.Execute(&b, data); err != nil {
 		return fmt.Errorf("failed execute template: %w", err)
 	}
 
-	if _, err := self.writer.Write([]byte("\n")); err != nil {
-		return fmt.Errorf("failed write to %q: %w", self.filename, err)
-	}
-
-	return nil
-}
-
-func (self *FileOutlet) writeBytes(bytes []byte) error {
-	if _, err := self.writer.Write(bytes); err != nil {
-		return fmt.Errorf("failed write to %q: %w", self.filename, err)
-	}
-
-	if _, err := self.writer.Write([]byte("\n")); err != nil {
+	if _, err := fmt.Fprintln(self.file, b.String()); err != nil {
 		return fmt.Errorf("failed write to %q: %w", self.filename, err)
 	}
 
