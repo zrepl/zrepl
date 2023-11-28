@@ -10,6 +10,7 @@ A tutorial to install Go is available over at `golang.org <https://golang.org/do
 Python and pip3 should probably be installed via your distro's package manager.
 
 ::
+
    cd to/your/zrepl/checkout
    python3 -m venv3
    source venv3/bin/activate
