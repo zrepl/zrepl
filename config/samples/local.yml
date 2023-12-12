@@ -6,6 +6,9 @@ jobs:
     serve:
       type: local
       listener_name: localsink
+    recv:              # <--- create a 'recv' section at the same level as 'serve'
+      placeholder:     # and add your placeholder here
+        encryption: inherit
 
   - type: push
     name: "backup_system"
