@@ -157,6 +157,11 @@ type ReplicationTriggerPeriodic struct {
 	Interval *PositiveDuration `yaml:"interval"`
 }
 
+type ReplicationTriggerCron struct {
+	Type string   `yaml:"type"`
+	Cron CronSpec `yaml:"cron"`
+}
+
 type PropertyRecvOptions struct {
 	Inherit  []zfsprop.Property          `yaml:"inherit,optional"`
 	Override map[zfsprop.Property]string `yaml:"override,optional"`
@@ -179,7 +184,6 @@ func (j *PushJob) GetSendOptions() *SendOptions      { return j.Send }
 type PullJob struct {
 	ActiveJob `yaml:",inline"`
 	RootFS    string                   `yaml:"root_fs"`
-	Interval  PositiveDurationOrManual `yaml:"interval"`
 	Recv      *RecvOptions             `yaml:"recv,fromdefaults,optional"`
 }
 

@@ -115,7 +115,7 @@ func (j *SnapJob) Run(ctx context.Context) {
 	go j.snapper.Run(periodicCtx, snapshottingTrigger)
 
 	triggers := trigger.Empty()
-	triggered, endTask := triggers.Spawn(ctx, []*trigger.Trigger{snapshottingTrigger, wakeupTrigger})
+	triggered, endTask := triggers.Spawn(ctx, []trigger.TriggersnapshottingTrigger, wakeupTrigger})
 	defer endTask()
 
 	invocationCount := 0

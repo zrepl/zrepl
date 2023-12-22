@@ -2,74 +2,58 @@ package trigger
 
 import (
 	"context"
-
-	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 )
 
 type Triggers struct {
 	spawned  bool
-	triggers []*Trigger
+	triggers []Trigger
 }
 
-type Trigger struct {
-	id     string
-	signal chan struct{}
-}
-
-func FromConfig([]*config.ReplicationTriggerEnum) (*Triggers, error) {
-	panic("unimpl")
-	return &Triggers{
-		spawned: false,
-	}, nil
+type Trigger interface {
+	ID() string
+	run(context.Context, chan<- struct{})
 }
 
 func Empty() *Triggers {
-	panic("unimpl")
-}
-
-func New(id string) *Trigger {
-	return &Trigger{
-		id:     id,
-		signal: make(chan struct{}),
+	return &Triggers{
+		spawned:  false,
+		triggers: nil,
 	}
 }
 
-func (t *Trigger) ID() string {
-	return t.id
-}
-
-func (t *Trigger) Fire() error {
-	panic("unimpl")
-}
-
-func (t *Triggers) Spawn(ctx context.Context, additionalTriggers []*Trigger) (chan *Trigger, trace.DoneFunc) {
+func (t *Triggers) Spawn(ctx context.Context, additionalTriggers []Trigger) (chan Trigger, trace.DoneFunc) {
 	if t.spawned {
 		panic("must only spawn once")
 	}
 	t.spawned = true
 	t.triggers = append(t.triggers, additionalTriggers...)
-	childCtx, endTask := trace.WithTask(ctx, "triggers")
-	sink := make(chan *Trigger)
-	go t.task(childCtx, sink)
+	sink := make(chan Trigger)
+	endTask := t.spawn(ctx, sink)
 	return sink, endTask
 }
 
 type triggering struct {
-	trigger *Trigger
+	trigger Trigger
 	handled chan struct{}
 }
 
-func (t *Triggers) task(ctx context.Context, sink chan *Trigger) {
+func (t *Triggers) spawn(ctx context.Context, sink chan Trigger) trace.DoneFunc {
+	ctx, endTask := trace.WithTask(ctx, "triggers")
+	ctx, add, wait := trace.WithTaskGroup(ctx, "trigger-tasks")
 	triggered := make(chan triggering, len(t.triggers))
 	for _, t := range t.triggers {
 		t := t
+		signal := make(chan struct{})
+		go add(func(ctx context.Context) {
+			t.run(ctx, signal)
+		})
 		go func() {
 			for {
 				select {
 				case <-ctx.Done():
 					return
-				case <-t.signal:
+				case <-signal:
 					handled := make(chan struct{})
 					select {
 					case triggered <- triggering{trigger: t, handled: handled}:
@@ -85,19 +69,23 @@ func (t *Triggers) task(ctx context.Context, sink chan *Trigger) {
 			}
 		}()
 	}
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case triggering := <-triggered:
+	go func() {
+		defer wait()
+		for {
 			select {
-			case sink <- triggering.trigger:
-			default:
-				getLogger(ctx).
-					WithField("trigger_id", triggering.trigger.id).
-					Warn("dropping triggering because job is busy")
+			case <-ctx.Done():
+				return
+			case triggering := <-triggered:
+				select {
+				case sink <- triggering.trigger:
+				default:
+					getLogger(ctx).
+						WithField("trigger_id", triggering.trigger.ID()).
+						Warn("dropping triggering because job is busy")
+				}
+				close(triggering.handled)
 			}
-			close(triggering.handled)
 		}
-	}
+	}()
+	return endTask
 }

@@ -19,7 +19,7 @@ func Wait(ctx context.Context) <-chan struct{} {
 	return wc
 }
 
-func Trigger(ctx context.Context) *trigger.Trigger {
+func Trigger(ctx context.Context) trigger.Trigger {
 	panic("unimpl")
 }
 

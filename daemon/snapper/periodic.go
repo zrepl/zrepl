@@ -104,7 +104,7 @@ func (s State) sf() state {
 type updater func(u func(*Periodic)) State
 type state func(a periodicArgs, u updater) state
 
-func (s *Periodic) Run(ctx context.Context, snapshotsTaken *trigger.Trigger) {
+func (s *Periodic) Run(ctx context.Context, snapshotsTaken trigger.Trigger {
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 	getLogger(ctx).Debug("start")
 	defer getLogger(ctx).Debug("stop")

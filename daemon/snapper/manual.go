@@ -8,7 +8,7 @@ import (
 
 type manual struct{}
 
-func (s *manual) Run(ctx context.Context, snapshotsTaken *trigger.Trigger) {
+func (s *manual) Run(ctx context.Context, snapshotsTaken trigger.Trigger {
 	// nothing to do
 }
 
