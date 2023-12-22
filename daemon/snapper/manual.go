@@ -2,11 +2,13 @@ package snapper
 
 import (
 	"context"
+
+	"github.com/zrepl/zrepl/daemon/job/trigger"
 )
 
 type manual struct{}
 
-func (s *manual) Run(ctx context.Context, wakeUpCommon chan<- struct{}) {
+func (s *manual) Run(ctx context.Context, snapshotsTaken *trigger.Trigger) {
 	// nothing to do
 }
 

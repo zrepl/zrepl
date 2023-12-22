@@ -15,6 +15,7 @@ import (
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/job/reset"
+	"github.com/zrepl/zrepl/daemon/job/trigger"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
@@ -43,6 +44,8 @@ type ActiveSide struct {
 	promBytesReplicated   *prometheus.CounterVec   // labels: filesystem
 	promReplicationErrors prometheus.Gauge
 	promLastSuccessful    prometheus.Gauge
+
+	triggers *trigger.Triggers
 
 	tasksMtx sync.Mutex
 	tasks    activeSideTasks
@@ -90,7 +93,7 @@ type activeMode interface {
 	SenderReceiver() (logic.Sender, logic.Receiver)
 	Type() Type
 	PlannerPolicy() logic.PlannerPolicy
-	RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{})
+	RunPeriodic(ctx context.Context, wakeReplication *trigger.Trigger)
 	SnapperReport() *snapper.Report
 	ResetConnectBackoff()
 }
@@ -132,8 +135,8 @@ func (m *modePush) Type() Type { return TypePush }
 
 func (m *modePush) PlannerPolicy() logic.PlannerPolicy { return *m.plannerPolicy }
 
-func (m *modePush) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}) {
-	m.snapper.Run(ctx, wakeUpCommon)
+func (m *modePush) RunPeriodic(ctx context.Context, trigger *trigger.Trigger) {
+	m.snapper.Run(ctx, trigger)
 }
 
 func (m *modePush) SnapperReport() *snapper.Report {
@@ -221,7 +224,7 @@ func (*modePull) Type() Type { return TypePull }
 
 func (m *modePull) PlannerPolicy() logic.PlannerPolicy { return *m.plannerPolicy }
 
-func (m *modePull) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}) {
+func (m *modePull) RunPeriodic(ctx context.Context, wakeReplication *trigger.Trigger) {
 	if m.interval.Manual {
 		GetLogger(ctx).Info("manual pull configured, periodic pull disabled")
 		// "waiting for wakeups" is printed in common ActiveSide.do
@@ -232,14 +235,7 @@ func (m *modePull) RunPeriodic(ctx context.Context, wakeUpCommon chan<- struct{}
 	for {
 		select {
 		case <-t.C:
-			select {
-			case wakeUpCommon <- struct{}{}:
-			default:
-				GetLogger(ctx).
-					WithField("pull_interval", m.interval).
-					Warn("pull job took longer than pull interval")
-				wakeUpCommon <- struct{}{} // block anyways, to queue up the wakeup
-			}
+			wakeReplication.Fire()
 		case <-ctx.Done():
 			return
 		}
@@ -370,6 +366,11 @@ func activeSide(g *config.Global, in *config.ActiveJob, configJob interface{}, p
 		return nil, errors.Wrap(err, "cannot build replication driver config")
 	}
 
+	j.triggers, err = trigger.FromConfig(in.Replication.Triggers)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot build triggers")
+	}
+
 	return j, nil
 }
 
@@ -444,12 +445,18 @@ func (j *ActiveSide) Run(ctx context.Context) {
 
 	defer log.Info("job exiting")
 
-	periodicDone := make(chan struct{})
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	periodicCtx, endTask := trace.WithTask(ctx, "periodic")
+
+	periodicTrigger := trigger.New("periodic")
+	periodCtx, endTask := trace.WithTask(ctx, "periodic")
 	defer endTask()
-	go j.mode.RunPeriodic(periodicCtx, periodicDone)
+	go j.mode.RunPeriodic(periodCtx, periodicTrigger)
+
+	wakeupTrigger := wakeup.Trigger(ctx)
+
+	triggered, endTask := j.triggers.Spawn(ctx, []*trigger.Trigger{periodicTrigger, wakeupTrigger})
+	defer endTask()
 
 	invocationCount := 0
 outer:
@@ -459,10 +466,15 @@ outer:
 		case <-ctx.Done():
 			log.WithError(ctx.Err()).Info("context")
 			break outer
-
-		case <-wakeup.Wait(ctx):
-			j.mode.ResetConnectBackoff()
-		case <-periodicDone:
+		case trigger := <-triggered:
+			log :=
+				log.WithField("trigger_id", trigger.ID())
+			log.Info("triggered")
+			switch trigger {
+			case wakeupTrigger:
+				log.Info("trigger is wakeup command, resetting connection backoff")
+				j.mode.ResetConnectBackoff()
+			}
 		}
 		invocationCount++
 		invocationCtx, endSpan := trace.WithSpan(ctx, fmt.Sprintf("invocation-%d", invocationCount))

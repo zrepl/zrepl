@@ -3,6 +3,8 @@ package wakeup
 import (
 	"context"
 	"errors"
+
+	"github.com/zrepl/zrepl/daemon/job/trigger"
 )
 
 type contextKey int
@@ -15,6 +17,10 @@ func Wait(ctx context.Context) <-chan struct{} {
 		wc = make(chan struct{})
 	}
 	return wc
+}
+
+func Trigger(ctx context.Context) *trigger.Trigger {
+	panic("unimpl")
 }
 
 type Func func() error

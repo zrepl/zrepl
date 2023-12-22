@@ -15,6 +15,7 @@ import (
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/filters"
+	"github.com/zrepl/zrepl/daemon/job/trigger"
 	"github.com/zrepl/zrepl/daemon/job/wakeup"
 	"github.com/zrepl/zrepl/daemon/pruner"
 	"github.com/zrepl/zrepl/daemon/snapper"
@@ -104,12 +105,18 @@ func (j *SnapJob) Run(ctx context.Context) {
 
 	defer log.Info("job exiting")
 
-	periodicDone := make(chan struct{})
+	wakeupTrigger := wakeup.Trigger(ctx)
+
+	snapshottingTrigger := trigger.New("periodic")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	periodicCtx, endTask := trace.WithTask(ctx, "snapshotting")
 	defer endTask()
-	go j.snapper.Run(periodicCtx, periodicDone)
+	go j.snapper.Run(periodicCtx, snapshottingTrigger)
+
+	triggers := trigger.Empty()
+	triggered, endTask := triggers.Spawn(ctx, []*trigger.Trigger{snapshottingTrigger, wakeupTrigger})
+	defer endTask()
 
 	invocationCount := 0
 outer:
@@ -119,9 +126,7 @@ outer:
 		case <-ctx.Done():
 			log.WithError(ctx.Err()).Info("context")
 			break outer
-
-		case <-wakeup.Wait(ctx):
-		case <-periodicDone:
+		case <-triggered:
 		}
 		invocationCount++
 

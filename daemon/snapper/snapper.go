@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/zrepl/zrepl/config"
+	"github.com/zrepl/zrepl/daemon/job/trigger"
 	"github.com/zrepl/zrepl/zfs"
 )
 
@@ -17,7 +18,7 @@ const (
 )
 
 type Snapper interface {
-	Run(ctx context.Context, snapshotsTaken chan<- struct{})
+	Run(ctx context.Context, snapshotsTaken *trigger.Trigger)
 	Report() Report
 }
 

@@ -121,6 +121,7 @@ type BandwidthLimit struct {
 }
 
 type Replication struct {
+	Triggers    []*ReplicationTriggerEnum
 	Protection  *ReplicationOptionsProtection  `yaml:"protection,optional,fromdefaults"`
 	Concurrency *ReplicationOptionsConcurrency `yaml:"concurrency,optional,fromdefaults"`
 }
@@ -133,6 +134,27 @@ type ReplicationOptionsProtection struct {
 type ReplicationOptionsConcurrency struct {
 	Steps         int `yaml:"steps,optional,default=1"`
 	SizeEstimates int `yaml:"size_estimates,optional,default=4"`
+}
+
+type ReplicationTriggerEnum struct {
+	Ret interface{}
+}
+
+func (t *ReplicationTriggerEnum) UnmarshalYAML(u func(interface{}, bool) error) (err error) {
+	t.Ret, err = enumUnmarshal(u, map[string]interface{}{
+		"manual":   &ReplicationTriggerManual{},
+		"periodic": &ReplicationTriggerPeriodic{},
+	})
+	return
+}
+
+type ReplicationTriggerManual struct {
+	Type string `yaml:"type"`
+}
+
+type ReplicationTriggerPeriodic struct {
+	Type     string            `yaml:"type"`
+	Interval *PositiveDuration `yaml:"interval"`
 }
 
 type PropertyRecvOptions struct {

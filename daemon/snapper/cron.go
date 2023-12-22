@@ -10,6 +10,7 @@ import (
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/hooks"
+	"github.com/zrepl/zrepl/daemon/job/trigger"
 	"github.com/zrepl/zrepl/util/suspendresumesafetimer"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -42,7 +43,7 @@ type Cron struct {
 	wakeupWhileRunningCount int
 }
 
-func (s *Cron) Run(ctx context.Context, snapshotsTaken chan<- struct{}) {
+func (s *Cron) Run(ctx context.Context, snapshotsTaken *trigger.Trigger) {
 
 	for {
 		now := time.Now()
@@ -75,13 +76,7 @@ func (s *Cron) Run(ctx context.Context, snapshotsTaken chan<- struct{}) {
 			s.running = false
 			s.mtx.Unlock()
 
-			select {
-			case snapshotsTaken <- struct{}{}:
-			default:
-				if snapshotsTaken != nil {
-					getLogger(ctx).Warn("callback channel is full, discarding snapshot update event")
-				}
-			}
+			snapshotsTaken.Fire()
 		}()
 	}
 

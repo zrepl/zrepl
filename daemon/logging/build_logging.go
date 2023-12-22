@@ -63,6 +63,7 @@ type Subsystem string
 const (
 	SubsysMeta         Subsystem = "meta"
 	SubsysJob          Subsystem = "job"
+	SubsysTrigger      Subsystem = "trigger"
 	SubsysReplication  Subsystem = "repl"
 	SubsysEndpoint     Subsystem = "endpoint"
 	SubsysPruning      Subsystem = "pruning"

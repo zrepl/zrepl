@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/zrepl/zrepl/daemon/job/trigger"
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 
 	"github.com/zrepl/zrepl/config"
@@ -51,7 +52,7 @@ type periodicArgs struct {
 	interval       time.Duration
 	fsf            zfs.DatasetFilter
 	planArgs       planArgs
-	snapshotsTaken chan<- struct{}
+	snapshotsTaken *trigger.Trigger
 	dryRun         bool
 }
 
@@ -103,7 +104,7 @@ func (s State) sf() state {
 type updater func(u func(*Periodic)) State
 type state func(a periodicArgs, u updater) state
 
-func (s *Periodic) Run(ctx context.Context, snapshotsTaken chan<- struct{}) {
+func (s *Periodic) Run(ctx context.Context, snapshotsTaken *trigger.Trigger) {
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()
 	getLogger(ctx).Debug("start")
 	defer getLogger(ctx).Debug("stop")
@@ -207,13 +208,7 @@ func periodicStateSnapshot(a periodicArgs, u updater) state {
 
 	ok := plan.execute(a.ctx, false)
 
-	select {
-	case a.snapshotsTaken <- struct{}{}:
-	default:
-		if a.snapshotsTaken != nil {
-			getLogger(a.ctx).Warn("callback channel is full, discarding snapshot update event")
-		}
-	}
+	a.snapshotsTaken.Fire()
 
 	return u(func(snapper *Periodic) {
 		if !ok {
