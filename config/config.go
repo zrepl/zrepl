@@ -146,9 +146,10 @@ type PlaceholderRecvOptions struct {
 
 type PushJob struct {
 	ActiveJob    `yaml:",inline"`
-	Snapshotting SnapshottingEnum  `yaml:"snapshotting"`
-	Filesystems  FilesystemsFilter `yaml:"filesystems"`
-	Send         *SendOptions      `yaml:"send,fromdefaults,optional"`
+	Interval     *PositiveDurationOrManual `yaml:"interval,optional"`
+	Snapshotting SnapshottingEnum          `yaml:"snapshotting"`
+	Filesystems  FilesystemsFilter         `yaml:"filesystems"`
+	Send         *SendOptions              `yaml:"send,fromdefaults,optional"`
 }
 
 func (j *PushJob) GetFilesystems() FilesystemsFilter { return j.Filesystems }

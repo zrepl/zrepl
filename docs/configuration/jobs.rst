@@ -24,8 +24,13 @@ Job Type ``push``
       - |connect-transport|
     * - ``filesystems``
       - |filter-spec| for filesystems to be snapshotted and pushed to the sink
+    * - ``interval``
+      - | Interval at which to push to the sink (e.g. ``10m``) if
+        | ``snapshotting`` configured as ``manual``. This field is optional and
+        | if not defined, than ``snapshotting`` does the job. Also this field
+        | ignored if ``snapshotting`` isn't ``manual``.
     * - ``send``
-      - |send-options| 
+      - |send-options|
     * - ``snapshotting``
       - |snapshotting-spec|
     * - ``pruning``
