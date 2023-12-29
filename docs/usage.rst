@@ -40,6 +40,13 @@ CLI Overview
         | (see :ref:`changelog <changelog>` for details)
     * - ``zrepl zfs-abstraction``
       - list and remove zrepl's abstractions on top of ZFS, e.g. holds and step bookmarks (see :ref:`overview <replication-cursor-and-last-received-hold>` )
+    * - ``zrepl monitor snaphots``
+      - | check if snapshots are not outdated, according to config rules or cli
+        | args (see
+        | :ref:`zrepl monitor snapshots <usage-zrepl-monitor-snapshots:>`
+        | for details)
+    * - ``zrepl monitor alive``
+      - check if zrepl daemon is alive
 
 .. _usage-zrepl-daemon:
 
@@ -148,3 +155,46 @@ To stop test execution at the first failing test, and prevent cleanup of the dum
 
 To build the platformtests yourself, use ``make test-platform-bin``.
 There's also the ``make test-platform`` target to run the platform tests with a default command line.
+
+.. _usage-zrepl-monitor-snapshots:
+
+=======================
+zrepl monitor snapshots
+=======================
+
+Any job type can be configured to monitor outdated snapshots, using
+configuration like this:
+
+::
+  - name: "zdisk"
+    type: "sink"
+    root_fs: "zdisk/zrepl"
+    # ...
+    monitor:
+      latest:
+        - prefix: "zrepl_frequently_"
+          critical: "48h"       # 2d
+        - prefix: "zrepl_hourly_"
+          critical: "48h"
+        - prefix: "zrepl_daily_"
+          critical: "48h"
+        - prefix: "zrepl_monthly_"
+          critical: "768h"      # 32d
+      oldest:
+        - prefix: "zrepl_frequently_"
+          critical: "48h"       # 2d
+        - prefix: "zrepl_hourly_"
+          critical: "168h"      # 7d
+        - prefix: "zrepl_daily_"
+          critical: "2208h"     # 90d + 2d
+        - prefix: "zrepl_monthly_"
+          critical: "8688h"     # 30 * 12 = 360d + 2d
+        - prefix: ""            # everything else
+          critical: "168h"      # 7d
+
+If latest snapshot with given ``prefix`` is older than ``warning`` or
+``critical``, ``zrepl monitor snapshots latest --job zdisk`` will report it in
+format, suitable for Icinga, Nagios, etc.
+
+``zrepl monitor snapshots oldest --job zdisk`` will report about oldest snapshot
+instead of latest one.

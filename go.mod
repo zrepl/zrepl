@@ -13,6 +13,7 @@ require (
 	github.com/go-sql-driver/mysql v1.4.1-0.20190907122137-b2c03bcae3d4
 	github.com/golang/protobuf v1.4.3
 	github.com/google/uuid v1.1.2
+	github.com/inexio/go-monitoringplugin v1.0.13
 	github.com/jinzhu/copier v0.0.0-20170922082739-db4671f3a9b8
 	github.com/juju/ratelimit v1.0.1
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
@@ -31,7 +32,7 @@ require (
 	github.com/prometheus/common v0.7.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sergi/go-diff v1.0.1-0.20180205163309-da645544ed44 // indirect; go1.12 thinks it needs this
-	github.com/spf13/cobra v0.0.2
+	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
 	github.com/willf/bitset v1.1.10

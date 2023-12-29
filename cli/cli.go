@@ -81,6 +81,7 @@ type Subcommand struct {
 	Run              func(ctx context.Context, subcommand *Subcommand, args []string) error
 	SetupFlags       func(f *pflag.FlagSet)
 	SetupSubcommands func() []*Subcommand
+	SetupCobra       func(c *cobra.Command)
 
 	config    *config.Config
 	configErr error
@@ -144,6 +145,9 @@ func addSubcommandToCobraCmd(c *cobra.Command, s *Subcommand) {
 	}
 	if s.SetupFlags != nil {
 		s.SetupFlags(cmd.Flags())
+	}
+	if s.SetupCobra != nil {
+		s.SetupCobra(&cmd)
 	}
 	c.AddCommand(&cmd)
 }
