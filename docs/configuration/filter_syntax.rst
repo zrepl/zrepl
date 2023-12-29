@@ -15,8 +15,10 @@ The following rules determine which result is chosen for a given filesystem path
 * Non-wildcard patterns (full path patterns) win over *subtree wildcards* (`<` at end of pattern)
 * If the path in question does not match any pattern, the result is ``false``.
 
-The **subtree wildcard** ``<`` means "the dataset left of ``<`` and all its children".
-   
+The **subtree wildcard** ``<`` means "the dataset left of ``<`` and all its
+children". On the right of ``<`` can be added shell pattern, which filters
+children of the dataset.
+
 .. TIP::
   You can try out patterns for a configured job using the ``zrepl test filesystems`` subcommand for push and source jobs.
 
@@ -50,7 +52,8 @@ The following configuration demonstrates all rules presented above.
       filesystems: {
         "tank<": true,          # rule 1
         "tank/foo<": false,     # rule 2
-        "tank/foo/bar": true,  # rule 3
+        "tank/foo/bar": true,   # rule 3
+        "tank/bar</*/foo": true # rule 4
       }
       ...
 
@@ -64,4 +67,7 @@ Which rule applies to given path, and what is the result?
     tank/foo/bar     => 3    true
     zroot            => NONE false
     tank/var/log     => 1    true
-
+    tank/bar/a       => 4    false
+    tank/bar/a/foo   => 4    true
+    tank/bar/b       => 4    false
+    tank/bar/b/foo   => 4    true

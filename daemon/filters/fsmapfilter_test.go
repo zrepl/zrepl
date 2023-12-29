@@ -54,6 +54,22 @@ func TestDatasetMapFilter(t *testing.T) {
 				"tank/home/bob/downloads": false,
 			},
 		},
+		{
+			name: "with shell patterns",
+			filter: map[string]string{
+				"tank/home</*/foo": "ok",
+				"tank/home/mark<":  "!",
+			},
+			checkPass: map[string]bool{
+				"tank/home":              false,
+				"tank/home/bob":          false,
+				"tank/home/bob/foo":      true,
+				"tank/home/alice/foo":    true,
+				"tank/home/john/foo/bar": false,
+				"tank/home/john/bar":     false,
+				"tank/home/mark/foo":     false,
+			},
+		},
 	}
 
 	for tc := range tcs {
