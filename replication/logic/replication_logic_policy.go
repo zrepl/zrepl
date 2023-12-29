@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-playground/validator"
+	"github.com/go-playground/validator/v10"
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/config"
@@ -63,8 +63,8 @@ func ConflictResolutionFromConfig(in *config.ConflictResolution) (*ConflictResol
 }
 
 type PlannerPolicy struct {
-	ConflictResolution        *ConflictResolution    `validate:"ne=nil"`
-	ReplicationConfig         *pdu.ReplicationConfig `validate:"ne=nil"`
+	ConflictResolution        *ConflictResolution    `validate:"required"`
+	ReplicationConfig         *pdu.ReplicationConfig `validate:"required"`
 	SizeEstimationConcurrency int                    `validate:"gte=1"`
 }
 

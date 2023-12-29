@@ -3,7 +3,6 @@ package tests
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -99,10 +98,9 @@ func SendStreamCloseAfterBlockedOnPipeWrite(ctx *platformtest.Context) {
 }
 
 func SendStreamCloseAfterEOFRead(ctx *platformtest.Context) {
-
 	sendStream := sendStreamTest(ctx)
 
-	_, err := io.Copy(ioutil.Discard, sendStream)
+	_, err := io.Copy(io.Discard, sendStream)
 	require.NoError(ctx, err)
 
 	var buf [128]byte
@@ -119,10 +117,9 @@ func SendStreamCloseAfterEOFRead(ctx *platformtest.Context) {
 }
 
 func SendStreamMultipleCloseAfterEOF(ctx *platformtest.Context) {
-
 	sendStream := sendStreamTest(ctx)
 
-	_, err := io.Copy(ioutil.Discard, sendStream)
+	_, err := io.Copy(io.Discard, sendStream)
 	require.NoError(ctx, err)
 
 	var buf [128]byte

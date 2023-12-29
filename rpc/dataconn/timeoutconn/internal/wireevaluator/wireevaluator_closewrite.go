@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"log"
 
 	"github.com/zrepl/zrepl/transport"
@@ -75,15 +74,13 @@ func (CloseWrite) sender(wire transport.Wire) {
 	if !bytes.Equal(respBuf.Bytes(), closeWriteErrorMsg) {
 		log.Fatalf("did not receive error message, got response with len %v:\n%v", respBuf.Len(), respBuf.Bytes())
 	}
-
 }
 
 func (CloseWrite) receiver(wire transport.Wire) {
-
 	// consume half the test data, then detect an error, send it and CloseWrite
 
 	r := io.LimitReader(wire, int64(5*len(closeWriteTestSendData)/3))
-	_, err := io.Copy(ioutil.Discard, r)
+	_, err := io.Copy(io.Discard, r)
 	noerror(err)
 
 	var errBuf bytes.Buffer
@@ -95,7 +92,7 @@ func (CloseWrite) receiver(wire transport.Wire) {
 	noerror(err)
 
 	// drain wire, as documented in transport.Wire, this is the only way we know the client closed the conn
-	_, err = io.Copy(ioutil.Discard, wire)
+	_, err = io.Copy(io.Discard, wire)
 	if err != nil {
 		// io.Copy masks io.EOF to nil, and we expect io.EOF from the client's Close() call
 		log.Panicf("unexpected error returned from reading conn: %s", err)

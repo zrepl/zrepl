@@ -1,8 +1,8 @@
 package trace
 
 import (
+	"crypto/rand"
 	"encoding/base64"
-	"math/rand"
 	"strings"
 
 	"github.com/zrepl/zrepl/util/envconst"
