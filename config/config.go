@@ -98,6 +98,7 @@ type SendOptions struct {
 	Saved            bool `yaml:"saved,optional,default=false"`
 
 	BandwidthLimit *BandwidthLimit `yaml:"bandwidth_limit,optional,fromdefaults"`
+	ExecPipe       [][]string      `yaml:"execpipe,optional"`
 }
 
 type RecvOptions struct {
@@ -111,6 +112,8 @@ type RecvOptions struct {
 	BandwidthLimit *BandwidthLimit `yaml:"bandwidth_limit,optional,fromdefaults"`
 
 	Placeholder *PlaceholderRecvOptions `yaml:"placeholder,fromdefaults"`
+
+	ExecPipe [][]string `yaml:"execpipe,optional"`
 }
 
 var _ yaml.Unmarshaler = &datasizeunit.Bits{}

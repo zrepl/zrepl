@@ -41,6 +41,7 @@ func buildSenderConfig(in SendingJobConfig, jobID endpoint.JobID) (*endpoint.Sen
 		SendSaved:            sendOpts.Saved,
 
 		BandwidthLimit: bwlim,
+		ExecPipe:       sendOpts.ExecPipe,
 	}
 
 	if err := sc.Validate(); err != nil {
@@ -93,7 +94,9 @@ func buildReceiverConfig(in ReceivingJobConfig, jobID endpoint.JobID) (rc endpoi
 		BandwidthLimit: bwlim,
 
 		PlaceholderEncryption: placeholderEncryption,
+		ExecPipe:              recvOpts.ExecPipe,
 	}
+
 	if err := rc.Validate(); err != nil {
 		return rc, errors.Wrap(err, "cannot build receiver config")
 	}
