@@ -35,6 +35,6 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/tools v0.13.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.33.0
 	mvdan.cc/unparam v0.0.0-20230815095028-f7c6fb1088f0 // indirect
 )
