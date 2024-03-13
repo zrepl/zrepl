@@ -11,7 +11,7 @@ require (
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/go-playground/validator/v10 v10.4.1
 	github.com/go-sql-driver/mysql v1.4.1-0.20190907122137-b2c03bcae3d4
-	github.com/golang/protobuf v1.4.3
+	github.com/golang/protobuf v1.5.0
 	github.com/google/uuid v1.1.2
 	github.com/jinzhu/copier v0.0.0-20170922082739-db4671f3a9b8
 	github.com/juju/ratelimit v1.0.1
@@ -46,6 +46,6 @@ require (
 	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
 	google.golang.org/genproto v0.0.0-20210122163508-8081c04a3579 // indirect
 	google.golang.org/grpc v1.35.0
-	google.golang.org/protobuf v1.25.0
+	google.golang.org/protobuf v1.33.0
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 )
