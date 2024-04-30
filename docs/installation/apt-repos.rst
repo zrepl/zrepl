@@ -27,7 +27,7 @@ Please open an issue in on GitHub if you encounter any issues with the repositor
     ARCH="$(dpkg --print-architecture)"
     CODENAME="$(lsb_release -i -s | tr '[:upper:]' '[:lower:]') $(lsb_release -c -s | tr '[:upper:]' '[:lower:]')"
     echo "Using Distro and Codename: $CODENAME"
-    echo "deb [arch=$ARCH signed-by=$zrepl_apt_key_dst] https://zrepl.cschwarz.com/apt/$CODENAME main" | sudo tee /etc/apt/sources.list.d/zrepl.list
+    echo "deb [arch=$ARCH signed-by=$zrepl_apt_key_dst] https://zrepl.cschwarz.com/apt/$CODENAME main" | sudo tee "$zrepl_apt_repo_file" > /dev/null
 
     # Update apt repos.
     sudo apt update
