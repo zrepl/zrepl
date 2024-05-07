@@ -61,7 +61,10 @@ type snapProgress struct {
 }
 
 func (plan *plan) formatNow(format string) string {
-	now := time.Now().UTC()
+	now := time.Now()
+	if !(strings.Contains(format, "-07") || strings.Contains(format, "Z07") || strings.Contains(format, "MST")) {
+		now = now.UTC()
+	}
 	switch strings.ToLower(format) {
 	case "dense":
 		format = "20060102_150405_000"
@@ -72,7 +75,7 @@ func (plan *plan) formatNow(format string) string {
 	case "unix-seconds":
 		return strconv.FormatInt(now.Unix(), 10)
 	}
-	return now.Format(format)
+	return strings.Replace(now.Format(format), "+", "_", -1)
 }
 
 func (plan *plan) execute(ctx context.Context, dryRun bool) (ok bool) {
