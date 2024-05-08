@@ -3,6 +3,7 @@ package snapper
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,9 +16,10 @@ import (
 )
 
 type planArgs struct {
-	prefix          string
-	timestampFormat string
-	hooks           *hooks.List
+	prefix            string
+	timestampFormat   string
+	timestampLocation string
+	hooks             *hooks.List
 }
 
 type plan struct {
@@ -60,10 +62,15 @@ type snapProgress struct {
 	runResults hooks.PlanReport
 }
 
-func (plan *plan) formatNow(format string) string {
-	now := time.Now()
-	if !(strings.Contains(format, "-07") || strings.Contains(format, "Z07") || strings.Contains(format, "MST")) {
-		now = now.UTC()
+func (plan *plan) formatNow(format string, location string) string {
+	now := time.Now().UTC()
+	// if TZ information does not have TZ format mask, name collision is inevitable, so before conversion we make sure TZ info is part of the format
+	if (strings.Contains(format, "-07") || strings.Contains(format, "Z07") || strings.Contains(format, "MST")) && location != "UTC" {
+		tzLoc, tzErr := time.LoadLocation(location)
+		// if TZ info is correct, convert time to that particular TZ, otherwise leave it in UTC
+		if tzErr == nil {
+			now = now.In(tzLoc)
+		}
 	}
 	switch strings.ToLower(format) {
 	case "dense":
@@ -75,7 +82,7 @@ func (plan *plan) formatNow(format string) string {
 	case "unix-seconds":
 		return strconv.FormatInt(now.Unix(), 10)
 	}
-	return strings.Replace(now.Format(format), "+", "_", -1)
+	return regexp.MustCompile(`[^a-zA-Z0-9-._: ]+`).ReplaceAllString(strings.Replace(now.Format(format), "+", "_", -1), "")
 }
 
 func (plan *plan) execute(ctx context.Context, dryRun bool) (ok bool) {
@@ -88,7 +95,7 @@ func (plan *plan) execute(ctx context.Context, dryRun bool) (ok bool) {
 	anyFsHadErr := false
 	// TODO channel programs -> allow a little jitter?
 	for fs, progress := range plan.snaps {
-		suffix := plan.formatNow(plan.args.timestampFormat)
+		suffix := plan.formatNow(plan.args.timestampFormat, plan.args.timestampLocation)
 		snapname := fmt.Sprintf("%s%s", plan.args.prefix, suffix)
 
 		ctx := logging.WithInjectedField(ctx, "fs", fs.ToString())
