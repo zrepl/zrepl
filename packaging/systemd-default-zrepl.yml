@@ -5,9 +5,7 @@ global:
       format: human
       level: warn
 
-jobs:
-#  - name: foo
-#    type: bar
+jobs: []
 
 # see USR_SHARE_ZREPL/examples
 # or https://zrepl.github.io/configuration/overview.html
