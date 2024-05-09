@@ -1,3 +1,4 @@
+# global options
 global:
   logging:
     # use syslog instead of stdout because it makes journald happy
@@ -5,9 +6,17 @@ global:
       format: human
       level: warn
 
+# jobs section, the following job is a placeholder, please see
+# /usr/share/doc/zrepl/examples
+# or visit
+# https://zrepl.github.io/configuration/overview.html
 jobs:
-#  - name: foo
-#    type: bar
-
-# see USR_SHARE_ZREPL/examples
-# or https://zrepl.github.io/configuration/overview.html
+  - name: placeholder
+    type: snap
+    filesystems: {placeholder}
+    snapshotting:
+      type: manual
+    pruning:
+      keep:
+        - type: regex
+          regex: ".*"
