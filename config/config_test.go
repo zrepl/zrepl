@@ -84,7 +84,7 @@ func trimSpaceEachLineAndPad(s, pad string) string {
 func TestTrimSpaceEachLineAndPad(t *testing.T) {
 	foo := `
 	foo
-	bar baz 
+	bar baz
 	`
 	assert.Equal(t, "  \n  foo\n  bar baz\n  \n", trimSpaceEachLineAndPad(foo, "  "))
 }
@@ -137,4 +137,19 @@ func TestCronSpec(t *testing.T) {
 		})
 	}
 
+}
+
+func TestEmptyConfig(t *testing.T) {
+	cases := []string{
+		"",
+		"\n",
+		"---",
+		"---\n",
+	}
+	for _, input := range cases {
+		config := testValidConfig(t, input)
+		require.NotNil(t, config)
+		require.NotNil(t, config.Global)
+		require.Empty(t, config.Jobs)
+	}
 }
