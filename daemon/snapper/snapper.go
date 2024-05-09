@@ -18,7 +18,7 @@ const (
 )
 
 type Snapper interface {
-	Run(ctx context.Context, snapshotsTaken trigger.Trigger
+	Run(ctx context.Context, snapshotsTaken *trigger.Manual)
 	Report() Report
 }
 

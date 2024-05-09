@@ -43,7 +43,7 @@ type Cron struct {
 	wakeupWhileRunningCount int
 }
 
-func (s *Cron) Run(ctx context.Context, snapshotsTaken trigger.Trigger) {
+func (s *Cron) Run(ctx context.Context, snapshotsTaken *trigger.Manual) {
 
 	for {
 		now := time.Now()

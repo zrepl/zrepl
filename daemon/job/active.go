@@ -93,7 +93,7 @@ type activeMode interface {
 	SenderReceiver() (logic.Sender, logic.Receiver)
 	Type() Type
 	PlannerPolicy() logic.PlannerPolicy
-	RunPeriodic(ctx context.Context, wakeReplication trigger.Trigger
+	RunPeriodic(ctx context.Context, wakeReplication *trigger.Manual)
 	SnapperReport() *snapper.Report
 	ResetConnectBackoff()
 }
@@ -135,7 +135,7 @@ func (m *modePush) Type() Type { return TypePush }
 
 func (m *modePush) PlannerPolicy() logic.PlannerPolicy { return *m.plannerPolicy }
 
-func (m *modePush) RunPeriodic(ctx context.Context, trigger trigger.Trigger {
+func (m *modePush) RunPeriodic(ctx context.Context, trigger *trigger.Manual) {
 	m.snapper.Run(ctx, trigger)
 }
 
@@ -224,7 +224,7 @@ func (*modePull) Type() Type { return TypePull }
 
 func (m *modePull) PlannerPolicy() logic.PlannerPolicy { return *m.plannerPolicy }
 
-func (m *modePull) RunPeriodic(ctx context.Context, wakeReplication trigger.Trigger {
+func (m *modePull) RunPeriodic(ctx context.Context, wakeReplication *trigger.Manual) {
 	if m.interval.Manual {
 		GetLogger(ctx).Info("manual pull configured, periodic pull disabled")
 		// "waiting for wakeups" is printed in common ActiveSide.do
@@ -448,7 +448,6 @@ func (j *ActiveSide) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	periodicTrigger := trigger.New("periodic")
 	periodCtx, endTask := trace.WithTask(ctx, "periodic")
 	defer endTask()
 	go j.mode.RunPeriodic(periodCtx, periodicTrigger)
