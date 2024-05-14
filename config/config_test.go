@@ -22,6 +22,8 @@ func TestSampleConfigsAreParsedWithoutErrors(t *testing.T) {
 		t.Errorf("glob failed: %+v", err)
 	}
 
+	paths = append(paths, "../packaging/systemd-default-zrepl.yml")
+
 	for _, p := range paths {
 
 		if path.Ext(p) != ".yml" {
@@ -84,7 +86,7 @@ func trimSpaceEachLineAndPad(s, pad string) string {
 func TestTrimSpaceEachLineAndPad(t *testing.T) {
 	foo := `
 	foo
-	bar baz 
+	bar baz
 	`
 	assert.Equal(t, "  \n  foo\n  bar baz\n  \n", trimSpaceEachLineAndPad(foo, "  "))
 }
@@ -137,4 +139,19 @@ func TestCronSpec(t *testing.T) {
 		})
 	}
 
+}
+
+func TestEmptyConfig(t *testing.T) {
+	cases := []string{
+		"",
+		"\n",
+		"---",
+		"---\n",
+	}
+	for _, input := range cases {
+		config := testValidConfig(t, input)
+		require.NotNil(t, config)
+		require.NotNil(t, config.Global)
+		require.Empty(t, config.Jobs)
+	}
 }

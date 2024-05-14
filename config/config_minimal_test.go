@@ -2,15 +2,7 @@ package config
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
-
-func TestConfigEmptyFails(t *testing.T) {
-	conf, err := testConfig(t, "\n")
-	assert.Nil(t, conf)
-	assert.Error(t, err)
-}
 
 func TestJobsOnlyWorks(t *testing.T) {
 	testValidConfig(t, `
@@ -34,7 +26,7 @@ jobs:
     keep_sender:
     - type: not_replicated
     keep_receiver:
-    - type: last_n 
+    - type: last_n
       count: 1
 `)
 }
