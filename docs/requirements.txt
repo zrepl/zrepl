@@ -9,7 +9,7 @@ Jinja2==3.1.2
 MarkupSafe==2.1.3
 packaging==23.1
 Pygments==2.16.1
-requests==2.31.0
+requests==2.32.0
 snowballstemmer==2.2.0
 Sphinx==7.2.5
 sphinx-multiversion @ git+https://github.com/zrepl/sphinx-multiversion/@52c915d7ad898d9641ec48c8bbccb7d4f079db93
