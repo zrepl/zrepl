@@ -529,27 +529,31 @@ func (f *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 		// find the highest of the previously uncompleted steps for which we can also find a step
 		// in our current plan
 		prevUncompleted := prev.planned.steps[prev.planned.step:]
-		var target struct{ prev, cur int }
-		target.prev = -1
-		target.cur = -1
-	out:
-		for p := len(prevUncompleted) - 1; p >= 0; p-- {
-			for q := len(f.planned.steps) - 1; q >= 0; q-- {
-				if prevUncompleted[p].step.TargetEquals(f.planned.steps[q].step) {
-					target.prev = p
-					target.cur = q
-					break out
+		if len(prevUncompleted) == 0 || len(f.planned.steps) == 0 {
+			f.debug("no steps planned in previous attempt or this attempt, no correlation necessary len(prevUncompleted)=%d len(f.planned.steps)=%d", len(prevUncompleted), len(f.planned.steps))
+		} else {
+			var target struct{ prev, cur int }
+			target.prev = -1
+			target.cur = -1
+		out:
+			for p := len(prevUncompleted) - 1; p >= 0; p-- {
+				for q := len(f.planned.steps) - 1; q >= 0; q-- {
+					if prevUncompleted[p].step.TargetEquals(f.planned.steps[q].step) {
+						target.prev = p
+						target.cur = q
+						break out
+					}
 				}
 			}
-		}
-		if target.prev == -1 || target.cur == -1 {
-			f.debug("no correlation possible between previous attempt and this attempt's plan")
-			f.planning.err = newTimedError(fmt.Errorf("cannot correlate previously failed attempt to current plan"), time.Now())
-			return
-		}
+			if target.prev == -1 || target.cur == -1 {
+				f.debug("no correlation possible between previous attempt and this attempt's plan")
+				f.planning.err = newTimedError(fmt.Errorf("cannot correlate previously failed attempt to current plan"), time.Now())
+				return
+			}
 
-		f.planned.steps = f.planned.steps[0:target.cur]
-		f.debug("found correlation, new steps are len(fs.planned.steps) = %d", len(f.planned.steps))
+			f.planned.steps = f.planned.steps[0:target.cur]
+			f.debug("found correlation, new steps are len(fs.planned.steps) = %d", len(f.planned.steps))
+		}
 	} else {
 		f.debug("previous attempt does not exist or did not finish planning, no correlation possible, taking this attempt's plan as is")
 	}
@@ -600,6 +604,8 @@ func (f *fs) do(ctx context.Context, pq *stepQueue, prev *fs) {
 					f.debug("parentHasNoSteps=%v parentFirstStepIsIncremental=%v parentHasTakenAtLeastOneSuccessfulStep=%v",
 						parentHasNoSteps, parentFirstStepIsIncremental, parentHasTakenAtLeastOneSuccessfulStep)
 
+					// If the parent is a placeholder on the sender, `parentHasNoSteps` is true because we plan no steps for sender placeholders.
+					// The receiver will create the necessary placeholders when they start receiving the first non-placeholder child filesystem.
 					parentPresentOnReceiver := parentHasNoSteps || parentFirstStepIsIncremental || parentHasTakenAtLeastOneSuccessfulStep
 
 					allParentsPresentOnReceiver = allParentsPresentOnReceiver && parentPresentOnReceiver // no shadow

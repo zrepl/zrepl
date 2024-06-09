@@ -333,6 +333,22 @@ func (fs *Filesystem) doPlanning(ctx context.Context) ([]*Step, error) {
 
 	log(ctx).Debug("assessing filesystem")
 
+	if fs.senderFS.IsPlaceholder {
+		log(ctx).Debug("sender filesystem is placeholder")
+		if fs.receiverFS != nil {
+			if fs.receiverFS.IsPlaceholder {
+				// all good, fall through
+				log(ctx).Debug("receiver filesystem is placeholder")
+			} else {
+				err := fmt.Errorf("sender filesystem is placeholder, but receiver filesystem is not")
+				log(ctx).Error(err.Error())
+				return nil, err
+			}
+		}
+		log(ctx).Debug("no steps required for replicating placeholders, the endpoint.Receiver will create a placeholder when we receive the first non-placeholder child filesystem")
+		return nil, nil
+	}
+
 	sfsvsres, err := fs.sender.ListFilesystemVersions(ctx, &pdu.ListFilesystemVersionsReq{Filesystem: fs.Path})
 	if err != nil {
 		log(ctx).WithError(err).Error("cannot get remote filesystem versions")
