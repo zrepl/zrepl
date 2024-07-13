@@ -25,8 +25,9 @@ The following snapshotting types are supported:
 
 The ``periodic`` and ``cron`` snapshotting types share some common options and behavior:
 
-* **Naming:** The snapshot names are composed of a user-defined ``prefix`` followed by a UTC date formatted like ``20060102_150405_000``.
-  We use UTC because it will avoid name conflicts when switching time zones or between summer and winter time.
+* **Naming:** The snapshot names are composed of a user-defined ``prefix`` followed by a UTC date formatted like ``20060102_150405_000`` by default.
+  We either use UTC or timestamp with timezone information because it will avoid name conflicts when switching time zones or between summer and winter time.
+  Note that if timestamp with time zone information is used, the "+" of the timezone (i.e. +02:00) is replaced by "_" (i.e. _02:00) to conform to allowed characters in ZFS snapshots.
 * **Hooks:** You can configure hooks to run before or after zrepl takes the snapshots. See :ref:`below <job-snapshotting-hooks>` for details.
 * **Push replication:** After creating all snapshots, the snapshotter will wake up the replication part of the job, if it's a ``push`` job.
   Note that snapshotting is decoupled from replication, i.e., if it is down or takes too long, snapshots will still be taken.
@@ -65,6 +66,9 @@ The ``periodic`` and ``cron`` snapshotting types share some common options and b
        # Timestamp format that is used as snapshot suffix.
        # Can be any of "dense" (default), "human", "iso-8601", "unix-seconds" or a custom Go time format (see https://go.dev/src/time/format.go)
        timestamp_format: dense
+       # Specifies in which time zone the snapshot suffix is generated, optional, defaults to UTC, used only if time zone information is part of timestamp_format.
+       # Can be "UTC" (default), "Local" (time zone information from the OS) or any of the IANA Time Zone names (see https://nodatime.org/TimeZones)
+       timestamp_location: UTC
        hooks: ...
     pruning: ...
 
@@ -97,26 +101,15 @@ The snapshotter uses the ``prefix`` to identify which snapshots it created.
        # Timestamp format that is used as snapshot suffix.
        # Can be any of "dense" (default), "human", "iso-8601", "unix-seconds" or a custom Go time format (see https://go.dev/src/time/format.go)
        timestamp_format: dense
+       # Specifies in which time zone the snapshot suffix is generated, optional, defaults to UTC, used only if time zone information is part of timestamp_format.
+       # Can be "UTC" (default), "Local" (time zone information from the OS) or any of the IANA Time Zone names (see https://nodatime.org/TimeZones)
+       timestamp_location: UTC
      pruning: ...
 
 In ``cron`` mode, the snapshotter takes snaphots at fixed points in time.
 See https://en.wikipedia.org/wiki/Cron for details on the syntax.
 zrepl uses the ``the github.com/robfig/cron/v3`` Go package for parsing.
 An optional field for "seconds" is supported to take snapshots at sub-minute frequencies.
-
-.. _job-snapshotting-timestamp_format:
-
-Timestamp Format
-~~~~~~~~~~~~~~~~
-
-The ``cron`` and ``periodic`` snapshotter support configuring a custom timestamp format that is used as suffix for the snapshot name.
-It can be used by setting ``timestamp_format`` to any of the following values:
-
-* ``dense`` (default) looks like ``20060102_150405_000``
-* ``human`` looks like ``2006-01-02_15:04:05``
-* ``iso-8601`` looks like ``2006-01-02T15:04:05.000Z``
-* ``unix-seconds`` looks like ``1136214245``
-* Any custom Go time format accepted by `time.Time#Format <https://go.dev/src/time/format.go>`_.
 
 
 ``manual`` Snapshotting
@@ -136,6 +129,33 @@ Or, if you want to decouple snapshot management from replication using a zrepl `
 See :ref:`this quickstart guide <quickstart-backup-to-external-disk>` for an example.
 
 To trigger replication after taking snapshots, use the ``zrepl signal wakeup JOB`` command.
+
+.. _job-snapshotting-timestamp_format:
+
+Timestamp Format
+----------------
+
+The ``cron`` and ``periodic`` snapshotter support configuring a custom timestamp format that is used as suffix for the snapshot name.
+
+By default, the current time is converted to UTC and then formatted using the ``dense`` format.
+
+Both time zone and format can be customized by setting ``timestamp_format`` and/or ``timestamp_location``.
+
+``timestamp_location`` is fed verbatim into `time.LoadLocation <https://pkg.go.dev/time#LoadLocation>`_.
+
+ ``timestamp_format`` supports the following values (case-insensitive).
+
+* ``dense`` => Go format string ``20060102_150405_000``
+* ``human`` => Go format string ``2006-01-02_15:04:05``
+* ``iso-8601`` => Go format string ``2006-01-02T15:04:05.000Z07:00``
+* ``unix-seconds`` => Unix seconds since the epoch, formatted as a decimal string (`time.Time.Unix <https://pkg.go.dev/time#Time.Unix>`_)
+* Any custom Go time format accepted by `time.Time#Format <https://go.dev/src/time/format.go>`_.
+
+The ``dense``, ``human``, and ``unix-seconds`` formats require the ``timestamp_location`` to be ``UTC`` because they do not contain timezone information.
+
+The ``+`` character is `not allowed in ZFS snapshot names <https://github.com/openzfs/zfs/blob/1d3ba0bf01020f5459b1c28db3979129088924c0/module/zcommon/zfs_namecheck.c#L334-L351>`_.
+Format strings are disallowed to contain the ``+`` character (it's not a character that is interpreted by ``time.Time.Format``, so there's no reason to use it).
+If a format _produces_ a ``+``, that ``+`` is replaced by an `_`` character.
 
 .. _job-snapshotting-hooks:
 
@@ -173,7 +193,7 @@ Most hook types take additional parameters, please refer to the respective subse
     * - ``mysql-lock-tables``
       - :ref:`Details <job-hook-type-mysql-lock-tables>`
       - Flush and read-Lock MySQL tables while taking the snapshot.
-      
+
 .. _job-hook-type-command:
 
 ``command`` Hooks
