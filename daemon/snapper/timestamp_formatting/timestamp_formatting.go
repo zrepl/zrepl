@@ -17,7 +17,7 @@ type Formatter struct {
 func New(formatString string, locationString string) (*Formatter, error) {
 	location, err := time.LoadLocation(locationString) // no shadow
 	if err != nil {
-		errors.Wrapf(err, "load location from string %q", locationString)
+		return nil, errors.Wrapf(err, "load location from string %q", locationString)
 	}
 	makeFormatFunc := func(formatString string) (func(time.Time) string, error) {
 		if strings.Contains(formatString, "+") {
