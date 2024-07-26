@@ -26,7 +26,7 @@ zrepl is a one-stop ZFS backup & replication solution.
    If so, think of an expressive configuration example.
 2. Think of at least one use case that generalizes from your concrete application.
 3. Open an issue on GitHub with example conf & use case attached.
-4. **Optional**: [Post a bounty](https://www.bountysource.com/teams/zrepl) on the issue, or [contact Christian Schwarz](https://cschwarz.com) for contract work.
+4. **Optional**: [Contact Christian Schwarz](https://cschwarz.com) for contract work.
 
 The above does not apply if you already implemented everything.
 Check out the *Coding Workflow* section below for details.
