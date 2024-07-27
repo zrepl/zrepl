@@ -74,8 +74,8 @@ To determine whether a sender-side snapshot has already been replicated, zrepl u
 
 .. ATTENTION::
 
-    Do not set ``not_replicated`` to true unless it is really needed and you could monitor the replication status regularly.
-    If ``not_replicated`` is set to true, when a pushing step gets stuck, there would be more and more pending snapshots (as many as thousands or even dozens of thousands),
+    Do not use ``not_replicated`` unless it is really needed and you could monitor the replication status regularly.
+    If ``not_replicated`` is used, when a pushing step gets stuck, there would be more and more pending snapshots (as many as thousands or even dozens of thousands),
     then it slows down the zfs snapshot related commands and you have to manually destroy these outdated pending snapshots.
 
 .. _prune-keep-retention-grid:
