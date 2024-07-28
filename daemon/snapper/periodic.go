@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/daemon/logging/trace"
+	"github.com/zrepl/zrepl/daemon/snapper/timestamp_formatting"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/hooks"
@@ -32,13 +33,18 @@ func periodicFromConfig(g *config.Global, fsf zfs.DatasetFilter, in *config.Snap
 		return nil, errors.Wrap(err, "hook config error")
 	}
 
+	formatter, err := timestamp_formatting.New(in.TimestampFormat, in.TimestampLocation)
+	if err != nil {
+		return nil, errors.Wrap(err, "build timestamp formatter")
+	}
+
 	args := periodicArgs{
 		interval: in.Interval.Duration(),
 		fsf:      fsf,
 		planArgs: planArgs{
-			prefix:          in.Prefix,
-			timestampFormat: in.TimestampFormat,
-			hooks:           hookList,
+			prefix:    in.Prefix,
+			formatter: formatter,
+			hooks:     hookList,
 		},
 		// ctx and log is set in Run()
 	}
