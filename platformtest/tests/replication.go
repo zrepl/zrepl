@@ -1483,3 +1483,98 @@ func ReplicationInitialFail(ctx *platformtest.Context) {
 	require.NotNil(ctx, report.Attempts[0].Filesystems[0].PlanError)
 	require.Contains(ctx, report.Attempts[0].Filesystems[0].PlanError.Err, "automatic conflict resolution for initial replication is disabled in config")
 }
+
+// https://github.com/zrepl/zrepl/issues/742
+func ReplicationOfPlaceholderFilesystemsInChainedReplicationScenario(ctx *platformtest.Context) {
+
+	//
+	// Setup datasets
+	//
+	platformtest.Run(ctx, platformtest.PanicErr, ctx.RootDataset, `
+		CREATEROOT
+		+  "host1"
+		+  "host1/a"
+		+  "host1/a/b"
+		+  "host1/a/b@1"
+		+  "host2"
+		+  "host2/sink"
+		+  "host3"
+		+  "host3/sink"
+	`)
+
+	// Replicate host1/a to host2/sink
+	host1_a := ctx.RootDataset + "/host1/a"
+	host1_b := ctx.RootDataset + "/host1/a/b"
+
+	host2_sink := ctx.RootDataset + "/host2/sink"
+	host2_a := host2_sink + "/" + host1_a
+	host2_b := host2_sink + "/" + host1_b
+
+	host3_sink := ctx.RootDataset + "/host3/sink"
+	host3_a := host3_sink + "/" + host2_a
+	host3_b := host3_sink + "/" + host2_b
+
+	type job struct {
+		sender, receiver          endpoint.JobID
+		receiver_root             string
+		sender_filesystems_filter map[string]bool
+	}
+	h1_to_h2 := job{
+		sender:   endpoint.MustMakeJobID("h1-to-h2-sender"),
+		receiver: endpoint.MustMakeJobID("h1-to-h2-receiver"),
+		sender_filesystems_filter: map[string]bool{
+			// omit host1_a so that it becomes a placeholder on host2
+			host1_b: true,
+		},
+		receiver_root: host2_sink,
+	}
+	h2_to_h3 := job{
+		sender:   endpoint.MustMakeJobID("h2-to-h3-sender"),
+		receiver: endpoint.MustMakeJobID("h2-to-h3-receiver"),
+		sender_filesystems_filter: map[string]bool{
+			host2_sink:       false,
+			host2_sink + "<": true,
+		},
+		receiver_root: host3_sink,
+	}
+
+	do_repl := func(j job) {
+
+		sfilter := filters.NewDatasetMapFilter(len(j.sender_filesystems_filter), true)
+
+		for lhs, rhs := range j.sender_filesystems_filter {
+			if rhs {
+				sfilter.Add(lhs, filters.MapFilterResultOk)
+			} else {
+				sfilter.Add(lhs, filters.MapFilterResultOmit)
+			}
+		}
+
+		rep := replicationInvocation{
+			sjid:      j.sender,
+			rjid:      j.receiver,
+			sfilter:   sfilter,
+			rfsRoot:   j.receiver_root,
+			guarantee: pdu.ReplicationConfigProtectionWithKind(pdu.ReplicationGuaranteeKind_GuaranteeResumability),
+			receiverConfigHook: func(rc *endpoint.ReceiverConfig) {
+				rc.PlaceholderEncryption = endpoint.PlaceholderCreationEncryptionPropertyOff
+			},
+		}
+
+		r := rep.Do(ctx)
+		ctx.Logf("\n%s", pretty.Sprint(r))
+	}
+
+	do_repl(h1_to_h2)
+	do_repl(h2_to_h3)
+
+	// assert that the replication worked
+	mustGetFilesystemVersion(ctx, host3_b+"@1")
+
+	// assert placeholder status
+	for _, fs := range []string{host2_a, host3_a} {
+		st, err := zfs.ZFSGetFilesystemPlaceholderState(ctx, mustDatasetPath(fs))
+		require.NoError(ctx, err)
+		require.True(ctx, st.IsPlaceholder)
+	}
+}
