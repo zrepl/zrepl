@@ -90,7 +90,7 @@ func TestKeepLastN(t *testing.T) {
 				stubSnap{"a2", false, o(12)},
 			},
 			rules: []KeepRule{
-				MustKeepLastN(3, "a"),
+				MustKeepLastN(4, "a"),
 			},
 			expDestroy: map[string]bool{
 				"b1": true,

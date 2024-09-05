@@ -130,7 +130,7 @@ The following high-level steps take place during replication and can be monitore
   * Move the **replication cursor** bookmark on the sending side (see below).
   * Move the **last-received-hold** on the receiving side (see below).
   * Release the send-side step-holds.
-   
+
 The idea behind the execution order of replication steps is that if the sender snapshots all filesystems simultaneously at fixed intervals, the receiver will have all filesystems snapshotted at time ``T1`` before the first snapshot at ``T2 = T1 + $interval`` is replicated.
 
 ZFS Background Knowledge
@@ -258,6 +258,9 @@ On your setup, ensure that
 
 * all ``filesystems`` filter specifications are disjoint
 * no ``root_fs`` is a prefix or equal to another ``root_fs``
+
+  * For ``sink`` jobs, consider all possible ``root_fs/${client_identity}``.
+
 * no ``filesystems`` filter matches any ``root_fs``
 
 **Exceptions to the rule**:
