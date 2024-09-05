@@ -75,7 +75,7 @@ To determine whether a sender-side snapshot has already been replicated, zrepl u
 .. ATTENTION::
 
     If you use ``not_replicated`` in your pruning rules, make sure to :ref:`monitor <monitoring>` replication.
-    If your replication gets stuck and ``not_replicated`` causes snapshots to pile uip on the sender.
+    If your replication gets stuck then ``not_replicated`` causes snapshots to pile uip on the sender.
     ZFS and especially the ``zfs`` management command are known to degrade in performance with a lot of snapshots.
     Such degradation impacts zrepl, any other scripts, and human ability to manage your zpool.
 
