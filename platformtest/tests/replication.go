@@ -1543,11 +1543,13 @@ func ReplicationOfPlaceholderFilesystemsInChainedReplicationScenario(ctx *platfo
 		sfilter := filters.NewDatasetMapFilter(len(j.sender_filesystems_filter), true)
 
 		for lhs, rhs := range j.sender_filesystems_filter {
+			var err error
 			if rhs {
-				sfilter.Add(lhs, filters.MapFilterResultOk)
+				err = sfilter.Add(lhs, filters.MapFilterResultOk)
 			} else {
-				sfilter.Add(lhs, filters.MapFilterResultOmit)
+				err = sfilter.Add(lhs, filters.MapFilterResultOmit)
 			}
+			require.NoError(ctx, err)
 		}
 
 		rep := replicationInvocation{
