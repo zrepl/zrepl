@@ -50,6 +50,7 @@ Example Configuration:
              regex: "^manual_.*"
 
 .. DANGER::
+
     You might have **existing snapshots** of filesystems affected by pruning which you want to keep, i.e. not be destroyed by zrepl.
     Make sure to actually add the necessary ``regex`` keep rules on both sides, like with ``manual`` in the example above.
 
@@ -70,6 +71,14 @@ Policy ``not_replicated``
 It only makes sense to specify this rule for the ``keep_sender``.
 The reason is that, by definition, all snapshots on the receiver have already been replicated to there from the sender.
 To determine whether a sender-side snapshot has already been replicated, zrepl uses the :ref:`replication cursor bookmark <replication-cursor-and-last-received-hold>` which corresponds to the most recent successfully replicated snapshot.
+
+.. ATTENTION::
+
+    If you use ``not_replicated`` in your pruning rules, make sure to :ref:`monitor <monitoring>` replication.
+    If your replication gets stuck then ``not_replicated`` causes snapshots to pile uip on the sender.
+    ZFS and especially the ``zfs`` management command are known to degrade in performance with a lot of snapshots.
+    Such degradation impacts zrepl, any other scripts, and human ability to manage your zpool.
+
 
 .. _prune-keep-retention-grid:
 
