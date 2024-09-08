@@ -9,14 +9,13 @@ import (
 
 	"github.com/zrepl/zrepl/daemon/hooks"
 	"github.com/zrepl/zrepl/daemon/logging"
-	"github.com/zrepl/zrepl/daemon/snapper/timestamp_formatting"
+	"github.com/zrepl/zrepl/daemon/snapper/snapname"
 	"github.com/zrepl/zrepl/util/chainlock"
 	"github.com/zrepl/zrepl/zfs"
 )
 
 type planArgs struct {
-	prefix    string
-	formatter *timestamp_formatting.Formatter
+	formatter *snapname.Formatter
 	hooks     *hooks.List
 }
 
@@ -70,8 +69,7 @@ func (plan *plan) execute(ctx context.Context, dryRun bool) (ok bool) {
 	anyFsHadErr := false
 	// TODO channel programs -> allow a little jitter?
 	for fs, progress := range plan.snaps {
-		suffix := plan.args.formatter.Format(time.Now())
-		snapname := fmt.Sprintf("%s%s", plan.args.prefix, suffix)
+		snapname := plan.args.formatter.Format(time.Now())
 
 		ctx := logging.WithInjectedField(ctx, "fs", fs.ToString())
 		ctx = logging.WithInjectedField(ctx, "snap", snapname)

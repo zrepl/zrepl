@@ -1,4 +1,4 @@
-package timestamp_formatting
+package timestamp
 
 import (
 	"testing"

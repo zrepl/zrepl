@@ -10,7 +10,7 @@ import (
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/hooks"
-	"github.com/zrepl/zrepl/daemon/snapper/timestamp_formatting"
+	"github.com/zrepl/zrepl/daemon/snapper/snapname"
 	"github.com/zrepl/zrepl/util/suspendresumesafetimer"
 	"github.com/zrepl/zrepl/zfs"
 )
@@ -22,12 +22,12 @@ func cronFromConfig(fsf zfs.DatasetFilter, in config.SnapshottingCron) (*Cron, e
 		return nil, errors.Wrap(err, "hook config error")
 	}
 
-	formatter, err := timestamp_formatting.New(in.TimestampFormat, in.TimestampLocation)
+	formatter, err := snapname.New(in.Prefix, in.TimestampFormat, in.TimestampLocation)
 	if err != nil {
-		return nil, errors.Wrap(err, "build timestamp formatter")
+		return nil, errors.Wrap(err, "build snapshot name formatter")
 	}
+
 	planArgs := planArgs{
-		prefix:    in.Prefix,
 		formatter: formatter,
 		hooks:     hooksList,
 	}

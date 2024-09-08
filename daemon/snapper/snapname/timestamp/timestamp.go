@@ -1,4 +1,4 @@
-package timestamp_formatting
+package timestamp
 
 import (
 	"fmt"
@@ -20,8 +20,11 @@ func New(formatString string, locationString string) (*Formatter, error) {
 		return nil, errors.Wrapf(err, "load location from string %q", locationString)
 	}
 	makeFormatFunc := func(formatString string) (func(time.Time) string, error) {
+		// NB: we use zfs.EntityNamecheck in higher-level code to filter out all invalid characters.
+		// This check here is specifically so that we know for sure that the `+`=>`_` replacement
+		// that we do in the returned func replaces exactly the timezone offset `+` and not some other `+`.
 		if strings.Contains(formatString, "+") {
-			return nil, fmt.Errorf("character '+' is not allowed in ZFS snapshot names")
+			return nil, fmt.Errorf("character '+' is not allowed in ZFS snapshot names and has special handling")
 		}
 		return func(t time.Time) string {
 			res := t.Format(formatString)

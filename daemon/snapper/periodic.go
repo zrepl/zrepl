@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/daemon/logging/trace"
-	"github.com/zrepl/zrepl/daemon/snapper/timestamp_formatting"
+	"github.com/zrepl/zrepl/daemon/snapper/snapname"
 
 	"github.com/zrepl/zrepl/config"
 	"github.com/zrepl/zrepl/daemon/hooks"
@@ -33,16 +33,15 @@ func periodicFromConfig(g *config.Global, fsf zfs.DatasetFilter, in *config.Snap
 		return nil, errors.Wrap(err, "hook config error")
 	}
 
-	formatter, err := timestamp_formatting.New(in.TimestampFormat, in.TimestampLocation)
+	formatter, err := snapname.New(in.Prefix, in.TimestampFormat, in.TimestampLocation)
 	if err != nil {
-		return nil, errors.Wrap(err, "build timestamp formatter")
+		return nil, errors.Wrap(err, "build snapshot name formatter")
 	}
 
 	args := periodicArgs{
 		interval: in.Interval.Duration(),
 		fsf:      fsf,
 		planArgs: planArgs{
-			prefix:    in.Prefix,
 			formatter: formatter,
 			hooks:     hookList,
 		},
@@ -172,7 +171,7 @@ func periodicStateSyncUp(a periodicArgs, u updater) state {
 	if err != nil {
 		return onErr(err, u)
 	}
-	syncPoint, err := findSyncPoint(a.ctx, fss, a.planArgs.prefix, a.interval)
+	syncPoint, err := findSyncPoint(a.ctx, fss, a.planArgs.formatter.Prefix(), a.interval)
 	if err != nil {
 		return onErr(err, u)
 	}
