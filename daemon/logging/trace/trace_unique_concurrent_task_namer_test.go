@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/stretchr/testify/require"
-	"github.com/willf/bitset"
 )
 
 func TestBitsetFeaturesForUniqueConcurrentTaskNamer(t *testing.T) {

@@ -1,8 +1,8 @@
 package trace
 
 import (
+	"crypto/rand"
 	"encoding/base64"
-	"math/rand"
 	"strings"
 
 	"github.com/zrepl/zrepl/util/envconst"
@@ -20,12 +20,9 @@ func genID() string {
 	var out strings.Builder
 	enc := base64.NewEncoder(base64.RawStdEncoding, &out)
 	buf := make([]byte, genIdNumBytes)
-	for i := 0; i < len(buf); {
-		n, err := rand.Read(buf[i:])
-		if err != nil {
-			panic(err)
-		}
-		i += n
+	_, err := rand.Read(buf)
+	if err != nil {
+		panic(err)
 	}
 	n, err := enc.Write(buf[:])
 	if err != nil || n != len(buf) {

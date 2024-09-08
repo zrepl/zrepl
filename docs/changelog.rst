@@ -40,6 +40,16 @@ Those changes will likely come with some breakage in the config.
 However, I want to avoid breaking **use cases** that are satisfied by the current design.
 There will be beta/RC releases to give users a chance to evaluate.
 
+0.7.0 (unreleased)
+------------------
+
+INCOMPLETE LIST OF CHANGES
+
+* |maint| Update to Go 1.23, require Go 1.22. Adopt `go.mod` toolchain aka `GOTOOLCHAIN` env var.
+* |maint| Fix deprecations exposed by the toolchain update.
+* |maint| Long-overdue update of all our dependencies & address deprecations.
+* |maint| The `make release-docker` in CircleCI produces executables that are bit-identical to my personal machine.
+
 0.6.1
 -----
 
