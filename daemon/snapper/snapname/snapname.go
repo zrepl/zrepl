@@ -1,6 +1,7 @@
 package snapname
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -17,7 +18,7 @@ type Formatter struct {
 func New(prefix, tsFormat, tsLocation string) (*Formatter, error) {
 	timestamp, err := timestamp.New(tsFormat, tsLocation)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "build timestamp formatter")
 	}
 	formatter := &Formatter{
 		prefix:    prefix,
@@ -26,9 +27,10 @@ func New(prefix, tsFormat, tsLocation string) (*Formatter, error) {
 	// Best-effort check to detect whether the result would be an invalid name.
 	// Test two dates that in most places have will have different time zone offsets due to DST.
 	check := func(t time.Time) error {
-		testFormat := "some/dataset@" + formatter.Format(t)
-		if err := zfs.EntityNamecheck(testFormat, zfs.EntityTypeSnapshot); err != nil {
-			return errors.Wrapf(err, "prefix or timestamp format result in invalid snapshot name such as %q", testFormat)
+		testFormat := formatter.Format(t)
+		if err := zfs.ComponentNamecheck(testFormat); err != nil {
+			// testFormat last, can be quite long
+			return fmt.Errorf("`invalid snapshot name would result from `prefix+$timestamp`: %s: %q", err, testFormat)
 		}
 		return nil
 	}
