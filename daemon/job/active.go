@@ -482,7 +482,7 @@ func (j *ActiveSide) do(ctx context.Context) {
 	go func() {
 		select {
 		case <-reset.Wait(ctx):
-			log.Info("reset received, cancelling current invocation")
+			GetLogger(ctx).Info("reset received, cancelling current invocation")
 			cancelThisRun()
 		case <-ctx.Done():
 		}
