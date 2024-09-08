@@ -202,12 +202,10 @@ jobs:
           key: quickcheck-<<parameters.goversion>>
 
       - run: make formatcheck
-      - run: make generate-platform-test-list
       - run: make zrepl-bin test-platform-bin
       - run: make vet
       - run: make lint
 
-      - run: rm -f artifacts/generate-platform-test-list
       - store_artifacts:
           path: artifacts
       - persist_to_workspace:

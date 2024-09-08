@@ -228,7 +228,7 @@ _run_make_foreach_target_tuple:
 	$(MAKE) $(RUN_MAKE_FOREACH_TARGET_TUPLE_ARG) GOOS=illumos   GOARCH=amd64
 
 ##################### REGULAR TARGETS #####################
-.PHONY: lint test-go test-platform cover-merge cover-html vet zrepl-bin test-platform-bin generate-platform-test-list
+.PHONY: lint test-go test-platform cover-merge cover-html vet zrepl-bin test-platform-bin
 
 lint:
 	$(GO_ENV_VARS) $(GOLANGCI_LINT) run ./...
@@ -251,9 +251,6 @@ endif
 
 zrepl-bin:
 	$(GO_BUILD) -o "$(ARTIFACTDIR)/zrepl-$(ZREPL_TARGET_TUPLE)"
-
-generate-platform-test-list:
-	$(GO_BUILD) -o $(ARTIFACTDIR)/generate-platform-test-list ./platformtest/tests/gen
 
 COVER_PLATFORM_BIN_PATH := $(ARTIFACTDIR)/platformtest-cover-$(ZREPL_TARGET_TUPLE)
 cover-platform-bin:
@@ -312,7 +309,7 @@ cover-full:
 # not part of the build, must do that manually
 .PHONY: generate formatcheck format
 
-generate: generate-platform-test-list
+generate:
 	protoc -I=replication/logic/pdu --go_out=replication/logic/pdu --go-grpc_out=replication/logic/pdu replication/logic/pdu/pdu.proto
 	protoc -I=rpc/grpcclientidentity/example --go_out=rpc/grpcclientidentity/example/pdu --go-grpc_out=rpc/grpcclientidentity/example/pdu rpc/grpcclientidentity/example/grpcauth.proto
 	$(GO_ENV_VARS) $(GO) generate $(GO_BUILDFLAGS) -x ./...

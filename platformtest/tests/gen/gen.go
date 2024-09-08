@@ -21,7 +21,6 @@ func check(err error) {
 }
 
 type platformtestFuncDeclFinder struct {
-	pkg       *packages.Package
 	testFuncs []*ast.FuncDecl
 }
 
@@ -78,7 +77,7 @@ func main() {
 
 	pkgs, err := packages.Load(
 		&packages.Config{
-			Mode:  packages.LoadFiles,
+			Mode:  packages.NeedFiles,
 			Tests: false,
 		},
 		os.Args[1],
@@ -97,9 +96,7 @@ func main() {
 		s := token.NewFileSet()
 		a, err := parser.ParseFile(s, f, nil, parser.AllErrors)
 		check(err)
-		finder := &platformtestFuncDeclFinder{
-			pkg: p,
-		}
+		finder := &platformtestFuncDeclFinder{}
 		ast.Walk(finder, a)
 		tests = append(tests, finder.testFuncs...)
 	}
