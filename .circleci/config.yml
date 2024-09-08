@@ -291,7 +291,7 @@ jobs:
           at: .
       - run: make wrapup-and-checksum
       - store_artifacts:
-          path: artifacts
+          path: artifacts/release
 
   publish-zrepl-github-io:
     docker:
