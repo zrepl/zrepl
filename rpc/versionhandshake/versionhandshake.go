@@ -91,8 +91,8 @@ func (e HandshakeError) Timeout() bool {
 	return false
 }
 
-func hsErr(format string, args ...interface{}) *HandshakeError {
-	return &HandshakeError{msg: fmt.Sprintf(format, args...)}
+func hsErr(msg string) *HandshakeError {
+	return &HandshakeError{msg: msg}
 }
 
 func hsIOErr(err error, format string, args ...interface{}) *HandshakeError {
@@ -115,10 +115,10 @@ func (m *HandshakeMessage) Encode() ([]byte, error) {
 	var extensions strings.Builder
 	for i, ext := range m.Extensions {
 		if strings.ContainsAny(ext, "\n") {
-			return nil, hsErr("Extension #%d contains forbidden newline character", i)
+			return nil, hsErr(fmt.Sprintf("Extension #%d contains forbidden newline character", i))
 		}
 		if !utf8.ValidString(ext) {
-			return nil, hsErr("Extension #%d is not valid UTF-8", i)
+			return nil, hsErr(fmt.Sprintf("Extension #%d is not valid UTF-8", i))
 		}
 		extensions.WriteString(ext)
 		extensions.WriteString("\n")
@@ -143,8 +143,8 @@ func (m *HandshakeMessage) DecodeReader(r io.Reader, maxLen int) error {
 		return hsErr("could not parse handshake message length")
 	}
 	if followLen > maxLen {
-		return hsErr("handshake message length exceeds max length (%d vs %d)",
-			followLen, maxLen)
+		return hsErr(fmt.Sprintf("handshake message length exceeds max length (%d vs %d)",
+			followLen, maxLen))
 	}
 
 	var buf bytes.Buffer
@@ -159,15 +159,15 @@ func (m *HandshakeMessage) DecodeReader(r io.Reader, maxLen int) error {
 	n, err = fmt.Fscanf(&buf, "ZREPL_ZFS_REPLICATION PROTOVERSION=%04d EXTENSIONS=%4d\n",
 		&protoVersion, &extensionCount)
 	if n != 2 || err != nil {
-		return hsErr("could not parse handshake message: %s", err)
+		return hsErr(fmt.Sprintf("could not parse handshake message: %s", err))
 	}
 	if protoVersion < 1 {
-		return hsErr("invalid protocol version %q", protoVersion)
+		return hsErr(fmt.Sprintf("invalid protocol version %q", protoVersion))
 	}
 	m.ProtocolVersion = protoVersion
 
 	if extensionCount < 0 {
-		return hsErr("invalid extension count %q", extensionCount)
+		return hsErr(fmt.Sprintf("invalid extension count %q", extensionCount))
 	}
 	if extensionCount == 0 {
 		if buf.Len() != 0 {
@@ -178,7 +178,7 @@ func (m *HandshakeMessage) DecodeReader(r io.Reader, maxLen int) error {
 	}
 	s := buf.String()
 	if strings.Count(s, "\n") != extensionCount {
-		return hsErr("inconsistent extension count: found %d, header says %d", len(m.Extensions), extensionCount)
+		return hsErr(fmt.Sprintf("inconsistent extension count: found %d, header says %d", len(m.Extensions), extensionCount))
 	}
 	exts := strings.Split(s, "\n")
 	if exts[len(exts)-1] != "" {
@@ -203,12 +203,12 @@ func DoHandshakeVersion(conn net.Conn, deadline time.Time, version int) (rErr *H
 	}
 	hsb, err := ours.Encode()
 	if err != nil {
-		return hsErr("could not encode protocol banner: %s", err)
+		return hsErr(fmt.Sprintf("could not encode protocol banner: %s", err))
 	}
 
 	err = conn.SetDeadline(deadline)
 	if err != nil {
-		return hsErr("could not set deadline for protocol banner handshake: %s", err)
+		return hsErr(fmt.Sprintf("could not set deadline for protocol banner handshake: %s", err))
 	}
 	defer func() {
 		if rErr != nil {
@@ -216,22 +216,22 @@ func DoHandshakeVersion(conn net.Conn, deadline time.Time, version int) (rErr *H
 		}
 		err := conn.SetDeadline(time.Time{})
 		if err != nil {
-			rErr = hsErr("could not reset deadline after protocol banner handshake: %s", err)
+			rErr = hsErr(fmt.Sprintf("could not reset deadline after protocol banner handshake: %s", err))
 		}
 	}()
 	_, err = io.Copy(conn, bytes.NewBuffer(hsb))
 	if err != nil {
-		return hsErr("could not send protocol banner: %s", err)
+		return hsErr(fmt.Sprintf("could not send protocol banner: %s", err))
 	}
 
 	theirs := HandshakeMessage{}
 	if err := theirs.DecodeReader(conn, HandshakeMessageMaxLen); err != nil {
-		return hsErr("could not decode protocol banner: %s", err)
+		return hsErr(fmt.Sprintf("could not decode protocol banner: %s", err))
 	}
 
 	if theirs.ProtocolVersion != ours.ProtocolVersion {
-		return hsErr("protocol versions do not match: ours is %d, theirs is %d",
-			ours.ProtocolVersion, theirs.ProtocolVersion)
+		return hsErr(fmt.Sprintf("protocol versions do not match: ours is %d, theirs is %d",
+			ours.ProtocolVersion, theirs.ProtocolVersion))
 	}
 	// ignore extensions, we don't use them
 
