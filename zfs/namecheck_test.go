@@ -49,6 +49,10 @@ func TestEntityNamecheck(t *testing.T) {
 		{strings.Repeat("a", MaxDatasetNameLen-2) + "/a", EntityTypeFilesystem, true},
 		{strings.Repeat("a", MaxDatasetNameLen-4) + "/a@b", EntityTypeSnapshot, true},
 		{strings.Repeat("a", MaxDatasetNameLen) + "/a@b", EntityTypeSnapshot, false},
+		// + is not allowed, and particularly relevant to test here because
+		// common timestamp formats usually use `+` as a delimiter for numeric timezone offset
+		// => cf with package `timestamp_formatting`
+		{"foo/bar@23+42", EntityTypeSnapshot, false},
 	}
 
 	for idx := range tcs {

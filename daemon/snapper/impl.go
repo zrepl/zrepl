@@ -4,20 +4,19 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/zrepl/zrepl/daemon/hooks"
 	"github.com/zrepl/zrepl/daemon/logging"
+	"github.com/zrepl/zrepl/daemon/snapper/snapname"
 	"github.com/zrepl/zrepl/util/chainlock"
 	"github.com/zrepl/zrepl/zfs"
 )
 
 type planArgs struct {
-	prefix          string
-	timestampFormat string
-	hooks           *hooks.List
+	formatter *snapname.Formatter
+	hooks     *hooks.List
 }
 
 type plan struct {
@@ -60,21 +59,6 @@ type snapProgress struct {
 	runResults hooks.PlanReport
 }
 
-func (plan *plan) formatNow(format string) string {
-	now := time.Now().UTC()
-	switch strings.ToLower(format) {
-	case "dense":
-		format = "20060102_150405_000"
-	case "human":
-		format = "2006-01-02_15:04:05"
-	case "iso-8601":
-		format = "2006-01-02T15:04:05.000Z"
-	case "unix-seconds":
-		return strconv.FormatInt(now.Unix(), 10)
-	}
-	return now.Format(format)
-}
-
 func (plan *plan) execute(ctx context.Context, dryRun bool) (ok bool) {
 
 	hookMatchCount := make(map[hooks.Hook]int, len(*plan.args.hooks))
@@ -85,8 +69,7 @@ func (plan *plan) execute(ctx context.Context, dryRun bool) (ok bool) {
 	anyFsHadErr := false
 	// TODO channel programs -> allow a little jitter?
 	for fs, progress := range plan.snaps {
-		suffix := plan.formatNow(plan.args.timestampFormat)
-		snapname := fmt.Sprintf("%s%s", plan.args.prefix, suffix)
+		snapname := plan.args.formatter.Format(time.Now())
 
 		ctx := logging.WithInjectedField(ctx, "fs", fs.ToString())
 		ctx = logging.WithInjectedField(ctx, "snap", snapname)
