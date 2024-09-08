@@ -253,6 +253,7 @@ jobs:
   release-build:
     machine:
       image: &release-vm-image "ubuntu-2404:current"
+    resource_class: large
     steps:
       - checkout
       - run: make release-docker
