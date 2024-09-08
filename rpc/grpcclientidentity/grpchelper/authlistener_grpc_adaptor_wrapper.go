@@ -3,7 +3,6 @@
 package grpchelper
 
 import (
-	"context"
 	"time"
 
 	"google.golang.org/grpc"
@@ -38,7 +37,7 @@ func ClientConn(cn transport.Connecter, log Logger) *grpc.ClientConn {
 	cred := grpc.WithTransportCredentials(grpcclientidentity.NewTransportCredentials(log))
 	// we use context.Background without a timeout here because we don't set grpc.WithBlock
 	// => docs:  "In the non-blocking case, the ctx does not act against the connection. It only controls the setup steps."
-	cc, err := grpc.DialContext(context.Background(), "doesn't matter done by dialer", dialerOption, cred, ka)
+	cc, err := grpc.NewClient("passthrough://doesntmatterdonebydialer", dialerOption, cred, ka)
 	if err != nil {
 		log.WithError(err).Error("cannot create gRPC client conn (non-blocking)")
 		// It's ok to panic here: the we call grpc.DialContext without the
