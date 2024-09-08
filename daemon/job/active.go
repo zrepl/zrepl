@@ -8,7 +8,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/log"
 
 	"github.com/zrepl/zrepl/daemon/logging/trace"
 	"github.com/zrepl/zrepl/util/envconst"

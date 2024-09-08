@@ -1,8 +1,8 @@
 version: 2.1
 orbs:
-  # NB: 1.7.2 is not the Go version, but the Orb version
+  # NB: this is not the Go version, but the Orb version
   # https://circleci.com/developer/orbs/orb/circleci/go#usage-go-modules-cache
-  go: circleci/go@1.7.2
+  go: circleci/go@1.11.0
 commands:
   setup-home-local-bin:
     steps:
@@ -99,10 +99,6 @@ parameters:
     type: boolean
     default: false
 
-  release_docker_baseimage_tag:
-    type: string
-    default: "1.21"
-
 workflows:
   version: 2
 
@@ -110,20 +106,20 @@ workflows:
     when: << pipeline.parameters.do_ci >>
     jobs:
       - quickcheck-docs
-      - quickcheck-go: &quickcheck-go-smoketest
-          name: quickcheck-go-amd64-linux-1.21
-          goversion: &latest-go-release "1.21"
+      - quickcheck-go:
+          name: quickcheck-go-amd64-linux-1.23.1
+          goversion: &latest-go-release "1.23.1"
           goos: linux
           goarch: amd64
-      - test-go-on-latest-go-release:
+      - test-go:
           goversion: *latest-go-release
       - quickcheck-go:
           requires:
-            - quickcheck-go-amd64-linux-1.21 #quickcheck-go-smoketest.name
-          matrix: &quickcheck-go-matrix
+            - quickcheck-go-amd64-linux-1.23.1 #quickcheck-go-smoketest.name
+          matrix:
             alias: quickcheck-go-matrix
             parameters:
-              goversion: [*latest-go-release, "1.20"]
+              goversion: [*latest-go-release, "1.22.7"]
               goos: ["linux", "freebsd"]
               goarch: ["amd64", "arm64"]
             exclude:
@@ -138,6 +134,7 @@ workflows:
               goos: ["linux"]
               goarch: ["amd64"]
           requires:
+            - test-go
             - quickcheck-go-<< matrix.goarch >>-<< matrix.goos >>-<< matrix.goversion >>
 
   release:
@@ -167,7 +164,7 @@ workflows:
 jobs:
   quickcheck-docs:
     docker:
-      - image: cimg/base:2023.09
+      - image: cimg/base:2024.09
     steps:
       - checkout
       - install-docdep
@@ -186,10 +183,12 @@ jobs:
       goarch:
         type: string
     docker:
-      - image: cimg/go:<<parameters.goversion>>
+      # any toolchain >= 1.22 will auto-download GOTOOLCHAIN
+      - image: &cimg_with_modern_go cimg/go:1.22
     environment:
       GOOS: <<parameters.goos>>
       GOARCH: <<parameters.goarch>>
+      GOTOOLCHAIN: "go<<parameters.goversion>>"
 
     steps:
       - checkout
@@ -237,12 +236,14 @@ jobs:
       - run: sudo zfs version
       - run: sudo make test-platform GOOS="$GOOS" GOARCH="$GOARCH"
 
-  test-go-on-latest-go-release:
+  test-go:
     parameters:
       goversion:
         type: string
     docker:
-      - image: cimg/go:<<parameters.goversion>>
+      - image: *cimg_with_modern_go
+    environment:
+      GOTOOLCHAIN: "go<<parameters.goversion>>"
     steps:
       - checkout
       - go/load-cache:
@@ -256,7 +257,7 @@ jobs:
       image: ubuntu-2004:202201-02
     steps:
       - checkout
-      - run: make release-docker RELEASE_DOCKER_BASEIMAGE_TAG=<<pipeline.parameters.release_docker_baseimage_tag>>
+      - run: make release-docker
       - persist_to_workspace:
           root: .
           paths: [.]
@@ -286,7 +287,7 @@ jobs:
 
   release-upload:
     docker:
-      - image: cimg/base:2020.08
+      - image: cimg/base:2024.09
     steps:
       - attach_workspace:
           at: .
@@ -296,7 +297,7 @@ jobs:
 
   publish-zrepl-github-io:
     docker:
-      - image: cimg/base:2023.09
+      - image: cimg/base:2024.09
     steps:
       - checkout
       - install-docdep

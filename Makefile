@@ -22,7 +22,7 @@ GOARCH ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOARCH"')
 GOARM ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOARM"')
 GOHOSTOS ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOHOSTOS"')
 GOHOSTARCH ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOHOSTARCH"')
-GO_ENV_VARS := GO111MODULE=on CGO_ENABLED=0
+GO_ENV_VARS := CGO_ENABLED=0
 GO_LDFLAGS := "-X github.com/zrepl/zrepl/version.zreplVersion=$(_ZREPL_VERSION)"
 GO_MOD_READONLY := -mod=readonly
 GO_EXTRA_BUILDFLAGS :=
@@ -30,8 +30,8 @@ GO_BUILDFLAGS := $(GO_MOD_READONLY) $(GO_EXTRA_BUILDFLAGS)
 GO_BUILD := $(GO_ENV_VARS) $(GO) build $(GO_BUILDFLAGS) -ldflags $(GO_LDFLAGS)
 GOLANGCI_LINT := golangci-lint
 GOCOVMERGE := gocovmerge
-RELEASE_DOCKER_BASEIMAGE_TAG ?= 1.21
-RELEASE_DOCKER_BASEIMAGE ?= golang:$(RELEASE_DOCKER_BASEIMAGE_TAG)
+RELEASE_DOCKER_TOOLCHAIN ?= 1.22.7
+RELEASE_DOCKER_BASEIMAGE ?= golang:$(RELEASE_DOCKER_TOOLCHAIN)
 
 ifneq ($(GOARM),)
 	ZREPL_TARGET_TUPLE := $(GOOS)-$(GOARCH)v$(GOARM)
@@ -59,6 +59,7 @@ release: clean
 	$(MAKE) noarch
 
 release-docker: $(ARTIFACTDIR)
+	# upstream docker image sets GOTOOLCHAIN=local
 	sed 's/FROM.*!SUBSTITUTED_BY_MAKEFILE/FROM $(RELEASE_DOCKER_BASEIMAGE)/' build.Dockerfile > artifacts/release-docker.Dockerfile
 	docker build -t zrepl_release --pull -f artifacts/release-docker.Dockerfile .
 	docker run --rm -i -v $(CURDIR):/src -u $$(id -u):$$(id -g) \
