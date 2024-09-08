@@ -30,8 +30,10 @@ GO_BUILDFLAGS := $(GO_MOD_READONLY) $(GO_EXTRA_BUILDFLAGS)
 GO_BUILD := $(GO_ENV_VARS) $(GO) build $(GO_BUILDFLAGS) -ldflags $(GO_LDFLAGS)
 GOLANGCI_LINT := golangci-lint
 GOCOVMERGE := gocovmerge
-RELEASE_DOCKER_TOOLCHAIN ?= 1.22.7
-RELEASE_DOCKER_BASEIMAGE ?= golang:$(RELEASE_DOCKER_TOOLCHAIN)
+RELEASE_GOVERSION ?= go1.23.1
+STRIPPED_GOVERSION := $(subst go,,$(RELEASE_GOVERSION))
+RELEASE_DOCKER_BASEIMAGE ?= golang:$(STRIPPED_GOVERSION)
+RELEASE_DOCKER_CACHEMOUNT :=
 
 ifneq ($(GOARM),)
 	ZREPL_TARGET_TUPLE := $(GOOS)-$(GOARCH)v$(GOARM)
@@ -39,34 +41,46 @@ else
 	ZREPL_TARGET_TUPLE := $(GOOS)-$(GOARCH)
 endif
 
-.PHONY: printvars
-printvars:
-	@echo GOOS=$(GOOS)
-	@echo GOARCH=$(GOARCH)
-	@echo GOARM=$(GOARM)
 
+ifneq ($(RELEASE_DOCKER_CACHEMOUNT),)
+	_RELEASE_DOCKER_CACHEMOUNT := -v $(RELEASE_DOCKER_CACHEMOUNT)/mod:/go/pkg/mod -v $(RELEASE_DOCKER_CACHEMOUNT)/xdg-cache:/root/.cache/go-build
+.PHONY: release-docker-mkcachemount
+release-docker-mkcachemount:
+	mkdir -p $(RELEASE_DOCKER_CACHEMOUNT)
+	mkdir -p $(RELEASE_DOCKER_CACHEMOUNT)/mod
+	mkdir -p $(RELEASE_DOCKER_CACHEMOUNT)/xdg-cache
+else
+	_RELEASE_DOCKER_CACHEMOUNT :=
+.PHONY: release-docker-mkcachemount
+release-docker-mkcachemount:
+	# nothing to do
+endif
 
 ##################### PRODUCING A RELEASE #############
-.PHONY: release wrapup-and-checksum check-git-clean sign clean
+.PHONY: release wrapup-and-checksum check-git-clean sign clean ensure-release-toolchain
 
-release: clean
-	# no cross-platform support for target test
-	$(MAKE) test-go
+ensure-release-toolchain:
+	# ensure the toolchain is actually the one we expect
+	test $(RELEASE_GOVERSION) = "$$($(GO_ENV_VARS) $(GO) env GOVERSION)"
+
+release: ensure-release-toolchain
 	$(MAKE) _run_make_foreach_target_tuple RUN_MAKE_FOREACH_TARGET_TUPLE_ARG="vet"
 	$(MAKE) _run_make_foreach_target_tuple RUN_MAKE_FOREACH_TARGET_TUPLE_ARG="lint"
 	$(MAKE) _run_make_foreach_target_tuple RUN_MAKE_FOREACH_TARGET_TUPLE_ARG="zrepl-bin"
 	$(MAKE) _run_make_foreach_target_tuple RUN_MAKE_FOREACH_TARGET_TUPLE_ARG="test-platform-bin"
 	$(MAKE) noarch
 
-release-docker: $(ARTIFACTDIR)
-	# upstream docker image sets GOTOOLCHAIN=local
-	sed 's/FROM.*!SUBSTITUTED_BY_MAKEFILE/FROM $(RELEASE_DOCKER_BASEIMAGE)/' build.Dockerfile > artifacts/release-docker.Dockerfile
-	docker build -t zrepl_release --pull -f artifacts/release-docker.Dockerfile .
-	docker run --rm -i -v $(CURDIR):/src -u $$(id -u):$$(id -g) \
+release-docker: $(ARTIFACTDIR) release-docker-mkcachemount
+	sed 's/FROM.*!SUBSTITUTED_BY_MAKEFILE/FROM $(RELEASE_DOCKER_BASEIMAGE)/' build.Dockerfile > $(ARTIFACTDIR)/build.Dockerfile
+	docker build -t zrepl_release --pull -f $(ARTIFACTDIR)/build.Dockerfile .
+	docker run --rm -i \
+		$(_RELEASE_DOCKER_CACHEMOUNT) \
+		-v $(CURDIR):/src -u $$(id -u):$$(id -g) \
 		zrepl_release \
 		make release \
 			GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM) \
-			ZREPL_VERSION=$(ZREPL_VERSION) ZREPL_PACKAGE_RELEASE=$(ZREPL_PACKAGE_RELEASE)
+			ZREPL_VERSION=$(ZREPL_VERSION) ZREPL_PACKAGE_RELEASE=$(ZREPL_PACKAGE_RELEASE) \
+			RELEASE_GOVERSION=$(RELEASE_GOVERSION)
 
 debs-docker:
 	$(MAKE) _debs_or_rpms_docker _DEB_OR_RPM=deb
