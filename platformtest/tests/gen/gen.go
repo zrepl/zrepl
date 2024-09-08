@@ -6,7 +6,6 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
-	"io/ioutil"
 	"os"
 	"sort"
 	"strings"
@@ -132,7 +131,7 @@ var Cases = []Case {
 		formatted, err := format.Source(buf.Bytes())
 		check(err)
 
-		err = ioutil.WriteFile("generated_cases.go", formatted, 0664)
+		err = os.WriteFile("generated_cases.go", formatted, 0664)
 		check(err)
 
 	}

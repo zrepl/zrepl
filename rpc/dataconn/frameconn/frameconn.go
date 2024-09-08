@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"sync"
 	"syscall"
@@ -354,7 +353,7 @@ func (c *Conn) Shutdown(deadline time.Time) error {
 	// TODO DoS mitigation by reading limited number of bytes
 	// see discussion above why this is non-trivial
 	defer prometheus.NewTimer(prom.ShutdownDrainSeconds).ObserveDuration()
-	n, _ := io.Copy(ioutil.Discard, c.nc)
+	n, _ := io.Copy(io.Discard, c.nc)
 	prom.ShutdownDrainBytesRead.Observe(float64(n))
 
 	return closeWire("close")
