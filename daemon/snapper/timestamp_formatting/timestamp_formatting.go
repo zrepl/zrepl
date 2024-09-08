@@ -85,8 +85,6 @@ func isLocationPositiveOffsetToUTC(location *time.Location) bool {
 }
 
 func (f *Formatter) Format(t time.Time) string {
-	if f.location != nil {
-		t = t.In(f.location)
-	}
+	t = t.In(f.location)
 	return f.format(t)
 }
