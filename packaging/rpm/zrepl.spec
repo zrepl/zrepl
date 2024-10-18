@@ -49,7 +49,7 @@ install -Dm 0644 artifacts/bash_completion              %{buildroot}%{_datadir}/
 install -Dm 0644 artifacts/rpmbuild/zrepl.yml           %{buildroot}%{_sysconfdir}/zrepl/zrepl.yml
 install -d                                              %{buildroot}%{_datadir}/doc/zrepl
 cp -a   artifacts/docs/html                             %{buildroot}%{_datadir}/doc/zrepl/html
-cp -a   config/samples                                  %{buildroot}%{_datadir}/doc/zrepl/examples
+cp -a   internal/config/samples                         %{buildroot}%{_datadir}/doc/zrepl/examples
 
 %post
 %systemd_post zrepl.service

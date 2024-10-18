@@ -34,7 +34,7 @@ override_dh_auto_install:
 	dh_install artifacts/docs/html usr/share/doc/zrepl/docs/
 
 	# install examples
-	dh_install config/samples/* usr/share/doc/zrepl/examples
+	dh_install internal/config/samples/* usr/share/doc/zrepl/examples
 
 	# install default config
 	mkdir -p debian/tmp/etc/zrepl

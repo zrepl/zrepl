@@ -31,7 +31,7 @@ A few additional requirements:
 The following config snippet implements the setup described above.
 You will likely want to customize some aspects mentioned in the top comment in the file.
 
-.. literalinclude:: ../../config/samples/quickstart_backup_to_external_disk.yml
+.. literalinclude:: ../../internal/config/samples/quickstart_backup_to_external_disk.yml
 
 
 Offline Backups with two (or more) External Disks
@@ -43,7 +43,7 @@ To accomplish this,
 * create one zpool per external HDD, each with a unique name, and
 * define a pair of ``push`` and ``sink`` job **for each** of these zpools, each with a unique ``name``, ``listener_name``, and ``root_fs``.
 
-The unique names ensure that the jobs don't step on each others' toes when managing :ref:`zrepl's ZFS abstractions <zrepl-zfs-abstractions>` . 
+The unique names ensure that the jobs don't step on each others' toes when managing :ref:`zrepl's ZFS abstractions <zrepl-zfs-abstractions>` .
 
 
 :ref:`Click here <quickstart-apply-config>` to go back to the quickstart guide.

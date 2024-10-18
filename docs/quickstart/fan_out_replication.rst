@@ -80,12 +80,12 @@ Mutual TLS via the :ref:`TLS client authentication transport <transport-tcp+tlsc
 Configure source server A
 -------------------------
 
-.. literalinclude:: ../../config/samples/quickstart_fan_out_replication_source.yml
+.. literalinclude:: ../../internal/config/samples/quickstart_fan_out_replication_source.yml
 
 Configure each target server
 ----------------------------
 
-.. literalinclude:: ../../config/samples/quickstart_fan_out_replication_target.yml
+.. literalinclude:: ../../internal/config/samples/quickstart_fan_out_replication_target.yml
 
 Go Back To Quickstart Guide
 ---------------------------
