@@ -443,9 +443,10 @@ type MonitoringEnum struct {
 }
 
 type PrometheusMonitoring struct {
-	Type           string `yaml:"type"`
-	Listen         string `yaml:"listen,hostport"`
-	ListenFreeBind bool   `yaml:"listen_freebind,default=false"`
+	Type           string     `yaml:"type"`
+	Listen         string     `yaml:"listen,hostport"`
+	ListenFreeBind bool       `yaml:"listen_freebind,default=false"`
+	TLS            *TLSConfig `yaml:"tls,optional"`
 }
 
 type SyslogFacility syslog.Priority

@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
 	"net/http"
 
@@ -21,13 +22,18 @@ import (
 type prometheusJob struct {
 	listen   string
 	freeBind bool
+	tls      *tls.Config
 }
 
 func newPrometheusJobFromConfig(in *config.PrometheusMonitoring) (*prometheusJob, error) {
 	if _, _, err := net.SplitHostPort(in.Listen); err != nil {
 		return nil, err
 	}
-	return &prometheusJob{in.Listen, in.ListenFreeBind}, nil
+	tlsConfig, err := in.TLS.Config()
+	if err != nil {
+		return nil, err
+	}
+	return &prometheusJob{in.Listen, in.ListenFreeBind, tlsConfig}, nil
 }
 
 var prom struct {
@@ -79,7 +85,16 @@ func (j *prometheusJob) Run(ctx context.Context) {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 
-	err = http.Serve(l, mux)
+	server := &http.Server{
+		Handler:   mux,
+		TLSConfig: j.tls,
+	}
+
+	if j.tls != nil {
+		err = server.ServeTLS(l, "", "")
+	} else {
+		err = server.Serve(l)
+	}
 	if err != nil && ctx.Err() == nil {
 		log.WithError(err).Error("error while serving")
 	}
