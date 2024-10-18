@@ -15,7 +15,7 @@ func TestGetCallerOrPanic(t *testing.T) {
 	}
 	ret := withStackFromCtxMock()
 	// zrepl prefix is stripped
-	assert.Equal(t, "daemon/logging/trace.TestGetCallerOrPanic", ret)
+	assert.Equal(t, "internal/daemon/logging/trace.TestGetCallerOrPanic", ret)
 }
 
 func TestWithTaskGroupRunTasksConcurrently(t *testing.T) {

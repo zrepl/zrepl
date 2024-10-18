@@ -22,7 +22,7 @@ func TestSampleConfigsAreParsedWithoutErrors(t *testing.T) {
 		t.Errorf("glob failed: %+v", err)
 	}
 
-	paths = append(paths, "../packaging/systemd-default-zrepl.yml")
+	paths = append(paths, "../../packaging/systemd-default-zrepl.yml")
 
 	for _, p := range paths {
 
