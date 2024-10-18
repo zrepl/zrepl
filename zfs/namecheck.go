@@ -55,22 +55,22 @@ var componentValidChar = regexp.MustCompile(`^[0-9a-zA-Z-_\.: ]+$`)
 //	[-_.: ]
 func ComponentNamecheck(datasetPathComponent string) error {
 	if len(datasetPathComponent) == 0 {
-		return fmt.Errorf("path component must not be empty")
+		return fmt.Errorf("must not be empty")
 	}
 	if len(datasetPathComponent) > MaxDatasetNameLen {
-		return fmt.Errorf("path component must not be longer than %d chars", MaxDatasetNameLen)
+		return fmt.Errorf("must not be longer than %d chars", MaxDatasetNameLen)
 	}
 
 	if !(isASCII(datasetPathComponent)) {
-		return fmt.Errorf("path component must be ASCII")
+		return fmt.Errorf("must be ASCII")
 	}
 
 	if !componentValidChar.MatchString(datasetPathComponent) {
-		return fmt.Errorf("path component must only contain alphanumeric chars and any in %q", "-_.: ")
+		return fmt.Errorf("must only contain alphanumeric chars and any in %q", "-_.: ")
 	}
 
 	if datasetPathComponent == "." || datasetPathComponent == ".." {
-		return fmt.Errorf("path component must not be '%s'", datasetPathComponent)
+		return fmt.Errorf("must not be '%s'", datasetPathComponent)
 	}
 
 	return nil
@@ -155,8 +155,9 @@ func EntityNamecheck(path string, t EntityType) (err *PathValidationError) {
 
 		if bookmarkOrSnapshotDelims == 0 {
 			// hot path, all but last component
-			if err := ComponentNamecheck(string(comp)); err != nil {
-				return pve(err.Error())
+			component := string(comp)
+			if err := ComponentNamecheck(component); err != nil {
+				return pve(fmt.Sprintf("component %q: %s", component, err.Error()))
 			}
 			continue
 		}
@@ -172,8 +173,9 @@ func EntityNamecheck(path string, t EntityType) (err *PathValidationError) {
 		}
 
 		for _, comp := range subComps {
-			if err := ComponentNamecheck(string(comp)); err != nil {
-				return pve(err.Error())
+			component := string(comp)
+			if err := ComponentNamecheck(component); err != nil {
+				return pve(fmt.Sprintf("component %q: %s", component, err.Error()))
 			}
 		}
 
