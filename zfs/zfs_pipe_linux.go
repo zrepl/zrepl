@@ -3,7 +3,6 @@ package zfs
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -20,7 +19,7 @@ func getPipeCapacityHint(envvar string) int {
 	// https://github.com/zrepl/zrepl/issues/424#issuecomment-800370928
 	// https://bugzilla.kernel.org/show_bug.cgi?id=212295
 	if _, err := os.Stat("/proc/sys/fs/pipe-max-size"); err == nil {
-		if dat, err := ioutil.ReadFile("/proc/sys/fs/pipe-max-size"); err == nil {
+		if dat, err := os.ReadFile("/proc/sys/fs/pipe-max-size"); err == nil {
 			if capacity, err = strconv.ParseInt(strings.TrimSpace(string(dat)), 10, 64); err != nil {
 				capacity = 1 << 25
 			}

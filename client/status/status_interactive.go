@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	tview "code.rocketnine.space/tslocum/cview"
 	"github.com/gdamore/tcell/v2"
-	tview "gitlab.com/tslocum/cview"
 
 	"github.com/zrepl/zrepl/client/status/viewmodel"
 )
