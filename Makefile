@@ -177,14 +177,14 @@ wrapup-and-checksum:
 	tar --mtime='1970-01-01' --sort=name \
 		--transform 's/$(ARTIFACTDIR)/zrepl-$(_ZREPL_VERSION)-noarch/' \
 		--transform 's#dist#zrepl-$(_ZREPL_VERSION)-noarch/dist#' \
-		--transform 's#config/samples#zrepl-$(_ZREPL_VERSION)-noarch/config#' \
+		--transform 's#internal/config/samples#zrepl-$(_ZREPL_VERSION)-noarch/config#' \
 		-acf $(NOARCH_TARBALL) \
 		$(ARTIFACTDIR)/docs/html \
 		$(ARTIFACTDIR)/bash_completion \
 		$(ARTIFACTDIR)/_zrepl.zsh_completion \
 		$(ARTIFACTDIR)/go_env.txt \
 		dist \
-		config/samples
+		internal/config/samples
 	rm -rf "$(ARTIFACTDIR)/release"
 	mkdir -p "$(ARTIFACTDIR)/release"
 	cp -l $(ARTIFACTDIR)/zrepl* \
@@ -299,7 +299,7 @@ ifndef _TEST_PLATFORM_CMD
 endif
 	rm -f "$(ZREPL_PLATFORMTEST_ZFS_LOG)"
 	rm -f "$(ARTIFACTDIR)/platformtest.cover"
-	platformtest/logmockzfs/logzfsenv "$(ZREPL_PLATFORMTEST_ZFS_LOG)" `which zfs` \
+	internal/platformtest/logmockzfs/logzfsenv "$(ZREPL_PLATFORMTEST_ZFS_LOG)" `which zfs` \
 		$(_TEST_PLATFORM_CMD) \
 		-poolname "$(ZREPL_PLATFORMTEST_POOLNAME)" \
 		-imagepath "$(ZREPL_PLATFORMTEST_IMAGEPATH)" \

@@ -77,7 +77,7 @@ Configure server ``prod``
 
 We define a **push job** named ``prod_to_backups`` in ``/etc/zrepl/zrepl.yml`` on host ``prod`` :
 
-.. literalinclude:: ../../config/samples/quickstart_continuous_server_backup_sender.yml
+.. literalinclude:: ../../internal/config/samples/quickstart_continuous_server_backup_sender.yml
 
 .. _tutorial-configure-prod:
 
@@ -86,7 +86,7 @@ Configure server ``backups``
 
 We define a corresponding **sink job** named ``sink`` in ``/etc/zrepl/zrepl.yml`` on host ``backups`` :
 
-.. literalinclude:: ../../config/samples/quickstart_continuous_server_backup_receiver.yml
+.. literalinclude:: ../../internal/config/samples/quickstart_continuous_server_backup_receiver.yml
 
 Go Back To Quickstart Guide
 ---------------------------
