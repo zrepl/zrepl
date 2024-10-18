@@ -282,7 +282,7 @@ cover-platform:
 
 TEST_PLATFORM_BIN_PATH := $(ARTIFACTDIR)/platformtest-$(ZREPL_TARGET_TUPLE)
 test-platform-bin:
-	$(GO_BUILD) -o "$(TEST_PLATFORM_BIN_PATH)" ./platformtest/harness
+	$(GO_BUILD) -o "$(TEST_PLATFORM_BIN_PATH)" ./internal/platformtest/harness
 test-platform:
 	export _TEST_PLATFORM_CMD="\"$(TEST_PLATFORM_BIN_PATH)\""; \
 		$(MAKE) _test-or-cover-platform-impl
