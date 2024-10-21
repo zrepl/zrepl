@@ -33,11 +33,27 @@ GOCOVMERGE := gocovmerge
 RELEASE_GOVERSION ?= go1.23.1
 STRIPPED_GOVERSION := $(subst go,,$(RELEASE_GOVERSION))
 RELEASE_DOCKER_BASEIMAGE ?= golang:$(STRIPPED_GOVERSION)
+RELEASE_DOCKER_CACHEMOUNT :=
 
 ifneq ($(GOARM),)
 	ZREPL_TARGET_TUPLE := $(GOOS)-$(GOARCH)v$(GOARM)
 else
 	ZREPL_TARGET_TUPLE := $(GOOS)-$(GOARCH)
+endif
+
+
+ifneq ($(RELEASE_DOCKER_CACHEMOUNT),)
+	_RELEASE_DOCKER_CACHEMOUNT := -v $(RELEASE_DOCKER_CACHEMOUNT)/mod:/go/pkg/mod -v $(RELEASE_DOCKER_CACHEMOUNT)/xdg-cache:/root/.cache/go-build
+.PHONY: release-docker-mkcachemount
+release-docker-mkcachemount:
+	mkdir -p $(RELEASE_DOCKER_CACHEMOUNT)
+	mkdir -p $(RELEASE_DOCKER_CACHEMOUNT)/mod
+	mkdir -p $(RELEASE_DOCKER_CACHEMOUNT)/xdg-cache
+else
+	_RELEASE_DOCKER_CACHEMOUNT :=
+.PHONY: release-docker-mkcachemount
+release-docker-mkcachemount:
+	# nothing to do
 endif
 
 ##################### PRODUCING A RELEASE #############
@@ -54,12 +70,11 @@ release: ensure-release-toolchain
 	$(MAKE) _run_make_foreach_target_tuple RUN_MAKE_FOREACH_TARGET_TUPLE_ARG="test-platform-bin"
 	$(MAKE) noarch
 
-release-docker: $(ARTIFACTDIR)
+release-docker: $(ARTIFACTDIR) release-docker-mkcachemount
 	sed 's/FROM.*!SUBSTITUTED_BY_MAKEFILE/FROM $(RELEASE_DOCKER_BASEIMAGE)/' build/build.Dockerfile > $(ARTIFACTDIR)/build.Dockerfile
 	docker build -t zrepl_release --pull -f $(ARTIFACTDIR)/build.Dockerfile .
 	docker run --rm -i \
-		-v zrepl-build-cache-mod:/go/pkg/mod \
-		-v zrepl-build-cache-xdg-cache:/root/.cache/go-build \
+		$(_RELEASE_DOCKER_CACHEMOUNT) \
 		-v $(CURDIR):/src -u $$(id -u):$$(id -g) \
 		zrepl_release \
 		make release \
