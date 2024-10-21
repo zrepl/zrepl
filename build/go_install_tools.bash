@@ -14,11 +14,6 @@ export GOBIN="$OUTDIR"
 
 cd "$(dirname "$0")"
 
-export GO111MODULE=on # otherwise, a checkout of this repo in GOPATH will disable modules on Go 1.12 and earlier
-source <(go env)
-# build tools for the host platform
-export GOOS="$GOHOSTOS"
-export GOARCH="$GOHOSTARCH"
-# TODO GOARM=$GOHOSTARM?
+source ./go_install_host_tool.source
 
 cat tools.go | grep _ | awk -F'"' '{print $2}' | tee | xargs -tI '{}' go install '{}'
