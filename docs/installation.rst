@@ -11,10 +11,9 @@ Installation
 
 .. toctree::
 
-    installation/user-privileges
     installation/packages
     installation/apt-repos
     installation/rpm-repos
-    installation/compile-from-source
+    installation/user-privileges
     installation/freebsd-jail-with-iocage
     installation/what-next

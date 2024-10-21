@@ -16,10 +16,13 @@ The following list may be incomplete, feel free to submit a PR with an update:
     * - OS / Distro
       - Install Command
       - Link
+    * - any
+      - Statically linked binaries.
+      - `Official GitHub releases <binary releases_>`_
     * - FreeBSD
       - ``pkg install zrepl``
       - `<https://www.freshports.org/sysutils/zrepl/>`_
-      
+
         :ref:`installation-freebsd-jail-with-iocage`
     * - FreeNAS
       -
@@ -30,7 +33,7 @@ The following list may be incomplete, feel free to submit a PR with an update:
     * - Arch Linux
       - ``yay install zrepl``
       - Available on `AUR <https://aur.archlinux.org/packages/zrepl>`_
-    * - Fedora, CentOS, RHEL, OpenSUSE
+    * - Fedora / RHEL / OpenSUSE
       - ``dnf install zrepl``
       - :ref:`RPM repository config <installation-rpm-repos>`
     * - Debian + Ubuntu
@@ -42,6 +45,6 @@ The following list may be incomplete, feel free to submit a PR with an update:
     * - Void Linux
       - ``xbps-install zrepl``
       - Available since `a88a2a4 <https://github.com/void-linux/void-packages/commit/a88a2a4d7bf56072dadf61ab56b8424e39155890>`_
-    * - Others
-      -
-      - Use `binary releases`_ or build from source.
+    * - any
+      - Build from source
+      - :repomasterlink:`README.md`.
