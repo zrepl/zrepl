@@ -31,19 +31,29 @@ zrepl is a one-stop ZFS backup & replication solution.
 The above does not apply if you already implemented everything.
 Check out the *Coding Workflow* section below for details.
 
-## Building, Releasing, Downstream-Packaging
-
-This section provides an overview of the zrepl build & release process.
-Check out `docs/installation/compile-from-source.rst` for build-from-source instructions.
-
-### Overview
+## Development
 
 zrepl is written in [Go](https://golang.org) and uses [Go modules](https://github.com/golang/go/wiki/Modules) to manage dependencies.
 The documentation is written in [ReStructured Text](http://docutils.sourceforge.net/rst.html) using the [Sphinx](https://www.sphinx-doc.org) framework.
 
-Install **build dependencies** using  `./lazy.sh devsetup`.
-`lazy.sh` uses `python3-pip` to fetch the build dependencies for the docs - you might want to use a [venv](https://docs.python.org/3/library/venv.html).
-If you just want to install the Go dependencies, run `./lazy.sh godep`.
+### Building
+
+#### Go Code
+Building the Go code only requires a valid `go` toolchain in `PATH`.
+See `go.mod` for minimum toolchain version.
+
+Some Go code is **generated**, and generated code is committed to the source tree.
+Therefore, building does not require having code generation tools set up.
+When making changes that require code to be (re-)generated, run `make generate`.
+I downloads and installs pinned versions of the code generation tools into `./build/install`.
+There is a CI check that ensures Git state is clean, i.e., code generation has been done by a PR and is deterministic.
+
+#### Docs
+
+Set up a Python environment that has `docs/requirements.txt` installed via `pip`.
+Use a  [venv](https://docs.python.org/3/library/venv.html) to avoid global state.
+
+### Testing
 
 The **test suite** is split into pure **Go tests** (`make test-go`) and **platform tests** that interact with ZFS and thus generally **require root privileges** (`sudo make test-platform`).
 Platform tests run on their own pool with the name `zreplplatformtest`, which is created using the file vdev in `/tmp`.
@@ -51,33 +61,25 @@ Platform tests run on their own pool with the name `zreplplatformtest`, which is
 For a full **code coverage** profile, run `make test-go COVER=1 && sudo make test-platform && make cover-merge`.
 An HTML report can be generated using `make cover-html`.
 
-**Code generation** is triggered by `make generate`. Generated code is committed to the source tree.
+### Circle CI
 
-### Build & Release Process
+We use CircleCI for automated build & test pre- and post-merge.
 
-**The `Makefile` is catering to the needs of developers & CI, not distro packagers**.
-It provides phony targets for
-* local development (building, running tests, etc)
-* building a release in Docker (used by the CI & release management)
-* building .deb and .rpm packages out of the release artifacts.
-
-**Build tooling & dependencies** are documented as code in `lazy.sh`.
-Go dependencies are then fetched by the go command and pip dependencies are pinned through a `requirements.txt`.
-
-**We use CircleCI for continuous integration**.
 There are two workflows:
 
 * `ci` runs for every commit / branch / tag pushed to GitHub.
   It is supposed to run very fast (<5min and provides quick feedback to developers).
   It runs formatting checks, lints and tests on the most important OSes / architectures.
-  Artifacts are published to minio.cschwarz.com (see GitHub Commit Status).
 
 * `release` runs
   * on manual triggers through the CircleCI API (in order to produce a release)
   * periodically on `master`
-  Artifacts are published to minio.cschwarz.com (see GitHub Commit Status).
 
-**Releases** are issued via Git tags + GitHub Releases feature.
+Artifacts are stored in CircleCI.
+
+### Releasing
+
+Releases are issued via Git tags + GitHub Releases feature.
 The procedure to issue a release is as follows:
 * Issue the source release:
   * Git tag the release on the `master` branch.
@@ -88,14 +90,16 @@ The procedure to issue a release is as follows:
   * Download the artifacts to the release manager's machine.
   * Create a GitHub release, edit the changelog, upload all the release artifacts, including .rpm and .deb files.
   * Issue the GitHub release.
-  * Add the .rpm and .deb files to the official zrepl repos, publish those.
+  * Add the .rpm and .deb files to the official zrepl repos.
+    * Code for management of these repos: https://github.com/zrepl/package-repo-ops (private repo at this time)
 
 **Official binary releases are not re-built when Go receives an update. If the Go update is critical to zrepl (e.g. a Go security update that affects zrepl), we'd issue a new source release**.
 The rationale for this is that whereas distros provide a mechanism for this (`$zrepl_source_release-$distro_package_revision`), GitHub Releases doesn't which means we'd need to update the existing GitHub release's assets, which nobody would notice (no RSS feed updates, etc.).
 Downstream packagers can read the changelog to determine whether they want to push that minor release into their distro or simply skip it.
 
-### Additional Notes to Distro Package Maintainers
+## Notes to Distro Package Maintainers
 
+* The `Makefile` in this project is not suitable for builds in distros.
 * Run the platform tests (Docs -> Usage -> Platform Tests) **on a test system** to validate that zrepl's abstractions on top of ZFS work with the system ZFS.
 * Ship a default config that adheres to your distro's `hier` and logging system.
 * Ship a service manager file and _please_ try to upstream it to this repository.
@@ -105,7 +109,6 @@ Downstream packagers can read the changelog to determine whether they want to pu
   This is how `zrepl version` knows what version number to show.
   Your build system should set the `ldFlags` flags appropriately and add a prefix or suffix that indicates that the given zrepl binary is a distro build, not an official one.
 * Make sure you are informed about new zrepl versions, e.g. by subscribing to GitHub's release RSS feed.
-
 
 ## Contributing Code
 

@@ -2,6 +2,8 @@
 set -euo pipefail
 set -x
 
+cd "$1"
+
 MACH=$(uname -m)
 MACH="${MACH/aarch64/aarch_64}"
 
@@ -13,7 +15,7 @@ if [ -e "$FILENAME" ]; then
     exit 1
 fi
 
-wget https://github.com/protocolbuffers/protobuf/releases/download/v"$VERSION"/"$FILENAME"
+wget --continue https://github.com/protocolbuffers/protobuf/releases/download/v"$VERSION"/"$FILENAME"
 
 stat "$FILENAME"
 
@@ -22,4 +24,4 @@ d622619dcbfb5ecb281cfb92c1a74d6a0f42e752d9a2774b197f475f7ab1c8c4  protoc-28.0-li
 b2e187c8b9f2d97cd3ecae4926d1bb2cbebe3ab768e7c987cbc86bb17f319358  protoc-28.0-linux-x86_64.zip
 EOF
 
-unzip -d /usr/local "$FILENAME"
+unzip -d . "$FILENAME"

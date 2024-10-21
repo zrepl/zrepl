@@ -323,10 +323,25 @@ cover-full:
 # not part of the build, must do that manually
 .PHONY: generate formatcheck format
 
-generate:
-	protoc -I=replication/logic/pdu --go_out=replication/logic/pdu --go-grpc_out=replication/logic/pdu replication/logic/pdu/pdu.proto
-	protoc -I=rpc/grpcclientidentity/example --go_out=rpc/grpcclientidentity/example/pdu --go-grpc_out=rpc/grpcclientidentity/example/pdu rpc/grpcclientidentity/example/grpcauth.proto
-	$(GO_ENV_VARS) $(GO) generate $(GO_BUILDFLAGS) -x ./...
+build/install:
+	rm -rf build/install.tmp
+	mkdir build/install.tmp
+
+	-echo "installing protoc"
+	mkdir build/install.tmp/protoc
+	bash -x build/get_protoc.bash build/install.tmp/protoc
+
+	-echo "installing go tools"
+	build/go_install_tools.bash build/install.tmp/gobin
+
+	mv build/install.tmp build/install
+
+
+generate: build/install
+	build/install/protoc/bin/protoc -I=internal/replication/logic/pdu --go_out=internal/replication/logic/pdu --go-grpc_out=internal/replication/logic/pdu internal/replication/logic/pdu/pdu.proto
+	build/install/protoc/bin/protoc -I=internal/rpc/grpcclientidentity/example --go_out=internal/rpc/grpcclientidentity/example/pdu --go-grpc_out=internal/rpc/grpcclientidentity/example/pdu internal/rpc/grpcclientidentity/example/grpcauth.proto
+	# TODO: would be nice to run with a pure path here
+	PATH="$(CURDIR)/build/install/gobin:$(CURDIR)/build/install/protoc/bin:$$PATH" $(GO) generate $(GO_BUILDFLAGS) -x ./...
 
 GOIMPORTS := goimports -srcdir . -local 'github.com/zrepl/zrepl'
 FINDSRCFILES := find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go'
