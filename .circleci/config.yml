@@ -15,16 +15,6 @@ commands:
               echo "$line" >> $BASH_ENV
             fi
 
-  invoke-lazy-sh:
-    parameters:
-      subcommand:
-        type: string
-    steps:
-      - run:
-          environment:
-            TERM: xterm
-          command: ./lazy.sh <<parameters.subcommand>>
-
   apt-update-and-install-common-deps:
     steps:
       - run: sudo apt-get update
@@ -34,18 +24,12 @@ commands:
       # The need for this was required for cimg/go:1.12, but let's future proof this here and now.
       - run: sudo apt-get install -y git ca-certificates
 
-  install-godep:
-    steps:
-      - apt-update-and-install-common-deps
-      - invoke-lazy-sh:
-          subcommand: godep
 
   install-docdep:
     steps:
       - apt-update-and-install-common-deps
       - run: sudo apt install python3 python3-pip libgirepository1.0-dev
-      - invoke-lazy-sh:
-          subcommand: docdep
+      - run: pip3 install -r docs/requirements.txt
 
   docs-publish-sh:
     parameters:
@@ -195,12 +179,24 @@ jobs:
 
       - go/load-cache:
           key: quickcheck-<<parameters.goversion>>
-      - install-godep
+      - run: make build/install
       - run: go mod download
       - run: cd build && go mod download
       - go/save-cache:
           key: quickcheck-<<parameters.goversion>>
 
+      # ensure all code has been generated
+      - run: make generate
+      - run: |
+          if output=$(git status --porcelain) && [ -z "$output" ]; then
+            echo "Working directory clean"
+          else
+            echo "Uncommitted changes"
+            echo ""
+            echo "$output"
+          fi
+
+      # other checks
       - run: make formatcheck
       - run: make zrepl-bin test-platform-bin
       - run: make vet
