@@ -194,6 +194,7 @@ jobs:
             echo "Uncommitted changes"
             echo ""
             echo "$output"
+            exit 1
           fi
 
       # other checks
