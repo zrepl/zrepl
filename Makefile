@@ -28,7 +28,6 @@ GO_MOD_READONLY := -mod=readonly
 GO_EXTRA_BUILDFLAGS :=
 GO_BUILDFLAGS := $(GO_MOD_READONLY) $(GO_EXTRA_BUILDFLAGS)
 GO_BUILD := $(GO_ENV_VARS) $(GO) build $(GO_BUILDFLAGS) -ldflags $(GO_LDFLAGS)
-GOLANGCI_LINT := golangci-lint
 GOCOVMERGE := gocovmerge
 RELEASE_GOVERSION ?= go1.23.1
 STRIPPED_GOVERSION := $(subst go,,$(RELEASE_GOVERSION))
@@ -244,8 +243,8 @@ _run_make_foreach_target_tuple:
 ##################### REGULAR TARGETS #####################
 .PHONY: lint test-go test-platform cover-merge cover-html vet zrepl-bin test-platform-bin
 
-lint:
-	$(GO_ENV_VARS) $(GOLANGCI_LINT) run ./...
+lint: build/install
+	$(GO_ENV_VARS) build/install/gobin/golangci-lint run ./...
 
 vet:
 	$(GO_ENV_VARS) $(GO) vet $(GO_BUILDFLAGS) ./...
