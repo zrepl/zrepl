@@ -33,6 +33,7 @@ GOCOVMERGE := gocovmerge
 RELEASE_GOVERSION ?= go1.23.1
 STRIPPED_GOVERSION := $(subst go,,$(RELEASE_GOVERSION))
 RELEASE_DOCKER_BASEIMAGE ?= golang:$(STRIPPED_GOVERSION)
+DEVTOOLS_INSTALL_DIR := $(CURDIR)/build/install
 
 ifneq ($(GOARM),)
 	ZREPL_TARGET_TUPLE := $(GOOS)-$(GOARCH)v$(GOARM)
@@ -308,21 +309,21 @@ cover-full:
 # not part of the build, must do that manually
 .PHONY: generate formatcheck format
 
-build/install:
-	rm -rf build/install.tmp
-	mkdir build/install.tmp
+$(DEVTOOLS_INSTALL_DIR):
+	rm -rf $(DEVTOOLS_INSTALL_DIR).tmp
+	mkdir $(DEVTOOLS_INSTALL_DIR).tmp
 
 	-echo "installing protoc"
-	mkdir build/install.tmp/protoc
-	bash -x build/get_protoc.bash build/install.tmp/protoc
+	mkdir $(DEVTOOLS_INSTALL_DIR).tmp/protoc
+	bash -x build/get_protoc.bash $(DEVTOOLS_INSTALL_DIR).tmp/protoc
 
 	-echo "installing go tools"
-	build/go_install_tools.bash build/install.tmp/gobin
+	build/go_install_tools.bash $(DEVTOOLS_INSTALL_DIR).tmp/gobin
 
-	mv build/install.tmp build/install
+	mv $(DEVTOOLS_INSTALL_DIR).tmp $(DEVTOOLS_INSTALL_DIR)
 
 
-generate: build/install
+generate: $(DEVTOOLS_INSTALL_DIR)
 	# TODO: would be nice to run with a pure path here
 	PATH="$(CURDIR)/build/install/gobin:$(CURDIR)/build/install/protoc/bin:$$PATH" && \
 		build/install/protoc/bin/protoc -I=internal/replication/logic/pdu --go_out=internal/replication/logic/pdu --go-grpc_out=internal/replication/logic/pdu internal/replication/logic/pdu/pdu.proto && \
