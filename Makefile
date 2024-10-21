@@ -338,8 +338,6 @@ build/install:
 
 
 generate: build/install
-	build/install/protoc/bin/protoc -I=internal/replication/logic/pdu --go_out=internal/replication/logic/pdu --go-grpc_out=internal/replication/logic/pdu internal/replication/logic/pdu/pdu.proto
-	build/install/protoc/bin/protoc -I=internal/rpc/grpcclientidentity/example --go_out=internal/rpc/grpcclientidentity/example/pdu --go-grpc_out=internal/rpc/grpcclientidentity/example/pdu internal/rpc/grpcclientidentity/example/grpcauth.proto
 	# TODO: would be nice to run with a pure path here
 	PATH="$(CURDIR)/build/install/gobin:$(CURDIR)/build/install/protoc/bin:$$PATH" && \
 		build/install/protoc/bin/protoc -I=internal/replication/logic/pdu --go_out=internal/replication/logic/pdu --go-grpc_out=internal/replication/logic/pdu internal/replication/logic/pdu/pdu.proto && \
