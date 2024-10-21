@@ -39,8 +39,14 @@ The documentation is written in [ReStructured Text](http://docutils.sourceforge.
 ### Building
 
 #### Go Code
-Building the Go code only requires a valid `go` toolchain in `PATH`.
-See `go.mod` for minimum toolchain version.
+
+Dependencies:
+
+* Go 1.22 or newer
+* GNU Make
+* Git
+* wget (`make generate`)
+* unzip (`make generate`)
 
 Some Go code is **generated**, and generated code is committed to the source tree.
 Therefore, building does not require having code generation tools set up.
