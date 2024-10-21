@@ -71,7 +71,7 @@ release: ensure-release-toolchain
 	$(MAKE) noarch
 
 release-docker: $(ARTIFACTDIR) release-docker-mkcachemount
-	sed 's/FROM.*!SUBSTITUTED_BY_MAKEFILE/FROM $(RELEASE_DOCKER_BASEIMAGE)/' build.Dockerfile > $(ARTIFACTDIR)/build.Dockerfile
+	sed 's/FROM.*!SUBSTITUTED_BY_MAKEFILE/FROM $(RELEASE_DOCKER_BASEIMAGE)/' build/build.Dockerfile > $(ARTIFACTDIR)/build.Dockerfile
 	docker build -t zrepl_release --pull -f $(ARTIFACTDIR)/build.Dockerfile .
 	docker run --rm -i \
 		$(_RELEASE_DOCKER_CACHEMOUNT) \
