@@ -2,7 +2,7 @@ syntax = "proto3";
 option go_package = ".;pdu";
 
 service Replication {
-  rpc Ping(PingReq) returns (PingRes);
+  rpc Ping2(PingReq) returns (PingRes);
   rpc ListFilesystems(ListFilesystemReq) returns (ListFilesystemRes);
   rpc ListFilesystemVersions(ListFilesystemVersionsReq)
       returns (ListFilesystemVersionsRes);
@@ -70,7 +70,7 @@ enum ReplicationGuaranteeKind {
   GuaranteeInvalid = 0;
   GuaranteeResumability = 1;
   GuaranteeIncrementalReplication = 2;
-  GuaranteeNothing = 3; 
+  GuaranteeNothing = 3;
 }
 
 message Property {
