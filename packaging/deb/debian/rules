@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 
 %:
-	dh $@
+	dh $@ --with bash-completion
 
 override_dh_strip:
 
@@ -26,8 +26,9 @@ override_dh_auto_install:
 	cp --preserve=all artifacts/$(ZREPL_DPKG_ZREPL_BINARY_FILENAME) debian/renamedir/zrepl
 	dh_install debian/renamedir/zrepl usr/bin
 
-	# install bash completion
-	dh_install artifacts/bash_completion etc/bash_completion.d/zrepl
+	# install zsh completions
+	# NB: bash completion auto-magic via dh_bash-completion
+	# TODO: unify on https://tracker.debian.org/pkg/dh-shell-completions when available
 	dh_install artifacts/_zrepl.zsh_completion usr/share/zsh/vendor-completions
 
 	# install docs

@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
 	build-essential \
     devscripts \
     dh-exec \
+	bash-completion \
 	binutils-aarch64-linux-gnu \
 	binutils-arm-linux-gnueabihf  \
 	binutils-i686-linux-gnu \
