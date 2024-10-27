@@ -12,26 +12,5 @@ RuntimeDirectoryMode=0700
 # Make Go produce coredumps
 Environment=GOTRACEBACK='crash'
 
-ProtectSystem=strict
-#PrivateDevices=yes # TODO ZFS needs access to /dev/zfs, could we limit this?
-ProtectKernelTunables=yes
-ProtectControlGroups=yes
-PrivateTmp=yes
-#PrivateUsers=yes # TODO Does not work, why?
-ProtectKernelModules=true
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-RestrictNamespaces=true
-RestrictRealtime=yes
-SystemCallArchitectures=native
-
-ProtectHome=read-only
-# ProtectHome=tmpfs totally possible, not by default though because of Debian stretch
-
-# SystemCallFilter
-#   ~@privileged doesn't work with Ubuntu 18.04 ssh
-SystemCallFilter=~ @mount @cpu-emulation @keyring @module @obsolete @raw-io @debug @clock @resources
-# Go1.19 added automatic RLIMIT_NOFILE changes, so, we need to allow that
-SystemCallFilter= setrlimit
-
 [Install]
 WantedBy=multi-user.target
