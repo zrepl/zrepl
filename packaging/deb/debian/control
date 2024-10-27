@@ -1,6 +1,6 @@
 Source: zrepl
 Maintainer: Christian Schwarz <me@cschwarz.com>
-Build-Depends: dh-exec
+Build-Depends: dh-exec, bash-completion
 
 Package: zrepl
 Architecture: arm64 amd64 armhf i386
