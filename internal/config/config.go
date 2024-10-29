@@ -10,6 +10,8 @@ import (
 	"github.com/robfig/cron/v3"
 	"github.com/zrepl/yaml-config"
 
+	"github.com/prometheus/exporter-toolkit/web"
+
 	"github.com/zrepl/zrepl/internal/util/datasizeunit"
 	zfsprop "github.com/zrepl/zrepl/internal/zfs/property"
 )
@@ -443,9 +445,10 @@ type MonitoringEnum struct {
 }
 
 type PrometheusMonitoring struct {
-	Type           string `yaml:"type"`
-	Listen         string `yaml:"listen,hostport"`
-	ListenFreeBind bool   `yaml:"listen_freebind,default=false"`
+	Type           string         `yaml:"type"`
+	Listen         string         `yaml:"listen,hostport"`
+	ListenFreeBind bool           `yaml:"listen_freebind,default=false"`
+	TLS            *web.TLSConfig `yaml:"tls,optional"`
 }
 
 type SyslogFacility syslog.Priority
