@@ -122,7 +122,7 @@ func (v FilesystemVersion) String() string { return v.RelName() }
 // are immutable over time in ZFS.
 func FilesystemVersionEqualIdentity(a, b FilesystemVersion) bool {
 	// .Name is mutable
-	return a.Guid == b.Guid && a.CreateTXG == b.CreateTXG && a.Creation == b.Creation
+	return a.Guid == b.Guid && a.CreateTXG == b.CreateTXG && a.Creation.Equal(b.Creation)
 }
 
 func (v FilesystemVersion) ToAbsPath(p *DatasetPath) string {
