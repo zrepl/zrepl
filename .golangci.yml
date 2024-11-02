@@ -1,7 +1,12 @@
 linters:
   enable:
   - goimports
+  - revive
 
+linters-settings:
+  revive:
+    rules:
+      - name: time-equal
 issues:
   exclude-rules:
     - path: _test\.go
