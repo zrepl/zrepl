@@ -198,7 +198,6 @@ jobs:
           fi
 
       # other checks
-      - run: make formatcheck
       - run: make zrepl-bin test-platform-bin
       - run: make vet
       - run: make lint

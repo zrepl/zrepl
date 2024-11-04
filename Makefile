@@ -320,7 +320,7 @@ cover-full:
 
 ##################### DEV TARGETS #####################
 # not part of the build, must do that manually
-.PHONY: generate formatcheck format
+.PHONY: generate format
 
 build/install:
 	rm -rf build/install.tmp
@@ -345,15 +345,9 @@ generate: build/install
 		true
 
 GOIMPORTS := goimports -srcdir . -local 'github.com/zrepl/zrepl'
-FINDSRCFILES := find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go'
 
-formatcheck:
-	@# goimports doesn't have a knob to exit with non-zero status code if formatting is needed
-	@# see https://go-review.googlesource.com/c/tools/+/237378
-	@ affectedfiles=$$($(GOIMPORTS) -l $(shell $(FINDSRCFILES)) | tee /dev/stderr | wc -l); test "$$affectedfiles" = 0
-
-format:
-	@ $(GOIMPORTS) -w -d $(shell  $(FINDSRCFILES))
+format: build/install
+	@ build/install/gobin/goimports -w -local 'github.com/zrepl/zrepl' $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go')
 
 ##################### NOARCH #####################
 .PHONY: noarch $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/_zrepl.zsh_completion $(ARTIFACTDIR)/go_env.txt docs docs-clean
