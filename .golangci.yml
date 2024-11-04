@@ -2,6 +2,10 @@ linters:
   enable:
   - goimports
 
+linters-settings:
+  goimports:
+    local-prefixes: github.com/zrepl/zrepl
+
 issues:
   exclude-rules:
     - path: _test\.go
