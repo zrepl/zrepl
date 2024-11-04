@@ -115,7 +115,6 @@ func (c *Conn) ReadFrame() (frameconn.Frame, error) {
 
 func (c *Conn) readFrameFiltered() (frameconn.Frame, error) {
 	for {
-		debug("read frame")
 		f, err := c.fc.ReadFrame()
 		if err != nil {
 			return frameconn.Frame{}, err

@@ -118,18 +118,14 @@ func (c *Conn) readFrame() (Frame, error) {
 	if c.nextReadErr != nil {
 		ret := c.nextReadErr
 		c.nextReadErr = nil
-		debug("readFrame: returning nextReadErr: %T %#v", ret, ret)
 		return Frame{}, ret
 	}
 
 	if !c.readNextValid {
 		var buf [8]byte
-		n, err := io.ReadFull(c.nc, buf[:])
-		if err != nil {
-			debug("readFrame: returning error: %T %#v", err, err)
+		if _, err := io.ReadFull(c.nc, buf[:]); err != nil {
 			return Frame{}, err
 		}
-		debug("readFrame: read n header bytes %d", n)
 		c.readNext.Unmarshal(buf[:])
 		c.readNextValid = true
 	}
@@ -168,7 +164,6 @@ func (c *Conn) readFrame() (Frame, error) {
 				payloadLen:    c.readNext.PayloadLen, // 0
 			},
 		}
-		debug("readFrame: returning empty frame")
 		return frame, nil
 	}
 
@@ -183,9 +178,7 @@ func (c *Conn) readFrame() (Frame, error) {
 			// Store the error to be returned on the next invocation of ReadFrame.
 			c.nextReadErr = err
 			// NORETURN, this frame is still valid
-			debug("readFrame: returning last frame: %T %#v", err, err)
 		} else {
-			debug("readFrame: returning error: %T %#v", err, err)
 			return Frame{}, err
 		}
 	}
@@ -205,7 +198,6 @@ func (c *Conn) readFrame() (Frame, error) {
 		c.readNextValid = false
 	}
 
-	debug("readFrame: returning frame: %T %#v", frame, frame)
 	return frame, nil
 }
 
