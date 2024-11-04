@@ -5,7 +5,6 @@ import (
 	"net"
 	"sync/atomic"
 	"time"
-
 	"github.com/zrepl/zrepl/internal/rpc/dataconn/frameconn"
 	"github.com/zrepl/zrepl/internal/rpc/dataconn/timeoutconn"
 )
