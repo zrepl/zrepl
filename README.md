@@ -85,7 +85,10 @@ Artifacts are stored in CircleCI.
 
 ### Releasing
 
-Releases are issued via Git tags + GitHub Releases feature.
+All zrepl releases are git-tagged and then published as a GitHub Release.
+There is a git tag for each zrepl release, usually `vMAJOR.MINOR.0`.
+We don't move git tags once the release has been published.
+
 The procedure to issue a release is as follows:
 * Issue the source release:
   * Git tag the release on the `master` branch.
@@ -99,9 +102,27 @@ The procedure to issue a release is as follows:
   * Add the .rpm and .deb files to the official zrepl repos.
     * Code for management of these repos: https://github.com/zrepl/package-repo-ops (private repo at this time)
 
-**Official binary releases are not re-built when Go receives an update. If the Go update is critical to zrepl (e.g. a Go security update that affects zrepl), we'd issue a new source release**.
-The rationale for this is that whereas distros provide a mechanism for this (`$zrepl_source_release-$distro_package_revision`), GitHub Releases doesn't which means we'd need to update the existing GitHub release's assets, which nobody would notice (no RSS feed updates, etc.).
-Downstream packagers can read the changelog to determine whether they want to push that minor release into their distro or simply skip it.
+#### Patch releases, Go toolchain updates, APT/RPM Package rebuilds
+
+`vMAJOR.MINOR.0` is typically a tagged commit on `master`, because development velocity isn't high
+and thus release branches for stabilization aren't necessary.
+
+Occasionally though there is a need for patch changes to a release, e.g.
+- security issue in a dependency
+- Go toolchain update (e.g. security issue in standard library)
+
+The procedure for this is the following
+- create a branch off the release tag we need to patch, named `releases/MAJOR.MINOR.X`
+- that branch will never be merged into `master`, it'll be a dead-end for this specific patch
+- make changes in that branch
+- make the final commit that bumps version numbers
+- create the git tag
+- follow general procedure for publishing the release (previous sectino
+
+For Go toolchain updates and package rebuilds with no source code changes, leverage the APT/RPM package revision field.
+Control via the `ZREPL_PACKAGE_RELEASE` Makefile variable, see `origin/releases/0.6.1-2` for an example.
+
+
 
 ## Notes to Distro Package Maintainers
 
