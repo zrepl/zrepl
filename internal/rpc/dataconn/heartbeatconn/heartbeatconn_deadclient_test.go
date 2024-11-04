@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/zrepl/zrepl/internal/rpc/dataconn/heartbeatconn"
 	"github.com/zrepl/zrepl/internal/util/socketpair"
 )
