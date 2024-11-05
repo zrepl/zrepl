@@ -1,10 +1,10 @@
 module github.com/zrepl/zrepl
 
 go 1.22.7
+
 toolchain go1.23.1
 
 require (
-	code.rocketnine.space/tslocum/cview v1.5.9
 	github.com/bits-and-blooms/bitset v1.14.3
 	github.com/fatih/color v1.7.0
 	github.com/gdamore/tcell/v2 v2.7.4
@@ -70,7 +70,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	github.com/rivo/uniseg v0.4.6 // indirect
+	github.com/rivo/tview v0.0.0-20241103174730-c76f7879f592
+	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sergi/go-diff v1.0.1-0.20180205163309-da645544ed44 // indirect; go1.12 thinks it needs this
 	github.com/theckman/goconstraint v1.11.0 // indirect
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // indirect; go1.12 thinks it needs this

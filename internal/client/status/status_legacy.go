@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	tview "code.rocketnine.space/tslocum/cview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
+	"github.com/rivo/tview"
 
 	"github.com/zrepl/zrepl/internal/client/status/viewmodel"
 )
@@ -28,7 +28,7 @@ func legacy(c Client, flag statusFlags) error {
 	textView := tview.NewTextView()
 	textView.SetWrap(true)
 	textView.SetScrollable(true) // so that it allows us to set scroll position
-	textView.SetScrollBarVisibility(tview.ScrollBarNever)
+	// textView.SetScrollBarVisibility(tview.ScrollBarNever)
 
 	app.SetRoot(textView, true)
 
