@@ -7,9 +7,8 @@ import (
 	"sync"
 	"time"
 
-	tview "code.rocketnine.space/tslocum/cview"
 	"github.com/gdamore/tcell/v2"
-
+	"github.com/rivo/tview"
 	"github.com/zrepl/zrepl/internal/client/status/viewmodel"
 )
 
@@ -29,7 +28,6 @@ func interactive(c Client, flag statusFlags) error {
 	jobMenuRoot.SetSelectable(true)
 	jobMenu.SetRoot(jobMenuRoot)
 	jobMenu.SetCurrentNode(jobMenuRoot)
-	jobMenu.SetSelectedTextColor(tcell.ColorGreen)
 	jobTextDetail := tview.NewTextView()
 	jobTextDetail.SetWrap(false)
 
@@ -110,10 +108,8 @@ func interactive(c Client, flag statusFlags) error {
 			}
 			app.SetRoot(toolbarSplit, true)
 			app.SetFocus(preModalFocus)
-			app.Draw()
 		})
 		app.SetRoot(m, true)
-		app.Draw()
 	}
 
 	app.SetRoot(toolbarSplit, true)
@@ -170,12 +166,14 @@ func interactive(c Client, flag statusFlags) error {
 			redrawJobsList = true
 		}
 		if redrawJobsList {
+			selectedTextStyle := tcell.StyleDefault.Bold(true)
 			selectedJobN = nil
 			children := make([]*tview.TreeNode, len(jobs))
 			for i := range jobs {
 				jobN := tview.NewTreeNode(jobs[i].JobTreeTitle())
 				jobN.SetReference(jobs[i])
 				jobN.SetSelectable(true)
+				jobN.SetSelectedTextStyle(selectedTextStyle)
 				children[i] = jobN
 				jobN.SetSelectedFunc(func() {
 					viewmodelupdate(func(p *viewmodel.Params) {
@@ -187,6 +185,7 @@ func interactive(c Client, flag statusFlags) error {
 				}
 			}
 			jobMenuRoot.SetChildren(children)
+			jobMenuRoot.SetSelectedTextStyle(selectedTextStyle)
 		}
 
 		if selectedJobN != nil && jobMenu.GetCurrentNode() != selectedJobN {
@@ -207,9 +206,6 @@ func interactive(c Client, flag statusFlags) error {
 		bottombar.ResizeItem(bottombarDateView, len(bottombardatestring), 0)
 
 		bottomBarStatus.SetText(m.BottomBarStatus())
-
-		app.Draw()
-
 	}
 
 	go func() {
@@ -252,6 +248,7 @@ func interactive(c Client, flag statusFlags) error {
 
 	app.SetInputCapture(func(e *tcell.EventKey) *tcell.EventKey {
 		if e.Key() == tcell.KeyTab {
+			// TODO: only if there's no modal showing (long-time bug in zrepl status)
 			tabbableCycle()
 			return nil
 		}
@@ -284,9 +281,8 @@ func interactive(c Client, flag statusFlags) error {
 			signals := []string{"wakeup", "reset"}
 			clientFuncs := []func(job string) error{c.SignalWakeup, c.SignalReset}
 			sigMod := tview.NewModal()
-			sigMod.SetBackgroundColor(tcell.ColorDefault)
 			sigMod.SetBorder(true)
-			sigMod.GetForm().SetButtonTextColorFocused(tcell.ColorGreen)
+			sigMod.SetButtonActivatedStyle(tcell.StyleDefault.Bold(true).Reverse(true))
 			sigMod.AddButtons(signals)
 			sigMod.SetText(fmt.Sprintf("Send a signal to job %q", job.Name()))
 			showModal(sigMod, func(idx int, _ string) {
