@@ -44,3 +44,54 @@ Interval & duration fields in job definitions, pruning configurations, etc. must
 
     var durationStringRegex *regexp.Regexp = regexp.MustCompile(`^\s*(\d+)\s*(s|m|h|d|w)\s*$`)
     // s = second, m = minute, h = hour, d = day, w = week (7 days)
+
+
+.. _conf-include-directories:
+
+Including Configuration Directories
+-----------------------------------
+
+It is possible to distribute zrepl job definitions over multiple YAML files. This is
+achieved by using the `include` key in the configuration file.
+
+The directive is mutually exclusive with any other jobs definition and can only exist
+in the configuration file:
+
+::
+   global: ...
+
+   jobs:
+     include: jobs.d
+
+.. NOTE::
+   The included directory path is treated as absolute when starting with `/` else it
+   is treated as a relative path from the directory of the loaded configuration file.
+
+Included YAML job files must end with the `.yml` extension and can only contain
+contain the `jobs` key. Additionally, job names must be unique across all job YAML
+files.
+
+Examples
+^^^^^^^^
+
+::
+  > /etc/zrepl/zrepl.yml
+
+   jobs:
+     include: jobs.d
+
+  > /etc/zrepl/zrepl.d/MyDataSet.yml
+   jobs:
+   - name: snapjob
+     type: snap
+     filesystems: {
+       "MyPool/MyDataset<": true,
+     }
+     snapshotting:
+       type: periodic
+       interval: 2m
+       prefix: zrepl_snapjob_
+     pruning:
+       keep:
+         - type: last_n
+           count: 60
