@@ -34,7 +34,7 @@
 extensions = ['sphinx.ext.todo',
     'sphinx.ext.githubpages',
     'sphinx.ext.extlinks',
-    #"sphinx_multiversion",
+    "sphinx_multiversion",
 ]
 
 # suppress_warnings = ['image.nonlocal_uri']
