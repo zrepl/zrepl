@@ -13,10 +13,10 @@ The list of included paths must point to either individual YAML files or directo
 If the path points to a directory then all YAML files with a `.yml` extention in the
 directory will be included.
 
-::
-   global: ...
+.. code-block:: yaml
 
-   include:
+    global: ...
+    include:
       - ./jobs.d/
       - ./more_jobs.d/job.yml
 
@@ -24,7 +24,7 @@ directory will be included.
 .. NOTE::
    The included path is treated as absolute when starting with `/` else it
    is treated as a relative path that is added to the filepath.Dir() of the
-   :ref:`main config file path <overview-terminology>` used by the daemon.
+   :doc:`main config file path <overview>` used by the daemon.
 
 
 Included configuration files can only specify the following keys:
@@ -44,27 +44,29 @@ configuration file.
 Examples
 ^^^^^^^^
 
-Main configuration file:
-::
+Main configuration file ( ``/etc/zrepl/zrepl.yml`` ):
+
+.. code-block:: yaml
+
     global: ...
-    > /etc/zrepl/zrepl.yml
     include:
       - ./jobs.d/
 
-Included configuration file:
-::
-    > /etc/zrepl/jobs.d/MyDataSet.yml
+Included configuration file ( ``/etc/zrepl/jobs.d/MyDataSet.yml`` ):
+
+.. code-block:: yaml
+
     jobs:
-    - name: snapjob
-      type: snap
-      filesystems: {
-        "MyPool/MyDataset<": true,
-      }
-      snapshotting:
-        type: periodic
-        interval: 2m
-        prefix: zrepl_snapjob_
-      pruning:
-        keep:
-         - type: last_n
-           count: 60
+      - name: snapjob
+        type: snap
+        filesystems: {
+          "MyPool/MyDataset<": true,
+        }
+        snapshotting:
+          type: periodic
+          interval: 2m
+          prefix: zrepl_snapjob_
+        pruning:
+          keep:
+           - type: last_n
+             count: 60
