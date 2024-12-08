@@ -48,23 +48,26 @@ Interval & duration fields in job definitions, pruning configurations, etc. must
 
 .. _conf-include-directories:
 
-Including Configuration Directories
------------------------------------
+
+Including Jobs Files and Directories
+------------------------------------
 
 It is possible to distribute zrepl job definitions over multiple YAML files. This is
-achieved by using the `include` key in the configuration file.
+achieved by using the `include_jobs` key in the main configuration file.
 
 The directive is mutually exclusive with any other jobs definition and can only exist
-in the configuration file:
+in the main configuration file:
 
 ::
    global: ...
 
-   jobs:
-     include: jobs.d
+   include_jobs:
+      - ./jobs.d/
+      - ./more_jobs.d/job.yml
+
 
 .. NOTE::
-   The included directory path is treated as absolute when starting with `/` else it
+   The included path is treated as absolute when starting with `/` else it
    is treated as a relative path from the directory of the loaded configuration file.
 
 Included YAML job files must end with the `.yml` extension and can only contain
@@ -76,11 +79,11 @@ Examples
 
 ::
   > /etc/zrepl/zrepl.yml
+  include_jobs:
+    - ./jobs.d/
 
-   jobs:
-     include: jobs.d
-
-  > /etc/zrepl/zrepl.d/MyDataSet.yml
+::
+  > /etc/zrepl/jobs.d/MyDataSet.yml
    jobs:
    - name: snapjob
      type: snap
