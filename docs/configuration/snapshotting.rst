@@ -236,7 +236,7 @@ The following environment variables are set:
 * ``ZREPL_SNAPNAME``: the zrepl-generated snapshot name (e.g. ``zrepl_20380119_031407_000``)
 * ``ZREPL_DRYRUN``: set to ``"true"`` if a dry run is in progress so scripts can print, but not run, their commands
 
-An empty template hook can be found in :sampleconf:`/hooks/template.sh`.
+An empty template hook can be found in :sampleconf:`/internal/config/samples/hooks/template.sh`.
 
 .. _job-hook-type-postgres-checkpoint:
 
