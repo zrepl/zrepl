@@ -84,7 +84,7 @@ If ``encrypted=false``, zrepl expects that filesystems matching ``filesystems`` 
 
 .. _job-send-options-properties:
 
-``properties``
+``send_properties``
 --------------
 Sends the dataset properties along with snapshots.
 Please be careful with this option and read the :ref:`note on property replication below <job-note-property-replication>`.
@@ -220,6 +220,14 @@ and property replication is enabled, the receiver must :ref:`inherit the followi
 * ``keylocation``
 * ``keyformat``
 * ``encryption``
+
+Sharing
+-------
+
+You may not want the replicated filesystem shared in the same way as the source is.
+
+* ``sharenfs``
+* ``sharesmb``
 
 .. _job-recv-options--placeholder:
 
