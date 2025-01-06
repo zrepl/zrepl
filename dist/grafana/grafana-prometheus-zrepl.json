@@ -1,8 +1,8 @@
 {
   "__inputs": [
     {
-      "name": "DS_GRAFANACLOUD-CSCHWARZ-PROM",
-      "label": "grafanacloud-cschwarz-prom",
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
       "description": "",
       "type": "datasource",
       "pluginId": "prometheus",
@@ -137,7 +137,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -223,7 +223,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sgn(zrepl_start_time{job='$prom_job_name'})",
@@ -241,7 +241,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "zrepl maintains event counters for each `job x log_level`, independent of the logging outlet configuration in the config.",
       "fieldConfig": {
@@ -327,7 +327,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(rate(zrepl_daemon_log_entries{job=\"$prom_job_name\",zrepl_job=~\"$zrepl_job_name\"}[$__rate_interval])) by (instance,zrepl_job)",
@@ -343,7 +343,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "A functioning setup should not be logging `warn` / `error` messages.",
       "fieldConfig": {
@@ -426,7 +426,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "rate(zrepl_daemon_log_entries{job='$prom_job_name',level=~'warn|error'}[$__rate_interval]) > 0",
@@ -455,7 +455,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "Number of filesystems that failed replications.\nGauge is updated after the invocation has finished and remains at the resulting value until it is updated at the end of the next invocation.",
       "fieldConfig": {
@@ -535,7 +535,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -587,7 +587,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -671,7 +671,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+            "uid": "${DS_PROMETHEUS}"
           },
           "expr": "sum(increase(zrepl_replication_bytes_replicated{job='$prom_job_name'}[1d])) by (zrepl_job)",
           "format": "time_series",
@@ -709,7 +709,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -804,7 +804,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -839,7 +839,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+        "uid": "${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -940,7 +940,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+            "uid": "${DS_PROMETHEUS}"
           },
           "expr": "sum(rate(zrepl_replication_bytes_replicated{job='$prom_job_name'}[10m])) by (zrepl_job)",
           "format": "time_series",
@@ -953,7 +953,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+            "uid": "${DS_PROMETHEUS}"
           },
           "expr": "sum(increase(zrepl_replication_bytes_replicated{job='$prom_job_name'}[10m])) by (zrepl_job)",
           "format": "time_series",
@@ -970,7 +970,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+        "uid": "${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -1036,7 +1036,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "increase(zrepl_zfs_list_unmatched_user_specified_dataset_count{job=\"$prom_job_name\",jobid=\"$zrepl_job_name\"}[$__interval])",
@@ -1062,7 +1062,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+            "uid": "${DS_PROMETHEUS}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1145,7 +1145,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+                "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
               "expr": "zrepl_trace_active_tasks{job=\"$prom_job_name\"}",
@@ -1161,7 +1161,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+            "uid": "${DS_PROMETHEUS}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1243,7 +1243,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+                "uid": "${DS_PROMETHEUS}"
               },
               "expr": "go_goroutines{job='$prom_job_name'}",
               "format": "time_series",
@@ -1257,7 +1257,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+            "uid": "${DS_PROMETHEUS}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1340,7 +1340,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+                "uid": "${DS_PROMETHEUS}"
               },
               "expr": "go_memstats_sys_bytes{job='$prom_job_name'}",
               "format": "time_series",
@@ -1355,7 +1355,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+            "uid": "${DS_PROMETHEUS}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1438,7 +1438,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+                "uid": "${DS_PROMETHEUS}"
               },
               "expr": "go_memstats_alloc_bytes{job='$prom_job_name'}",
               "format": "time_series",
@@ -1452,7 +1452,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+            "uid": "${DS_PROMETHEUS}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1534,7 +1534,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+                "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
               "expr": "zrepl_endpoint_abstractions_cache_entry_count",
@@ -1562,7 +1562,7 @@
         "current": {},
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values(zrepl_start_time,job)",
         "includeAll": false,
@@ -1583,7 +1583,7 @@
         "current": {},
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_GRAFANACLOUD-CSCHWARZ-PROM}"
+          "uid": "${DS_PROMETHEUS}"
         },
         "definition": "label_values(zrepl_daemon_job_up{job=\"$prom_job_name\", internal=\"false\"},zrepl_job)",
         "includeAll": true,
