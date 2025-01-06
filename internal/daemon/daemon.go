@@ -69,7 +69,7 @@ func Run(ctx context.Context, conf *config.Config) error {
 		}
 	}
 
-	jobs := newJobs(prometheus.DefaultRegisterer)
+	jobs := newJobs()
 
 	// start control socket
 	controlJob, err := newControlJob(conf.Global.Control.SockPath, jobs)
@@ -123,8 +123,6 @@ func Run(ctx context.Context, conf *config.Config) error {
 type jobs struct {
 	wg sync.WaitGroup
 
-	metrics metrics
-
 	// m protects all fields below it
 	m       sync.RWMutex
 	wakeups map[string]wakeup.Func // by Job.Name
@@ -132,32 +130,12 @@ type jobs struct {
 	jobs    map[string]job.Job
 }
 
-type metrics struct {
-	running *prometheus.GaugeVec
-}
-
-func newJobs(registry prometheus.Registerer) *jobs {
-	jobs := &jobs{
-		metrics: metrics{
-			running: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-				Namespace: "zrepl",
-				Subsystem: "daemon",
-				Name:      "job_up",
-				Help: `Each zrepl-level job starts its life with this metric =1.
-It reamins =1 until the job leaves its Run() function.
-The purpose of this metric is primarily for Prometheus to be aware of all job names.
-The value will only transition to 0 during zrepl daemon shutdown or panics.
-`,
-			}, []string{"zrepl_job", "internal"}),
-		},
+func newJobs() *jobs {
+	return &jobs{
 		wakeups: make(map[string]wakeup.Func),
 		resets:  make(map[string]reset.Func),
 		jobs:    make(map[string]job.Job),
 	}
-
-	registry.MustRegister(jobs.metrics.running)
-
-	return jobs
 }
 
 func (s *jobs) wait() <-chan struct{} {
@@ -264,10 +242,7 @@ func (s *jobs) start(ctx context.Context, j job.Job, internal bool) {
 	s.resets[jobName] = resetFunc
 
 	s.wg.Add(1)
-	runningJobsGauge := s.metrics.running.WithLabelValues(jobName, fmt.Sprintf("%v", internal))
-	runningJobsGauge.Inc()
 	go func() {
-		defer runningJobsGauge.Dec()
 		defer s.wg.Done()
 		job.GetLogger(ctx).Info("starting job")
 		defer job.GetLogger(ctx).Info("job exited")
