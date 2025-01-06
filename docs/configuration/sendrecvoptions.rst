@@ -12,7 +12,7 @@ Send Options
 :ref:`Source<job-source>` and :ref:`push<job-push>` jobs have an optional ``send`` configuration section.
 
 ::
-   
+
    jobs:
    - type: push
      filesystems: ...
@@ -84,8 +84,8 @@ If ``encrypted=false``, zrepl expects that filesystems matching ``filesystems`` 
 
 .. _job-send-options-properties:
 
-``properties``
---------------
+``send_properties``
+-------------------
 Sends the dataset properties along with snapshots.
 Please be careful with this option and read the :ref:`note on property replication below <job-note-property-replication>`.
 
@@ -171,7 +171,7 @@ You can send the original properties from the first receiver to another receiver
 A Note on Property Replication
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If a send stream contains properties, as per ``send.properties`` or ``send.backup_properties``,
+If a send stream contains properties, as per ``send.send_properties`` or ``send.backup_properties``,
 the default ZFS behavior is to use those properties on the receiving side, verbatim.
 
 In many use cases for zrepl, this can have devastating consequences.
@@ -220,6 +220,14 @@ and property replication is enabled, the receiver must :ref:`inherit the followi
 * ``keylocation``
 * ``keyformat``
 * ``encryption``
+
+Sharing
+-------
+
+You may not want the replicated filesystem shared in the same way as the source is.
+
+* ``sharenfs``
+* ``sharesmb``
 
 .. _job-recv-options--placeholder:
 
