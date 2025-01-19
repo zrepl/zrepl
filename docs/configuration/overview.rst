@@ -150,7 +150,7 @@ The receiving side must always have the actual snapshot ``@from``, regardless of
 
 **Plain and raw sends**
 By default, ``zfs send`` sends the most generic, backwards-compatible data stream format (so-called 'plain send').
-If the sent uses newer features, e.g. compression or encryption, ``zfs send`` has to un-do these operations on the fly to produce the plain send stream.
+If the sent dataset uses newer features, e.g. compression or encryption, ``zfs send`` has to un-do these operations on the fly to produce the plain send stream.
 If the receiver uses newer features (e.g. compression or encryption inherited from the parent FS), it applies the necessary transformations again on the fly during ``zfs recv``.
 
 Flags such as ``-e``, ``-c`` and ``-L``  tell ZFS to produce a send stream that is closer to how the data is stored on disk.
