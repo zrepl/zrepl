@@ -93,7 +93,7 @@ The passive side job uses this *client identity* as follows:
    * *In the future, ``source`` might embed the client identity in :ref:`zrepl's ZFS abstraction names <zrepl-zfs-abstractions>`, to support multi-host replication.*
 
 .. TIP::
-   The use of the client identity in the ``sink`` job implies that it must be usable as a ZFS ZFS filesystem name component.
+   The use of the client identity in the ``sink`` job implies that it must be usable as a ZFS filesystem name component.
 
 .. _overview-how-replication-works:
 
@@ -150,7 +150,7 @@ The receiving side must always have the actual snapshot ``@from``, regardless of
 
 **Plain and raw sends**
 By default, ``zfs send`` sends the most generic, backwards-compatible data stream format (so-called 'plain send').
-If the sent uses newer features, e.g. compression or encryption, ``zfs send`` has to un-do these operations on the fly to produce the plain send stream.
+If the sent dataset uses newer features, e.g. compression or encryption, ``zfs send`` has to un-do these operations on the fly to produce the plain send stream.
 If the receiver uses newer features (e.g. compression or encryption inherited from the parent FS), it applies the necessary transformations again on the fly during ``zfs recv``.
 
 Flags such as ``-e``, ``-c`` and ``-L``  tell ZFS to produce a send stream that is closer to how the data is stored on disk.
@@ -205,7 +205,6 @@ Encoding the job name in the names ensures that multiple sending jobs can replic
 **Tentative replication cursor bookmarks** are short-lived bookmarks that protect the atomic moving-forward of the replication cursor and last-received-hold (see :issue:`this issue <340>`).
 They are only necessary if step holds are not used as per the :ref:`replication.protection <replication-option-protection>` setting.
 The tentative replication cursor has the format ``#zrepl_CUSORTENTATIVE_G_<GUID>_J_<JOBNAME>``.
-The ``zrepl zfs-abstraction list`` command provides a listing of all bookmarks and holds managed by zrepl.
 
 .. _step-holds:
 
@@ -222,7 +221,7 @@ Thus, there are never more than two step holds for a given pair of ``(job,filesy
 They are intended for a situation where a replication step uses a bookmark ``#bm`` as incremental ``from`` where ``#bm`` is not managed by zrepl.
 To ensure resumability, zrepl copies ``#bm`` to step bookmark ``#zrepl_STEP_G_<GUID>_J_<JOBNAME>``.
 If the replication is interrupted and ``#bm`` is deleted by the user, the step bookmark remains as an incremental source for the resumable send.
-Note that zrepl does not yet support creating step bookmarks because the `corresponding ZFS feature for copying bookmarks <https://github.com/openzfs/zfs/pull/9571>`_ is not yet widely available .
+Note that zrepl does not yet support creating step bookmarks because the `corresponding ZFS feature for copying bookmarks <https://github.com/openzfs/zfs/pull/9571>`_ is not yet widely available.
 Subscribe to zrepl :issue:`326` for details.
 
 The ``zrepl zfs-abstraction list`` command provides a listing of all bookmarks and holds managed by zrepl.
