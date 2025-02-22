@@ -9,6 +9,7 @@ Configuration
 
     configuration/overview
     configuration/jobs
+    configuration/include
     configuration/transports
     configuration/filter_syntax
     configuration/sendrecvoptions
