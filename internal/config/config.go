@@ -5,6 +5,8 @@ import (
 	"log/syslog"
 	"os"
 	"time"
+	"path/filepath"
+	pathpkg "path"
 
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
@@ -24,6 +26,7 @@ const (
 type Config struct {
 	Jobs   []JobEnum `yaml:"jobs,optional"`
 	Global *Global   `yaml:"global,optional,fromdefaults"`
+	Include   []string `yaml:"include,optional"`
 }
 
 func (c *Config) Job(name string) (*JobEnum, error) {
@@ -657,6 +660,7 @@ var ConfigFileDefaultLocations = []string{
 
 func ParseConfig(path string) (i *Config, err error) {
 
+	// Parse main configuration file
 	if path == "" {
 		// Try default locations
 		for _, l := range ConfigFileDefaultLocations {
@@ -679,7 +683,71 @@ func ParseConfig(path string) (i *Config, err error) {
 		return
 	}
 
-	return ParseConfigBytes(bytes)
+	i, err = ParseConfigBytes(bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	err = ExpandConfigInclude(path, i)
+	if err != nil {
+		return nil, err
+	}
+
+	return i, err
+}
+
+func ExpandConfigInclude(configPath string, config *Config) (err error) {
+	if config == nil {
+		return nil
+	}
+
+	var includeConfigPaths []string
+	for  _, path := range config.Include {
+		if configPath[0] != '/' {
+			path = pathpkg.Join(pathpkg.Dir(configPath), path)
+		}
+
+		stat, statErr := os.Stat(path)
+		if statErr != nil {
+			return errors.Errorf("Could not open included configuration path: %s", path)
+		}
+
+		if stat.Mode().IsDir() {
+			directoryPaths, err := filepath.Glob(path + "/*.yml")
+			if err != nil {
+				return err
+			}
+
+			includeConfigPaths = append(includeConfigPaths, directoryPaths...)
+		} else if stat.Mode().IsRegular() {
+			if extention := filepath.Ext(path); extention != ".yml" {
+				return errors.Errorf("Only .yml files can be included: %s", path)
+			}
+			includeConfigPaths = append(includeConfigPaths, path)
+		} else {
+			return errors.Errorf("Only directories or .yml files can be included: %s", path)
+		}
+	}
+
+	for _, path := range includeConfigPaths {
+		var bytes []byte
+		if bytes, err = os.ReadFile(path); err != nil {
+			return err
+		}
+
+		includedConfig, err := ParseConfigBytes(bytes)
+		if err != nil {
+			return err
+		}
+
+		if len(includedConfig.Include) > 0 {
+			return  errors.Errorf("Included configuration files cannot include other files: %s", path)
+		}
+
+		config.Jobs = append(config.Jobs, includedConfig.Jobs...)
+	}
+
+	return nil
 }
 
 func ParseConfigBytes(bytes []byte) (*Config, error) {
@@ -687,6 +755,7 @@ func ParseConfigBytes(bytes []byte) (*Config, error) {
 	if err := yaml.UnmarshalStrict(bytes, &c); err != nil {
 		return nil, err
 	}
+
 	if c != nil {
 		return c, nil
 	}

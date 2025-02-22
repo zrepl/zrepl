@@ -1,0 +1,14 @@
+jobs:
+- name: snapjob
+  type: snap
+  filesystems: {
+    "tank/frequently_changed<": true,
+  }
+  snapshotting:
+    type: periodic
+    interval: 2m
+    prefix: zrepl_snapjob_
+  pruning:
+    keep:
+      - type: last_n
+        count: 60
