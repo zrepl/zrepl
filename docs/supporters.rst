@@ -32,6 +32,7 @@ We would like to thank the following people and organizations for supporting zre
 
    <div class="fa fa-code" style="width: 1em;"></div>
 
+* |supporter-gold| `Hostsharing eG – die Hosting-Genossenschaft <https://www.hostsharing.net/>`_
 * |supporter-std| `Max Christian Pohle <https://coderonline.de>`_
 * |supporter-gold| Prominic.NET, Inc.
 * |supporter-std| Torsten Blum
