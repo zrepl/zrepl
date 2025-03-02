@@ -2,11 +2,13 @@ package daemon
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/exporter-toolkit/web"
 
 	"github.com/zrepl/zrepl/internal/config"
 	"github.com/zrepl/zrepl/internal/daemon/job"
@@ -21,13 +23,27 @@ import (
 type prometheusJob struct {
 	listen   string
 	freeBind bool
+	tls      *tls.Config
 }
 
 func newPrometheusJobFromConfig(in *config.PrometheusMonitoring) (*prometheusJob, error) {
-	if _, _, err := net.SplitHostPort(in.Listen); err != nil {
+	_, _, err := net.SplitHostPort(in.Listen)
+	if err != nil {
 		return nil, err
 	}
-	return &prometheusJob{in.Listen, in.ListenFreeBind}, nil
+
+	var tlsConfig *tls.Config
+	if in.TLS != nil {
+		tlsConfig, err = web.ConfigToTLSConfig(in.TLS)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &prometheusJob{
+		listen:   in.Listen,
+		freeBind: in.ListenFreeBind,
+		tls:      tlsConfig,
+	}, nil
 }
 
 var prom struct {
@@ -79,7 +95,16 @@ func (j *prometheusJob) Run(ctx context.Context) {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 
-	err = http.Serve(l, mux)
+	server := &http.Server{
+		Handler:   mux,
+		TLSConfig: j.tls,
+	}
+
+	if j.tls != nil {
+		err = server.ServeTLS(l, "", "")
+	} else {
+		err = server.Serve(l)
+	}
 	if err != nil && ctx.Err() == nil {
 		log.WithError(err).Error("error while serving")
 	}
