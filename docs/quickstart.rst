@@ -49,7 +49,7 @@ Apply Configuration Changes
 ===========================
 
 We hope that you have found a configuration that fits your use case.
-Use ``zrepl configcheck`` once again to make sure the config is correct (output indicates that everything is fine).
+Use ``zrepl configcheck`` once again to make sure the config is correct (no output indicates that everything is fine).
 Then restart the zrepl daemon on all systems involved in the replication, likely using ``service zrepl restart`` or ``systemctl restart zrepl``.
 
 .. WARNING::
@@ -69,10 +69,9 @@ Watch it Work
 =============
 
 Run ``zrepl status`` on the active side of the replication setup to monitor snaphotting, replication and pruning activity.
-To re-trigger replication (snapshots are separate!), use ``zrepl signal wakeup JOBNAME``.
-(refer to the example use case document if you are uncertain which job you want to wake up).
+To re-trigger replication (snapshots are separate!), use ``zrepl signal wakeup JOBNAME`` (refer to the example use case document if you are uncertain which job you want to wake up).
 
-You can also use basic UNIX tools to inspect see what's going on.
+You can also use basic UNIX tools to inspect and see what's going on.
 If you like tmux, here is a handy script that works on FreeBSD: ::
 
     pkg install gnu-watch tmux
