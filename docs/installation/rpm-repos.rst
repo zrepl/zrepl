@@ -21,10 +21,15 @@ Then ``dnf install zrepl`` and make sure to confirm that the signing key matches
     name = zrepl
     baseurl = https://zrepl.cschwarz.com/rpm/repo
     gpgkey = https://zrepl.cschwarz.com/rpm/rpm-key.asc
+    repo_gpgcheck = 1
     EOF
+
+If you are on openSUSE, adapt the spec path accordingly, i.e. replace ``/etc/yum.repos.d/zrepl.repo`` with ``/etc/zypp/repos.d/zrepl.repo``.
+Then ``zypper install zrepl``, confirming that the signing key matches.
+The RPM package has been successfully used on Tumbleweed and MicroOS.
 
 .. NOTE::
 
    Until zrepl reaches 1.0, the repository will be updated to the latest zrepl release immediately.
    This includes breaking changes between zrepl versions.
-   If that bothers you, use the `dnf versionlock plugin <https://dnf-plugins-core.readthedocs.io/en/latest/versionlock.html>`_ to pin the version of zrepl on your system.
+   If that bothers you, use the `dnf versionlock plugin <https://dnf-plugins-core.readthedocs.io/en/latest/versionlock.html>`_ or ``zypper addlock zrepl`` to pin the version of zrepl on your system.
