@@ -5,8 +5,8 @@ import (
 	"log/syslog"
 	"os"
 	"time"
-	"path/filepath"
 	pathpkg "path"
+	"path/filepath"
 
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
