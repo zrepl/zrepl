@@ -2,6 +2,7 @@ package config
 
 import (
 	"testing"
+
 	"github.com/kr/pretty"
 	"github.com/stretchr/testify/require"
 )
