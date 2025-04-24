@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log/syslog"
 	"os"
+	"path/filepath"
 	"time"
 	pathpkg "path"
-	"path/filepath"
 
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
