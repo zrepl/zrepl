@@ -24,9 +24,9 @@ const (
 )
 
 type Config struct {
-	Jobs   []JobEnum `yaml:"jobs,optional"`
-	Global *Global   `yaml:"global,optional,fromdefaults"`
-	Include   []string `yaml:"include,optional"`
+	Jobs    []JobEnum `yaml:"jobs,optional"`
+	Global  *Global   `yaml:"global,optional,fromdefaults"`
+	Include []string  `yaml:"include,optional"`
 }
 
 func (c *Config) Job(name string) (*JobEnum, error) {
@@ -702,7 +702,7 @@ func ExpandConfigInclude(configPath string, config *Config) (err error) {
 	}
 
 	var includeConfigPaths []string
-	for  _, path := range config.Include {
+	for _, path := range config.Include {
 		if configPath[0] != '/' {
 			path = pathpkg.Join(pathpkg.Dir(configPath), path)
 		}
@@ -741,7 +741,7 @@ func ExpandConfigInclude(configPath string, config *Config) (err error) {
 		}
 
 		if len(includedConfig.Include) > 0 {
-			return  errors.Errorf("Included configuration files cannot include other files: %s", path)
+			return errors.Errorf("Included configuration files cannot include other files: %s", path)
 		}
 
 		config.Jobs = append(config.Jobs, includedConfig.Jobs...)

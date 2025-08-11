@@ -15,7 +15,7 @@ func TestIncludeSingle(t *testing.T) {
 		if err != nil {
 			t.Errorf("error parsing %s:\n%+v", path, err)
 		}
-	
+
 		require.NotNil(t, config)
 		require.NotNil(t, config.Global)
 		require.NotEmpty(t, config.Jobs)
@@ -33,7 +33,7 @@ func TestIncludeDirectory(t *testing.T) {
 		if err != nil {
 			t.Errorf("error parsing %s:\n%+v", path, err)
 		}
-	
+
 		require.NotNil(t, config)
 		require.NotNil(t, config.Global)
 		require.NotEmpty(t, config.Jobs)
