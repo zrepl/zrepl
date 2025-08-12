@@ -1,4 +1,4 @@
-FROM fedora:latest
+FROM almalinux:8
 
 RUN dnf install -y git make bash rpm-build 'dnf-command(builddep)'
 ADD packaging/rpm/zrepl.spec /tmp/zrepl.spec
