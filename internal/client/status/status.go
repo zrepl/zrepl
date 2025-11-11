@@ -9,11 +9,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 
-	"github.com/zrepl/zrepl/internal/cli"
-	"github.com/zrepl/zrepl/internal/client/status/client"
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/daemon"
-	"github.com/zrepl/zrepl/internal/util/choices"
+	"github.com/LyingCak3/zrepl/internal/cli"
+	"github.com/LyingCak3/zrepl/internal/client/status/client"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/daemon"
+	"github.com/LyingCak3/zrepl/internal/util/choices"
 )
 
 type Client interface {

@@ -7,7 +7,7 @@ import (
 
 	"github.com/kr/pretty"
 
-	"github.com/zrepl/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/logger"
 )
 
 type TestOutlet struct {

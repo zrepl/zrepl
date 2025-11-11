@@ -11,9 +11,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/daemon/logging/trace"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging/trace"
 
-	"github.com/zrepl/zrepl/internal/replication/report"
+	"github.com/LyingCak3/zrepl/internal/replication/report"
 
 	"github.com/stretchr/testify/assert"
 

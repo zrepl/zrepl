@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/daemon/filters"
-	"github.com/zrepl/zrepl/internal/logger"
-	"github.com/zrepl/zrepl/internal/util/circlog"
-	"github.com/zrepl/zrepl/internal/util/envconst"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/daemon/filters"
+	"github.com/LyingCak3/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/util/circlog"
+	"github.com/LyingCak3/zrepl/internal/util/envconst"
 )
 
 type HookEnvVar string

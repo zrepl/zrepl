@@ -179,9 +179,9 @@ texinfo_documents = [
 # -- Options for the extlinks extension -----------------------------------
 # http://www.sphinx-doc.org/en/stable/ext/extlinks.html
 extlinks = {
-    'issue':('https://github.com/zrepl/zrepl/issues/%s', 'issue #%s'),
-    'repomasterlink':('https://github.com/zrepl/zrepl/blob/master/%s', '%s'),
-    'sampleconf':('https://github.com/zrepl/zrepl/blob/master/internal/config/samples%s', 'internal/config/samples%s'),
-    'commit':('https://github.com/zrepl/zrepl/commit/%s', 'commit %s'),
+    'issue':('https://github.com/LyingCak3/zrepl/issues/%s', 'issue #%s'),
+    'repomasterlink':('https://github.com/LyingCak3/zrepl/blob/master/%s', '%s'),
+    'sampleconf':('https://github.com/LyingCak3/zrepl/blob/master/internal/config/samples%s', 'internal/config/samples%s'),
+    'commit':('https://github.com/LyingCak3/zrepl/commit/%s', 'commit %s'),
         }
 

@@ -10,7 +10,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
-	"github.com/zrepl/zrepl/internal/client/status/viewmodel"
+	"github.com/LyingCak3/zrepl/internal/client/status/viewmodel"
 )
 
 func interactive(c Client, flag statusFlags) error {

@@ -312,7 +312,7 @@ In the wind-down phase of each replication step `from => to`, while the per-step
 
 - Sending side: **Idempotently move the replication cursor to `to`.**
   - Why: replication cursor tracks the sender's last known replication state, outlives the current plan, but is required to guarantee that future invocations of this algorithm find an incremental path.
-  - Impl for 'atomic' move: have two cursors (fixes [#177](https://github.com/zrepl/zrepl/issues/177))
+  - Impl for 'atomic' move: have two cursors (fixes [#177](https://github.com/LyingCak3/zrepl/issues/177))
       - Idempotently cursor-bookmark `to` using `idempotent_bookmark(to, to.guid, #zrepl_replication_cursor_G_${to.guid}_J_${jobid})`
       - Idempotently destroy old cursor-bookmark of `from` `idempotent_destroy(#zrepl_replication_cursor_G_${from.guid}_J_${jobid}, from)`
     - If `from` is a snapshot, release the hold on it using `idempotent_release(from,  zrepl_J_${jobid})`

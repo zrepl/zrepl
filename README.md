@@ -1,11 +1,6 @@
-[![GitHub license](https://img.shields.io/github/license/zrepl/zrepl.svg)](https://github.com/zrepl/zrepl/blob/master/LICENSE)
+[![GitHub license](https://img.shields.io/github/license/zrepl/zrepl.svg)](https://github.com/LyingCak3/zrepl/blob/master/LICENSE)
 [![Language: Go](https://img.shields.io/badge/lang-Go-6ad7e5.svg)](https://golang.org/)
-[![User Docs](https://img.shields.io/badge/docs-web-blue.svg)](https://zrepl.github.io)
-[![Support me on Patreon](https://img.shields.io/badge/dynamic/json?color=yellow&label=Patreon&query=data.attributes.patron_count&url=https%3A%2F%2Fwww.patreon.com%2Fapi%2Fcampaigns%2F3095079)](https://patreon.com/zrepl)
-[![Donate via GitHub Sponsors](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=yellow)](https://github.com/sponsors/problame)
-[![Donate via Liberapay](https://img.shields.io/liberapay/patrons/zrepl.svg?logo=liberapay)](https://liberapay.com/zrepl/donate)
-[![Donate via PayPal](https://img.shields.io/badge/donate-paypal-yellow.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=R5QSXJVYHGX96)
-[![Twitter](https://img.shields.io/twitter/url/https/github.com/zrepl/zrepl.svg?style=social)](https://twitter.com/intent/tweet?text=Wow:&url=https%3A%2F%2Fgithub.com%2Fzrepl%2Fzrepl)
+[![User Docs](https://img.shields.io/badge/docs-web-blue.svg)](https://zrepl.github.io)s
 [![Chat](https://img.shields.io/badge/chat-matrix-blue.svg)](https://matrix.to/#/#zrepl:matrix.org)
 
 # zrepl
@@ -26,7 +21,6 @@ zrepl is a one-stop ZFS backup & replication solution.
    If so, think of an expressive configuration example.
 2. Think of at least one use case that generalizes from your concrete application.
 3. Open an issue on GitHub with example conf & use case attached.
-4. **Optional**: [Contact Christian Schwarz](https://cschwarz.com) for contract work.
 
 The above does not apply if you already implemented everything.
 Check out the *Coding Workflow* section below for details.

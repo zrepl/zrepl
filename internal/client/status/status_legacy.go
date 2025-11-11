@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rivo/tview"
 
-	"github.com/zrepl/zrepl/internal/client/status/viewmodel"
+	"github.com/LyingCak3/zrepl/internal/client/status/viewmodel"
 )
 
 func legacy(c Client, flag statusFlags) error {

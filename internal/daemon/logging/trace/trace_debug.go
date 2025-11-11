@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/zrepl/zrepl/internal/util/envconst"
+	"github.com/LyingCak3/zrepl/internal/util/envconst"
 )
 
 const debugEnabledEnvVar = "ZREPL_TRACE_DEBUG_ENABLED"

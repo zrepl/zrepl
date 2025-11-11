@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 
-	"github.com/zrepl/zrepl/internal/platformtest"
-	"github.com/zrepl/zrepl/internal/util/nodefault"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/platformtest"
+	"github.com/LyingCak3/zrepl/internal/util/nodefault"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 func sendStreamTest(ctx *platformtest.Context) *zfs.SendStream {

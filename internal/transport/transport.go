@@ -9,10 +9,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/daemon/logging"
-	"github.com/zrepl/zrepl/internal/logger"
-	"github.com/zrepl/zrepl/internal/rpc/dataconn/timeoutconn"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging"
+	"github.com/LyingCak3/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn/timeoutconn"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 type AuthConn struct {

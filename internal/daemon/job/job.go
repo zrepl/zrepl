@@ -7,10 +7,10 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/zrepl/zrepl/internal/daemon/logging"
-	"github.com/zrepl/zrepl/internal/endpoint"
-	"github.com/zrepl/zrepl/internal/logger"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging"
+	"github.com/LyingCak3/zrepl/internal/endpoint"
+	"github.com/LyingCak3/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 type Logger = logger.Logger

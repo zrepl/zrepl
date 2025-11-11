@@ -15,9 +15,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/zrepl/zrepl/internal/daemon/logging"
-	"github.com/zrepl/zrepl/internal/logger"
-	"github.com/zrepl/zrepl/internal/transport"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging"
+	"github.com/LyingCak3/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/transport"
 )
 
 type Logger = logger.Logger

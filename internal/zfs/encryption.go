@@ -9,8 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/util/envconst"
-	"github.com/zrepl/zrepl/internal/zfs/zfscmd"
+	"github.com/LyingCak3/zrepl/internal/util/envconst"
+	"github.com/LyingCak3/zrepl/internal/zfs/zfscmd"
 )
 
 var encryptionCLISupport struct {

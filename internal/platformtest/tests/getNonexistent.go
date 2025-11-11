@@ -3,8 +3,8 @@ package tests
 import (
 	"fmt"
 
-	"github.com/zrepl/zrepl/internal/platformtest"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/platformtest"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 func GetNonexistent(ctx *platformtest.Context) {

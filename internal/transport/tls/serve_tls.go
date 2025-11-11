@@ -8,10 +8,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/tlsconf"
-	"github.com/zrepl/zrepl/internal/transport"
-	"github.com/zrepl/zrepl/internal/util/tcpsock"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/tlsconf"
+	"github.com/LyingCak3/zrepl/internal/transport"
+	"github.com/LyingCak3/zrepl/internal/util/tcpsock"
 )
 
 type TLSListenerFactory struct{}

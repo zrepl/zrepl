@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"strings"
 
-	"github.com/zrepl/zrepl/internal/util/envconst"
+	"github.com/LyingCak3/zrepl/internal/util/envconst"
 )
 
 var genIdNumBytes = envconst.Int("ZREPL_TRACE_ID_NUM_BYTES", 3)

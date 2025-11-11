@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/util/choices"
+	"github.com/LyingCak3/zrepl/internal/util/choices"
 )
 
 func TestChoices(t *testing.T) {

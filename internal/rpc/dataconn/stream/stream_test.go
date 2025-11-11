@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/logger"
-	"github.com/zrepl/zrepl/internal/rpc/dataconn/heartbeatconn"
-	"github.com/zrepl/zrepl/internal/util/socketpair"
+	"github.com/LyingCak3/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn/heartbeatconn"
+	"github.com/LyingCak3/zrepl/internal/util/socketpair"
 )
 
 func TestFrameTypesOk(t *testing.T) {

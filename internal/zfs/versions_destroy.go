@@ -10,8 +10,8 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/zrepl/zrepl/internal/util/envconst"
-	"github.com/zrepl/zrepl/internal/zfs/zfscmd"
+	"github.com/LyingCak3/zrepl/internal/util/envconst"
+	"github.com/LyingCak3/zrepl/internal/zfs/zfscmd"
 )
 
 func ZFSDestroyFilesystemVersion(ctx context.Context, filesystem *DatasetPath, version *FilesystemVersion) (err error) {

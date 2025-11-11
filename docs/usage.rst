@@ -128,15 +128,15 @@ After all tests have run, it prints a summary with a list of tests, grouped by r
 ::
 
    PASSING TESTS:
-     github.com/zrepl/zrepl/platformtest/tests.BatchDestroy
-     github.com/zrepl/zrepl/platformtest/tests.CreateReplicationCursor
-     github.com/zrepl/zrepl/platformtest/tests.GetNonexistent
-     github.com/zrepl/zrepl/platformtest/tests.HoldsWork
+     github.com/LyingCak3/zrepl/platformtest/tests.BatchDestroy
+     github.com/LyingCak3/zrepl/platformtest/tests.CreateReplicationCursor
+     github.com/LyingCak3/zrepl/platformtest/tests.GetNonexistent
+     github.com/LyingCak3/zrepl/platformtest/tests.HoldsWork
      ...
-     github.com/zrepl/zrepl/platformtest/tests.SendStreamNonEOFReadErrorHandling
-     github.com/zrepl/zrepl/platformtest/tests.UndestroyableSnapshotParsing
+     github.com/LyingCak3/zrepl/platformtest/tests.SendStreamNonEOFReadErrorHandling
+     github.com/LyingCak3/zrepl/platformtest/tests.UndestroyableSnapshotParsing
    SKIPPED TESTS:
-     github.com/zrepl/zrepl/platformtest/tests.SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden__EncryptionSupported_false
+     github.com/LyingCak3/zrepl/platformtest/tests.SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden__EncryptionSupported_false
    FAILED TESTS: []
 
 

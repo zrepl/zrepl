@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/util/circlog"
+	"github.com/LyingCak3/zrepl/internal/util/circlog"
 )
 
 func TestCircularLog(t *testing.T) {

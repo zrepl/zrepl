@@ -7,12 +7,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/transport"
-	"github.com/zrepl/zrepl/internal/transport/local"
-	"github.com/zrepl/zrepl/internal/transport/ssh"
-	"github.com/zrepl/zrepl/internal/transport/tcp"
-	"github.com/zrepl/zrepl/internal/transport/tls"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/transport"
+	"github.com/LyingCak3/zrepl/internal/transport/local"
+	"github.com/LyingCak3/zrepl/internal/transport/ssh"
+	"github.com/LyingCak3/zrepl/internal/transport/tcp"
+	"github.com/LyingCak3/zrepl/internal/transport/tls"
 )
 
 func ListenerFactoryFromConfig(g *config.Global, in config.ServeEnum, parseFlags config.ParseFlags) (transport.AuthenticatedListenerFactory, error) {

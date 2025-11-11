@@ -10,9 +10,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/problame/go-netssh"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/daemon/nethelpers"
-	"github.com/zrepl/zrepl/internal/transport"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/daemon/nethelpers"
+	"github.com/LyingCak3/zrepl/internal/transport"
 )
 
 func MultiStdinserverListenerFactoryFromConfig(g *config.Global, in *config.StdinserverServer) (transport.AuthenticatedListenerFactory, error) {

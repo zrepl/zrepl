@@ -12,9 +12,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/daemon/filters"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/daemon/filters"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 // Hook to implement the following recommmendation from MySQL docs

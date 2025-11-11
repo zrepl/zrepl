@@ -5,8 +5,8 @@ import (
 
 	"github.com/problame/go-netssh"
 
-	"github.com/zrepl/zrepl/internal/cli"
-	"github.com/zrepl/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/cli"
+	"github.com/LyingCak3/zrepl/internal/config"
 
 	"context"
 	"errors"

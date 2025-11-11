@@ -10,7 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/daemon"
+	"github.com/LyingCak3/zrepl/internal/daemon"
 )
 
 type Client struct {

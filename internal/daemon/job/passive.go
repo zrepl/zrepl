@@ -7,16 +7,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/zrepl/zrepl/internal/daemon/logging/trace"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging/trace"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/daemon/logging"
-	"github.com/zrepl/zrepl/internal/daemon/snapper"
-	"github.com/zrepl/zrepl/internal/endpoint"
-	"github.com/zrepl/zrepl/internal/rpc"
-	"github.com/zrepl/zrepl/internal/transport"
-	"github.com/zrepl/zrepl/internal/transport/fromconfig"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging"
+	"github.com/LyingCak3/zrepl/internal/daemon/snapper"
+	"github.com/LyingCak3/zrepl/internal/endpoint"
+	"github.com/LyingCak3/zrepl/internal/rpc"
+	"github.com/LyingCak3/zrepl/internal/transport"
+	"github.com/LyingCak3/zrepl/internal/transport/fromconfig"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 type PassiveSide struct {

@@ -11,7 +11,7 @@ import (
 // https://github.com/openSUSE/umoci/blob/v0.2.1/cmd/umoci/main_test.go
 //
 /* How to generate coverage:
-   go test -c -covermode=atomic -cover -coverpkg github.com/zrepl/zrepl/...
+   go test -c -covermode=atomic -cover -coverpkg github.com/LyingCak3/zrepl/...
    sudo ../logmockzfs/logzfsenv /tmp/zrepl_platform_test.log /usr/bin/zfs \
        ./harness.test -test.coverprofile=/tmp/harness.out \
        -test.v __DEVEL--i-heard-you-like-tests \

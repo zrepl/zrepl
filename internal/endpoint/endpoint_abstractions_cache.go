@@ -7,8 +7,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/zrepl/zrepl/internal/daemon/logging/trace"
-	"github.com/zrepl/zrepl/internal/util/chainlock"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging/trace"
+	"github.com/LyingCak3/zrepl/internal/util/chainlock"
 )
 
 var abstractionsCacheMetrics struct {

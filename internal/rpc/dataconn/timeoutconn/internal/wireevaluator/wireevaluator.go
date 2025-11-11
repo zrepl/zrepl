@@ -11,9 +11,9 @@ import (
 	netssh "github.com/problame/go-netssh"
 	"github.com/zrepl/yaml-config"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/transport"
-	transportconfig "github.com/zrepl/zrepl/internal/transport/fromconfig"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/transport"
+	transportconfig "github.com/LyingCak3/zrepl/internal/transport/fromconfig"
 )
 
 func noerror(err error) {

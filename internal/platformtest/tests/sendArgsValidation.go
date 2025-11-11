@@ -7,13 +7,13 @@ import (
 	"github.com/kr/pretty"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/endpoint"
-	"github.com/zrepl/zrepl/internal/platformtest"
-	"github.com/zrepl/zrepl/internal/replication/logic"
-	"github.com/zrepl/zrepl/internal/replication/logic/pdu"
-	"github.com/zrepl/zrepl/internal/replication/report"
-	"github.com/zrepl/zrepl/internal/util/nodefault"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/endpoint"
+	"github.com/LyingCak3/zrepl/internal/platformtest"
+	"github.com/LyingCak3/zrepl/internal/replication/logic"
+	"github.com/LyingCak3/zrepl/internal/replication/logic/pdu"
+	"github.com/LyingCak3/zrepl/internal/replication/report"
+	"github.com/LyingCak3/zrepl/internal/util/nodefault"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 func SendArgsValidationEncryptedSendOfUnencryptedDatasetForbidden__EncryptionSupported_true(ctx *platformtest.Context) {

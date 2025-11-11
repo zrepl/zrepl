@@ -11,13 +11,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/daemon/logging/trace"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging/trace"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/daemon/hooks"
-	"github.com/zrepl/zrepl/internal/daemon/logging"
-	"github.com/zrepl/zrepl/internal/logger"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/daemon/hooks"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging"
+	"github.com/LyingCak3/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 type comparisonAssertionFunc func(require.TestingT, interface{}, interface{}, ...interface{})

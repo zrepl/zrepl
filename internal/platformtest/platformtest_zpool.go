@@ -11,7 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 var ZpoolExportTimeout time.Duration = 500 * time.Millisecond

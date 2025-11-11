@@ -1,6 +1,6 @@
 package client
 
-import "github.com/zrepl/zrepl/internal/cli"
+import "github.com/LyingCak3/zrepl/internal/cli"
 
 var zabsCmdCreate = &cli.Subcommand{
 	Use:             "create",

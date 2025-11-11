@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/zrepl/zrepl/internal/util/chainlock"
+	"github.com/LyingCak3/zrepl/internal/util/chainlock"
 )
 
 type mockBatchDestroy struct {

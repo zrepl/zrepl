@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/zrepl/zrepl/internal/platformtest"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/platformtest"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 func IdempotentDestroy(ctx *platformtest.Context) {

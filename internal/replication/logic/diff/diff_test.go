@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	. "github.com/zrepl/zrepl/internal/replication/logic/pdu"
+	. "github.com/LyingCak3/zrepl/internal/replication/logic/pdu"
 )
 
 func fsvlist(fsv ...string) (r []*FilesystemVersion) {

@@ -1,6 +1,6 @@
 .. _installation-packages:
 
-.. _binary releases: https://github.com/zrepl/zrepl/releases
+.. _binary releases: https://github.com/LyingCak3/zrepl/releases
 
 Packages
 --------

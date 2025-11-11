@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/daemon/logging"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging"
 )
 
 func TestParseHumanFormatter(t *testing.T) {

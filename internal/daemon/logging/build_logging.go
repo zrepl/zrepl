@@ -10,10 +10,10 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/daemon/logging/trace"
-	"github.com/zrepl/zrepl/internal/logger"
-	"github.com/zrepl/zrepl/internal/tlsconf"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging/trace"
+	"github.com/LyingCak3/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/tlsconf"
 )
 
 func OutletsFromConfig(in config.LoggingOutletEnumList) (*logger.Outlets, error) {

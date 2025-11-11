@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zrepl/zrepl/internal/util/nodefault"
-	zfsprop "github.com/zrepl/zrepl/internal/zfs/property"
+	"github.com/LyingCak3/zrepl/internal/util/nodefault"
+	zfsprop "github.com/LyingCak3/zrepl/internal/zfs/property"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -158,7 +158,7 @@ size	10518512
 
 	// zero-length incremental send on ZoL 0.7.12
 	// (it omits the size field as well as the size line if size is 0)
-	// see https://github.com/zrepl/zrepl/issues/289
+	// see https://github.com/LyingCak3/zrepl/issues/289
 	// fixed in https://github.com/openzfs/zfs/commit/835db58592d7d947e5818eb7281882e2a46073e0#diff-66bd524398bcd2ac70d90925ab6d8073L1245
 	incZeroSized_0_7_12 := `
 incremental	p1 with/ spaces d1@1 with space	p1 with/ spaces d1@2 with space

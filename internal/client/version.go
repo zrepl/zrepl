@@ -7,10 +7,10 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/zrepl/zrepl/internal/cli"
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/daemon"
-	"github.com/zrepl/zrepl/internal/version"
+	"github.com/LyingCak3/zrepl/internal/cli"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/daemon"
+	"github.com/LyingCak3/zrepl/internal/version"
 )
 
 var versionArgs struct {

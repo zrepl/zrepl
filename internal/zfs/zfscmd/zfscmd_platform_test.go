@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/util/circlog"
+	"github.com/LyingCak3/zrepl/internal/util/circlog"
 )
 
 const testBin = "./zfscmd_platform_test.bash"

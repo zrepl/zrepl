@@ -15,11 +15,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/zrepl/zrepl/internal/daemon/logging/trace"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging/trace"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 
-	"github.com/zrepl/zrepl/internal/replication/report"
-	"github.com/zrepl/zrepl/internal/util/chainlock"
+	"github.com/LyingCak3/zrepl/internal/replication/report"
+	"github.com/LyingCak3/zrepl/internal/util/chainlock"
 )
 
 type interval struct {

@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/zrepl/zrepl/internal/cli"
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/daemon"
+	"github.com/LyingCak3/zrepl/internal/cli"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/daemon"
 )
 
 var pprofListenCmd struct {

@@ -8,11 +8,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/daemon/hooks"
-	"github.com/zrepl/zrepl/internal/daemon/snapper/snapname"
-	"github.com/zrepl/zrepl/internal/util/suspendresumesafetimer"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/daemon/hooks"
+	"github.com/LyingCak3/zrepl/internal/daemon/snapper/snapname"
+	"github.com/LyingCak3/zrepl/internal/util/suspendresumesafetimer"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 func cronFromConfig(fsf zfs.DatasetFilter, in config.SnapshottingCron) (*Cron, error) {

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	zfsprop "github.com/zrepl/zrepl/internal/zfs/property"
+	zfsprop "github.com/LyingCak3/zrepl/internal/zfs/property"
 )
 
 func TestRecvOptions(t *testing.T) {

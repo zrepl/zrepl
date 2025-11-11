@@ -21,12 +21,12 @@ import (
 
 	"github.com/pkg/profile"
 
-	"github.com/zrepl/zrepl/internal/logger"
-	"github.com/zrepl/zrepl/internal/replication/logic/pdu"
-	"github.com/zrepl/zrepl/internal/rpc/dataconn"
-	"github.com/zrepl/zrepl/internal/rpc/dataconn/timeoutconn"
-	"github.com/zrepl/zrepl/internal/transport"
-	"github.com/zrepl/zrepl/internal/util/devnoop"
+	"github.com/LyingCak3/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/replication/logic/pdu"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn/timeoutconn"
+	"github.com/LyingCak3/zrepl/internal/transport"
+	"github.com/LyingCak3/zrepl/internal/util/devnoop"
 )
 
 func orDie(err error) {

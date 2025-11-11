@@ -69,7 +69,7 @@ func getMyCallerOrPanic() string {
 	}
 	details := runtime.FuncForPC(pc)
 	if ok && details != nil {
-		const prefix = "github.com/zrepl/zrepl"
+		const prefix = "github.com/LyingCak3/zrepl"
 		return strings.TrimPrefix(strings.TrimPrefix(details.Name(), prefix), "/")
 	}
 	return ""

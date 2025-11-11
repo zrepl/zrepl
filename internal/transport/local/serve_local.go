@@ -6,9 +6,9 @@ import (
 	"net"
 	"sync"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/transport"
-	"github.com/zrepl/zrepl/internal/util/socketpair"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/transport"
+	"github.com/LyingCak3/zrepl/internal/util/socketpair"
 )
 
 var localListeners struct {

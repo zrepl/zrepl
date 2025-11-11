@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/util/envconst"
+	"github.com/LyingCak3/zrepl/internal/util/envconst"
 )
 
 type ExampleVarType struct{ string }

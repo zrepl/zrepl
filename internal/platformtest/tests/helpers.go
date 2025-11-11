@@ -10,10 +10,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/daemon/filters"
-	"github.com/zrepl/zrepl/internal/platformtest"
-	"github.com/zrepl/zrepl/internal/util/limitio"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/daemon/filters"
+	"github.com/LyingCak3/zrepl/internal/platformtest"
+	"github.com/LyingCak3/zrepl/internal/util/limitio"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 func sendArgVersion(ctx *platformtest.Context, fs, relName string) zfs.ZFSSendArgVersion {

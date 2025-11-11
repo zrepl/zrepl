@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/zrepl/zrepl/internal/rpc/dataconn/frameconn"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn/frameconn"
 )
 
 func TestFrameTypes(t *testing.T) {

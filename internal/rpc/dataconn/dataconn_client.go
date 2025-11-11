@@ -9,9 +9,9 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/zrepl/zrepl/internal/replication/logic/pdu"
-	"github.com/zrepl/zrepl/internal/rpc/dataconn/stream"
-	"github.com/zrepl/zrepl/internal/transport"
+	"github.com/LyingCak3/zrepl/internal/replication/logic/pdu"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn/stream"
+	"github.com/LyingCak3/zrepl/internal/transport"
 )
 
 type Client struct {

@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"runtime"
 
-	"github.com/zrepl/zrepl/internal/platformtest"
+	"github.com/LyingCak3/zrepl/internal/platformtest"
 )
 
 type Case func(*platformtest.Context)

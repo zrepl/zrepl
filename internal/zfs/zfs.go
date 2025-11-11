@@ -19,11 +19,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/zrepl/zrepl/internal/util/circlog"
-	"github.com/zrepl/zrepl/internal/util/envconst"
-	"github.com/zrepl/zrepl/internal/util/nodefault"
-	zfsprop "github.com/zrepl/zrepl/internal/zfs/property"
-	"github.com/zrepl/zrepl/internal/zfs/zfscmd"
+	"github.com/LyingCak3/zrepl/internal/util/circlog"
+	"github.com/LyingCak3/zrepl/internal/util/envconst"
+	"github.com/LyingCak3/zrepl/internal/util/nodefault"
+	zfsprop "github.com/LyingCak3/zrepl/internal/zfs/property"
+	"github.com/LyingCak3/zrepl/internal/zfs/zfscmd"
 )
 
 type DatasetPath struct {
@@ -447,7 +447,7 @@ func (s *SendStream) killAndWait() error {
 	// And signalling the `zfs send` thread doesn't propagate to the taskq thread.
 	// So we end up in a state where we .Wait() forever.
 	// (See https://github.com/openzfs/zfs/issues/12500 and
-	//  https://github.com/zrepl/zrepl/issues/495#issuecomment-902530043)
+	//  https://github.com/LyingCak3/zrepl/issues/495#issuecomment-902530043)
 	//
 	// By closing our read end of the pipe before .Wait(), we unblock the taskq thread if there is any.
 	// If there is no separate taskq thread, the SIGKILL to `zfs end` would suffice and be most precise,
@@ -1085,7 +1085,7 @@ func (s *DrySendInfo) unmarshalInfoLine(l string) (regexMatched bool, err error)
 
 	if fields["size"] == "" {
 		// workaround for OpenZFS 0.7 prior to https://github.com/openzfs/zfs/commit/835db58592d7d947e5818eb7281882e2a46073e0#diff-66bd524398bcd2ac70d90925ab6d8073L1245
-		// see https://github.com/zrepl/zrepl/issues/289
+		// see https://github.com/LyingCak3/zrepl/issues/289
 		fields["size"] = "0"
 	}
 	s.SizeEstimate, err = strconv.ParseUint(fields["size"], 10, 64)
@@ -1142,7 +1142,7 @@ func ZFSSendDry(ctx context.Context, sendArgs ZFSSendArgsValidated) (_ *DrySendI
 	}
 
 	// There is a bug in OpenZFS where it estimates the size incorrectly.
-	// - zrepl: https://github.com/zrepl/zrepl/issues/463
+	// - zrepl: https://github.com/LyingCak3/zrepl/issues/463
 	// - resulting upstream bug: https://github.com/openzfs/zfs/issues/12265
 	//
 	// The wrong estimates are easy to detect because they are absurdly large.

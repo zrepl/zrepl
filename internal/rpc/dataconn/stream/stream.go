@@ -11,10 +11,10 @@ import (
 	"sync/atomic"
 	"unicode/utf8"
 
-	"github.com/zrepl/zrepl/internal/logger"
-	"github.com/zrepl/zrepl/internal/rpc/dataconn/base2bufpool"
-	"github.com/zrepl/zrepl/internal/rpc/dataconn/frameconn"
-	"github.com/zrepl/zrepl/internal/rpc/dataconn/heartbeatconn"
+	"github.com/LyingCak3/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn/base2bufpool"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn/frameconn"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn/heartbeatconn"
 )
 
 type Logger = logger.Logger

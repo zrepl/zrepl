@@ -12,8 +12,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/zrepl/zrepl/internal/rpc/dataconn/base2bufpool"
-	"github.com/zrepl/zrepl/internal/rpc/dataconn/timeoutconn"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn/base2bufpool"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn/timeoutconn"
 )
 
 type FrameHeader struct {
@@ -300,11 +300,11 @@ func (c *Conn) Shutdown(deadline time.Time) error {
 			return nil
 		}
 
-		// TODO go1.13: https://github.com/zrepl/zrepl/issues/190
+		// TODO go1.13: https://github.com/LyingCak3/zrepl/issues/190
 		//              https://github.com/golang/go/issues/8319
 		// (use errors.Is(closeErr, syscall.ECONNRESET))
 		if pe, ok := closeErr.(*net.OpError); ok && pe.Err == syscall.ECONNRESET {
-			// connection reset by peer on FreeBSD, see https://github.com/zrepl/zrepl/issues/190
+			// connection reset by peer on FreeBSD, see https://github.com/LyingCak3/zrepl/issues/190
 			// We know from kernel code reading that the FD behind c.nc is closed, so let's not consider this an error
 			return nil
 		}

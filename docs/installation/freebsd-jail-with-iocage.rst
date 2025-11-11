@@ -149,4 +149,4 @@ Congratulations, you have a working jail!
    With FreeBSD 13's transition to OpenZFS 2.0, please ensure that your jail's FreeBSD version matches the one in the kernel module.
    If you are getting cryptic errors such as
    ``cannot receive new filesystem stream: invalid backup stream``
-   the instructions posted `here <https://github.com/zrepl/zrepl/issues/500#issuecomment-966215205>`_ might help.
+   the instructions posted `here <https://github.com/LyingCak3/zrepl/issues/500#issuecomment-966215205>`_ might help.

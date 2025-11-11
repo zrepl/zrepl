@@ -1,12 +1,12 @@
 // Package grpcclientidentity makes the client identity
-// provided by github.com/zrepl/zrepl/daemon/transport/serve.{AuthenticatedListener,AuthConn}
+// provided by github.com/LyingCak3/zrepl/daemon/transport/serve.{AuthenticatedListener,AuthConn}
 // available to gRPC service handlers.
 //
 // This goal is achieved through the combination of custom gRPC transport credentials and two interceptors
 // (i.e. middleware).
 //
 // For gRPC clients, the TransportCredentials + Dialer can be used to construct a gRPC client (grpc.ClientConn)
-// that uses a  github.com/zrepl/zrepl/daemon/transport/connect.Connecter to connect to a server.
+// that uses a  github.com/LyingCak3/zrepl/daemon/transport/connect.Connecter to connect to a server.
 //
 // The adaptors exposed by this package must be used together, and panic if they are not.
 // See package grpchelper for a more restrictive but safe example on how the adaptors should be composed.
@@ -21,8 +21,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
-	"github.com/zrepl/zrepl/internal/logger"
-	"github.com/zrepl/zrepl/internal/transport"
+	"github.com/LyingCak3/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/transport"
 )
 
 type Logger = logger.Logger
@@ -119,7 +119,7 @@ func NewInterceptors(logger Logger, clientIdentityKey interface{}, interceptor I
 			panic("peer.FromContext expected to return a peer in grpc.UnaryServerInterceptor")
 		}
 		peerAddr := ""
-		if p.Addr != nil { // https://github.com/zrepl/zrepl/issues/598
+		if p.Addr != nil { // https://github.com/LyingCak3/zrepl/issues/598
 			peerAddr = p.Addr.String()
 		}
 		logger.WithField("peer_addr", peerAddr).Debug("peer addr")

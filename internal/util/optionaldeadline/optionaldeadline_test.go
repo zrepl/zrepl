@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/util/chainlock"
-	"github.com/zrepl/zrepl/internal/util/zreplcircleci"
+	"github.com/LyingCak3/zrepl/internal/util/chainlock"
+	"github.com/LyingCak3/zrepl/internal/util/zreplcircleci"
 )
 
 func TestContextWithOptionalDeadline(t *testing.T) {

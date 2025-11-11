@@ -7,8 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/util/bandwidthlimit"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/util/bandwidthlimit"
 )
 
 func JobsFromConfig(c *config.Config, parseFlags config.ParseFlags) ([]Job, error) {

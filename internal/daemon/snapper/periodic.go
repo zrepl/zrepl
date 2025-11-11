@@ -9,15 +9,15 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/daemon/logging/trace"
-	"github.com/zrepl/zrepl/internal/daemon/snapper/snapname"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging/trace"
+	"github.com/LyingCak3/zrepl/internal/daemon/snapper/snapname"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/daemon/hooks"
-	"github.com/zrepl/zrepl/internal/daemon/logging"
-	"github.com/zrepl/zrepl/internal/util/envconst"
-	"github.com/zrepl/zrepl/internal/util/suspendresumesafetimer"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/daemon/hooks"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging"
+	"github.com/LyingCak3/zrepl/internal/util/envconst"
+	"github.com/LyingCak3/zrepl/internal/util/suspendresumesafetimer"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 func periodicFromConfig(g *config.Global, fsf zfs.DatasetFilter, in *config.SnapshottingPeriodic) (*Periodic, error) {

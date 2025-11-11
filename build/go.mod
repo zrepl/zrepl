@@ -1,4 +1,4 @@
-module github.com/zrepl/zrepl/build
+module github.com/LyingCak3/zrepl/build
 
 go 1.22.7
 toolchain go1.23.1

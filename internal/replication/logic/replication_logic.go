@@ -10,17 +10,17 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/zrepl/zrepl/internal/daemon/logging/trace"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging/trace"
 
-	"github.com/zrepl/zrepl/internal/logger"
-	"github.com/zrepl/zrepl/internal/replication/driver"
-	. "github.com/zrepl/zrepl/internal/replication/logic/diff"
-	"github.com/zrepl/zrepl/internal/replication/logic/pdu"
-	"github.com/zrepl/zrepl/internal/replication/report"
-	"github.com/zrepl/zrepl/internal/util/bytecounter"
-	"github.com/zrepl/zrepl/internal/util/chainlock"
-	"github.com/zrepl/zrepl/internal/util/semaphore"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/replication/driver"
+	. "github.com/LyingCak3/zrepl/internal/replication/logic/diff"
+	"github.com/LyingCak3/zrepl/internal/replication/logic/pdu"
+	"github.com/LyingCak3/zrepl/internal/replication/report"
+	"github.com/LyingCak3/zrepl/internal/util/bytecounter"
+	"github.com/LyingCak3/zrepl/internal/util/chainlock"
+	"github.com/LyingCak3/zrepl/internal/util/semaphore"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 // Endpoint represents one side of the replication.
@@ -38,7 +38,7 @@ type Endpoint interface {
 type Sender interface {
 	Endpoint
 	// If a non-nil io.ReadCloser is returned, it is guaranteed to be closed before
-	// any next call to the parent github.com/zrepl/zrepl/replication.Endpoint.
+	// any next call to the parent github.com/LyingCak3/zrepl/replication.Endpoint.
 	// If the send request is for dry run the io.ReadCloser will be nil
 	Send(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, io.ReadCloser, error)
 	SendDry(ctx context.Context, r *pdu.SendReq) (*pdu.SendRes, error)
@@ -49,7 +49,7 @@ type Sender interface {
 type Receiver interface {
 	Endpoint
 	// Receive sends r and sendStream (the latter containing a ZFS send stream)
-	// to the parent github.com/zrepl/zrepl/replication.Endpoint.
+	// to the parent github.com/LyingCak3/zrepl/replication.Endpoint.
 	Receive(ctx context.Context, req *pdu.ReceiveReq, receive io.ReadCloser) (*pdu.ReceiveRes, error)
 }
 

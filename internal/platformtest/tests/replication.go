@@ -13,19 +13,19 @@ import (
 	"github.com/kr/pretty"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/daemon/filters"
-	"github.com/zrepl/zrepl/internal/endpoint"
-	"github.com/zrepl/zrepl/internal/platformtest"
-	"github.com/zrepl/zrepl/internal/replication"
-	"github.com/zrepl/zrepl/internal/replication/driver"
-	"github.com/zrepl/zrepl/internal/replication/logic"
-	"github.com/zrepl/zrepl/internal/replication/logic/pdu"
-	"github.com/zrepl/zrepl/internal/replication/report"
-	"github.com/zrepl/zrepl/internal/util/bandwidthlimit"
-	"github.com/zrepl/zrepl/internal/util/limitio"
-	"github.com/zrepl/zrepl/internal/util/nodefault"
-	"github.com/zrepl/zrepl/internal/zfs"
-	zfsprop "github.com/zrepl/zrepl/internal/zfs/property"
+	"github.com/LyingCak3/zrepl/internal/daemon/filters"
+	"github.com/LyingCak3/zrepl/internal/endpoint"
+	"github.com/LyingCak3/zrepl/internal/platformtest"
+	"github.com/LyingCak3/zrepl/internal/replication"
+	"github.com/LyingCak3/zrepl/internal/replication/driver"
+	"github.com/LyingCak3/zrepl/internal/replication/logic"
+	"github.com/LyingCak3/zrepl/internal/replication/logic/pdu"
+	"github.com/LyingCak3/zrepl/internal/replication/report"
+	"github.com/LyingCak3/zrepl/internal/util/bandwidthlimit"
+	"github.com/LyingCak3/zrepl/internal/util/limitio"
+	"github.com/LyingCak3/zrepl/internal/util/nodefault"
+	"github.com/LyingCak3/zrepl/internal/zfs"
+	zfsprop "github.com/LyingCak3/zrepl/internal/zfs/property"
 )
 
 // mimics the replication invocations of an active-side job
@@ -1484,7 +1484,7 @@ func ReplicationInitialFail(ctx *platformtest.Context) {
 	require.Contains(ctx, report.Attempts[0].Filesystems[0].PlanError.Err, "automatic conflict resolution for initial replication is disabled in config")
 }
 
-// https://github.com/zrepl/zrepl/issues/742
+// https://github.com/LyingCak3/zrepl/issues/742
 func ReplicationOfPlaceholderFilesystemsInChainedReplicationScenario(ctx *platformtest.Context) {
 
 	//

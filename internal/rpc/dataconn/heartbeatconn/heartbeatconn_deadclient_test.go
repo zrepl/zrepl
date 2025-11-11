@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/rpc/dataconn/heartbeatconn"
-	"github.com/zrepl/zrepl/internal/util/socketpair"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn/heartbeatconn"
+	"github.com/LyingCak3/zrepl/internal/util/socketpair"
 )
 
 // Test behavior of heartbeatconn when the client is dead.

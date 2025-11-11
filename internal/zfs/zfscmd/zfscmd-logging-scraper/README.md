@@ -1,4 +1,4 @@
-The tool in this package (`go run . -h`) scrapes log lines produces by the `github.com/zrepl/zrepl/zfs/zfscmd` package
+The tool in this package (`go run . -h`) scrapes log lines produces by the `github.com/LyingCak3/zrepl/zfs/zfscmd` package
 into a stream of JSON objects.
 
 The `analysis.ipynb` then runs some basic analysis on the collected log output.

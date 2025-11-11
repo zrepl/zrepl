@@ -9,14 +9,14 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/zrepl/zrepl/internal/util/envconst"
+	"github.com/LyingCak3/zrepl/internal/util/envconst"
 )
 
 func getPipeCapacityHint(envvar string) int {
 	var capacity int64 = 1 << 25
 
 	// Work around a race condition in Linux >= 5.8 related to pipe resizing.
-	// https://github.com/zrepl/zrepl/issues/424#issuecomment-800370928
+	// https://github.com/LyingCak3/zrepl/issues/424#issuecomment-800370928
 	// https://bugzilla.kernel.org/show_bug.cgi?id=212295
 	if _, err := os.Stat("/proc/sys/fs/pipe-max-size"); err == nil {
 		if dat, err := os.ReadFile("/proc/sys/fs/pipe-max-size"); err == nil {

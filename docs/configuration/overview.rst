@@ -247,7 +247,7 @@ This section documents considerations for more complex setups.
 
 .. NOTE::
 
-   If you can't find your desired configuration, have questions or would like to see improvements to multi-job setups, please `open an issue on GitHub <https://github.com/zrepl/zrepl/issues/new>`_.
+   If you can't find your desired configuration, have questions or would like to see improvements to multi-job setups, please `open an issue on GitHub <https://github.com/LyingCak3/zrepl/issues/new>`_.
 
 Multiple Jobs on One Machine
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -6,8 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/daemon/snapper/snapname/timestamp"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/daemon/snapper/snapname/timestamp"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 type Formatter struct {

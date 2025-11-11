@@ -10,7 +10,7 @@ import (
 	"github.com/go-logfmt/logfmt"
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/logger"
 )
 
 const (

@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zrepl/zrepl/internal/daemon/logging/trace"
-	"github.com/zrepl/zrepl/internal/util/circlog"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging/trace"
+	"github.com/LyingCak3/zrepl/internal/util/circlog"
 )
 
 type Cmd struct {

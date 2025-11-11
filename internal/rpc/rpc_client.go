@@ -12,17 +12,17 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/zrepl/zrepl/internal/daemon/logging/trace"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging/trace"
 
 	"github.com/google/uuid"
 
-	"github.com/zrepl/zrepl/internal/replication/logic"
-	"github.com/zrepl/zrepl/internal/replication/logic/pdu"
-	"github.com/zrepl/zrepl/internal/rpc/dataconn"
-	"github.com/zrepl/zrepl/internal/rpc/grpcclientidentity/grpchelper"
-	"github.com/zrepl/zrepl/internal/rpc/versionhandshake"
-	"github.com/zrepl/zrepl/internal/transport"
-	"github.com/zrepl/zrepl/internal/util/envconst"
+	"github.com/LyingCak3/zrepl/internal/replication/logic"
+	"github.com/LyingCak3/zrepl/internal/replication/logic/pdu"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn"
+	"github.com/LyingCak3/zrepl/internal/rpc/grpcclientidentity/grpchelper"
+	"github.com/LyingCak3/zrepl/internal/rpc/versionhandshake"
+	"github.com/LyingCak3/zrepl/internal/transport"
+	"github.com/LyingCak3/zrepl/internal/util/envconst"
 )
 
 // Client implements the active side of a replication setup.

@@ -11,8 +11,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/net/websocket"
 
-	"github.com/zrepl/zrepl/internal/daemon/job"
-	"github.com/zrepl/zrepl/internal/daemon/logging/trace"
+	"github.com/LyingCak3/zrepl/internal/daemon/job"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging/trace"
 )
 
 type pprofServer struct {

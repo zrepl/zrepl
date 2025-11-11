@@ -12,8 +12,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/rpc/dataconn/heartbeatconn"
-	"github.com/zrepl/zrepl/internal/rpc/dataconn/timeoutconn"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn/heartbeatconn"
+	"github.com/LyingCak3/zrepl/internal/rpc/dataconn/timeoutconn"
 )
 
 type Conn struct {

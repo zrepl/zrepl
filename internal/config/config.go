@@ -10,8 +10,8 @@ import (
 	"github.com/robfig/cron/v3"
 	"github.com/zrepl/yaml-config"
 
-	"github.com/zrepl/zrepl/internal/util/datasizeunit"
-	zfsprop "github.com/zrepl/zrepl/internal/zfs/property"
+	"github.com/LyingCak3/zrepl/internal/util/datasizeunit"
+	zfsprop "github.com/LyingCak3/zrepl/internal/zfs/property"
 )
 
 type ParseFlags uint

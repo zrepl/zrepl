@@ -9,11 +9,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/logger"
-	"github.com/zrepl/zrepl/internal/rpc/grpcclientidentity/example/pdu"
-	"github.com/zrepl/zrepl/internal/rpc/grpcclientidentity/grpchelper"
-	"github.com/zrepl/zrepl/internal/transport/tcp"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/rpc/grpcclientidentity/example/pdu"
+	"github.com/LyingCak3/zrepl/internal/rpc/grpcclientidentity/grpchelper"
+	"github.com/LyingCak3/zrepl/internal/transport/tcp"
 )
 
 var args struct {

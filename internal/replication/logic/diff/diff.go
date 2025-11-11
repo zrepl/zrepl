@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	. "github.com/zrepl/zrepl/internal/replication/logic/pdu"
+	. "github.com/LyingCak3/zrepl/internal/replication/logic/pdu"
 )
 
 type ConflictNoCommonAncestor struct {

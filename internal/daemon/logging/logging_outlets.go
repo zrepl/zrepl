@@ -11,7 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/logger"
+	"github.com/LyingCak3/zrepl/internal/logger"
 )
 
 type EntryFormatter interface {

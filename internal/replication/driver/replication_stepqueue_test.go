@@ -13,8 +13,8 @@ import (
 	"github.com/montanaflynn/stats"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/zrepl/zrepl/internal/daemon/logging/trace"
-	"github.com/zrepl/zrepl/internal/util/zreplcircleci"
+	"github.com/LyingCak3/zrepl/internal/daemon/logging/trace"
+	"github.com/LyingCak3/zrepl/internal/util/zreplcircleci"
 )
 
 func TestPqNotconcurrent(t *testing.T) {

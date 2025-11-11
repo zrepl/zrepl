@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/endpoint"
-	"github.com/zrepl/zrepl/internal/transport"
+	"github.com/LyingCak3/zrepl/internal/endpoint"
+	"github.com/LyingCak3/zrepl/internal/transport"
 )
 
 func TestFakeActiveSideDirectMethodInvocationClientIdentityDoesNotPassValidityTest(t *testing.T) {

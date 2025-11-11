@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 type Type string

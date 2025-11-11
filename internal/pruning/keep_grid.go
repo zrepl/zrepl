@@ -7,8 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/config"
-	"github.com/zrepl/zrepl/internal/pruning/retentiongrid"
+	"github.com/LyingCak3/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/pruning/retentiongrid"
 )
 
 // KeepGrid fits snapshots that match a given regex into a retentiongrid.Grid,

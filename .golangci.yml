@@ -5,7 +5,7 @@ linters:
 
 linters-settings:
   goimports:
-    local-prefixes: github.com/zrepl/zrepl
+    local-prefixes: github.com/LyingCak3/zrepl
   revive:
     rules:
       - name: time-equal

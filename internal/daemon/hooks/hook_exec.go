@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zrepl/zrepl/internal/zfs"
+	"github.com/LyingCak3/zrepl/internal/zfs"
 )
 
 // Re-export type here so that
 // every file in package hooks doesn't
-// have to import github.com/zrepl/zrepl/zfs
+// have to import github.com/LyingCak3/zrepl/zfs
 type Filter zfs.DatasetFilter
 
 type Hook interface {

@@ -99,7 +99,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/zrepl/zrepl/internal/util/chainlock"
+	"github.com/LyingCak3/zrepl/internal/util/chainlock"
 )
 
 var metrics struct {

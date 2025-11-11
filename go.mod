@@ -1,4 +1,4 @@
-module github.com/zrepl/zrepl
+module github.com/LyingCak3/zrepl
 
 go 1.22.7
 

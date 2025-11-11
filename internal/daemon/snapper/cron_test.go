@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zrepl/yaml-config"
 
-	"github.com/zrepl/zrepl/internal/config"
+	"github.com/LyingCak3/zrepl/internal/config"
 )
 
 func TestCronLibraryWorks(t *testing.T) {
@@ -43,7 +43,7 @@ func TestCronLibraryWorks(t *testing.T) {
 		{"* 0-5,8,12 * * *", hm(5, 59), hm(8, 0)},
 		{"* 0-5,8,12 * * *", hm(8, 59), hm(12, 0)},
 
-		// https://github.com/zrepl/zrepl/pull/614#issuecomment-1188358989
+		// https://github.com/LyingCak3/zrepl/pull/614#issuecomment-1188358989
 		{"53 17,18,19 * * *", dhm(23, 17, 52), dhm(23, 17, 53)},
 		{"53 17,18,19 * * *", dhm(23, 17, 53), dhm(23, 18, 53)},
 		{"53 17,18,19 * * *", dhm(23, 18, 53), dhm(23, 19, 53)},

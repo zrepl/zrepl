@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zrepl/zrepl/internal/util/socketpair"
-	"github.com/zrepl/zrepl/internal/util/zreplcircleci"
+	"github.com/LyingCak3/zrepl/internal/util/socketpair"
+	"github.com/LyingCak3/zrepl/internal/util/zreplcircleci"
 )
 
 func TestReadTimeout(t *testing.T) {

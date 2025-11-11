@@ -9,7 +9,7 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
 
-	"github.com/zrepl/zrepl/internal/client/status/viewmodel"
+	"github.com/LyingCak3/zrepl/internal/client/status/viewmodel"
 )
 
 func dump(c Client, job string) error {
