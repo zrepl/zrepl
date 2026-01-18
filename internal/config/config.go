@@ -688,7 +688,7 @@ func ParseConfig(path string) (rootConfig *Config, err error) {
 		return nil, err
 	}
 
-	err = ExpandConfigInclude(path, rootConfig)
+	err = expandConfigInclude(path, rootConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -696,11 +696,7 @@ func ParseConfig(path string) (rootConfig *Config, err error) {
 	return rootConfig, err
 }
 
-func ExpandConfigInclude(configPath string, config *Config) (err error) {
-	if config == nil {
-		return nil
-	}
-
+func expandConfigInclude(configPath string, config *Config) (err error) {
 	var includeConfigPaths []string
 	for _, path := range config.Include {
 		if !pathpkg.IsAbs(configPath) {
