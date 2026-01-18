@@ -1,6 +1,6 @@
 .. include:: ../global.rst.inc
 
-.. _include:
+.. _inlude_config_files:
 
 Including Configuration Files
 =============================
@@ -27,9 +27,9 @@ directory will be included.
 
 
 Included configuration files can only specify the following keys:
-   - :ref:`jobs <include-jobs>`
+   - :ref:`jobs <include_config_files_jobs>`
 
-.. _include-jobs:
+.. _include_config_files_jobs:
 
 Including Jobs
 --------------
