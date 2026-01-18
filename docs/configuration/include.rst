@@ -5,7 +5,7 @@
 Including Configuration Files
 =============================
 
-It is possible to distribute zrep configurations over multiple YAML configuration
+It is possible to distribute zrepl configurations over multiple YAML configuration
 files. This is achieved by using the `include` key which can only exist in the main
 configuration file.
 
@@ -23,8 +23,7 @@ directory will be included.
 
 .. NOTE::
    The included path is treated as absolute when starting with `/` else it
-   is treated as a relative path that is added to the filepath.Dir() of the
-   :doc:`main config file path <overview>` used by the daemon.
+   is treated as a relative path to the main config file's parent directory.
 
 
 Included configuration files can only specify the following keys:
