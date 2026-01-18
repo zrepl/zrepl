@@ -565,7 +565,7 @@
           "instant": false,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "__auto",
+          "legendFormat": "{{instance}}/{{zrepl_job}}",
           "orderByTime": "ASC",
           "policy": "default",
           "range": true,
@@ -1641,7 +1641,7 @@
   "timezone": "browser",
   "title": "zrepl",
   "uid": "etQuvaBnGz",
-  "version": 5,
+  "version": 6,
   "weekStart": "",
   "id": null
 }
