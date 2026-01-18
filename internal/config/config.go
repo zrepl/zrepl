@@ -703,13 +703,13 @@ func ExpandConfigInclude(configPath string, config *Config) (err error) {
 
 	var includeConfigPaths []string
 	for _, path := range config.Include {
-		if configPath[0] != '/' {
+		if !pathpkg.IsAbs(configPath) {
 			path = pathpkg.Join(pathpkg.Dir(configPath), path)
 		}
 
 		stat, statErr := os.Stat(path)
 		if statErr != nil {
-			return errors.Errorf("Could not open included configuration path: %s", path)
+			return errors.Wrapf(statErr, "stat path %q", path)
 		}
 
 		if stat.Mode().IsDir() {
@@ -721,18 +721,18 @@ func ExpandConfigInclude(configPath string, config *Config) (err error) {
 			includeConfigPaths = append(includeConfigPaths, directoryPaths...)
 		} else if stat.Mode().IsRegular() {
 			if extention := filepath.Ext(path); extention != ".yml" {
-				return errors.Errorf("Only .yml files can be included: %s", path)
+				return fmt.Errorf("include config files must end with `.yml`: %s", path)
 			}
 			includeConfigPaths = append(includeConfigPaths, path)
 		} else {
-			return errors.Errorf("Only directories or .yml files can be included: %s", path)
+			return fmt.Errorf("not a file or directory: %s", path)
 		}
 	}
 
 	for _, path := range includeConfigPaths {
 		var bytes []byte
 		if bytes, err = os.ReadFile(path); err != nil {
-			return err
+			return errors.Wrapf(err, "read file: %q", path)
 		}
 
 		includedConfig, err := ParseConfigBytes(bytes)
@@ -741,7 +741,7 @@ func ExpandConfigInclude(configPath string, config *Config) (err error) {
 		}
 
 		if len(includedConfig.Include) > 0 {
-			return errors.Errorf("Included configuration files cannot include other files: %s", path)
+			return errors.Errorf("included configuration files must not include other files: %s", path)
 		}
 
 		config.Jobs = append(config.Jobs, includedConfig.Jobs...)
@@ -755,7 +755,6 @@ func ParseConfigBytes(bytes []byte) (*Config, error) {
 	if err := yaml.UnmarshalStrict(bytes, &c); err != nil {
 		return nil, err
 	}
-
 	if c != nil {
 		return c, nil
 	}
