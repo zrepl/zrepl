@@ -165,7 +165,7 @@ The connection fails if either do not match.
 Mutual-TLS between Two Machines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-However, for a two-machine setup, self-signed certificates distributed using an out-of-band mechanism will also work just fine:
+For a two-machine setup, self-signed certificates distributed using an out-of-band mechanism will also work just fine:
 
 Suppose you have a push-mode setup, with `backups.example.com` running the :ref:`sink job <job-sink>`, and `prod.example.com` running the :ref:`push job <job-push>`.
 Run the following OpenSSL commands on each host, substituting HOSTNAME in both filenames and the interactive input prompt by OpenSSL:
@@ -218,19 +218,19 @@ Tools like `EasyRSA <https://github.com/OpenVPN/easy-rsa>`_ make this very easy:
      #!/usr/bin/env bash
      set -euo pipefail
 
-     HOSTS=(backupserver prod1 prod2 prod3)
+     HOSTS=(backupserver prod1 prod2 prod3 10.23.42.1)
 
-     curl -L https://github.com/OpenVPN/easy-rsa/releases/download/v3.0.7/EasyRSA-3.0.7.tgz > EasyRSA-3.0.7.tgz
-     echo "157d2e8c115c3ad070c1b2641a4c9191e06a32a8e50971847a718251eeb510a8  EasyRSA-3.0.7.tgz" | sha256sum -c
-     rm -rf EasyRSA-3.0.7
-     tar -xf EasyRSA-3.0.7.tgz
-     cd EasyRSA-3.0.7
-     ./easyrsa
-     ./easyrsa init-pki
-     ./easyrsa build-ca nopass
+     curl -L https://github.com/OpenVPN/easy-rsa/releases/download/v3.2.5/EasyRSA-3.2.5.tgz > EasyRSA-3.2.5.tgz
+     echo "662ee3b453155aeb1dff7096ec052cd83176c460cfa82ac130ef8568ec4df490  EasyRSA-3.2.5.tgz" | sha256sum -c
+     rm -rf EasyRSA-3.2.5
+     tar -xf EasyRSA-3.2.5.tgz
+     cd EasyRSA-3.2.5
+     ./easyrsa --batch
+     ./easyrsa --batch init-pki
+     ./easyrsa --batch build-ca nopass
 
      for host in "${HOSTS[@]}"; do
-         ./easyrsa build-serverClient-full $host nopass
+         ./easyrsa --batch --auto-san build-serverClient-full $host nopass
          echo cert for host $host available at pki/issued/$host.crt
          echo key for host $host available at pki/private/$host.key
      done
