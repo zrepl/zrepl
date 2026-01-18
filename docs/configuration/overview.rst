@@ -30,6 +30,45 @@ Config File Structure
 A zrepl configuration file is divided in to two main sections: ``global`` and ``jobs``.
 ``global`` has sensible defaults. It is covered in :ref:`logging <logging>`, :ref:`monitoring <monitoring>` \& :ref:`miscellaneous <miscellaneous>`.
 
+
+``conf.d``: including config files
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+It is possible to distribute zrepl configurations over multiple YAML configuration
+files. This is achieved by using the `include` key which can only exist in the main
+configuration file.
+
+The list of included paths must point to either individual YAML files or directories.
+If the path points to a directory then all YAML files with a `.yml` extention in the
+directory will be included.
+
+.. code-block:: yaml
+
+    # /etc/zrepl/zrep.yml
+    global: ...
+    include:
+      - ./jobs.d/
+      - /opt/some_job.yml
+
+    # /etc/zrepl/jobs.d/backup.yml
+    jobs:
+    - name: backup
+      type: push
+    - ...
+
+    # /opt/some_job.yml
+    jobs:
+    - name: another_job
+      ...
+    - ...
+
+
+
+The paths are treated as absolute when starting with `/`, otherwise
+as a relative path to the main config file's parent directory.
+
+Job names must be unique across all included configuration files.
+
 .. _job-overview:
 
 Jobs \& How They Work Together
