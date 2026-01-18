@@ -658,7 +658,7 @@ var ConfigFileDefaultLocations = []string{
 	"/usr/local/etc/zrepl/zrepl.yml",
 }
 
-func ParseConfig(path string) (i *Config, err error) {
+func ParseConfig(path string) (rootConfig *Config, err error) {
 
 	// Parse main configuration file
 	if path == "" {
@@ -683,17 +683,17 @@ func ParseConfig(path string) (i *Config, err error) {
 		return
 	}
 
-	i, err = ParseConfigBytes(bytes)
+	rootConfig, err = ParseConfigBytes(bytes)
 	if err != nil {
 		return nil, err
 	}
 
-	err = ExpandConfigInclude(path, i)
+	err = ExpandConfigInclude(path, rootConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return i, err
+	return rootConfig, err
 }
 
 func ExpandConfigInclude(configPath string, config *Config) (err error) {
