@@ -6,6 +6,7 @@ import (
 	"os"
 	pathpkg "path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -693,7 +694,30 @@ func ParseConfig(path string) (rootConfig *Config, err error) {
 		return nil, err
 	}
 
+	if err = validateJobNames(rootConfig); err != nil {
+		return nil, err
+	}
+
 	return rootConfig, err
+}
+
+func IsInternalJobName(s string) bool {
+	return strings.HasPrefix(s, "_")
+}
+
+func validateJobNames(config *Config) error {
+	seen := make(map[string]struct{})
+	for _, job := range config.Jobs {
+		name := job.Name()
+		if IsInternalJobName(name) {
+			return errors.Errorf("job name %q is reserved for internal use (starts with _)", name)
+		}
+		if _, ok := seen[name]; ok {
+			return errors.Errorf("duplicate job name %q", name)
+		}
+		seen[name] = struct{}{}
+	}
+	return nil
 }
 
 func expandConfigInclude(configPath string, config *Config) (err error) {

@@ -11,7 +11,7 @@ import (
 	yaml "github.com/zrepl/yaml-config"
 
 	"github.com/zrepl/zrepl/internal/client/status/viewmodel/stringbuilder"
-	"github.com/zrepl/zrepl/internal/daemon"
+	"github.com/zrepl/zrepl/internal/config"
 	"github.com/zrepl/zrepl/internal/daemon/job"
 	"github.com/zrepl/zrepl/internal/daemon/pruner"
 	"github.com/zrepl/zrepl/internal/daemon/snapper"
@@ -85,7 +85,7 @@ func (m *M) Update(p Params) {
 	// filter out internal jobs
 	var jobsList []*Job
 	for _, j := range m.jobsList {
-		if daemon.IsInternalJobName(j.name) {
+		if config.IsInternalJobName(j.name) {
 			continue
 		}
 		jobsList = append(jobsList, j)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -64,7 +63,7 @@ func Run(ctx context.Context, conf *config.Config) error {
 	})
 
 	for _, job := range confJobs {
-		if IsInternalJobName(job.Name()) {
+		if config.IsInternalJobName(job.Name()) {
 			panic(fmt.Sprintf("internal job name used for config job '%s'", job.Name())) //FIXME
 		}
 	}
@@ -211,10 +210,6 @@ const (
 	jobNameControl    = "_control"
 )
 
-func IsInternalJobName(s string) bool {
-	return strings.HasPrefix(s, "_")
-}
-
 func (s *jobs) start(ctx context.Context, j job.Job, internal bool) {
 	s.m.Lock()
 	defer s.m.Unlock()
@@ -222,10 +217,12 @@ func (s *jobs) start(ctx context.Context, j job.Job, internal bool) {
 	ctx = logging.WithInjectedField(ctx, logging.JobField, j.Name())
 
 	jobName := j.Name()
-	if !internal && IsInternalJobName(jobName) {
+
+	// package `config` enforces these with clean errors, these are just assertions
+	if !internal && config.IsInternalJobName(jobName) {
 		panic(fmt.Sprintf("internal job name used for non-internal job %s", jobName))
 	}
-	if internal && !IsInternalJobName(jobName) {
+	if internal && !config.IsInternalJobName(jobName) {
 		panic(fmt.Sprintf("internal job does not use internal job name %s", jobName))
 	}
 	if _, ok := s.jobs[jobName]; ok {
