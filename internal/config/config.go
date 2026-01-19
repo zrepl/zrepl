@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log/syslog"
 	"os"
+	pathpkg "path"
+	"path/filepath"
 	"time"
 
 	"github.com/pkg/errors"
@@ -22,8 +24,9 @@ const (
 )
 
 type Config struct {
-	Jobs   []JobEnum `yaml:"jobs,optional"`
-	Global *Global   `yaml:"global,optional,fromdefaults"`
+	Jobs    []JobEnum `yaml:"jobs,optional"`
+	Global  *Global   `yaml:"global,optional,fromdefaults"`
+	Include []string  `yaml:"include,optional"`
 }
 
 func (c *Config) Job(name string) (*JobEnum, error) {
@@ -655,8 +658,9 @@ var ConfigFileDefaultLocations = []string{
 	"/usr/local/etc/zrepl/zrepl.yml",
 }
 
-func ParseConfig(path string) (i *Config, err error) {
+func ParseConfig(path string) (rootConfig *Config, err error) {
 
+	// Parse main configuration file
 	if path == "" {
 		// Try default locations
 		for _, l := range ConfigFileDefaultLocations {
@@ -679,7 +683,67 @@ func ParseConfig(path string) (i *Config, err error) {
 		return
 	}
 
-	return ParseConfigBytes(bytes)
+	rootConfig, err = ParseConfigBytes(bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	err = expandConfigInclude(path, rootConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return rootConfig, err
+}
+
+func expandConfigInclude(configPath string, config *Config) (err error) {
+	var includeConfigPaths []string
+	for _, path := range config.Include {
+		if !pathpkg.IsAbs(configPath) {
+			path = pathpkg.Join(pathpkg.Dir(configPath), path)
+		}
+
+		stat, statErr := os.Stat(path)
+		if statErr != nil {
+			return errors.Wrapf(statErr, "stat path %q", path)
+		}
+
+		if stat.Mode().IsDir() {
+			directoryPaths, err := filepath.Glob(path + "/*.yml")
+			if err != nil {
+				return err
+			}
+
+			includeConfigPaths = append(includeConfigPaths, directoryPaths...)
+		} else if stat.Mode().IsRegular() {
+			if extention := filepath.Ext(path); extention != ".yml" {
+				return fmt.Errorf("include config files must end with `.yml`: %s", path)
+			}
+			includeConfigPaths = append(includeConfigPaths, path)
+		} else {
+			return fmt.Errorf("not a file or directory: %s", path)
+		}
+	}
+
+	for _, path := range includeConfigPaths {
+		var bytes []byte
+		if bytes, err = os.ReadFile(path); err != nil {
+			return errors.Wrapf(err, "read file: %q", path)
+		}
+
+		includedConfig, err := ParseConfigBytes(bytes)
+		if err != nil {
+			return err
+		}
+
+		if len(includedConfig.Include) > 0 {
+			return errors.Errorf("included configuration files must not include other files: %s", path)
+		}
+
+		config.Jobs = append(config.Jobs, includedConfig.Jobs...)
+	}
+
+	return nil
 }
 
 func ParseConfigBytes(bytes []byte) (*Config, error) {
