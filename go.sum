@@ -33,8 +33,8 @@ github.com/gdamore/encoding v1.0.1 h1:YzKZckdBL6jVt2Gc+5p82qhrGiqMdG/eNs6Wy0u3Uh
 github.com/gdamore/encoding v1.0.1/go.mod h1:0Z0cMFinngz9kS1QfMjCP8TY7em3bZYeeklsSDPivEo=
 github.com/gdamore/tcell/v2 v2.13.7 h1:yfHdeC7ODIYCc6dgRos8L1VujQtXHmUpU6UZotzD6os=
 github.com/gdamore/tcell/v2 v2.13.7/go.mod h1:+Wfe208WDdB7INEtCsNrAN6O2m+wsTPk1RAovjaILlo=
-github.com/gitchander/permutation v0.0.0-20251112064953-82b3c495f44f h1:eldhCt9Xo4RhEx8Fxi4nBhu4ZX2akR3pqSegITZadEQ=
-github.com/gitchander/permutation v0.0.0-20251112064953-82b3c495f44f/go.mod h1:dIqOZ+i1Ld5mkHPJTK88rgcKFTWMn1FRoPqpCaZYV40=
+github.com/gitchander/permutation v0.0.0-20181107151852-9e56b92e9909 h1:9NC8seTx6/zRmMTAdsHj/uOMi0EGHGQtjyLafBjk77Q=
+github.com/gitchander/permutation v0.0.0-20181107151852-9e56b92e9909/go.mod h1:lP+DW8LR6Rw3ru9Vo2/y/3iiLaLWmofYql/va+7zJOk=
 github.com/go-logfmt/logfmt v0.6.1 h1:4hvbpePJKnIzH1B+8OR/JPbTx37NktoI9LE2QZBBkvE=
 github.com/go-logfmt/logfmt v0.6.1/go.mod h1:EV2pOAQoZaT1ZXZbqDl5hrymndi4SY9ED9/z6CO0XAk=
 github.com/go-logr/logr v1.4.3 h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=

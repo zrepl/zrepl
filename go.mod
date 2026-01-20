@@ -6,7 +6,7 @@ require (
 	github.com/bits-and-blooms/bitset v1.24.4
 	github.com/fatih/color v1.18.0
 	github.com/gdamore/tcell/v2 v2.13.7
-	github.com/gitchander/permutation v0.0.0-20251112064953-82b3c495f44f
+	github.com/gitchander/permutation v0.0.0-20181107151852-9e56b92e9909
 	github.com/go-logfmt/logfmt v0.6.1
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/go-playground/validator/v10 v10.30.1
