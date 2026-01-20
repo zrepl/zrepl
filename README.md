@@ -42,7 +42,7 @@ The documentation is written in [ReStructured Text](http://docutils.sourceforge.
 
 Dependencies:
 
-* Go 1.22 or newer
+* Go
 * GNU Make
 * Git
 * wget (`make generate`)

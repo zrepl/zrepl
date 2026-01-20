@@ -1,8 +1,6 @@
 module github.com/zrepl/zrepl
 
-go 1.22.7
-
-toolchain go1.23.1
+go 1.25.6
 
 require (
 	github.com/bits-and-blooms/bitset v1.14.3
@@ -39,7 +37,6 @@ require (
 )
 
 require (
-	code.rocketnine.space/tslocum/cbind v0.1.5 // indirect
 	github.com/golang/protobuf v1.5.0 // indirect
 	github.com/hpcloud/tail v1.0.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
