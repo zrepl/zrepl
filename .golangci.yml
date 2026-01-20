@@ -20,6 +20,9 @@ linters:
       - linters:
           - staticcheck
         text: 'SA9003:'
+      - linters:
+          - staticcheck
+        text: '(QF1001|QF1011|ST1012|QF1008|ST1005|ST1023|QF1003|ST1006|ST1001|QF1004):'
     paths:
       - third_party$
       - builtin$

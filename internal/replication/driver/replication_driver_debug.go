@@ -13,7 +13,7 @@ func init() {
 	}
 }
 
-//nolint:deadcode,unused
+//nolint:unused
 func debug(format string, args ...interface{}) {
 	if debugEnabled {
 		fmt.Fprintf(os.Stderr, "repl: driver: %s\n", fmt.Sprintf(format, args...))
@@ -22,7 +22,7 @@ func debug(format string, args ...interface{}) {
 
 type debugFunc func(format string, args ...interface{})
 
-//nolint:deadcode,unused
+//nolint:unused
 func debugPrefix(prefixFormat string, prefixFormatArgs ...interface{}) debugFunc {
 	prefix := fmt.Sprintf(prefixFormat, prefixFormatArgs...)
 	return func(format string, args ...interface{}) {
