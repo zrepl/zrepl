@@ -45,7 +45,7 @@ There will be beta/RC releases to give users a chance to evaluate.
 
 INCOMPLETE LIST OF CHANGES
 
-* |maint| Update to Go 1.25.
+* |maint| Update to Go 1.25 toolchain with Go 1.24 language level.
 * |maint| Fix deprecations exposed by the toolchain update.
 * |maint| Long-overdue update of all our dependencies & address deprecations.
 * |maint| The `make release-docker` in CircleCI produces executables that are bit-identical to my personal machine.

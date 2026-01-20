@@ -1,6 +1,7 @@
 module github.com/zrepl/zrepl
 
-go 1.25.6
+go 1.24.12
+toolchain go1.25.6
 
 require (
 	github.com/bits-and-blooms/bitset v1.24.4

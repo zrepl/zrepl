@@ -1,6 +1,7 @@
 module github.com/zrepl/zrepl/build
 
-go 1.25.6
+go 1.24.12
+toolchain go1.25.6
 
 require (
 	github.com/alvaroloes/enumer v1.1.2
