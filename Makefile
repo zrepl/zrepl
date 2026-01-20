@@ -28,8 +28,8 @@ GO_MOD_READONLY := -mod=readonly
 GO_EXTRA_BUILDFLAGS :=
 GO_BUILDFLAGS := $(GO_MOD_READONLY) $(GO_EXTRA_BUILDFLAGS)
 GO_BUILD := $(GO_ENV_VARS) $(GO) build $(GO_BUILDFLAGS) -ldflags $(GO_LDFLAGS)
-GOCOVMERGE := gocovmerge
-RELEASE_GOVERSION ?= go1.23.1
+GOCOVMERGE := $(GO) tool gocovmerge
+RELEASE_GOVERSION ?= go1.24.0
 STRIPPED_GOVERSION := $(subst go,,$(RELEASE_GOVERSION))
 RELEASE_DOCKER_BASEIMAGE ?= golang:$(STRIPPED_GOVERSION)
 RELEASE_DOCKER_CACHEMOUNT :=
@@ -243,8 +243,8 @@ _run_make_foreach_target_tuple:
 ##################### REGULAR TARGETS #####################
 .PHONY: lint test-go test-platform cover-merge cover-html vet zrepl-bin test-platform-bin
 
-lint: build/install
-	$(GO_ENV_VARS) build/install/gobin/golangci-lint run ./...
+lint:
+	$(GO_ENV_VARS) $(GO) tool golangci-lint run ./...
 
 vet:
 	$(GO_ENV_VARS) $(GO) vet $(GO_BUILDFLAGS) ./...
@@ -330,24 +330,28 @@ build/install:
 	mkdir build/install.tmp/protoc
 	bash -x build/get_protoc.bash build/install.tmp/protoc
 
-	-echo "installing go tools"
-	build/go_install_tools.bash build/install.tmp/gobin
+	-echo "installing protoc plugins to GOBIN"
+	$(GO) install tool
 
 	mv build/install.tmp build/install
 
 
 generate: build/install
-	# TODO: would be nice to run with a pure path here
-	PATH="$(CURDIR)/build/install/gobin:$(CURDIR)/build/install/protoc/bin:$$PATH" && \
-		build/install/protoc/bin/protoc -I=internal/replication/logic/pdu --go_out=internal/replication/logic/pdu --go-grpc_out=internal/replication/logic/pdu internal/replication/logic/pdu/pdu.proto && \
-		build/install/protoc/bin/protoc -I=internal/rpc/grpcclientidentity/example --go_out=internal/rpc/grpcclientidentity/example/pdu --go-grpc_out=internal/rpc/grpcclientidentity/example/pdu internal/rpc/grpcclientidentity/example/grpcauth.proto && \
-		$(GO) generate $(GO_BUILDFLAGS) -x ./... && \
-		true
+	# protoc plugins are installed via 'go install tool' in build/install target
+	build/install/protoc/bin/protoc \
+		-I=internal/replication/logic/pdu \
+		--go_out=internal/replication/logic/pdu --go-grpc_out=internal/replication/logic/pdu \
+		internal/replication/logic/pdu/pdu.proto
+	build/install/protoc/bin/protoc \
+		-I=internal/rpc/grpcclientidentity/example \
+		--go_out=internal/rpc/grpcclientidentity/example/pdu --go-grpc_out=internal/rpc/grpcclientidentity/example/pdu \
+		internal/rpc/grpcclientidentity/example/grpcauth.proto
+	$(GO) generate $(GO_BUILDFLAGS) -x ./...
 
-GOIMPORTS := goimports -srcdir . -local 'github.com/zrepl/zrepl'
+GOIMPORTS := $(GO) tool goimports -srcdir . -local 'github.com/zrepl/zrepl'
 
-format: build/install
-	@ build/install/gobin/goimports -w -local 'github.com/zrepl/zrepl' $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go')
+format:
+	@ $(GO) tool goimports -w -local 'github.com/zrepl/zrepl' $$(find . -type f -name '*.go' -not -path "./vendor/*" -not -name '*.pb.go' -not -name '*_enumer.go')
 
 ##################### NOARCH #####################
 .PHONY: noarch $(ARTIFACTDIR)/bash_completion $(ARTIFACTDIR)/_zrepl.zsh_completion $(ARTIFACTDIR)/go_env.txt docs docs-clean
