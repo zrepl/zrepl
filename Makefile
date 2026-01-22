@@ -23,13 +23,13 @@ GOARM ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOARM"')
 GOHOSTOS ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOHOSTOS"')
 GOHOSTARCH ?= $(shell bash -c 'source <($(GO) env) && echo "$$GOHOSTARCH"')
 GO_ENV_VARS := CGO_ENABLED=0
-GO_LDFLAGS := "-X github.com/zrepl/zrepl/version.zreplVersion=$(_ZREPL_VERSION)"
+GO_LDFLAGS := "-X github.com/zrepl/zrepl/internal/version.zreplVersion=$(_ZREPL_VERSION)"
 GO_MOD_READONLY := -mod=readonly
 GO_EXTRA_BUILDFLAGS :=
 GO_BUILDFLAGS := $(GO_MOD_READONLY) $(GO_EXTRA_BUILDFLAGS)
 GO_BUILD := $(GO_ENV_VARS) $(GO) build $(GO_BUILDFLAGS) -ldflags $(GO_LDFLAGS)
 GOCOVMERGE := gocovmerge
-RELEASE_GOVERSION ?= go1.23.1
+RELEASE_GOVERSION ?= go1.25.6
 STRIPPED_GOVERSION := $(subst go,,$(RELEASE_GOVERSION))
 RELEASE_DOCKER_BASEIMAGE ?= golang:$(STRIPPED_GOVERSION)
 RELEASE_DOCKER_CACHEMOUNT :=
@@ -244,7 +244,7 @@ _run_make_foreach_target_tuple:
 .PHONY: lint test-go test-platform cover-merge cover-html vet zrepl-bin test-platform-bin
 
 lint: build/install
-	$(GO_ENV_VARS) build/install/gobin/golangci-lint run ./...
+	$(GO_ENV_VARS) build/install/golangci_lint/golangci-lint run ./...
 
 vet:
 	$(GO_ENV_VARS) $(GO) vet $(GO_BUILDFLAGS) ./...
@@ -329,6 +329,11 @@ build/install:
 	-echo "installing protoc"
 	mkdir build/install.tmp/protoc
 	bash -x build/get_protoc.bash build/install.tmp/protoc
+
+	-echo "installing golangci-lint"
+	mkdir -p build/install.tmp/golangci_lint
+	GOHOSTARCH=$(GOHOSTARCH) \
+		build/get_golangci_lint.bash build/install.tmp/golangci_lint
 
 	-echo "installing go tools"
 	build/go_install_tools.bash build/install.tmp/gobin

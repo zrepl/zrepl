@@ -1,24 +1,42 @@
+version: "2"
 linters:
   enable:
-  - goimports
-  - revive
-
-linters-settings:
-  goimports:
-    local-prefixes: github.com/zrepl/zrepl
-  revive:
+    - revive
+  settings:
+    revive:
+      rules:
+        - name: time-equal
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      - name: time-equal
-
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-    # Disable staticcheck 'Empty body in an if or else branch' as it's useful
-    # to put a comment into an empty else-clause that explains why whatever
-    # is done in the if-caluse is not necessary if the condition is false.
-    - linters:
-        - staticcheck
-      text: "SA9003:"
-
+      - linters:
+          - errcheck
+        path: _test\.go
+      - linters:
+          - staticcheck
+        text: 'SA9003:'
+      - linters:
+          - staticcheck
+        text: '(QF1001|QF1011|ST1012|QF1008|ST1005|ST1023|QF1003|ST1006|ST1001|QF1004):'
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/zrepl/zrepl
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
