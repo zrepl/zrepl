@@ -175,6 +175,20 @@ The default is 30 seconds and may be specified in any units understood by `time.
 
 The optional ``filesystems`` filter which limits the filesystems the hook runs for. This uses the same |filter-spec| as jobs.
 
+Note: zrepl service is by default with ProtectSystem and ProtectHome.    
+As such one would get Read-only filesystem error when trying to run hooks that create/remove/modify files, like this:     
+`find /$ZREPL_FS -type d -name ".thumbnails" | xargs -n 1 rm -rf`    
+
+To overcome that:    
+```shell
+sudo mkdir -p /etc/systemd/system/zrepl.service.d/
+cat <<EOF | sudo tee /etc/systemd/system/zrepl.service.d/override.conf >/dev/null
+[Service]
+ProtectSystem=off
+#ProtectHome=off
+EOF
+```
+
 Most hook types take additional parameters, please refer to the respective subsections below.
 
 .. list-table::
