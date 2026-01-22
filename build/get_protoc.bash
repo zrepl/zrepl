@@ -7,7 +7,7 @@ cd "$1"
 MACH=$(uname -m)
 MACH="${MACH/aarch64/aarch_64}"
 
-VERSION=28.0
+VERSION=33.4
 FILENAME=protoc-"$VERSION"-linux-"$MACH".zip
 
 if [ -e "$FILENAME" ]; then
@@ -21,8 +21,8 @@ stat "$FILENAME"
 
 # Select the correct checksum for the downloaded architecture
 case "$MACH" in
-    aarch_64) EXPECTED_SHA256="d622619dcbfb5ecb281cfb92c1a74d6a0f42e752d9a2774b197f475f7ab1c8c4" ;;
-    x86_64)   EXPECTED_SHA256="b2e187c8b9f2d97cd3ecae4926d1bb2cbebe3ab768e7c987cbc86bb17f319358" ;;
+    aarch_64) EXPECTED_SHA256="15aa988f4a6090636525ec236a8e4b3aab41eef402751bd5bb2df6afd9b7b5a5" ;;
+    x86_64)   EXPECTED_SHA256="c0040ea9aef08fdeb2c74ca609b18d5fdbfc44ea0042fcfbfb38860d35f7dd66" ;;
     *)        echo "Unknown architecture: $MACH" >&2; exit 1 ;;
 esac
 
