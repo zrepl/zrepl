@@ -35,7 +35,7 @@ func waitPostLogging(c *Cmd, u usage, err error, now time.Time) {
 		WithField("usertime_s", u.user_secs)
 
 	if err == nil {
-		log.Info("command completed successfully")
+		log.Info("command exited with success")
 	} else {
 		log.WithError(err).Info("command exited with error")
 	}
