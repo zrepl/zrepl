@@ -123,6 +123,47 @@ For Go toolchain updates and package rebuilds with no source code changes, lever
 Control via the `ZREPL_PACKAGE_RELEASE` Makefile variable, see `origin/releases/0.6.1-2` for an example.
 
 
+### Updating Dependencies
+
+- Update the `go` directive and `toolchain` directive in `go.mod`
+  - `go` is the minimum supported version
+  - `toolchain` is the preferred toolchain version if `GOTOOLCHAIN` is not specified
+
+Run `go mod tidy` to ensure consistency.
+
+Update Go module dependencies:
+
+```bash
+# Update all other dependencies
+go get -u -t ./...
+go mod tidy
+
+# Above might fail if there are version selection conflicts.
+# Figure out what's going on by updating packages from error messages first.
+# Example:
+go get -u google.golang.org/genproto google.golang.org/grpc google.golang.org/protobuf
+```
+
+Update codegen & lint tools
+- `protoc` =>  `build/get_protoc.bash`
+  - GH releases publish sha256 sums
+- `golangci-lint` => `build/get_golangci_lint.bash`
+- bump versions in `build/tools.go`
+  - we use the tools.go trick:
+  - `go get -tags tools -u example.com/tool ; go mod tidy`
+  - review whether we're ready to switch to `go tool`: https://github.com/zrepl/zrepl/pull/909
+
+Now run `make generate`.
+
+Run `make lint` and `make vet`.
+
+Update the CI configuration `.circleci/config.yml`:
+- Update Go version references (we reference the minimum and max supported version)
+- Set `Makefile` `RELEASE_GOVERSION` to the new Go version
+
+Kick a full CI pipeline run (`do_ci=true` and `do_release=true`).
+
+Merge PR with merge commit.
 
 ## Notes to Distro Package Maintainers
 
