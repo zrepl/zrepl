@@ -6,7 +6,6 @@ package main
 // the lines are parsed by lazy.sh, do not edit
 import (
 	_ "github.com/alvaroloes/enumer"
-	_ "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
 	_ "github.com/wadey/gocovmerge"
 	_ "golang.org/x/tools/cmd/goimports"
 	_ "golang.org/x/tools/cmd/stringer"

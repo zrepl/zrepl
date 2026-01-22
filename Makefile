@@ -244,7 +244,7 @@ _run_make_foreach_target_tuple:
 .PHONY: lint test-go test-platform cover-merge cover-html vet zrepl-bin test-platform-bin
 
 lint: build/install
-	$(GO_ENV_VARS) build/install/gobin/golangci-lint run ./...
+	$(GO_ENV_VARS) build/install/golangci_lint/golangci-lint run ./...
 
 vet:
 	$(GO_ENV_VARS) $(GO) vet $(GO_BUILDFLAGS) ./...
@@ -329,6 +329,11 @@ build/install:
 	-echo "installing protoc"
 	mkdir build/install.tmp/protoc
 	bash -x build/get_protoc.bash build/install.tmp/protoc
+
+	-echo "installing golangci-lint"
+	mkdir -p build/install.tmp/golangci_lint
+	GOHOSTARCH=$(GOHOSTARCH) \
+		build/get_golangci_lint.bash build/install.tmp/golangci_lint
 
 	-echo "installing go tools"
 	build/go_install_tools.bash build/install.tmp/gobin
