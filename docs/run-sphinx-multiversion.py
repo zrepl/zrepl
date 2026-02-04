@@ -60,9 +60,9 @@ latest_by_major_minor.sort(key=lambda tag: (tag.major, tag.minor))
 cmdline = [
     "sphinx-multiversion",
     "-D", "smv_tag_whitelist=^({})$".format("|".join([re.escape(tag.orig) for tag in latest_by_major_minor])),
-    "-D", "smv_branch_whitelist=^(master|stable)$",
+    "-D", "smv_branch_whitelist=^master$",
     "-D", "smv_remote_whitelist=^.*$",
-    "-D", "smv_latest_version=stable",
+    "-D", "smv_latest_version=master",
     "-D", r"smv_released_pattern=^refs/(tags|heads|remotes/[^/]+)/(?!master).*$", # treat everything except master as released, that way, the banner message makes sense
     # "--dump-metadata", # for debugging
     args.docsroot,
