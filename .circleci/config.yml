@@ -68,16 +68,19 @@ commands:
             git config --global user.email "zreplbot@cschwarz.com"
             git config --global user.name "zrepl-github-io-ci"
 
-      # Configure git to use the GitHub token for HTTPS authentication
-      # The token is stored in the 'zrepl-github-io-deploy' context
+      # Configure git to use the GitHub token for HTTPS authentication.
+      # The token is stored in the 'zrepl-github-io-deploy' context.
       - when:
           condition: << parameters.push >>
           steps:
             - run:
-                name: Configure git credential helper for GitHub token
+                name: Configure git to use GitHub token for push
                 # GITHUB_PAGES_TOKEN is from the 'zrepl-github-io-deploy' context.
                 # CircleCI's secret masking automatically redacts context variables in logs.
                 command: |
+                  # Unset CircleCI's SSH URL rewriting that checkout step configured
+                  git config --global --unset-all url."ssh://git@github.com".insteadOf || true
+                  # Set up credential helper with GitHub token
                   git config --global credential.helper store
                   echo "https://x-access-token:${GITHUB_PAGES_TOKEN}@github.com" > ~/.git-credentials
                   chmod 600 ~/.git-credentials
