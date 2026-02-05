@@ -30,7 +30,8 @@ commands:
   install-docdep:
     steps:
       - apt-update-and-install-common-deps
-      - run: sudo apt install python3
+      # Python is managed by uv - it will automatically download the version
+      # specified in docs/.python-version when needed
       - run:
           name: Install uv
           command: curl -LsSf https://astral.sh/uv/0.9.30/install.sh | sh
