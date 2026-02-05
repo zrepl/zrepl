@@ -1,27 +1,24 @@
-{%- if current_version %}
 <div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
   <span class="rst-current-version" data-toggle="rst-current-version">
     <span class="fa fa-book"> Other Versions</span>
-    v: {{ current_version.name }}
+    v: latest
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
-    {%- if versions.tags %}
     <dl>
-      <dt>Tags</dt>
-      {%- for item in versions.tags %}
-      <dd><a href="{{ item.url }}">{{ item.name }}</a></dd>
-      {%- endfor %}
+      <dt>Releases</dt>
+      <dd><a href="https://github.com/zrepl/zrepl/releases/tag/v0.6.1">v0.6.1</a></dd>
+      <dd><a href="https://github.com/zrepl/zrepl/releases/tag/v0.5.0">v0.5.0</a></dd>
+      <dd><a href="https://github.com/zrepl/zrepl/releases/tag/v0.4.0">v0.4.0</a></dd>
+      <dd><a href="https://github.com/zrepl/zrepl/releases">All releases...</a></dd>
     </dl>
-    {%- endif %}
-    {%- if versions.branches %}
     <dl>
-      <dt>Branches</dt>
-      {%- for item in versions.branches %}
-      <dd><a href="{{ item.url }}">{{ item.name }}</a></dd>
-      {%- endfor %}
+      <dt>Note</dt>
+      <dd style="white-space: normal;">
+        Release-specific docs are in the
+        <span style="font-family: monospace;">zrepl-noarch.tar</span>
+        asset on each GitHub release.
+      </dd>
     </dl>
-    {%- endif %}
   </div>
 </div>
-{%- endif %}

@@ -3,6 +3,7 @@ orbs:
   # NB: this is not the Go version, but the Orb version
   # https://circleci.com/developer/orbs/orb/circleci/go#usage-go-modules-cache
   go: circleci/go@1.11.0
+
 commands:
   setup-home-local-bin:
     steps:
@@ -25,11 +26,36 @@ commands:
       - run: sudo apt-get install -y git ca-certificates
 
 
+  # NOTE: when updating uv version, update both the install URL and cache keys below
   install-docdep:
     steps:
       - apt-update-and-install-common-deps
-      - run: sudo apt install python3 python3-pip libgirepository1.0-dev
-      - run: pip3 install -r docs/requirements.txt
+      # Python is managed by uv - it will automatically download the version
+      # specified in docs/.python-version when needed
+      - run:
+          name: Install uv
+          command: curl -LsSf https://astral.sh/uv/0.9.30/install.sh | sh
+      - run:
+          name: Add uv to PATH and set cache dir
+          command: |
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> $BASH_ENV
+            echo 'export UV_CACHE_DIR="$HOME/.cache/uv"' >> $BASH_ENV
+      - restore_cache:
+          name: Restore uv cache
+          keys:
+            - uv-cache-v1-0.9.30-{{ checksum "docs/uv.lock" }}
+            - uv-cache-v1-0.9.30-
+
+  save-uv-cache:
+    steps:
+      - run:
+          name: Prune uv cache for CI
+          command: uv cache prune --ci
+      - save_cache:
+          name: Save uv cache
+          key: uv-cache-v1-0.9.30-{{ checksum "docs/uv.lock" }}
+          paths:
+            - ~/.cache/uv
 
   docs-publish-sh:
     parameters:
@@ -42,26 +68,19 @@ commands:
             git config --global user.email "zreplbot@cschwarz.com"
             git config --global user.name "zrepl-github-io-ci"
 
-      # if we're pushing, we need to add the deploy key
-      # which is stored as "Additional SSH Keys" in the CircleCI project settings.
-      # We can't use the CircleCI-manage deploy key because we're pushing
-      # to a different repo than the one we're building.
+      # Configure git to use the GitHub token for HTTPS authentication
+      # The token is stored in the 'zrepl-github-io-deploy' context
       - when:
           condition: << parameters.push >>
           steps:
-            # https://circleci.com/docs/2.0/add-ssh-key/#adding-multiple-keys-with-blank-hostnames
-            - run: ssh-add -D
-            # the default circleci ssh config only additional ssh keys for Host !github.com
             - run:
+                name: Configure git credential helper for GitHub token
+                # GITHUB_PAGES_TOKEN is from the 'zrepl-github-io-deploy' context.
+                # CircleCI's secret masking automatically redacts context variables in logs.
                 command: |
-                  cat > ~/.ssh/config \<<EOF
-                  Host *
-                    IdentityFile /home/circleci/.ssh/id_rsa_458e62c517f6c480e40452126ce47421
-                  EOF
-            - add_ssh_keys:
-                fingerprints:
-                  # deploy key for zrepl.github.io
-                  - "45:8e:62:c5:17:f6:c4:80:e4:04:52:12:6c:e4:74:21"
+                  git config --global credential.helper store
+                  echo "https://x-access-token:${GITHUB_PAGES_TOKEN}@github.com" > ~/.git-credentials
+                  chmod 600 ~/.git-credentials
 
       # caller must install-docdep
       - when:
@@ -140,10 +159,12 @@ workflows:
   publish-zrepl.github.io:
     jobs:
       - publish-zrepl-github-io:
+          context:
+            - zrepl-github-io-deploy
           filters:
             branches:
               only:
-                - stable
+                - master
 
 jobs:
   quickcheck-docs:
@@ -154,6 +175,7 @@ jobs:
       - install-docdep
       # do the current docs build
       - run: make docs
+      - save-uv-cache
       # does the publish.sh script still work?
       - docs-publish-sh:
           push: false
@@ -297,3 +319,4 @@ jobs:
       - install-docdep
       - docs-publish-sh:
           push: true
+      - save-uv-cache
