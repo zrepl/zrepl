@@ -56,8 +56,8 @@ There is a CI check that ensures Git state is clean, i.e., code generation has b
 
 #### Docs
 
-Set up a Python environment that has `docs/requirements.txt` installed via `pip`.
-Use a  [venv](https://docs.python.org/3/library/venv.html) to avoid global state.
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then run `make docs`.
+uv automatically manages Python and dependencies.
 
 ### Testing
 
@@ -90,17 +90,28 @@ There is a git tag for each zrepl release, usually `vMAJOR.MINOR.0`.
 We don't move git tags once the release has been published.
 
 The procedure to issue a release is as follows:
-* Issue the source release:
-  * Git tag the release on the `master` branch.
+
+* Prepare the release (as a PR to `master`):
+  * Finalize `docs/changelog.rst` for the release.
+  * Merge the PR. Docs are auto-published to zrepl.github.io on merge.
+* Tag the release:
+  * Git tag the release on the `master` branch (e.g., `vMAJOR.MINOR.0`).
   * Push the tag.
-  * Run `./docs/publish.sh` to re-build & push zrepl.github.io.
-* Issue the official binary release:
-  * Run the `release` pipeline (triggered via CircleCI API)
-  * Download the artifacts to the release manager's machine.
-  * Create a GitHub release, edit the changelog, upload all the release artifacts, including .rpm and .deb files.
-  * Issue the GitHub release.
+* Build and publish:
+  * Run the `release` pipeline (trigger via CircleCI UI).
+  * Download artifacts: `make download-circleci-release BUILD_NUM=<circleci-build-number>`
+  * Create GitHub release and upload artifacts:
+    ```bash
+    gh release create vX.Y.Z --title "vX.Y.Z" --notes "See changelog" --draft
+    gh release upload vX.Y.Z artifacts/release/*
+    ```
+  * Review the draft release, edit the changelog, then publish.
   * Add the .rpm and .deb files to the official zrepl repos.
     * Code for management of these repos: https://github.com/zrepl/package-repo-ops (private repo at this time)
+* Update docs version list:
+  * Update `docs/_templates/versions.html` with the new release.
+  * Verify the link to `zrepl-noarch.tar` in the GitHub release works.
+  * Merge to `master` (docs auto-publish).
 
 #### Patch releases, Go toolchain updates, APT/RPM Package rebuilds
 
