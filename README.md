@@ -172,6 +172,17 @@ Update the CI configuration `.circleci/config.yml`:
 - Update Go version references (we reference the minimum and max supported version)
 - Set `Makefile` `RELEASE_GOVERSION` to the new Go version
 
+Update docs build tooling:
+- Update `uv` version in `.circleci/config.yml` (search for `astral.sh/uv/` and cache keys containing the version)
+- Check if there's now a CircleCI orb for uv that we could use
+- Update Python version in `docs/.python-version`
+
+Update docs dependencies (Sphinx, sphinx-rtd-theme):
+- Check current versions in `docs/pyproject.toml`
+- Review upstream changelogs for breaking changes
+- Update version constraints in `pyproject.toml` and the `uv` lockfile (see [uv docs on dependencies](https://docs.astral.sh/uv/concepts/projects/dependencies/)):
+- Test locally with `make docs`
+
 Kick a full CI pipeline run (`do_ci=true` and `do_release=true`).
 
 Merge PR with merge commit.
