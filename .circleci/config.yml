@@ -68,26 +68,19 @@ commands:
             git config --global user.email "zreplbot@cschwarz.com"
             git config --global user.name "zrepl-github-io-ci"
 
-      # if we're pushing, we need to add the deploy key
-      # which is stored as "Additional SSH Keys" in the CircleCI project settings.
-      # We can't use the CircleCI-manage deploy key because we're pushing
-      # to a different repo than the one we're building.
+      # Configure git to use the GitHub token for HTTPS authentication
+      # The token is stored in the 'zrepl-github-io-deploy' context
       - when:
           condition: << parameters.push >>
           steps:
-            # https://circleci.com/docs/2.0/add-ssh-key/#adding-multiple-keys-with-blank-hostnames
-            - run: ssh-add -D
-            # the default circleci ssh config only additional ssh keys for Host !github.com
             - run:
+                name: Configure git credential helper for GitHub token
+                # GITHUB_PAGES_TOKEN is from the 'zrepl-github-io-deploy' context.
+                # CircleCI's secret masking automatically redacts context variables in logs.
                 command: |
-                  cat > ~/.ssh/config \<<EOF
-                  Host *
-                    IdentityFile /home/circleci/.ssh/id_rsa_458e62c517f6c480e40452126ce47421
-                  EOF
-            - add_ssh_keys:
-                fingerprints:
-                  # deploy key for zrepl.github.io
-                  - "45:8e:62:c5:17:f6:c4:80:e4:04:52:12:6c:e4:74:21"
+                  git config --global credential.helper store
+                  echo "https://x-access-token:${GITHUB_PAGES_TOKEN}@github.com" > ~/.git-credentials
+                  chmod 600 ~/.git-credentials
 
       # caller must install-docdep
       - when:
@@ -166,6 +159,8 @@ workflows:
   publish-zrepl.github.io:
     jobs:
       - publish-zrepl-github-io:
+          context:
+            - zrepl-github-io-deploy
           filters:
             branches:
               only:
