@@ -168,7 +168,6 @@ workflows:
             branches:
               only:
                 - master
-                - fix-docs-push-auth
 
 jobs:
   quickcheck-docs:
