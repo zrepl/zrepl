@@ -16,20 +16,9 @@ commands:
               echo "$line" >> $BASH_ENV
             fi
 
-  apt-update-and-install-common-deps:
-    steps:
-      - run: sudo apt-get update
-      - run: sudo apt-get install -y gawk make
-      # CircleCI doesn't update its cimg/go images.
-      # So, need to update manually to get up-to-date trust chains.
-      # The need for this was required for cimg/go:1.12, but let's future proof this here and now.
-      - run: sudo apt-get install -y git ca-certificates
-
-
   # NOTE: when updating uv version, update both the install URL and cache keys below
   install-docdep:
     steps:
-      - apt-update-and-install-common-deps
       # Python is managed by uv - it will automatically download the version
       # specified in docs/.python-version when needed
       - run:
@@ -111,7 +100,8 @@ workflows:
   ci:
     when: << pipeline.parameters.do_ci >>
     jobs:
-      - quickcheck-docs
+      - run-docs-publish-sh:
+          push: false
       - quickcheck-go:
           name: quickcheck-go-amd64-linux-1.25.6
           goversion: &latest-go-release "1.25.6"
@@ -161,7 +151,8 @@ workflows:
 
   publish-zrepl.github.io:
     jobs:
-      - publish-zrepl-github-io:
+      - run-docs-publish-sh:
+          push: true
           context:
             - zrepl-github-io-deploy
           filters:
@@ -170,18 +161,18 @@ workflows:
                 - master
 
 jobs:
-  quickcheck-docs:
+  run-docs-publish-sh:
+    parameters:
+      push:
+        type: boolean
     docker:
-      - image: cimg/base:2024.09
+      - image: cimg/base:current
     steps:
       - checkout
       - install-docdep
-      # do the current docs build
-      - run: make docs
-      - save-uv-cache
-      # does the publish.sh script still work?
       - docs-publish-sh:
-          push: false
+          push: << parameters.push >>
+      - save-uv-cache
 
   quickcheck-go:
     parameters:
@@ -313,13 +304,3 @@ jobs:
       - run: make wrapup-and-checksum
       - store_artifacts:
           path: artifacts/release
-
-  publish-zrepl-github-io:
-    docker:
-      - image: cimg/base:2024.09
-    steps:
-      - checkout
-      - install-docdep
-      - docs-publish-sh:
-          push: true
-      - save-uv-cache
