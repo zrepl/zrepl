@@ -101,6 +101,7 @@ workflows:
     when: << pipeline.parameters.do_ci >>
     jobs:
       - run-docs-publish-sh:
+          name: quickcheck-docs
           push: false
       - quickcheck-go:
           name: quickcheck-go-amd64-linux-1.25.6
@@ -152,6 +153,7 @@ workflows:
   publish-zrepl.github.io:
     jobs:
       - run-docs-publish-sh:
+          name: publish-zrepl.github.io
           push: true
           context:
             - zrepl-github-io-deploy
