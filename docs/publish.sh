@@ -39,8 +39,9 @@ fi
 
 # Verify we're in the right repo
 cd "$PUBLICDIR"
-if ! git remote get-url origin | grep -qE "^${GHPAGESREPO}\$"; then
-    echo "ERROR: ${PUBLICDIR} is not a clone of ${GHPAGESREPO}"
+REMOTE_URL=$(git remote get-url origin)
+if [[ "$REMOTE_URL" != *"zrepl.github.io"* ]]; then
+    echo "ERROR: ${PUBLICDIR} remote is '${REMOTE_URL}', expected zrepl.github.io repo"
     exit 1
 fi
 
