@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-GHPAGESREPO="git@github.com:zrepl/zrepl.github.io.git"
+GHPAGESREPO="https://github.com/zrepl/zrepl.github.io.git"
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 PUBLICDIR="${SCRIPTDIR}/public_git"
 ROOTDIR="${SCRIPTDIR}/.."
