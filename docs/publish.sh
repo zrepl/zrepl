@@ -54,6 +54,9 @@ git reset --hard origin/master
 echo "Cleaning GitHub pages repo..."
 git rm -rf . || true
 
+# GitHub Pages https://github.blog/news-insights/the-library/bypassing-jekyll-on-github-pages/
+touch .nojekyll
+
 # Build docs
 echo "Building docs..."
 cd "$ROOTDIR"
