@@ -42,7 +42,7 @@ endif
 
 
 ifneq ($(RELEASE_DOCKER_CACHEMOUNT),)
-	_RELEASE_DOCKER_CACHEMOUNT := -v $(RELEASE_DOCKER_CACHEMOUNT)/mod:/go/pkg/mod -v $(RELEASE_DOCKER_CACHEMOUNT)/xdg-cache:/root/.cache/go-build
+	_RELEASE_DOCKER_CACHEMOUNT := -v $(RELEASE_DOCKER_CACHEMOUNT)/mod:/go/pkg/mod -v $(RELEASE_DOCKER_CACHEMOUNT)/xdg-cache:/.cache/go-build
 .PHONY: release-docker-mkcachemount
 release-docker-mkcachemount:
 	mkdir -p $(RELEASE_DOCKER_CACHEMOUNT)
@@ -71,10 +71,13 @@ release: ensure-release-toolchain
 
 release-docker: $(ARTIFACTDIR) release-docker-mkcachemount
 	sed 's/FROM.*!SUBSTITUTED_BY_MAKEFILE/FROM $(RELEASE_DOCKER_BASEIMAGE)/' build/build.Dockerfile > $(ARTIFACTDIR)/build.Dockerfile
-	docker build -t zrepl_release --pull -f $(ARTIFACTDIR)/build.Dockerfile .
-	docker run --rm -i \
+	docker build -t zrepl_release --pull \
+		--build-arg BUILD_UID=$$(id -u) \
+		--build-arg BUILD_GID=$$(id -g) \
+		-f $(ARTIFACTDIR)/build.Dockerfile .
+	docker run --rm -i$$(test -t 0 && echo t) \
 		$(_RELEASE_DOCKER_CACHEMOUNT) \
-		-v $(CURDIR):/src -u $$(id -u):$$(id -g) \
+		-v $(CURDIR):/src \
 		zrepl_release \
 		make release \
 			GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM) \
