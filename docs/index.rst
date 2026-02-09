@@ -136,6 +136,7 @@ Table of Contents
    usage
    pr
    changelog
+   future
    GitHub Repository & Issue Tracker <https://github.com/zrepl/zrepl>
    Chat: Matrix <https://matrix.to/#/#zrepl:matrix.org>
    supporters

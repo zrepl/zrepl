@@ -13,43 +13,36 @@
 Changelog
 =========
 
-The changelog summarizes bugfixes that are deemed relevant for users and package maintainers.
-Developers should consult the git commit log or GitHub issue tracker.
+0.7.0
+-----
 
-Next Release
-------------
+* |feature| Config file inclusion using ``include`` directive.
+  This allows distributing zrepl job definitions across multiple YAML files in a ``conf.d`` style directory.
+  (:commit:`4d6583e`, thanks, `@ZeyadTamimi <https://github.com/zeyadtamimi>`_).
+* |feature| Add configurable timezone for snapshot name timestamps. The default remains UTC. (:commit:`b9b9ad1`, thanks, `@mjasnik <https://github.com/mjasnik>`_).
+* |feature| Improve Grafana dashboard with additional panels and refinements (:commit:`3f75127`, thanks, `@deajan <https://github.com/deajan>`_).
+* |bugfix| Fix replication of placeholder filesystems (:commit:`5615f49`).
+* |bugfix| Avoid using the word "error" in info-level log lines about ZFS command execution (:commit:`d3b2295`, thanks, `@bakhtiyarneyman <https://github.com/bakhtiyarneyman>`_).
+* |bugfix| Detect duplicate and internal job names at config parse time.
+  zrepl will now refuse to load a config with duplicate or internally reserved job names, instead of failing later at daemon startup.
+  (:commit:`860a9be`).
+* |docs| Add installation instructions for openSUSE (:commit:`40c4827`, thanks, `@findesgh <https://github.com/findesgh>`_).
+* |docs| Improve documentation on ``send_properties`` configuration and NFS/SMB considerations (:commit:`b5d8538`, thanks, `@Malvineous <https://github.com/Malvineous>`_).
+* |docs| Warn more prominently about the risks of the ``not_replicated`` keep rule (:commit:`affe00a`, thanks, `@wxiaoguang <https://github.com/wxiaoguang>`_).
+* |docs| Improve TLS/EasyRSA setup instructions (:commit:`e524b60`, thanks, `@alorimer <https://github.com/alorimer>`_).
+* |docs| ``zrepl.github.io``: auto-publish from ``master`` branch, retire ``stable`` branch (:commit:`4f950bb`).
+* |maint| ``zrepl status``: switch from the unmaintained ``cview`` fork back to the actively maintained ``tview`` library (:commit:`d7ede3f`).
+* |maint| Update to Go 1.25 toolchain with Go 1.24 language level & Go dependencies
+* |maint| Debian packages: proper bash completion placement (:commit:`2923009`)
+* |maint| RPM packages: AlmaLinux 8 for RPM builds (:commit:`27f4ad1`).
+* |maint| Improve build system & CI setup
 
-The plan for the next release is to revisit how zrepl does snapshot management.
-High-level goals:
-
-- Make it easy to decouple snapshot management (snapshotting, pruning) from replication.
-- Ability to include/exclude snapshots from replication.
-  This is useful for aforementioned decoupling, e.g., separate snapshot prefixes for local & remote replication.
-  Also, it makes explicit that by default, zrepl replicates all snapshots, and that
-  replication has no concept of "zrepl-created snapshots", which is a common misconception.
-- Use of ``zfs snapshot`` comma syntax or channel programs to take snapshots of multiple
-  datasets atomically.
-- Provide an alternative to the ``grid`` pruning policy.
-  Most likely something based on hourly/daily/weekly/monthly "trains" plus a count.
-- Ability to prune at the granularity of the **group** of snapshots created at a given
-  time, as opposed to the individual snapshots within a dataset.
-  Maybe this will be addressed by the alternative to the ``grid`` pruning policy,
-  as it will likely be more predictable.
-
-Those changes will likely come with some breakage in the config.
-However, I want to avoid breaking **use cases** that are satisfied by the current design.
-There will be beta/RC releases to give users a chance to evaluate.
-
-0.7.0 (unreleased)
-------------------
-
-INCOMPLETE LIST OF CHANGES
-
-* |maint| Update to Go 1.25 toolchain with Go 1.24 language level.
-* |maint| Fix deprecations exposed by the toolchain update.
-* |maint| Long-overdue update of all our dependencies & address deprecations.
-* |maint| Publish docs from ``master`` branch, retire ``stable`` branch.
-* |maint| The `make release-docker` in CircleCI produces executables that are bit-identical to my personal machine.
+.. NOTE::
+  |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
+  |  You can support maintenance and feature development through one of the following services:
+  |  |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
+  |  Note that PayPal processing fees are relatively high for small donations.
+  |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
 
 0.6.1
 -----
@@ -64,13 +57,6 @@ INCOMPLETE LIST OF CHANGES
 * |maint| grafana: update dashboard to Grafana 9.3.6.
 * |maint| run platform tests as part of CI.
 * |maint| build: upgrade to Go 1.21 and update golangci-lint; minimum Go version for builds is now 1.20
-
-.. NOTE::
-  |  zrepl is a spare-time project primarily developed by `Christian Schwarz <https://cschwarz.com>`_.
-  |  You can support maintenance and feature development through one of the following services:
-  |  |Donate via Patreon| |Donate via GitHub Sponsors| |Donate via Liberapay| |Donate via PayPal|
-  |  Note that PayPal processing fees are relatively high for small donations.
-  |  For SEPA wire transfer and **commercial support**, please `contact Christian directly <https://cschwarz.com>`_.
 
 0.6
 ---
