@@ -258,7 +258,7 @@ Additional changelog:
 * |bugfix| systemd + ``ssh+stdinserver``: automatically create ``/var/run/zrepl/stdinserver``
 * |bugfix| crash if Prometheus listening socket cannot be opened
 
-* [MAINTAINER NOTICE] ``Makefile`` refactoring, see :commit:`080f2c0`
+* [MAINTAINER NOTICE] ``Makefile`` refactoring, see commit :commit:`080f2c0`
 
 0.2
 ---
@@ -288,7 +288,7 @@ Additional changelog:
 0.1.1
 -----
 
-* |bugfix| :issue:`162` :commit:`d6304f4` : fix I/O timeout errors on variable receive rate
+* |bugfix| :issue:`162` commit :commit:`d6304f4` : fix I/O timeout errors on variable receive rate
 
   * A significant reduction or sudden stall of the receive rate (e.g. recv pool has other I/O to do)
     would cause a ``writev I/O timeout`` error after approximately ten seconds.

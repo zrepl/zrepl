@@ -182,6 +182,6 @@ extlinks = {
     'issue':('https://github.com/zrepl/zrepl/issues/%s', 'issue #%s'),
     'repomasterlink':('https://github.com/zrepl/zrepl/blob/master/%s', '%s'),
     'sampleconf':('https://github.com/zrepl/zrepl/blob/master/internal/config/samples%s', 'internal/config/samples%s'),
-    'commit':('https://github.com/zrepl/zrepl/commit/%s', 'commit %s'),
+    'commit':('https://github.com/zrepl/zrepl/commit/%s', '%s'),
         }
 
