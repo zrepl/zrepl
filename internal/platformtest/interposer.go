@@ -1,3 +1,25 @@
+// # Safety Interposer
+//
+// The platformtest binary is a multi-personality binary (busybox-style).
+// When invoked as "zfs" or "zpool" (via argv[0]), it acts as a safety
+// interposer that validates commands and delegates to the real binary
+// via sudo.
+//
+// SetupInterposerPath creates a temp directory with symlinks and replaces PATH:
+//   - zfs/zpool → the platformtest binary itself (interposer mode)
+//   - zfs.real/zpool.real → actual binaries (for delegation via sudo)
+//   - sudo/bash → real binaries (so they remain accessible)
+//
+// When invoked as zfs or zpool, the binary validates that all commands
+// reference the test pool "zreplplatformtest" before delegating through
+// sudo. Safety checks include:
+//   - Pool name validation on all non-flag arguments
+//   - Blocking -a (all) flag without explicit pool reference
+//   - Command-aware flag parsing (-t is arg-taking for zfs, boolean for zpool)
+//   - Mountpoint path traversal protection on post-create chmod
+//
+// With -no-interposer, zfs/zpool symlink directly to the real binaries
+// (no sudo, no validation). Use this when running as root.
 package platformtest
 
 import (
