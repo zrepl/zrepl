@@ -135,6 +135,7 @@ workflows:
               goversion: [*latest-go-release]
               goos: ["linux"]
               goarch: ["amd64"]
+              image: ["ubuntu-2204:current", "ubuntu-2404:current"]
           requires:
             - test-go
             - quickcheck-go-<< matrix.goarch >>-<< matrix.goos >>-<< matrix.goversion >>
@@ -238,8 +239,10 @@ jobs:
         type: string
       goarch:
         type: string
+      image:
+        type: string
     machine:
-      image: ubuntu-2204:current
+      image: <<parameters.image>>
     resource_class: medium
     environment:
       GOOS: <<parameters.goos>>
