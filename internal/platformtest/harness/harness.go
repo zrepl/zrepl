@@ -26,18 +26,23 @@ var bold = color.New(color.Bold)
 var boldRed = color.New(color.Bold, color.FgHiRed)
 var boldGreen = color.New(color.Bold, color.FgHiGreen)
 
-const DefaultPoolImageSize = 200 * (1 << 20)
-
 func main() {
+	// Multi-personality binary: check argv[0] to determine mode.
+	// When invoked via a symlink named "zfs" or "zpool", act as
+	// a safety interposer that validates commands and delegates
+	// to the real binary via sudo.
+	switch filepath.Base(os.Args[0]) {
+	case "zfs":
+		os.Exit(platformtest.RunInterposer("zfs"))
+	case "zpool":
+		os.Exit(platformtest.RunInterposer("zpool"))
+	}
 
+	// Test harness mode
 	var args HarnessArgs
-
-	flag.StringVar(&args.CreateArgs.PoolName, "poolname", "", "")
-	flag.StringVar(&args.CreateArgs.ImagePath, "imagepath", "", "")
-	flag.Int64Var(&args.CreateArgs.ImageSize, "imagesize", DefaultPoolImageSize, "")
-	flag.StringVar(&args.CreateArgs.Mountpoint, "mountpoint", "", "")
+	flag.BoolVar(&args.NoInterposer, "no-interposer", false, "skip safety interposer; symlink zfs/zpool directly to real binaries (requires running as root)")
 	flag.BoolVar(&args.StopAndKeepPoolOnFail, "failure.stop-and-keep-pool", false, "if a test case fails, stop test execution and keep pool as it was when the test failed")
-	flag.StringVar(&args.Run, "run", "", "")
+	flag.StringVar(&args.Run, "run", "", "regex to filter test cases")
 	flag.DurationVar(&platformtest.ZpoolExportTimeout, "zfs.zpool-export-timeout", platformtest.ZpoolExportTimeout, "")
 	flag.Parse()
 
@@ -49,7 +54,7 @@ func main() {
 var exitWithErr = fmt.Errorf("exit with error")
 
 type HarnessArgs struct {
-	CreateArgs            platformtest.ZpoolCreateArgs
+	NoInterposer          bool
 	StopAndKeepPoolOnFail bool
 	Run                   string
 }
@@ -90,6 +95,14 @@ func (i *invocation) RegisterChild(c *invocation) error {
 
 func HarnessRun(args HarnessArgs) error {
 
+	// Set up interposer: create symlinks and replace PATH.
+	// In direct mode, zfs/zpool symlink to real binaries (no sudo, no validation).
+	_, cleanup, err := platformtest.SetupInterposerPath("", args.NoInterposer)
+	if err != nil {
+		return errors.Wrap(err, "set up interposer PATH")
+	}
+	defer cleanup()
+
 	runRE := regexp.MustCompile(args.Run)
 
 	outlets := logger.NewOutlets()
@@ -104,11 +117,6 @@ func HarnessRun(args HarnessArgs) error {
 	}
 	outlets.Add(outlet, level)
 	logger := logger.NewLogger(outlets, 1*time.Second)
-
-	if err := args.CreateArgs.Validate(); err != nil {
-		logger.Error(err.Error())
-		panic(err)
-	}
 	ctx := context.Background()
 	defer trace.WithTaskFromStackUpdateCtx(&ctx)()
 	ctx = logging.WithLoggers(ctx, logging.SubsystemLoggersWithUniversalLogger(logger))
@@ -128,14 +136,13 @@ func HarnessRun(args HarnessArgs) error {
 
 		bold.Printf("BEGIN TEST CASE %s\n", inv)
 
-		pool, err := platformtest.CreateOrReplaceZpool(ctx, ex, args.CreateArgs)
-		if err != nil {
+		if err := platformtest.CreateOrReplaceZpool(ctx, ex); err != nil {
 			panic(errors.Wrap(err, "create test pool"))
 		}
 
 		ctx := &platformtest.Context{
 			Context:     ctx,
-			RootDataset: filepath.Join(pool.Name(), "rootds"),
+			RootDataset: filepath.Join(platformtest.PlatformTestPoolName, "rootds"),
 			QueueSubtest: func(id string, stf func(*platformtest.Context)) {
 				stinv := newInvocation(stf, id)
 				err := inv.RegisterChild(stinv)
@@ -158,7 +165,7 @@ func HarnessRun(args HarnessArgs) error {
 			return exitWithErr
 		}
 
-		if err := pool.Destroy(ctx, ex); err != nil {
+		if err := platformtest.DestroyZpool(ctx, ex); err != nil {
 			panic(fmt.Sprintf("error destroying test pool: %s", err))
 		}
 
