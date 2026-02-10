@@ -16,14 +16,19 @@ commands:
               echo "$line" >> $BASH_ENV
             fi
 
-  # NOTE: when updating uv version, update both the install URL and cache keys below
+  # NOTE: UV version is defined in .uv-version file at repository root
   install-docdep:
     steps:
+      - run:
+          name: Read UV version from .uv-version
+          command: |
+            UV_VERSION=$(cat .uv-version)
+            echo "export UV_VERSION=$UV_VERSION" >> $BASH_ENV
       # Python is managed by uv - it will automatically download the version
       # specified in docs/.python-version when needed
       - run:
           name: Install uv
-          command: curl -LsSf https://astral.sh/uv/0.9.30/install.sh | sh
+          command: curl -LsSf https://astral.sh/uv/${UV_VERSION}/install.sh | sh
       - run:
           name: Add uv to PATH and set cache dir
           command: |
@@ -32,8 +37,8 @@ commands:
       - restore_cache:
           name: Restore uv cache
           keys:
-            - uv-cache-v1-0.9.30-{{ checksum "docs/uv.lock" }}
-            - uv-cache-v1-0.9.30-
+            - uv-cache-v1-${UV_VERSION}-{{ checksum "docs/uv.lock" }}
+            - uv-cache-v1-${UV_VERSION}-
 
   save-uv-cache:
     steps:
@@ -42,7 +47,7 @@ commands:
           command: uv cache prune --ci
       - save_cache:
           name: Save uv cache
-          key: uv-cache-v1-0.9.30-{{ checksum "docs/uv.lock" }}
+          key: uv-cache-v1-${UV_VERSION}-{{ checksum "docs/uv.lock" }}
           paths:
             - ~/.cache/uv
 
