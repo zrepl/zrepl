@@ -1723,6 +1723,20 @@ type DestroySnapshotsError struct {
 	Reason        []string
 }
 
+var destroySnapshotsReasonHeldRegexp = regexp.MustCompile(`^it's being held\. Run 'zfs holds -r .+' to see holders\.$`)
+
+// AllReasonIsHold returns true if every undestroyable snapshot failed because
+// it is held. ZFS < 2.4 reports "dataset is busy", ZFS >= 2.4 reports
+// "it's being held. Run 'zfs holds -r <snapshot>' to see holders."
+func (e *DestroySnapshotsError) AllReasonIsHold() bool {
+	for _, r := range e.Reason {
+		if r != "dataset is busy" && !destroySnapshotsReasonHeldRegexp.MatchString(r) {
+			return false
+		}
+	}
+	return true
+}
+
 func (e *DestroySnapshotsError) Error() string {
 	if len(e.Undestroyable) != len(e.Reason) {
 		panic(fmt.Sprintf("%v != %v", len(e.Undestroyable), len(e.Reason)))
