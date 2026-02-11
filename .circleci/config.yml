@@ -297,7 +297,8 @@ jobs:
       zfs_release:
         type: string
     machine:
-      image: ubuntu-2404:current
+      # pinned (not :current) to keep ZFS build cache valid across runs
+      image: ubuntu-2404:2025.09.1
     resource_class: medium
     environment:
       GOOS: <<parameters.goos>>
