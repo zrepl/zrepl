@@ -103,8 +103,8 @@ commands:
       - run:
           name: Verify ZFS version
           command: |
-            zfs version
-            zpool version
+            sudo zfs version
+            sudo zpool version
 
   docs-publish-sh:
     parameters:
