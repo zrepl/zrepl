@@ -171,6 +171,7 @@ Run `make lint` and `make vet`.
 Update the CI configuration `.circleci/config.yml`:
 - Update Go version references (we reference the minimum and max supported version)
 - Set `Makefile` `RELEASE_GOVERSION` to the new Go version
+- Update the pinned ZFS release tags in the `platformtest` matrix (`zfs_release` parameter) to the latest patch releases of each OpenZFS branch (currently 2.2, 2.3, 2.4)
 
 Update docs build tooling:
 - Update `uv` version in `.circleci/config.yml` (search for `astral.sh/uv/` and cache keys containing the version)
