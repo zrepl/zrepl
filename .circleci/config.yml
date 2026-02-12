@@ -68,6 +68,11 @@ commands:
           name: Build ZFS <<parameters.zfs_release>> native debs (if not cached)
           no_output_timeout: 20m
           command: |
+            # CircleCI machine images have pyenv Python 3.13 shadowing the system
+            # Python 3.12. The apt python3-* packages (setuptools, cffi, etc.) only
+            # install for the system Python, and ZFS's dpkg-buildpackage needs them
+            # for --enable-pyzfs. Use the system Python so apt packages are visible.
+            export PYENV_VERSION=system
             if [ -d /tmp/zfs-debs ]; then
               echo "ZFS debs cache hit, skipping build"
               exit 0
