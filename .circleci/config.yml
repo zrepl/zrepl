@@ -62,7 +62,7 @@ commands:
       - restore_cache:
           name: Restore ZFS native debs cache
           keys:
-            - zfs-debs-v1-<<parameters.zfs_release>>-{{ checksum "/tmp/kernel-version" }}
+            - zfs-debs-v2-<<parameters.zfs_release>>-{{ checksum "/tmp/kernel-version" }}
       - run:
           # https://openzfs.github.io/openzfs-docs/Developer%20Resources/Building%20ZFS.html
           name: Build ZFS <<parameters.zfs_release>> native debs (if not cached)
@@ -91,7 +91,7 @@ commands:
             find /tmp/zfs-build -name '*.deb' -exec mv -t /tmp/zfs-debs/ {} +
       - save_cache:
           name: Save ZFS native debs cache
-          key: zfs-debs-v1-<<parameters.zfs_release>>-{{ checksum "/tmp/kernel-version" }}
+          key: zfs-debs-v2-<<parameters.zfs_release>>-{{ checksum "/tmp/kernel-version" }}
           paths:
             - /tmp/zfs-debs
       - run:
