@@ -97,8 +97,8 @@ commands:
       - run:
           name: Install ZFS <<parameters.zfs_release>>
           command: |
-            sudo dpkg -i /tmp/zfs-debs/*.deb || true
-            sudo apt-get install -f -y
+            ls /tmp/zfs-debs/
+            sudo apt-get install -y /tmp/zfs-debs/*.deb
             sudo modprobe zfs
       - run:
           name: Verify ZFS version
