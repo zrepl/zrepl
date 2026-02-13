@@ -31,7 +31,7 @@ func UndestroyableSnapshotParsing(t *platformtest.Context) {
 			panic(dse.Filesystem)
 		}
 		require.Equal(t, []string{"4 5 6"}, dse.Undestroyable)
-		require.Equal(t, []string{"dataset is busy"}, dse.Reason)
+		require.True(t, dse.AllReasonIsHold(), "expected hold reason, got %v", dse.Reason)
 	}
 
 }

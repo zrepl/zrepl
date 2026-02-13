@@ -573,8 +573,9 @@ func implReplicationIsResumableFullSend(ctx *platformtest.Context, setup replica
 			// due to step holds
 			if setup.expectDatasetIsBusyErrorWhenDestroySnapshotWhilePartiallyReplicated {
 				ctx.Logf("i=%v", i)
-				require.Error(ctx, err)
-				require.Contains(ctx, err.Error(), "dataset is busy")
+				dse, ok := err.(*zfs.DestroySnapshotsError)
+				require.True(ctx, ok, "expected *zfs.DestroySnapshotsError, got %T: %s", err, err)
+				require.True(ctx, dse.AllReasonIsHold(), "expected hold reason, got %v", dse.Reason)
 			}
 		}
 
@@ -756,11 +757,13 @@ func ReplicationIncrementalDestroysStepHoldsIffIncrementalStepHoldsAreDisabledBu
 func ReplicationStepCompletedLostBehavior__GuaranteeResumability(ctx *platformtest.Context) {
 	scenario := replicationStepCompletedLostBehavior_impl(ctx, pdu.ReplicationGuaranteeKind_GuaranteeResumability)
 
-	require.Error(ctx, scenario.deleteSfs1Err, "protected by holds")
-	require.Contains(ctx, scenario.deleteSfs1Err.Error(), "dataset is busy")
+	dse1, ok := scenario.deleteSfs1Err.(*zfs.DestroySnapshotsError)
+	require.True(ctx, ok, "expected *zfs.DestroySnapshotsError, got %T: %s", scenario.deleteSfs1Err, scenario.deleteSfs1Err)
+	require.True(ctx, dse1.AllReasonIsHold(), "expected hold reason, got %v", dse1.Reason)
 
-	require.Error(ctx, scenario.deleteSfs2Err, "protected by holds")
-	require.Contains(ctx, scenario.deleteSfs2Err.Error(), "dataset is busy")
+	dse2, ok := scenario.deleteSfs2Err.(*zfs.DestroySnapshotsError)
+	require.True(ctx, ok, "expected *zfs.DestroySnapshotsError, got %T: %s", scenario.deleteSfs2Err, scenario.deleteSfs2Err)
+	require.True(ctx, dse2.AllReasonIsHold(), "expected hold reason, got %v", dse2.Reason)
 
 	require.Nil(ctx, scenario.finalReport.Error())
 	_ = fsversion(ctx, scenario.rfs, "@3") // @3 ade it to the other side
