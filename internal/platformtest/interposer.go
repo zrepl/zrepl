@@ -12,11 +12,13 @@
 //
 // When invoked as zfs or zpool, the binary validates that all commands
 // reference the test pool "zreplplatformtest" before delegating through
-// sudo. Safety checks include:
-//   - Pool name validation on all non-flag arguments
-//   - Blocking -a (all) flag without explicit pool reference
-//   - Command-aware flag parsing (-t is arg-taking for zfs, boolean for zpool)
-//   - Mountpoint path traversal protection on post-create chmod
+// sudo. The validation rule is simple: the pool name must appear in the
+// command args. Special cases:
+//   - Resume tokens ("zfs send -t <token>"): decoded via the real binary
+//     to extract and verify the toname field
+//   - The -a (all) flag is blocked without an explicit pool reference
+//   - Bare subcommands (feature detection) are allowed
+//   - Mountpoint paths are validated against traversal on post-create chmod
 //
 // With -no-interposer, zfs/zpool symlink directly to the real binaries
 // (no sudo, no validation). Use this when running as root.
@@ -33,18 +35,15 @@ import (
 // SetupInterposerPath creates a temp directory with zfs/zpool symlinks
 // and replaces PATH so that all zfs/zpool invocations go through it.
 //
-// When direct is false (normal mode), zfs/zpool symlink to the current
-// executable (interposer mode: validates commands and delegates via sudo).
-// Additional .real symlinks point to the actual binaries.
+// If `explicitDir` is non-empty, the PATH is constructed in that directory
+// instead of a temp directory, and the caller is responsible for cleanup.
 //
-// When direct is true, zfs/zpool symlink directly to the real binaries
-// (no interposer, no sudo). Use this when running as root.
+// `direct` controls whether to set up the interposer (false) or to symlink
+// zfs/zpool directly to the real binaries (true, no interposer, no sudo).
 //
 // Returns the directory path and a cleanup function.
 func SetupInterposerPath(explicitDir string, direct bool) (string, func(), error) {
 	// Resolve real binary paths while original PATH is still intact.
-	// In direct mode we only need zfs/zpool and bash; in interposer
-	// mode we also need sudo.
 	lookupNames := []string{"zfs", "zpool", "bash"}
 	if !direct {
 		lookupNames = append(lookupNames, "sudo")
@@ -166,18 +165,10 @@ func RunInterposer(command string) int {
 }
 
 func validatePoolName(command string, args []string, poolName string) error {
-	// Allow subcommands that don't reference a specific dataset,
-	// used for feature detection (e.g., "zfs send" with no dataset,
-	// "zfs receive" with no dataset, "zpool get").
 	if len(args) == 0 {
 		return nil
 	}
 
-	// Some subcommands are inherently safe / don't target a pool.
-	// Allow them unconditionally. The real safety net is that we
-	// only have sudo for zfs/zpool, not for anything destructive
-	// outside the test pool.
-	//
 	// Check if any non-flag argument references the pool name.
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "-") {
@@ -188,62 +179,90 @@ func validatePoolName(command string, args []string, poolName string) error {
 		}
 	}
 
-	// Block commands with -a (all) flag when no pool name was found.
-	// These operate on ALL pools/filesystems (e.g., zfs unmount -a,
-	// zpool export -a) and must not be allowed without a pool reference.
+	// Special case: "zfs send -t <token>" (or -nvt, etc.) — the pool
+	// name is encoded in the resume token, not visible in the args.
+	// Decode the token via the real binary and verify toname.
+	if command == "zfs" {
+		if token := extractResumeToken(args); token != "" {
+			return validateResumeTokenPool(token, poolName)
+		}
+	}
+
+	// Block -a (all) flag without pool reference. Commands like
+	// "zfs unmount -a" or "zpool export -a" affect all pools.
 	for _, arg := range args {
 		if !strings.HasPrefix(arg, "-") {
 			continue
 		}
-		// -a standalone or in combined flags (e.g., -fa, -ra)
 		if arg == "-a" || (len(arg) > 2 && arg[0] == '-' && arg[1] != '-' &&
 			strings.ContainsRune(arg[1:], 'a')) {
 			return fmt.Errorf("%s command rejected: -a flag not allowed without explicit pool reference", command)
 		}
 	}
 
-	// Special case: bare subcommand with only flags (feature detection).
-	// Count non-flag args. If there's only one (the subcommand itself),
-	// allow it.
-	//
-	// Note: -s is intentionally NOT in the skip list. It is boolean in
-	// some subcommands (e.g., zfs recv -s) and argument-taking in others
-	// (e.g., zfs list -s property). Not skipping its "value" is safe:
-	// commands with the pool name are already handled by the loop above,
-	// and for commands without a pool name, over-counting non-flag args
-	// causes a safe rejection rather than a dangerous acceptance.
+	// If only one non-flag arg is present (the subcommand itself),
+	// this is feature detection (e.g., bare "zfs send", "zfs receive").
 	nonFlagArgs := 0
-	skipNext := false
 	for _, arg := range args {
-		if skipNext {
-			skipNext = false
-			continue
+		if !strings.HasPrefix(arg, "-") {
+			nonFlagArgs++
 		}
-		// Flags that take a value argument: -o, -O always; -t for zfs only.
-		// -t is arg-taking in zfs (list -t type, send -t token) but
-		// boolean in zpool (import -t = temporary, events -t = timestamps).
-		argTakingChars := "oO"
-		if command == "zfs" {
-			argTakingChars = "oOt"
-		}
-		if arg == "-o" || arg == "-O" || (command == "zfs" && arg == "-t") ||
-			(len(arg) > 2 && arg[0] == '-' && arg[1] != '-' &&
-				strings.ContainsAny(arg, argTakingChars)) {
-			skipNext = true
-			continue
-		}
-		if strings.HasPrefix(arg, "-") {
-			continue
-		}
-		nonFlagArgs++
 	}
-	// If only the subcommand is present (e.g., "send", "receive", "get"),
-	// this is likely feature detection.
 	if nonFlagArgs <= 1 {
 		return nil
 	}
 
 	return fmt.Errorf("%s command rejected: args %v do not reference pool %q", command, args, poolName)
+}
+
+// extractResumeToken returns the resume token from "zfs send -t <token>"
+// or combined forms like "zfs send -nvt <token>". Returns "" if not found.
+func extractResumeToken(args []string) string {
+	if len(args) == 0 || args[0] != "send" {
+		return ""
+	}
+	for i, arg := range args {
+		if !strings.HasPrefix(arg, "-") {
+			continue
+		}
+		// -t standalone, or combined flag containing t (e.g., -nvt)
+		if arg == "-t" || (len(arg) > 2 && arg[0] == '-' && arg[1] != '-' &&
+			strings.ContainsRune(arg[1:], 't')) {
+			if i+1 < len(args) {
+				return args[i+1]
+			}
+		}
+	}
+	return ""
+}
+
+// validateResumeTokenPool decodes a resume token by calling the real zfs
+// binary directly (bypassing the interposer) and checks that the toname
+// field references the expected pool.
+func validateResumeTokenPool(token, poolName string) error {
+	realBinary := filepath.Join(os.Getenv("PATH"), "zfs.real")
+	cmd := exec.Command("sudo", realBinary, "send", "-nvt", token)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// zfs send -nvt may exit non-zero if the dataset no longer exists,
+		// but it still prints the token contents. Only fail on exec errors.
+		if _, ok := err.(*exec.ExitError); !ok {
+			return fmt.Errorf("decode resume token: %w", err)
+		}
+	}
+
+	for _, line := range strings.Split(string(output), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "toname = ") {
+			toname := strings.TrimPrefix(line, "toname = ")
+			if toname == poolName || strings.HasPrefix(toname, poolName+"/") || strings.HasPrefix(toname, poolName+"@") {
+				return nil
+			}
+			return fmt.Errorf("resume token rejected: toname %q does not reference pool %q", toname, poolName)
+		}
+	}
+
+	return fmt.Errorf("resume token rejected: could not extract toname from token")
 }
 
 func isCreateOperation(args []string) bool {
