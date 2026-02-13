@@ -103,7 +103,17 @@ commands:
           name: Install ZFS <<parameters.zfs_release>>
           command: |
             ls /tmp/zfs-debs/
-            sudo apt-get install -y /tmp/zfs-debs/*.deb
+            # Only install the debs we need. Exclude dracut (conflicts with
+            # initramfs-tools), dkms (we have prebuilt modules), and packages
+            # we don't need (pyzfs, test, doc).
+            sudo apt-get install -y $(find /tmp/zfs-debs -name '*.deb' \
+              ! -name '*dracut*' \
+              ! -name '*dkms*' \
+              ! -name '*initramfs*' \
+              ! -name '*pyzfs*' \
+              ! -name '*doc*' \
+              ! -name '*test*' \
+              -print)
             sudo modprobe zfs
       - run:
           name: Verify ZFS version
