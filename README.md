@@ -118,10 +118,10 @@ The procedure to issue a release is as follows:
     ```
   * Create GitHub release and upload artifacts:
     ```bash
-    gh release create vX.Y.Z --title "vX.Y.Z" --notes "See changelog" --draft
-    gh release upload vX.Y.Z artifacts/release/*
+    claude --permission-mode default '/draft-release v0.7.0'
+    gh release upload v0.7.0 artifacts/release/*
     ```
-  * Review the draft release, edit the changelog, then publish.
+  * Review the draft release on GitHub, then publish.
   * Add the .rpm and .deb files to the official zrepl repos.
     * Code for management of these repos: https://github.com/zrepl/package-repo-ops (private repo at this time)
 * Update docs version list:
