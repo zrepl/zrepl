@@ -112,6 +112,10 @@ The procedure to issue a release is as follows:
     ```
     make download-circleci-release JOB_NUM=66079
     ```
+  * Verify checksums and sign the checksums file:
+    ```
+    make verify-and-sign
+    ```
   * Create GitHub release and upload artifacts:
     ```bash
     gh release create vX.Y.Z --title "vX.Y.Z" --notes "See changelog" --draft
