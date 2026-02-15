@@ -96,10 +96,18 @@ The procedure to issue a release is as follows:
   * Merge the PR. Docs are auto-published to zrepl.github.io on merge.
 * Tag the release:
   * Git tag the release on the `master` branch (e.g., `vMAJOR.MINOR.0`).
+    ```
+    make tag-release ZREPL_TAG_VERSION=v0.7.0
+    ```
   * Push the tag.
 * Build and publish:
-  * Run the `release` pipeline (trigger via CircleCI UI).
-  * Download artifacts: `make download-circleci-release BUILD_NUM=<circleci-build-number>`
+  * Run the `release` pipeline against the `master` branch (trigger via CircleCI UI).
+    This URL: https://app.circleci.com/pipelines/github/zrepl/zrepl?branch=master.
+    Example pipeline: https://app.circleci.com/pipelines/github/zrepl/zrepl/8547
+  * Download artifacts:
+    ```
+    make download-circleci-release BUILD_NUM=8547
+    ```
   * Create GitHub release and upload artifacts:
     ```bash
     gh release create vX.Y.Z --title "vX.Y.Z" --notes "See changelog" --draft
