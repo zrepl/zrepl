@@ -7,13 +7,21 @@ import requests
 import time
 
 import os
+import yaml
 import argparse
 from pathlib import Path
 
 
 circle_token = os.environ.get('CIRCLE_TOKEN')
 if not circle_token:
-    raise ValueError('CIRCLE_TOKEN environment variable not set')
+    cli_yml = Path.home() / ".circleci" / "cli.yml"
+    if cli_yml.exists():
+        with open(cli_yml) as f:
+            data = yaml.safe_load(f)
+            if data:
+                circle_token = data.get("token")
+if not circle_token:
+    raise ValueError('CIRCLE_TOKEN not set and no token found in ~/.circleci/cli.yml')
 
 parser = argparse.ArgumentParser(description='Download artifacts from CircleCI')
 parser.add_argument('build_num', type=str, help='Build number')
