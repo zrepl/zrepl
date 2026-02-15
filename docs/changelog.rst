@@ -26,10 +26,15 @@ Changelog
 * |bugfix| Detect duplicate and internal job names at config parse time.
   zrepl will now refuse to load a config with duplicate or internally reserved job names, instead of failing later at daemon startup.
   (:commit:`860a9be`).
+* |bugfix| Fix ``last_n`` keep rule behavior (:commit:`ebc46cf`, thanks, `@dsh2dsh <https://github.com/dsh2dsh>`_).
+* |bugfix| Allow different jobs to use the same ``root_fs`` for sinks (:commit:`27012e5`, thanks, `@dsh2dsh <https://github.com/dsh2dsh>`_).
 * |docs| Add installation instructions for openSUSE (:commit:`40c4827`, thanks, `@findesgh <https://github.com/findesgh>`_).
 * |docs| Improve documentation on ``send_properties`` configuration and NFS/SMB considerations (:commit:`b5d8538`, thanks, `@Malvineous <https://github.com/Malvineous>`_).
 * |docs| Warn more prominently about the risks of the ``not_replicated`` keep rule (:commit:`affe00a`, thanks, `@wxiaoguang <https://github.com/wxiaoguang>`_).
 * |docs| Improve TLS/EasyRSA setup instructions (:commit:`e524b60`, thanks, `@alorimer <https://github.com/alorimer>`_).
+* |docs| Remove dead Bountysource link (:commit:`440b074`, thanks, `@lpulley <https://github.com/lpulley>`_).
+* |docs| Fix missing newline in compile-from-source documentation (:commit:`e2fcf9f`, thanks, `@Raupinger <https://github.com/Raupinger>`_).
+* |docs| Fix apt repository installation snippet (:commit:`8305367`, thanks, `@fermino <https://github.com/fermino>`_).
 * |docs| ``zrepl.github.io``: auto-publish from ``master`` branch, retire ``stable`` branch (:commit:`4f950bb`).
 * |maint| ``zrepl status``: switch from the unmaintained ``cview`` fork back to the actively maintained ``tview`` library (:commit:`d7ede3f`).
 * |maint| Update to Go 1.25 toolchain with Go 1.24 language level & Go dependencies
