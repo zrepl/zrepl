@@ -93,6 +93,11 @@ The procedure to issue a release is as follows:
 
 * Prepare the release (as a PR to `master`):
   * Finalize `docs/changelog.rst` for the release.
+  * Update the supporters list based on contributors for this release:
+    ```bash
+    claude --permission-mode default '/update-supporters v0.6.1..v0.7.0'
+    ```
+    Replace version tags with the appropriate range for your release.
   * Merge the PR. Docs are auto-published to zrepl.github.io on merge.
 * Tag the release:
   * Git tag the release on the `master` branch (e.g., `vMAJOR.MINOR.0`).
@@ -116,11 +121,11 @@ The procedure to issue a release is as follows:
     ```
     make verify-and-sign
     ```
-  * Create GitHub release and upload artifacts:
+  * Create GitHub draft release and upload artifacts:
     ```bash
     claude --permission-mode default '/draft-release v0.7.0'
-    gh release upload v0.7.0 artifacts/release/*
     ```
+    This command will verify that artifacts are ready, create the draft release, and upload all artifacts.
   * Review the draft release on GitHub, then publish.
   * Add the .rpm and .deb files to the official zrepl repos.
     * Code for management of these repos: https://github.com/zrepl/package-repo-ops (private repo at this time)
