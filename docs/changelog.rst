@@ -16,6 +16,8 @@ Changelog
 0.7.0
 -----
 
+`GitHub Release <https://github.com/zrepl/zrepl/releases/tag/v0.7.0>`_
+
 * |feature| Config file inclusion using ``include`` directive.
   This allows distributing zrepl job definitions across multiple YAML files in a ``conf.d`` style directory.
   (:commit:`4d6583e`, thanks, `@ZeyadTamimi <https://github.com/zeyadtamimi>`_).

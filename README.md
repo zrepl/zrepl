@@ -126,13 +126,17 @@ The procedure to issue a release is as follows:
     claude --permission-mode default '/draft-release v0.7.0'
     ```
     This command will verify that artifacts are ready, create the draft release, and upload all artifacts.
-  * Review the draft release on GitHub, then publish.
+  * Review the draft release on GitHub, then publish,
+    with the box checked to create a GitHub "Discussion" for the release.
+* Immediately after hitting publish.
+  * Update the release on GitHub to link to the discussion.
+  * Update `docs/changelog.rst` to link to the GitHub release.
+  * Update `docs/_templates/versions.html` to link to the GitHub release.
+  * Announce release in the zrepl Matrix channel & other socials as applicable.
+    Link to the GitHub release as the entrypoint.
+* After a couple of days
   * Add the .rpm and .deb files to the official zrepl repos.
     * Code for management of these repos: https://github.com/zrepl/package-repo-ops (private repo at this time)
-* Update docs version list:
-  * Update `docs/_templates/versions.html` with the new release.
-  * Verify the link to `zrepl-noarch.tar` in the GitHub release works.
-  * Merge to `master` (docs auto-publish).
 
 #### Patch releases, Go toolchain updates, APT/RPM Package rebuilds
 
