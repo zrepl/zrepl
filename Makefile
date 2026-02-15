@@ -222,7 +222,7 @@ clean: docs-clean
 download-circleci-release:
 	rm -rf "$(ARTIFACTDIR)"
 	mkdir -p "$(ARTIFACTDIR)/release"
-	python3 .circleci/download_artifacts.py --prefix 'artifacts/release/' "$(BUILD_NUM)" "$(ARTIFACTDIR)/release"
+	python3 .circleci/download_artifacts.py --prefix 'artifacts/release/' "$(JOB_NUM)" "$(ARTIFACTDIR)/release"
 
 ##################### MULTI-ARCH HELPERS #####################
 

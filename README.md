@@ -104,9 +104,13 @@ The procedure to issue a release is as follows:
   * Run the `release` pipeline against the `master` branch (trigger via CircleCI UI).
     This URL: https://app.circleci.com/pipelines/github/zrepl/zrepl?branch=master.
     Example pipeline: https://app.circleci.com/pipelines/github/zrepl/zrepl/8547
-  * Download artifacts:
+  * Download artifacts using this handy makefile target.
+    Note: `JOB_NUM` must be the **job number** from the `release-upload` job, **not the pipeline number**.
+    Find it via: pipeline → `release` workflow → `release-upload` job number.
+    Example URL: https://app.circleci.com/pipelines/github/zrepl/zrepl/8547/workflows/65feb2c9-15d7-46ab-a551-46d62a5769b0/jobs/66079/steps
+
     ```
-    make download-circleci-release BUILD_NUM=8547
+    make download-circleci-release JOB_NUM=66079
     ```
   * Create GitHub release and upload artifacts:
     ```bash
