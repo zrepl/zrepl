@@ -56,7 +56,7 @@ release-docker-mkcachemount:
 endif
 
 ##################### PRODUCING A RELEASE #############
-.PHONY: release wrapup-and-checksum check-git-clean sign clean ensure-release-toolchain
+.PHONY: release wrapup-and-checksum check-git-clean verify-and-sign clean ensure-release-toolchain
 
 ensure-release-toolchain:
 	# ensure the toolchain is actually the one we expect
@@ -211,7 +211,8 @@ tag-release:
 	test -n "$(ZREPL_TAG_VERSION)" || exit 1
 	git tag -u '328A6627FA98061D!' -m "$(ZREPL_TAG_VERSION)" "$(ZREPL_TAG_VERSION)"
 
-sign:
+verify-and-sign:
+	cd "$(ARTIFACTDIR)/release" && sha512sum -c sha512sum.txt
 	gpg -u '328A6627FA98061D!' \
 		--armor \
 		--detach-sign $(ARTIFACTDIR)/release/sha512sum.txt
@@ -222,7 +223,7 @@ clean: docs-clean
 download-circleci-release:
 	rm -rf "$(ARTIFACTDIR)"
 	mkdir -p "$(ARTIFACTDIR)/release"
-	python3 .circleci/download_artifacts.py --prefix 'artifacts/release/' "$(BUILD_NUM)" "$(ARTIFACTDIR)/release"
+	python3 .circleci/download_artifacts.py --prefix 'artifacts/release/' "$(JOB_NUM)" "$(ARTIFACTDIR)/release"
 
 ##################### MULTI-ARCH HELPERS #####################
 

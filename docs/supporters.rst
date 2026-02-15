@@ -32,6 +32,25 @@ We would like to thank the following people and organizations for supporting zre
 
    <div class="fa fa-code" style="width: 1em;"></div>
 
+..
+   The list below is (roughly) sorted by date of latest contribution, newest first.
+
+  ..
+     ↓ claude --permission-mode default /update-supporters v0.6.1..v0.7.0
+
+* |supporter-code| `Bakhtiyar Neyman <https://github.com/bakhtiyarneyman>`_
+* |supporter-code| `Zeyad Tamimi <https://github.com/ZeyadTamimi>`_
+* |supporter-code| `Orsiris de Jong <https://github.com/deajan>`_
+* |supporter-code| `Martin Glatzle <https://github.com/findesgh>`_
+* |supporter-code| `Andrew Lorimer <https://github.com/alorimer>`_
+* |supporter-code| `Adam Nielsen <https://github.com/Malvineous>`_
+* |supporter-code| `wxiaoguang <https://github.com/wxiaoguang>`_
+* |supporter-code| `Logan Pulley <https://github.com/lpulley>`_
+* |supporter-code| `Florian <https://github.com/Raupinger>`_
+* |supporter-code| `Fermín Olaiz <https://github.com/fermino>`_
+* |supporter-code| `Denis Shaposhnikov <https://github.com/dsh2dsh>`_
+   ..
+     ↓ Before /update-supporters
 * |supporter-gold| `Hostsharing eG – die Hosting-Genossenschaft <https://www.hostsharing.net/>`_
 * |supporter-std| `Max Christian Pohle <https://coderonline.de>`_
 * |supporter-gold| Prominic.NET, Inc.

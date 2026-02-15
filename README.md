@@ -93,19 +93,40 @@ The procedure to issue a release is as follows:
 
 * Prepare the release (as a PR to `master`):
   * Finalize `docs/changelog.rst` for the release.
+  * Update the supporters list based on contributors for this release:
+    ```bash
+    claude --permission-mode default '/update-supporters v0.6.1..v0.7.0'
+    ```
+    Replace version tags with the appropriate range for your release.
   * Merge the PR. Docs are auto-published to zrepl.github.io on merge.
 * Tag the release:
   * Git tag the release on the `master` branch (e.g., `vMAJOR.MINOR.0`).
+    ```
+    make tag-release ZREPL_TAG_VERSION=v0.7.0
+    ```
   * Push the tag.
 * Build and publish:
-  * Run the `release` pipeline (trigger via CircleCI UI).
-  * Download artifacts: `make download-circleci-release BUILD_NUM=<circleci-build-number>`
-  * Create GitHub release and upload artifacts:
-    ```bash
-    gh release create vX.Y.Z --title "vX.Y.Z" --notes "See changelog" --draft
-    gh release upload vX.Y.Z artifacts/release/*
+  * Run the `release` pipeline against the `master` branch (trigger via CircleCI UI).
+    This URL: https://app.circleci.com/pipelines/github/zrepl/zrepl?branch=master.
+    Example pipeline: https://app.circleci.com/pipelines/github/zrepl/zrepl/8547
+  * Download artifacts using this handy makefile target.
+    Note: `JOB_NUM` must be the **job number** from the `release-upload` job, **not the pipeline number**.
+    Find it via: pipeline → `release` workflow → `release-upload` job number.
+    Example URL: https://app.circleci.com/pipelines/github/zrepl/zrepl/8547/workflows/65feb2c9-15d7-46ab-a551-46d62a5769b0/jobs/66079/steps
+
     ```
-  * Review the draft release, edit the changelog, then publish.
+    make download-circleci-release JOB_NUM=66079
+    ```
+  * Verify checksums and sign the checksums file:
+    ```
+    make verify-and-sign
+    ```
+  * Create GitHub draft release and upload artifacts:
+    ```bash
+    claude --permission-mode default '/draft-release v0.7.0'
+    ```
+    This command will verify that artifacts are ready, create the draft release, and upload all artifacts.
+  * Review the draft release on GitHub, then publish.
   * Add the .rpm and .deb files to the official zrepl repos.
     * Code for management of these repos: https://github.com/zrepl/package-repo-ops (private repo at this time)
 * Update docs version list:
