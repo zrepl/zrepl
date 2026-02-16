@@ -68,9 +68,21 @@ func ZFSListMappingProperties(ctx context.Context, filter DatasetFilter, propert
 	defer cancel()
 	rchan := make(chan ZFSListResult)
 
-	go ZFSListChan(ctx, rchan, properties, nil, "-r", "-t", "filesystem,volume")
-
+	args := []string{"-r", "-t", "filesystem,volume"}
 	unmatchedUserSpecifiedDatasets := filter.UserSpecifiedDatasets()
+	for ds, _ := range unmatchedUserSpecifiedDatasets {
+		var path *DatasetPath
+		if path, err = NewDatasetPath(ds); err != nil {
+			return
+		}
+		if ph, err := ZFSGetFilesystemPlaceholderState(ctx, path); err == nil && ph.FSExists {
+			args = append(args, ds)
+			delete(unmatchedUserSpecifiedDatasets, path.ToString())
+		}
+	}
+	err = nil
+
+	go ZFSListChan(ctx, rchan, properties, nil, args...)
 	datasets = make([]ZFSListMappingPropertiesResult, 0)
 	for r := range rchan {
 
@@ -83,8 +95,6 @@ func ZFSListMappingProperties(ctx context.Context, filter DatasetFilter, propert
 		if path, err = NewDatasetPath(r.Fields[0]); err != nil {
 			return
 		}
-
-		delete(unmatchedUserSpecifiedDatasets, path.ToString())
 
 		pass, filterErr := filter.Filter(path)
 		if filterErr != nil {
