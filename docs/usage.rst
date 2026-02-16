@@ -101,24 +101,20 @@ Along with the main ``zrepl`` binary, we release the ``platformtest`` binaries.
 The zrepl platform tests are an integration test suite that is complementary to the pure Go unit tests.
 Any test that needs to interact with ZFS is a platform test.
 
-The platform need to run as root.
+The platform tests require ``sudo`` ``NOPASSWD``-access to ``zfs`` and ``zpool``.
 For each test, we create a fresh dummy zpool backed by a file-based vdev.
-The file path, and a root mountpoint for the dummy zpool, must be specified on the command line:
+The pool name, image path, and mountpoint are hardcoded in the binary.
 
-::
-
-   mkdir -p /tmp/zreplplatformtest
-   ./platformtest \
-       -poolname 'zreplplatformtest' \  # <- name must contain zreplplatformtest
-       -imagepath /tmp/zreplplatformtest.img \ # <- zrepl will create the file
-       -mountpoint /tmp/zreplplatformtest # <- must exist
-
+The ``platformtest`` binary is a multi-personality binary (similar to busybox).
+It acts as a safety interposer for ``zfs`` and ``zpool`` commands, ensuring all operations
+reference the hard-coded test pool name ``zreplplatformtest``. It creates symlinks to itself in a temporary
+directory and replaces ``PATH`` so that all ``zfs``/``zpool`` invocations go through the interposer.
 
 .. WARNING::
 
-   ``platformtest`` will unconditionally overwrite the file at `imagepath`
-   and unconditionally ``zpool destroy $poolname``.
-   So, don't use a production poolname, and consider running the test in a VM.
+   ``platformtest`` will unconditionally ``zpool destroy`` the test zpool
+   and unconditionally delete the image file that backs it.
+   Consider running the test in a VM.
    It'll be a lot faster as well because the underlying operations, ``zfs list`` in particular, will be faster.
 
 
