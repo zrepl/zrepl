@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# 1. Set Environment Variables (from Systemd)
+export GOTRACEBACK='crash'
+
+# 2. Runtime Directory Setup
+# Matches Systemd 'RuntimeDirectory' and OpenRC 'start()'
+# We ensure the directories exist and have strict 0700 permissions
+mkdir -p /var/run/zrepl/stdinserver
+chmod -R 0700 /var/run/zrepl
+chown -R zrepl:zrepl /var/run/zrepl
+
+# 3. Config Check (ExecStartPre)
+# If this fails, we exit immediately so runit doesn't loop-restart a bad config rapidly
+HOME=/nonexistent chpst -u zrepl -U zrepl \
+    /usr/local/bin/zrepl --config /etc/zrepl/zrepl.yml configcheck || exit 1
+
+# 4. Start the Daemon
+# MUST use 'exec' to replace the shell process with zrepl
+# We do not use '&' or background flags
+HOME=/nonexistent exec chpst -u zrepl -U zrepl \
+    /usr/local/bin/zrepl --config /etc/zrepl/zrepl.yml daemon
