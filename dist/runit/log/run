@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# -t zrepl: tags the log message with "zrepl" so you can grep for it later
+# -p daemon.info: sets the priority/facility (optional, but good practice)
+exec vlogger -t zrepl -p daemon.info

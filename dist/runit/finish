@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# Clean up runtime directory (Matches OpenRC 'stop()')
+# The -rf ensures we don't hang if the dir is already gone
+rm -rf /var/run/zrepl
