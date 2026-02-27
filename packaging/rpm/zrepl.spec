@@ -69,7 +69,7 @@ cp -a   internal/config/samples                         %{buildroot}%{_datadir}/
 %{_bindir}/zrepl
 %config %{_unitdir}/zrepl.service
 %dir %{_sysconfdir}/zrepl
-%config %{_sysconfdir}/zrepl/zrepl.yml
+%config(noreplace) %{_sysconfdir}/zrepl/zrepl.yml
 %{_datadir}/zsh/site-functions/_zrepl
 %{_datadir}/bash-completion/completions/zrepl
 %{_datadir}/doc/zrepl
