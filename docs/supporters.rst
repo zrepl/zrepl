@@ -36,6 +36,11 @@ We would like to thank the following people and organizations for supporting zre
    The list below is (roughly) sorted by date of latest contribution, newest first.
 
   ..
+     ↓ post v0.7.0
+
+* |supporter-std| `drbawb <https://git.sr.ht/~hime>`_
+
+  ..
      ↓ claude --permission-mode default /update-supporters v0.6.1..v0.7.0
 
 * |supporter-code| `Bakhtiyar Neyman <https://github.com/bakhtiyarneyman>`_
