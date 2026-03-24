@@ -49,7 +49,7 @@ Apply Configuration Changes
 ===========================
 
 We hope that you have found a configuration that fits your use case.
-Use ``zrepl configcheck`` once again to make sure the config is correct (output indicates that everything is fine).
+Use ``zrepl configcheck`` once again to make sure the config is correct (no output indicates that everything is fine).
 Then restart the zrepl daemon on all systems involved in the replication, likely using ``service zrepl restart`` or ``systemctl restart zrepl``.
 
 .. WARNING::
