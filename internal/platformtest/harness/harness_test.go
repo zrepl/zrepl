@@ -3,8 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zrepl/zrepl/internal/platformtest"
 )
 
 // Idea taken from
@@ -12,16 +15,22 @@ import (
 //
 /* How to generate coverage:
    go test -c -covermode=atomic -cover -coverpkg github.com/zrepl/zrepl/...
-   sudo ../logmockzfs/logzfsenv /tmp/zrepl_platform_test.log /usr/bin/zfs \
-       ./harness.test -test.coverprofile=/tmp/harness.out \
-       -test.v __DEVEL--i-heard-you-like-tests \
-       -imagepath /tmp/testpool.img -poolname zreplplatformtest
+   ./harness.test -test.coverprofile=/tmp/harness.out \
+       -test.v __DEVEL--i-heard-you-like-tests
     go tool cover -html=/tmp/harness.out -o /tmp/harness.html
 */
 // Merge with existing coverage reports using gocovmerge:
 //  https://github.com/wadey/gocovmerge
 
 func TestMain(t *testing.T) {
+	// Multi-personality: when invoked as zfs/zpool symlink, run interposer
+	switch filepath.Base(os.Args[0]) {
+	case "zfs":
+		os.Exit(platformtest.RunInterposer("zfs"))
+	case "zpool":
+		os.Exit(platformtest.RunInterposer("zpool"))
+	}
+
 	fmt.Println("incoming args: ", os.Args)
 
 	var (

@@ -274,7 +274,7 @@ cover-platform-bin:
 	$(GO_ENV_VARS) $(GO) test $(GO_BUILDFLAGS) \
 		-c -o "$(COVER_PLATFORM_BIN_PATH)" \
 		-covermode=atomic -cover -coverpkg github.com/zrepl/zrepl/... \
-		./platformtest/harness
+		./internal/platformtest/harness
 cover-platform:
 	# do not track dependency on cover-platform-bin to allow build of binary outside of test VM
 	export _TEST_PLATFORM_CMD="$(COVER_PLATFORM_BIN_PATH) \
@@ -290,25 +290,13 @@ test-platform:
 	export _TEST_PLATFORM_CMD="\"$(TEST_PLATFORM_BIN_PATH)\""; \
 		$(MAKE) _test-or-cover-platform-impl
 
-ZREPL_PLATFORMTEST_POOLNAME := zreplplatformtest
-ZREPL_PLATFORMTEST_IMAGEPATH := /tmp/zreplplatformtest.pool.img
-ZREPL_PLATFORMTEST_MOUNTPOINT := /tmp/zreplplatformtest.pool
-ZREPL_PLATFORMTEST_ZFS_LOG := /tmp/zreplplatformtest.zfs.log
-# ZREPL_PLATFORMTEST_STOP_AND_KEEP := -failure.stop-and-keep-pool
 ZREPL_PLATFORMTEST_ARGS :=
 _test-or-cover-platform-impl: $(ARTIFACTDIR)
 ifndef _TEST_PLATFORM_CMD
 	$(error _TEST_PLATFORM_CMD is undefined, caller 'cover-platform' or 'test-platform' should have defined it)
 endif
-	rm -f "$(ZREPL_PLATFORMTEST_ZFS_LOG)"
 	rm -f "$(ARTIFACTDIR)/platformtest.cover"
-	internal/platformtest/logmockzfs/logzfsenv "$(ZREPL_PLATFORMTEST_ZFS_LOG)" `which zfs` \
-		$(_TEST_PLATFORM_CMD) \
-		-poolname "$(ZREPL_PLATFORMTEST_POOLNAME)" \
-		-imagepath "$(ZREPL_PLATFORMTEST_IMAGEPATH)" \
-		-mountpoint "$(ZREPL_PLATFORMTEST_MOUNTPOINT)" \
-		$(ZREPL_PLATFORMTEST_STOP_AND_KEEP) \
-		$(ZREPL_PLATFORMTEST_ARGS)
+	$(_TEST_PLATFORM_CMD) $(ZREPL_PLATFORMTEST_ARGS)
 
 cover-merge: $(ARTIFACTDIR)
 	$(GOCOVMERGE) $(ARTIFACTDIR)/platformtest.cover $(ARTIFACTDIR)/gotest.cover > $(ARTIFACTDIR)/merged.cover
@@ -316,7 +304,6 @@ cover-html: cover-merge
 	$(GO) tool cover -html "$(ARTIFACTDIR)/merged.cover" -o "$(ARTIFACTDIR)/merged.cover.html"
 
 cover-full:
-	test "$$(id -u)" = "0" || echo "MUST RUN AS ROOT" 1>&2
 	$(MAKE) test-go COVER=1
 	$(MAKE) cover-platform-bin
 	$(MAKE) cover-platform
