@@ -228,6 +228,50 @@ Policy ``regex``
 Like all other regular expression fields in prune policies, zrepl uses Go's `regexp.Regexp <https://golang.org/pkg/regexp/#Compile>`_ Perl-compatible regular expressions (`Syntax <https://golang.org/pkg/regexp/syntax>`_).
 The optional `negate` boolean field inverts the semantics: Use it if you want to keep all snapshots that *do not* match the given regex.
 
+.. _prune-sink-floor:
+
+Sink-side snapshot protection
+-----------------------------
+
+As explained above, the keep rules of a replication setup are evaluated on the **active side** (:ref:`push <job-push>` or :ref:`pull job <job-pull>`).
+A :ref:`sink job <job-sink>` merely executes the snapshot destroy operations that the active side requests through the RPC protocol — it performs no keep-rule evaluation of its own.
+Consequently, an attacker who gains control over a machine that runs a ``push`` job (and thus holds valid client credentials for the sink) can instruct the sink to destroy all replicated snapshots within that client's subtree, e.g. as part of a ransomware attack.
+
+To defend against this, a ``sink`` job can specify an **optional local retention floor** through a ``pruning`` option:
+
+::
+
+  jobs:
+    - type: sink
+      name: "backup_sink"
+      root_fs: "pool2/backups"
+      pruning:
+        keep:
+          # regardless of what the client requests, keep the last 24 hourly
+          # and 30 daily zrepl snapshots
+          - type: grid
+            grid: 1x1h(keep=all) | 24x1h | 30x1d
+            regex: "^zrepl_.*"
+      serve: ...
+
+The ``keep`` rules use the same syntax and semantics as everywhere else (``grid``, ``last_n``, ``regex``; ``not_replicated`` is rejected because the receiving side has no notion of replication state).
+They are evaluated by the sink itself, against its own local snapshot listing, every time a client requests destruction of snapshots:
+snapshots that the local rules decide to keep are silently retained, no matter what the client requested.
+Snapshots that the local rules do *not* keep are destroyed as usual.
+If no ``pruning`` option is configured, the sink destroys whatever the client requests, as before.
+
+.. ATTENTION::
+
+    Keep rule semantics apply: a snapshot that is not kept by **any** of the local rules is *not* protected.
+    In particular, snapshots whose names do not match the ``regex`` of any rule can be destroyed by the client.
+    Make sure the configured rules cover every snapshot name pattern you want to protect.
+
+.. NOTE::
+
+    The client is **not told** that a snapshot was protected: the destroy operation is reported back to it as successful, so that its pruner does not endlessly retry the destroy.
+    The sink logs a debug-level message for every refused destroy.
+    Consequently, the active side's ``keep_receiver`` rules appear to work normally even if the local floor retains more snapshots than ``keep_receiver`` would — monitor the sink's disk usage accordingly, since the floor policy takes precedence.
+
 .. _prune-workaround-source-side-pruning:
 
 Source-side snapshot pruning

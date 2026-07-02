@@ -1,0 +1,20 @@
+jobs:
+  - type: sink
+    name: "laptop_sink"
+    root_fs: "pool2/backup_laptops"
+    pruning:
+      keep:
+        - type: grid
+          grid: 1x1h(keep=all) | 24x1h | 35x1d | 6x30d
+          regex: "^zrepl_.*"
+        - type: regex
+          regex: "^manual_.*"
+    serve:
+      type: tls
+      listen: "192.168.122.189:8888"
+      ca: "ca.pem"
+      cert: "cert.pem"
+      key: "key.pem"
+      client_cns:
+        - "laptop1"
+        - "homeserver"

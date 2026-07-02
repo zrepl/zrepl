@@ -8,12 +8,14 @@ import (
 	"io"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"
 
 	"github.com/zrepl/zrepl/internal/daemon/logging/trace"
 
+	"github.com/zrepl/zrepl/internal/pruning"
 	"github.com/zrepl/zrepl/internal/replication/logic/pdu"
 	"github.com/zrepl/zrepl/internal/util/bandwidthlimit"
 	"github.com/zrepl/zrepl/internal/util/chainedio"
@@ -494,6 +496,10 @@ type ReceiverConfig struct {
 	BandwidthLimit bandwidthlimit.Config
 
 	PlaceholderEncryption PlaceholderCreationEncryptionProperty
+
+	// Optional local retention floor: snapshots matched by any of these
+	// keep rules are never destroyed on behalf of the peer.
+	Keep []pruning.KeepRule
 }
 
 //go:generate enumer -type=PlaceholderCreationEncryptionProperty -transform=kebab -trimprefix=PlaceholderCreationEncryptionProperty
@@ -518,6 +524,10 @@ func (c *ReceiverConfig) copyIn() {
 		pOverride[key] = value
 	}
 	c.OverrideProperties = pOverride
+
+	keep := make([]pruning.KeepRule, len(c.Keep))
+	copy(keep, c.Keep)
+	c.Keep = keep
 }
 
 func (c *ReceiverConfig) Validate() error {
@@ -1063,8 +1073,82 @@ func (s *Receiver) DestroySnapshots(ctx context.Context, req *pdu.DestroySnapsho
 	if err != nil {
 		return nil, err
 	}
-	return doDestroySnapshots(ctx, lp, req.Snapshots)
+
+	// The peer's pruner sends requests even for filesystems with nothing
+	// to destroy; don't pay a `zfs list` for those.
+	if len(s.conf.Keep) == 0 || len(req.Snapshots) == 0 {
+		return doDestroySnapshots(ctx, lp, req.Snapshots)
+	}
+
+	fsvs, err := zfs.ZFSListFilesystemVersions(ctx, lp, zfs.ListFilesystemVersionsOptions{Types: zfs.Snapshots})
+	if _, notExist := err.(*zfs.DatasetDoesNotExist); notExist {
+		// preserve the regular per-snapshot error semantics
+		return doDestroySnapshots(ctx, lp, req.Snapshots)
+	} else if err != nil {
+		return nil, errors.Wrap(err, "local sink pruning policy: cannot list local snapshots")
+	}
+
+	localSnaps := make([]pruning.Snapshot, len(fsvs))
+	for i := range fsvs {
+		localSnaps[i] = receiverKeepSnapshot{fsv: &fsvs[i]}
+	}
+	allowed, protected := partitionByLocalPruningPolicy(req.Snapshots, localSnaps, s.conf.Keep)
+
+	for _, p := range protected {
+		getLogger(ctx).
+			WithField("fs", lp.ToString()).
+			WithField("snap", p.Snapshot.Name).
+			Debug("refusing to destroy snapshot protected by local sink pruning policy")
+	}
+
+	res, err := doDestroySnapshots(ctx, lp, allowed)
+	if err != nil {
+		return nil, err
+	}
+	// Report protected snapshots as destroyed: the peer requires one result
+	// per requested snapshot and would retry otherwise (pruner's doOneAttemptExec).
+	res.Results = append(res.Results, protected...)
+	return res, nil
 }
+
+// partitionByLocalPruningPolicy splits requested into snapshots that may be
+// destroyed and those retained by the keep rules. Requested snapshots that do
+// not exist locally are allowed so that destroying them yields the same
+// per-snapshot error as without a policy.
+func partitionByLocalPruningPolicy(requested []*pdu.FilesystemVersion, localSnaps []pruning.Snapshot, keep []pruning.KeepRule) (allowed []*pdu.FilesystemVersion, protected []*pdu.DestroySnapshotRes) {
+	localByName := make(map[string]bool, len(localSnaps))
+	for _, sn := range localSnaps {
+		localByName[sn.Name()] = true
+	}
+
+	// PruneSnapshots returns the destroy-eligible set; its complement is protected
+	eligibleNames := make(map[string]bool, len(localSnaps))
+	for _, sn := range pruning.PruneSnapshots(localSnaps, keep) {
+		eligibleNames[sn.Name()] = true
+	}
+
+	for _, fsv := range requested {
+		if !localByName[fsv.Name] || eligibleNames[fsv.Name] {
+			allowed = append(allowed, fsv)
+			continue
+		}
+		protected = append(protected, &pdu.DestroySnapshotRes{Snapshot: fsv})
+	}
+	return allowed, protected
+}
+
+// receiverKeepSnapshot adapts zfs.FilesystemVersion to pruning.Snapshot.
+// The receiver has no notion of replication state, hence Replicated is
+// hardcoded true and the not_replicated rule is rejected at job-build time.
+type receiverKeepSnapshot struct {
+	fsv *zfs.FilesystemVersion
+}
+
+var _ pruning.Snapshot = receiverKeepSnapshot{}
+
+func (s receiverKeepSnapshot) Name() string     { return s.fsv.Name }
+func (s receiverKeepSnapshot) Replicated() bool { return true }
+func (s receiverKeepSnapshot) Date() time.Time  { return s.fsv.Creation }
 
 func (p *Receiver) SendCompleted(ctx context.Context, _ *pdu.SendCompletedReq) (*pdu.SendCompletedRes, error) {
 	defer trace.WithSpanFromStackUpdateCtx(&ctx)()

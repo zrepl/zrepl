@@ -48,5 +48,6 @@ var Cases = []Case{BatchDestroy,
 	SendStreamMultipleCloseAfterEOF,
 	SendStreamMultipleCloseBeforeEOF,
 	SendStreamNonEOFReadErrorHandling,
+	SinkLocalPruningFloorProtectsSnapshots,
 	UndestroyableSnapshotParsing,
 }

@@ -199,6 +199,7 @@ type SinkJob struct {
 	PassiveJob `yaml:",inline"`
 	RootFS     string       `yaml:"root_fs"`
 	Recv       *RecvOptions `yaml:"recv,optional,fromdefaults"`
+	Pruning    PruningLocal `yaml:"pruning,optional"`
 }
 
 func (j *SinkJob) GetRootFS() string             { return j.RootFS }

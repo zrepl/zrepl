@@ -316,3 +316,79 @@ jobs:
 	}
 
 }
+
+func TestSinkLocalPruning(t *testing.T) {
+	tmpl := `
+jobs:
+- name: sink_with_pruning
+  type: sink
+  root_fs: "pool2/backups"
+  serve:
+    type: local
+    listener_name: foo
+  %s
+`
+
+	type Test struct {
+		name        string
+		input       string
+		expectOk    func(t *testing.T, m *modeSink)
+		expectError bool
+	}
+
+	tests := []Test{
+		{
+			name:  "no pruning block means no local floor policy",
+			input: ``,
+			expectOk: func(t *testing.T, m *modeSink) {
+				assert.Empty(t, m.receiverConfig.Keep)
+			},
+		},
+		{
+			name: "valid keep rules are built into receiver config",
+			input: `
+  pruning:
+    keep:
+    - type: grid
+      grid: 1x1h(keep=all) | 24x1h
+      regex: "^zrepl_.*"
+    - type: last_n
+      count: 10
+`,
+			expectOk: func(t *testing.T, m *modeSink) {
+				assert.Len(t, m.receiverConfig.Keep, 2)
+			},
+		},
+		{
+			name: "not_replicated is rejected",
+			input: `
+  pruning:
+    keep:
+    - type: not_replicated
+`,
+			expectError: true,
+		},
+	}
+
+	for _, ts := range tests {
+		t.Run(ts.name, func(t *testing.T) {
+			require.True(t, (ts.expectError) != (ts.expectOk != nil))
+
+			cstr := fmt.Sprintf(tmpl, ts.input)
+			t.Logf("testing config:\n%s", cstr)
+			c, err := config.ParseConfigBytes([]byte(cstr))
+			require.NoError(t, err)
+			jobs, err := JobsFromConfig(c, config.ParseFlagsNone)
+			if ts.expectOk != nil {
+				require.NoError(t, err)
+				require.Len(t, jobs, 1)
+				p := jobs[0].(*PassiveSide)
+				m := p.mode.(*modeSink)
+				ts.expectOk(t, m)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "not_replicated")
+			}
+		})
+	}
+}

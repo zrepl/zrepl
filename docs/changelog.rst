@@ -13,6 +13,15 @@
 Changelog
 =========
 
+0.8.0 (unreleased)
+------------------
+
+* |feature| :ref:`Sink jobs <job-sink>` can now define an optional local retention floor
+  (``pruning`` option with the same ``keep`` rule syntax as :ref:`snap jobs <job-snap>`)
+  that protects matched snapshots from destroy requests issued by the connecting client,
+  mitigating backup data loss from a compromised or misbehaving push-side machine.
+  See :ref:`Sink-side snapshot protection <prune-sink-floor>`.
+
 0.7.0
 -----
 

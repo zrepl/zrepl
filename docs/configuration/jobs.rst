@@ -57,6 +57,11 @@ Job Type ``sink``
     * - ``root_fs``
       - ZFS filesystems are received to
         ``$root_fs/$client_identity/$source_path``
+    * - ``pruning``
+      - optional, local retention floor:
+        snapshots kept by these ``keep`` rules are never destroyed
+        on behalf of the client, regardless of what it requests.
+        See :ref:`Sink-side snapshot protection <prune-sink-floor>`.
 
 Example config: :sampleconf:`/sink.yml`
 

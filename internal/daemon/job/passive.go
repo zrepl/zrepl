@@ -13,6 +13,7 @@ import (
 	"github.com/zrepl/zrepl/internal/daemon/logging"
 	"github.com/zrepl/zrepl/internal/daemon/snapper"
 	"github.com/zrepl/zrepl/internal/endpoint"
+	"github.com/zrepl/zrepl/internal/pruning"
 	"github.com/zrepl/zrepl/internal/rpc"
 	"github.com/zrepl/zrepl/internal/transport"
 	"github.com/zrepl/zrepl/internal/transport/fromconfig"
@@ -53,7 +54,21 @@ func modeSinkFromConfig(g *config.Global, in *config.SinkJob, jobID endpoint.Job
 		return nil, err
 	}
 
+	m.receiverConfig.Keep, err = sinkPruningKeepRulesFromConfig(in.Pruning)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot build sink-side local pruning ('keep') rules")
+	}
+
 	return m, nil
+}
+
+func sinkPruningKeepRulesFromConfig(in config.PruningLocal) ([]pruning.KeepRule, error) {
+	for _, r := range in.Keep {
+		if _, ok := r.Ret.(*config.PruneKeepNotReplicated); ok {
+			return nil, fmt.Errorf("sink-side local pruning cannot support `not_replicated` keep rule (receiver has no notion of replication state)")
+		}
+	}
+	return pruning.RulesFromConfig(in.Keep)
 }
 
 type modeSource struct {
