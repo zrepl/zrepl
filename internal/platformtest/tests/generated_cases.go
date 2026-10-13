@@ -4,6 +4,7 @@ package tests
 
 var Cases = []Case{BatchDestroy,
 	CreateReplicationCursor,
+	DestroySnapshotsRejectsSelectors,
 	GetNonexistent,
 	HoldsWork,
 	IdempotentBookmark,

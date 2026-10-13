@@ -1072,14 +1072,29 @@ func (p *Receiver) SendCompleted(ctx context.Context, _ *pdu.SendCompletedReq) (
 	return &pdu.SendCompletedRes{}, nil
 }
 
+func validateDestroySnapshots(snaps []*pdu.FilesystemVersion) error {
+	for _, fsv := range snaps {
+		if fsv == nil {
+			return errors.New("snapshot must not be nil")
+		}
+		if fsv.Type != pdu.FilesystemVersion_Snapshot {
+			return fmt.Errorf("version %q is not a snapshot", fsv.Name)
+		}
+		if err := zfs.ComponentNamecheck(fsv.Name); err != nil {
+			return errors.Wrapf(err, "invalid snapshot name %q", fsv.Name)
+		}
+	}
+	return nil
+}
+
 func doDestroySnapshots(ctx context.Context, lp *zfs.DatasetPath, snaps []*pdu.FilesystemVersion) (*pdu.DestroySnapshotsRes, error) {
+	if err := validateDestroySnapshots(snaps); err != nil {
+		return nil, err
+	}
 	reqs := make([]*zfs.DestroySnapOp, len(snaps))
 	ress := make([]*pdu.DestroySnapshotRes, len(snaps))
 	errs := make([]error, len(snaps))
 	for i, fsv := range snaps {
-		if fsv.Type != pdu.FilesystemVersion_Snapshot {
-			return nil, fmt.Errorf("version %q is not a snapshot", fsv.Name)
-		}
 		ress[i] = &pdu.DestroySnapshotRes{
 			Snapshot: fsv,
 			// Error set after batch operation
