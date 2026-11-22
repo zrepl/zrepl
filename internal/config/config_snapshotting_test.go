@@ -46,6 +46,26 @@ jobs:
     cron: "10 * * * *"
 `
 
+	cronWithoutPrefix := `
+  snapshotting:
+    type: cron
+    timestamp_format: "2006-01-02_1504"
+    cron: "10 * * * *"
+`
+
+	cronEmptyPrefix := `
+  snapshotting:
+    type: cron
+    prefix: ""
+    cron: "10 * * * *"
+`
+
+	periodicWithoutPrefix := `
+  snapshotting:
+    type: periodic
+    interval: 10m
+`
+
 	periodicDaily := `
   snapshotting:
     type: periodic
@@ -108,6 +128,26 @@ jobs:
 		assert.Equal(t, "cron", snp.Type)
 		assert.Equal(t, "zrepl_", snp.Prefix)
 		assert.Equal(t, "human", snp.TimestampFormat)
+	})
+
+	t.Run("cronWithoutPrefix", func(t *testing.T) {
+		c = testValidConfig(t, fillSnapshotting(cronWithoutPrefix))
+		snp := c.Jobs[0].Ret.(*PushJob).Snapshotting.Ret.(*SnapshottingCron)
+		assert.Equal(t, "cron", snp.Type)
+		assert.Equal(t, "", snp.Prefix)
+		assert.Equal(t, "2006-01-02_1504", snp.TimestampFormat)
+	})
+
+	t.Run("cronEmptyPrefix", func(t *testing.T) {
+		c = testValidConfig(t, fillSnapshotting(cronEmptyPrefix))
+		snp := c.Jobs[0].Ret.(*PushJob).Snapshotting.Ret.(*SnapshottingCron)
+		assert.Equal(t, "", snp.Prefix)
+		assert.Equal(t, "dense", snp.TimestampFormat)
+	})
+
+	t.Run("periodicWithoutPrefix", func(t *testing.T) {
+		_, err := testConfig(t, fillSnapshotting(periodicWithoutPrefix))
+		assert.Error(t, err)
 	})
 
 	t.Run("hooks", func(t *testing.T) {
