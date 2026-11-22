@@ -28,6 +28,8 @@ The ``periodic`` and ``cron`` snapshotting types share some common options and b
 * **Naming:** The snapshot names are composed of a user-defined ``prefix`` followed by a UTC date formatted like ``20060102_150405_000`` by default.
   We either use UTC or timestamp with timezone information because it will avoid name conflicts when switching time zones or between summer and winter time.
   Note that if timestamp with time zone information is used, the "+" of the timezone (i.e. +02:00) is replaced by "_" (i.e. _02:00) to conform to allowed characters in ZFS snapshots.
+  For ``cron`` snapshotting, the ``prefix`` is optional; if it is omitted, the snapshot names consist of the timestamp only.
+  ``periodic`` snapshotting requires a non-empty ``prefix`` because it uses the prefix to identify the snapshots it created.
 * **Hooks:** You can configure hooks to run before or after zrepl takes the snapshots. See :ref:`below <job-snapshotting-hooks>` for details.
 * **Push replication:** After creating all snapshots, the snapshotter will wake up the replication part of the job, if it's a ``push`` job.
   Note that snapshotting is decoupled from replication, i.e., if it is down or takes too long, snapshots will still be taken.
@@ -41,8 +43,8 @@ The ``periodic`` and ``cron`` snapshotting types share some common options and b
    In particular, pruning will take all snapshots into consideration by default.
    To constrain pruning to just zrepl-created snapshots:
 
-     1. Assign a unique `prefix` to the snapshotter and
-     2. Use the ``regex`` functionality of the various pruning ``keep`` rules to just consider snapshots with that prefix.
+     1. Assign a unique `prefix` to the snapshotter (or, for ``cron`` snapshotting without a prefix, use a ``timestamp_format`` that no other snapshot names match) and
+     2. Use the ``regex`` functionality of the various pruning ``keep`` rules to just consider snapshots with that prefix (or timestamp format).
 
   There is currently no way to constrain replication to just zrepl-created snapshots.
   Follow and comment at :issue:`403` if you need this functionality.
@@ -94,6 +96,7 @@ The snapshotter uses the ``prefix`` to identify which snapshots it created.
      filesystems: { ... }
      snapshotting:
        type: cron
+       # Optional for cron. If omitted, snapshot names consist of the timestamp only.
        prefix: zrepl_
        # (second, optional) minute hour day-of-month month day-of-week
        # This example takes snapshots daily at 3:00.

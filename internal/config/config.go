@@ -261,7 +261,7 @@ func (s *CronSpec) UnmarshalYAML(unmarshal func(v interface{}, not_strict bool) 
 
 type SnapshottingCron struct {
 	Type                    string   `yaml:"type"`
-	Prefix                  string   `yaml:"prefix"`
+	Prefix                  string   `yaml:"prefix,optional"`
 	Cron                    CronSpec `yaml:"cron"`
 	Hooks                   HookList `yaml:"hooks,optional"`
 	TimestampFormattingSpec `yaml:",inline"`
